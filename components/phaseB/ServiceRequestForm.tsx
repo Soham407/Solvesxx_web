@@ -157,6 +157,8 @@ export function ServiceRequestForm({
       }
     } catch (err) {
       console.error("Form submission error:", err);
+      const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred";
+      alert(`Failed to submit form: ${errorMessage}`);
     } finally {
       setIsSubmitting(false);
     }
