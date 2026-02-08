@@ -39,6 +39,9 @@ import {
   Sun,
   LayoutGrid,
   Settings2,
+  HardDrive,
+  ClipboardCheck,
+  Hammer,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
@@ -108,6 +111,30 @@ const navigation: NavGroup[] = [
     title: "Operations",
     items: [
       {
+        title: "Assets",
+        href: "/assets",
+        icon: HardDrive,
+        children: [
+          { title: "All Assets", href: "/assets" },
+          { title: "Maintenance Schedules", href: "/assets/maintenance" },
+          { title: "Asset Categories", href: "/assets/categories" },
+        ],
+      },
+      {
+        title: "Service Requests",
+        href: "/service-requests",
+        icon: ClipboardCheck,
+        children: [
+          { title: "All Requests", href: "/service-requests" },
+          { title: "Create Request", href: "/service-requests/new" },
+        ],
+      },
+      {
+        title: "My Jobs",
+        href: "/service-boy",
+        icon: Hammer,
+      },
+      {
         title: "Inventory",
         href: "/inventory",
         icon: Package,
@@ -115,12 +142,13 @@ const navigation: NavGroup[] = [
           { title: "Product Master", href: "/inventory/products" },
           { title: "Categories", href: "/inventory/categories" },
           { title: "Subcategories", href: "/inventory/subcategories" },
+          { title: "Warehouses", href: "/inventory/warehouses" },
+          { title: "Stock Levels", href: "/inventory/stock" },
           { title: "Supplier Mapping", href: "/inventory/supplier-products" },
           { title: "Purchase Rates", href: "/inventory/supplier-rates" },
           { title: "Sale Rates", href: "/inventory/sales-rates" },
           { title: "Supplier Master", href: "/inventory/suppliers" },
           { title: "Purchase Orders", href: "/inventory/purchase-orders" },
-          { title: "Stock Analysis", href: "/inventory/stock" },
           { title: "Internal Indents", href: "/inventory/indents/create" },
           { title: "Indent Verification", href: "/inventory/indents/verification" },
         ],
@@ -152,6 +180,15 @@ const navigation: NavGroup[] = [
           { title: "Panic Response", href: "/society/panic-alerts" },
           { title: "Daily Checklists", href: "/society/checklists" },
           { title: "Emergency Directory", href: "/society/emergency" },
+        ],
+      },
+      {
+        title: "Resident Portal",
+        href: "/society/my-flat",
+        icon: UserCheck,
+        children: [
+          { title: "Dashboard", href: "/society/my-flat" },
+          { title: "Invite Visitor", href: "/society/my-flat?action=invite" },
         ],
       },
     ],

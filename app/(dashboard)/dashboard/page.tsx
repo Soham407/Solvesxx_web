@@ -7,7 +7,8 @@ import {
   ArrowUpRight, ArrowDownRight, CheckCircle2, Shield, UserCircle,
   Calculator, Truck, ShoppingCart, Shovel, Settings2, Briefcase, Wrench,
   Search,
-  LayoutDashboard
+  LayoutDashboard,
+  Home
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
@@ -37,6 +38,7 @@ import { AccountsDashboard } from "@/components/dashboards/AccountsDashboard";
 import { SecuritySupervisorDashboard } from "@/components/dashboards/SecuritySupervisorDashboard";
 import { HODDashboard } from "@/components/dashboards/HODDashboard";
 import { MDDashboard } from "@/components/dashboards/MDDashboard";
+import { ResidentDashboard } from "@/components/dashboards/ResidentDashboard";
 
 const roles = [
   { id: "admin", label: "Admin", icon: Shield },
@@ -50,6 +52,7 @@ const roles = [
   { id: "supervisor", label: "Security Supervisor", icon: UserCircle },
   { id: "society_manager", label: "Society Manager", icon: Building2 },
   { id: "service_boy", label: "Service Boy", icon: Wrench },
+  { id: "resident", label: "Resident", icon: Home },
 ];
 
 export default function DashboardPage() {
@@ -67,6 +70,7 @@ export default function DashboardPage() {
       case "supervisor": return <SecuritySupervisorDashboard />;
       case "society_manager": return <SocietyManagerDashboard />;
       case "service_boy": return <ServiceBoyDashboard />;
+      case "resident": return <ResidentDashboard />;
       default: return <AdminView />;
     }
   };
