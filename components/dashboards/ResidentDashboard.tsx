@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Home,
   Users,
@@ -177,6 +178,14 @@ function ResidentDashboardContent({ residentId }: { residentId: string }) {
   } = useResident(residentId);
 
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (searchParams.get("action") === "invite") {
+      setIsInviteDialogOpen(true);
+    }
+  }, [searchParams]);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<InviteFormData>(initialFormData);
   const [formErrors, setFormErrors] = useState<Partial<InviteFormData>>({});

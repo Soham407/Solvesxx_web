@@ -464,10 +464,11 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
     // Fetch supervisor info
     async function fetchSupervisorInfo() {
       try {
+        // Query users table and join with roles to find a security supervisor
         const { data, error } = await supabase
-          .from("employees")
-          .select("phone")
-          .eq("role", "security_supervisor")
+          .from("users")
+          .select("phone, roles!inner(role_name)")
+          .eq("roles.role_name", "security_supervisor")
           .eq("is_active", true)
           .limit(1)
           .maybeSingle();
@@ -476,8 +477,8 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
         if (data?.phone) {
           setSupervisorPhone(data.phone);
         }
-      } catch (err) {
-        console.error("Error fetching supervisor phone:", err);
+      } catch (err: any) {
+        console.error("Error fetching supervisor phone:", err?.message || err);
       }
     }
     fetchSupervisorInfo();
