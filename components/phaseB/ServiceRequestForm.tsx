@@ -206,14 +206,14 @@ export function ServiceRequestForm({
             <div>
               <Label htmlFor="service">Service Type</Label>
               <Select
-                value={formData.serviceId}
-                onValueChange={(val) => setFormData({ ...formData, serviceId: val })}
+                value={formData.serviceId || "__none__"}
+                onValueChange={(val) => setFormData({ ...formData, serviceId: val === "__none__" ? "" : val })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select service" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="__none__">None</SelectItem>
                   {services.map((svc) => (
                     <SelectItem key={svc.id} value={svc.id}>
                       {svc.service_name}
@@ -227,14 +227,14 @@ export function ServiceRequestForm({
               <div>
                 <Label htmlFor="asset">Related Asset</Label>
                 <Select
-                  value={formData.assetId}
-                  onValueChange={(val) => setFormData({ ...formData, assetId: val })}
+                  value={formData.assetId || "__none__"}
+                  onValueChange={(val) => setFormData({ ...formData, assetId: val === "__none__" ? "" : val })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select asset" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="__none__">None</SelectItem>
                     {allAssets.filter(a => a.id).map((asset) => (
                       <SelectItem key={asset.id} value={asset.id!}>
                         {asset.name} ({asset.asset_code})
@@ -251,14 +251,14 @@ export function ServiceRequestForm({
             <div>
               <Label htmlFor="location">Location</Label>
               <Select
-                value={formData.locationId}
-                onValueChange={(val) => setFormData({ ...formData, locationId: val })}
+                value={formData.locationId || "__none__"}
+                onValueChange={(val) => setFormData({ ...formData, locationId: val === "__none__" ? "" : val })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select location" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="__none__">None</SelectItem>
                   {locations.map((loc) => (
                     <SelectItem key={loc.id} value={loc.id}>
                       {loc.location_name}
@@ -271,14 +271,14 @@ export function ServiceRequestForm({
             <div>
               <Label htmlFor="society">Society</Label>
               <Select
-                value={formData.societyId || ""}
-                onValueChange={(val) => setFormData({ ...formData, societyId: val || undefined })}
+                value={formData.societyId || "__none__"}
+                onValueChange={(val) => setFormData({ ...formData, societyId: val === "__none__" ? undefined : val })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select society" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="__none__">None</SelectItem>
                   {societies.map((soc) => (
                     <SelectItem key={soc.id} value={soc.id}>
                       {soc.society_name}

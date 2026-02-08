@@ -63,7 +63,7 @@ export function InventoryTable({
   onCreateReorderRule,
 }: InventoryTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedWarehouse, setSelectedWarehouse] = useState<string>("");
+  const [selectedWarehouse, setSelectedWarehouse] = useState<string>("all");
   const [showLowStock, setShowLowStock] = useState(false);
 
   const { warehouses } = useWarehouses();
@@ -85,7 +85,7 @@ export function InventoryTable({
     e.preventDefault();
     const filters: InventoryFilters = {};
     if (searchTerm) filters.searchTerm = searchTerm;
-    if (selectedWarehouse) filters.warehouseId = selectedWarehouse;
+    if (selectedWarehouse && selectedWarehouse !== "all") filters.warehouseId = selectedWarehouse;
     if (showLowStock) filters.needsReorder = true;
     setFilters(filters);
   };
@@ -93,7 +93,7 @@ export function InventoryTable({
   // Clear filters
   const handleClearFilters = () => {
     setSearchTerm("");
-    setSelectedWarehouse("");
+    setSelectedWarehouse("all");
     setShowLowStock(false);
     setFilters({});
   };
@@ -104,7 +104,7 @@ export function InventoryTable({
     setShowLowStock(newValue);
     setFilters({
       searchTerm,
-      warehouseId: selectedWarehouse || undefined,
+      warehouseId: selectedWarehouse !== "all" ? selectedWarehouse : undefined,
       needsReorder: newValue || undefined,
     });
   };
@@ -204,7 +204,7 @@ export function InventoryTable({
                 <SelectValue placeholder="All Warehouses" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Warehouses</SelectItem>
+                <SelectItem value="all">All Warehouses</SelectItem>
                 {warehouses.map((wh) => (
                   <SelectItem key={wh.id} value={wh.id}>
                     {wh.warehouse_name}

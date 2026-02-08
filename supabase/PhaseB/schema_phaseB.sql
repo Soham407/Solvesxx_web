@@ -681,6 +681,9 @@ DECLARE
     next_number INTEGER;
     year_part TEXT;
 BEGIN
+    -- Acquire advisory lock to prevent race conditions
+    PERFORM pg_advisory_xact_lock(43);
+    
     year_part := to_char(CURRENT_DATE, 'YYYY');
     
     SELECT COALESCE(MAX(
@@ -698,7 +701,7 @@ $$;
 CREATE TRIGGER trigger_generate_service_request_number
     BEFORE INSERT ON service_requests
     FOR EACH ROW
-    WHEN (NEW.request_number IS NULL)
+    WHEN (NEW.request_number IS NULL OR NEW.request_number = 'PENDING')
     EXECUTE FUNCTION generate_service_request_number();
 
 -- Auto-generate asset code
@@ -711,6 +714,9 @@ AS $$
 DECLARE
     next_number INTEGER;
 BEGIN
+    -- Acquire advisory lock to prevent race conditions
+    PERFORM pg_advisory_xact_lock(42);
+    
     SELECT COALESCE(MAX(
         CAST(SUBSTRING(asset_code FROM 'AST-(\d+)') AS INTEGER)
     ), 0) + 1

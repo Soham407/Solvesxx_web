@@ -63,8 +63,8 @@ export function ServiceRequestList({
   onStartJob,
 }: ServiceRequestListProps) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedStatus, setSelectedStatus] = useState<string>("");
-  const [selectedPriority, setSelectedPriority] = useState<string>("");
+  const [selectedStatus, setSelectedStatus] = useState<string>("all");
+  const [selectedPriority, setSelectedPriority] = useState<string>("all");
 
   const {
     requests,
@@ -86,16 +86,16 @@ export function ServiceRequestList({
     e.preventDefault();
     const filters: ServiceRequestFilters = {};
     if (searchTerm) filters.searchTerm = searchTerm;
-    if (selectedStatus) filters.status = selectedStatus as ServiceRequestFilters["status"];
-    if (selectedPriority) filters.priority = selectedPriority as ServiceRequestFilters["priority"];
+    if (selectedStatus && selectedStatus !== "all") filters.status = selectedStatus as ServiceRequestFilters["status"];
+    if (selectedPriority && selectedPriority !== "all") filters.priority = selectedPriority as ServiceRequestFilters["priority"];
     setFilters(filters);
   };
 
   // Clear filters
   const handleClearFilters = () => {
     setSearchTerm("");
-    setSelectedStatus("");
-    setSelectedPriority("");
+    setSelectedStatus("all");
+    setSelectedPriority("all");
     setFilters({});
   };
 
@@ -205,7 +205,7 @@ export function ServiceRequestList({
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Status</SelectItem>
+                <SelectItem value="all">All Status</SelectItem>
                 {Object.entries(SERVICE_REQUEST_STATUS_LABELS).map(([key, label]) => (
                   <SelectItem key={key} value={key}>
                     {label}
@@ -218,7 +218,7 @@ export function ServiceRequestList({
                 <SelectValue placeholder="Priority" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Priority</SelectItem>
+                <SelectItem value="all">All Priority</SelectItem>
                 {Object.entries(SERVICE_PRIORITY_LABELS).map(([key, label]) => (
                   <SelectItem key={key} value={key}>
                     {label}

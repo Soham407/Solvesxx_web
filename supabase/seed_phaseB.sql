@@ -132,7 +132,7 @@ BEGIN
       CURRENT_DATE + INTERVAL '15 days',
       true
     )
-    ON CONFLICT DO NOTHING;
+    ON CONFLICT (id) DO NOTHING;
   END LOOP;
 END $$;
 
@@ -173,7 +173,7 @@ BEGIN
   IF v_wh_id IS NOT NULL AND v_prd_id IS NOT NULL THEN
     INSERT INTO stock_batches (id, batch_number, product_id, warehouse_id, initial_quantity, current_quantity, unit_cost, status) VALUES
       (uuid_generate_v4(), 'BAT-2026-001', v_prd_id, v_wh_id, 100, 85, 350.00, 'active')
-    ON CONFLICT DO NOTHING;
+    ON CONFLICT (batch_number, product_id, warehouse_id) DO NOTHING;
   END IF;
 END $$;
 
@@ -193,7 +193,7 @@ BEGIN
       v_asset.id,
       (SELECT society_id FROM assets WHERE id = v_asset.id)
     )
-    ON CONFLICT DO NOTHING;
+    ON CONFLICT (id) DO NOTHING;
   END LOOP;
 END $$;
 
