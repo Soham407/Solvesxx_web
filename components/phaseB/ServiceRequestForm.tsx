@@ -64,6 +64,7 @@ export function ServiceRequestForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [locations, setLocations] = useState<Location[]>([]);
   const [societies, setSocieties] = useState<Society[]>([]);
+  const [referenceDataError, setReferenceDataError] = useState<string | null>(null);
 
   // Form state
   const [formData, setFormData] = useState<CreateServiceRequestForm>({
@@ -82,16 +83,34 @@ export function ServiceRequestForm({
   // Fetch locations and societies
   useEffect(() => {
     async function fetchReferenceData() {
+      setReferenceDataError(null);
       try {
         const [locRes, socRes] = await Promise.all([
           supabase.from("company_locations").select("id, location_name").eq("is_active", true),
           supabase.from("societies").select("id, society_name").eq("is_active", true),
         ]);
 
-        if (locRes.data) setLocations(locRes.data);
-        if (socRes.data) setSocieties(socRes.data);
+        // Check for errors in locations response
+        if (locRes.error) {
+          console.error("Error fetching locations:", locRes.error);
+          setReferenceDataError(`Failed to load locations: ${locRes.error.message}`);
+        } else if (locRes.data && locRes.data.length > 0) {
+          setLocations(locRes.data);
+        }
+
+        // Check for errors in societies response
+        if (socRes.error) {
+          console.error("Error fetching societies:", socRes.error);
+          setReferenceDataError((prev) => 
+            prev ? `${prev}; Failed to load societies: ${socRes.error!.message}` : `Failed to load societies: ${socRes.error!.message}`
+          );
+        } else if (socRes.data && socRes.data.length > 0) {
+          setSocieties(socRes.data);
+        }
       } catch (err) {
         console.error("Error fetching reference data:", err);
+        const errorMessage = err instanceof Error ? err.message : "Unknown error occurred";
+        setReferenceDataError(`Failed to load reference data: ${errorMessage}`);
       }
     }
 
@@ -159,6 +178,13 @@ export function ServiceRequestForm({
         </div>
       </CardHeader>
       <CardContent className="p-6">
+        {/* Reference Data Error */}
+        {referenceDataError && (
+          <div className="flex items-center gap-2 p-4 rounded-lg bg-destructive/10 text-destructive mb-6">
+            <AlertTriangle className="h-4 w-4" />
+            <p className="text-sm">{referenceDataError}</p>
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Preselected Asset Info */}
           {preselectedAsset && (
@@ -272,7 +298,7 @@ export function ServiceRequestForm({
               <Label htmlFor="society">Society</Label>
               <Select
                 value={formData.societyId || "__none__"}
-                onValueChange={(val) => setFormData({ ...formData, societyId: val === "__none__" ? undefined : val })}
+                onValueChange={(val) => setFormData({ ...formData, societyId: val === "__none__" ? "" : val })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select society" />

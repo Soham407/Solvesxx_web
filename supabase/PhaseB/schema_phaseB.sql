@@ -215,7 +215,7 @@ ALTER TABLE qr_codes ENABLE ROW LEVEL SECURITY;
 -- Policies
 CREATE POLICY "View QR Codes" ON qr_codes FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Manage QR Codes" ON qr_codes FOR INSERT TO authenticated WITH CHECK (get_user_role() IN ('admin', 'company_hod', 'society_manager'));
-CREATE POLICY "Update QR Codes" ON qr_codes FOR UPDATE TO authenticated USING (true);
+CREATE POLICY "Update QR Codes" ON qr_codes FOR UPDATE TO authenticated USING (get_user_role() IN ('admin', 'company_hod', 'society_manager'));
 
 -- QR Scan History (for audit trail)
 CREATE TABLE qr_scans (
@@ -619,6 +619,7 @@ CREATE TABLE reorder_rules (
 ALTER TABLE reorder_rules ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Manage Reorder Rules" ON reorder_rules FOR ALL TO authenticated USING (get_user_role() IN ('admin', 'company_hod', 'account'));
+CREATE POLICY "View Reorder Rules" ON reorder_rules FOR SELECT TO authenticated USING (get_user_role() IN ('admin', 'company_hod', 'account', 'society_manager', 'service_boy', 'security_supervisor', 'buyer'));
 
 -- ============================================
 -- MIGRATION 10: TRIGGERS & FUNCTIONS
@@ -752,6 +753,9 @@ CREATE TRIGGER trigger_create_qr_for_asset
     AFTER INSERT ON assets
     FOR EACH ROW EXECUTE FUNCTION create_qr_for_asset();
 
+-- Add constraint to prevent negative stock quantities
+ALTER TABLE stock_batches ADD CONSTRAINT chk_current_quantity_non_negative CHECK (current_quantity >= 0);
+
 -- Deduct stock when materials used
 CREATE OR REPLACE FUNCTION deduct_stock_on_material_use()
 RETURNS TRIGGER 
@@ -759,15 +763,37 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+    available_quantity INTEGER;
+    target_batch_id UUID;
 BEGIN
     IF NEW.stock_batch_id IS NOT NULL THEN
+        target_batch_id := NEW.stock_batch_id;
+        
+        -- Lock the row and get current quantity
+        SELECT current_quantity INTO available_quantity
+        FROM stock_batches
+        WHERE id = target_batch_id
+        FOR UPDATE;
+        
+        -- Check if sufficient stock exists
+        IF available_quantity IS NULL THEN
+            RAISE EXCEPTION 'Stock batch % not found', target_batch_id;
+        END IF;
+        
+        IF available_quantity < NEW.quantity THEN
+            RAISE EXCEPTION 'Insufficient stock in batch %. Available: %, Requested: %', 
+                target_batch_id, available_quantity, NEW.quantity;
+        END IF;
+        
+        -- Perform the deduction
         UPDATE stock_batches
         SET current_quantity = current_quantity - NEW.quantity,
             status = CASE 
                 WHEN current_quantity - NEW.quantity <= 0 THEN 'depleted'
                 ELSE status
             END
-        WHERE id = NEW.stock_batch_id;
+        WHERE id = target_batch_id;
     END IF;
     RETURN NEW;
 END;
@@ -804,7 +830,7 @@ SELECT
     sr.*,
     a.name AS asset_name,
     a.asset_code,
-    e.first_name || ' ' || e.last_name AS technician_name,
+    CONCAT_WS(' ', e.first_name, e.last_name) AS technician_name,
     cl.location_name,
     sv.service_name
 FROM service_requests sr

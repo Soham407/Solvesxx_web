@@ -80,14 +80,24 @@ export function InventoryTable({
     refresh,
   } = useInventory();
 
-  // Apply filters
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
+  // Build filters from current state
+  const buildFilters = (): InventoryFilters => {
     const filters: InventoryFilters = {};
     if (searchTerm) filters.searchTerm = searchTerm;
     if (selectedWarehouse && selectedWarehouse !== "all") filters.warehouseId = selectedWarehouse;
     if (showLowStock) filters.needsReorder = true;
-    setFilters(filters);
+    return filters;
+  };
+
+  // Apply filters helper
+  const applyFilters = () => {
+    setFilters(buildFilters());
+  };
+
+  // Apply filters on form submit
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    applyFilters();
   };
 
   // Clear filters
@@ -102,11 +112,12 @@ export function InventoryTable({
   const toggleLowStock = () => {
     const newValue = !showLowStock;
     setShowLowStock(newValue);
-    setFilters({
-      searchTerm,
-      warehouseId: selectedWarehouse !== "all" ? selectedWarehouse : undefined,
-      needsReorder: newValue || undefined,
-    });
+    // Apply filters immediately with the new value
+    const filters: InventoryFilters = {};
+    if (searchTerm) filters.searchTerm = searchTerm;
+    if (selectedWarehouse && selectedWarehouse !== "all") filters.warehouseId = selectedWarehouse;
+    if (newValue) filters.needsReorder = true;
+    setFilters(filters);
   };
 
   // Pagination
@@ -194,12 +205,32 @@ export function InventoryTable({
                 <Input
                   placeholder="Search products..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    // Apply filters immediately on typing
+                    const newSearchTerm = e.target.value;
+                    const filters: InventoryFilters = {};
+                    if (newSearchTerm) filters.searchTerm = newSearchTerm;
+                    if (selectedWarehouse && selectedWarehouse !== "all") filters.warehouseId = selectedWarehouse;
+                    if (showLowStock) filters.needsReorder = true;
+                    setFilters(filters);
+                  }}
                   className="pl-9"
                 />
               </div>
             </div>
-            <Select value={selectedWarehouse} onValueChange={setSelectedWarehouse}>
+            <Select 
+              value={selectedWarehouse} 
+              onValueChange={(val) => {
+                setSelectedWarehouse(val);
+                // Apply filters immediately on warehouse change
+                const filters: InventoryFilters = {};
+                if (searchTerm) filters.searchTerm = searchTerm;
+                if (val && val !== "all") filters.warehouseId = val;
+                if (showLowStock) filters.needsReorder = true;
+                setFilters(filters);
+              }}
+            >
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="All Warehouses" />
               </SelectTrigger>
@@ -323,45 +354,47 @@ export function InventoryTable({
                             )}
                           </TableCell>
                           <TableCell>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8">
-                                  <MoreVertical className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                {onAddStock && stock.product_id && stock.warehouse_id && (
-                                  <DropdownMenuItem
-                                    onClick={() =>
-                                      onAddStock(stock.product_id!, stock.warehouse_id!)
-                                    }
-                                  >
-                                    <Plus className="h-4 w-4 mr-2" />
-                                    Add Stock
-                                  </DropdownMenuItem>
-                                )}
-                                {onViewBatches && stock.product_id && stock.warehouse_id && (
-                                  <DropdownMenuItem
-                                    onClick={() =>
-                                      onViewBatches(stock.product_id!, stock.warehouse_id!)
-                                    }
-                                  >
-                                    <Package className="h-4 w-4 mr-2" />
-                                    View Batches
-                                  </DropdownMenuItem>
-                                )}
-                                {onCreateReorderRule && stock.product_id && stock.warehouse_id && (
-                                  <DropdownMenuItem
-                                    onClick={() =>
-                                      onCreateReorderRule(stock.product_id!, stock.warehouse_id!)
-                                    }
-                                  >
-                                    <AlertTriangle className="h-4 w-4 mr-2" />
-                                    Set Reorder Rule
-                                  </DropdownMenuItem>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                            {(onAddStock || onViewBatches || onCreateReorderRule) && stock.product_id && stock.warehouse_id && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  {onAddStock && (
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        onAddStock(stock.product_id!, stock.warehouse_id!)
+                                      }
+                                    >
+                                      <Plus className="h-4 w-4 mr-2" />
+                                      Add Stock
+                                    </DropdownMenuItem>
+                                  )}
+                                  {onViewBatches && (
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        onViewBatches(stock.product_id!, stock.warehouse_id!)
+                                      }
+                                    >
+                                      <Package className="h-4 w-4 mr-2" />
+                                      View Batches
+                                    </DropdownMenuItem>
+                                  )}
+                                  {onCreateReorderRule && (
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        onCreateReorderRule(stock.product_id!, stock.warehouse_id!)
+                                      }
+                                    >
+                                      <AlertTriangle className="h-4 w-4 mr-2" />
+                                      Set Reorder Rule
+                                    </DropdownMenuItem>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))}
