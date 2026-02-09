@@ -8,7 +8,8 @@ import {
   Calculator, Truck, ShoppingCart, Shovel, Settings2, Briefcase, Wrench,
   Search,
   LayoutDashboard,
-  Home
+  Home,
+  Loader2
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
@@ -26,6 +27,10 @@ import {
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { useMDStats } from "@/hooks/useMDStats";
+import { useServiceRequests } from "@/hooks/useServiceRequests";
+import { useReorderAlerts } from "@/hooks/useReorderAlerts";
+import { ComingSoonChart, ComingSoonWidget } from "@/components/shared/ComingSoon";
 
 // Import all role dashboards
 import { GuardDashboard } from "@/components/dashboards/GuardDashboard";
@@ -124,45 +129,97 @@ export default function DashboardPage() {
 
 // Sub-components for the main Admin View (re-purposed from original dashboard)
 function AdminView() {
+  const { stats: mdStats, isLoading: isLoadingStats } = useMDStats();
+  const { requests, isLoading: isLoadingRequests } = useServiceRequests({ status: ["open", "assigned"] });
+  const { alerts, isLoading: isLoadingAlerts } = useReorderAlerts();
+
+  const isLoading = isLoadingStats || isLoadingRequests || isLoadingAlerts;
+
   const stats = [
-    { title: "Total Employees", value: "1,248", change: "+12%", trend: "up", icon: Users, color: "text-white", bg: "bg-blue-600" },
-    { title: "Active Societies", value: "42", change: "+4", trend: "up", icon: Building2, color: "text-white", bg: "bg-emerald-600" },
-    { title: "Pending Tickets", value: "18", change: "-5", trend: "down", icon: Ticket, color: "text-white", bg: "bg-amber-600" },
-    { title: "Inventory Value", value: "₹4.2L", change: "+8.2%", trend: "up", icon: Package, color: "text-white", bg: "bg-purple-600" },
+    { 
+      title: "Total Employees", 
+      value: isLoadingStats ? "..." : mdStats.totalEmployees.toLocaleString(), 
+      change: "Active staff", 
+      trend: "up" as const, 
+      icon: Users, 
+      color: "text-white", 
+      bg: "bg-blue-600",
+      real: true
+    },
+    { 
+      title: "Active Societies", 
+      value: isLoadingStats ? "..." : mdStats.activeSocieties.toString(), 
+      change: "Sites", 
+      trend: "up" as const, 
+      icon: Building2, 
+      color: "text-white", 
+      bg: "bg-emerald-600",
+      real: true
+    },
+    { 
+      title: "Pending Tickets", 
+      value: isLoadingRequests ? "..." : (requests?.length || 0).toString(), 
+      change: "Open requests", 
+      trend: "down" as const, 
+      icon: Ticket, 
+      color: "text-white", 
+      bg: "bg-amber-600",
+      real: true
+    },
+    { 
+      title: "Stock Alerts", 
+      value: isLoadingAlerts ? "..." : (alerts?.length || 0).toString(), 
+      change: "Need attention", 
+      trend: alerts?.length > 0 ? "up" as const : "down" as const, 
+      icon: Package, 
+      color: "text-white", 
+      bg: alerts?.length > 0 ? "bg-red-600" : "bg-purple-600",
+      real: true
+    },
   ];
 
   return (
     <div className="space-y-8 animate-fade-in">
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            {stats.map((stat, index) => (
-              <Card key={stat.title} className="hover:shadow-lg transition-all border-none shadow-card premium-card-hover group cursor-pointer">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div className={cn("p-3 rounded-xl transition-transform group-hover:scale-110 duration-300 shadow-lg shadow-black/10", stat.bg)}>
-                      <stat.icon className={cn("h-6 w-6", stat.color)} />
-                    </div>
-                    <div className={cn("flex items-center gap-1 text-[11px] font-black px-2 py-1 rounded-full", stat.trend === "up" ? "text-success bg-success/10" : "text-critical bg-critical/10")}>
-                      {stat.trend === "up" ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-                      {stat.change}
-                    </div>
-                  </div>
-                  <div className="mt-4 text-left">
-                    <h3 className="text-[11px] font-black uppercase text-muted-foreground tracking-[0.15em]">{stat.title}</h3>
-                    <div className="text-3xl font-bold mt-1 tracking-tight">{stat.value}</div>
-                  </div>
-                </CardContent>
+            {isLoading ? (
+              <Card className="col-span-4 p-8">
+                <div className="flex items-center justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
               </Card>
-            ))}
+            ) : (
+              stats.map((stat) => (
+                <Card key={stat.title} className="hover:shadow-lg transition-all border-none shadow-card premium-card-hover group cursor-pointer">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div className={cn("p-3 rounded-xl transition-transform group-hover:scale-110 duration-300 shadow-lg shadow-black/10", stat.bg)}>
+                        <stat.icon className={cn("h-6 w-6", stat.color)} />
+                      </div>
+                      <div className={cn("flex items-center gap-1 text-[11px] font-black px-2 py-1 rounded-full", 
+                        stat.trend === "up" ? "text-success bg-success/10" : "text-critical bg-critical/10"
+                      )}>
+                        {stat.trend === "up" ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+                        {stat.change}
+                      </div>
+                    </div>
+                    <div className="mt-4 text-left">
+                      <h3 className="text-[11px] font-black uppercase text-muted-foreground tracking-[0.15em]">{stat.title}</h3>
+                      <div className="text-3xl font-bold mt-1 tracking-tight">{stat.value}</div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
             <Card className="lg:col-span-4 border-none shadow-card">
               <CardHeader className="flex flex-row items-center justify-between bg-muted/5 border-b py-4">
-                  <CardTitle className="text-sm font-bold uppercase tracking-widest">Revenue Growth</CardTitle>
+                  <CardTitle className="text-sm font-bold uppercase tracking-widest">Revenue Analytics</CardTitle>
                   <Button variant="ghost" size="sm" className="text-[10px] font-bold">Details</Button>
               </CardHeader>
               <CardContent className="pt-6">
-                 <AdminChart />
+                 <ComingSoonChart height={300} />
               </CardContent>
             </Card>
 
@@ -171,20 +228,58 @@ function AdminView() {
                    <CardTitle className="text-sm font-bold uppercase tracking-widest">System Alerts</CardTitle>
                </CardHeader>
                <CardContent className="space-y-4 pt-6">
-                   <div className="flex items-start gap-4 p-4 rounded-xl bg-critical/5 border-l-4 border-critical">
-                        <AlertCircle className="h-5 w-5 text-critical shrink-0 mt-0.5" />
-                        <div className="text-left">
-                            <p className="text-sm font-bold text-critical">Stock Out Warning</p>
-                            <p className="text-xs text-muted-foreground font-medium">Refrigerant R32 is below safety stock level.</p>
-                        </div>
-                   </div>
-                   <div className="flex items-start gap-4 p-4 rounded-xl bg-primary/5 border-l-4 border-primary">
-                        <Shield className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                        <div className="text-left">
-                            <p className="text-sm font-bold text-primary">License Expiring</p>
-                            <p className="text-xs text-muted-foreground font-medium">PSARA Renewal for Site B due in 7 days.</p>
-                        </div>
-                   </div>
+                   {isLoadingAlerts ? (
+                     <div className="flex items-center justify-center p-4">
+                       <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                     </div>
+                   ) : alerts && alerts.length > 0 ? (
+                     alerts.slice(0, 2).map((alert) => (
+                       <div key={alert.id} className={cn(
+                         "flex items-start gap-4 p-4 rounded-xl border-l-4",
+                         alert.priority === "critical" || alert.priority === "high" 
+                           ? "bg-critical/5 border-critical" 
+                           : "bg-warning/5 border-warning"
+                       )}>
+                            <AlertCircle className={cn(
+                              "h-5 w-5 shrink-0 mt-0.5",
+                              alert.priority === "critical" || alert.priority === "high" 
+                                ? "text-critical" 
+                                : "text-warning"
+                            )} />
+                            <div className="text-left">
+                                <p className={cn(
+                                  "text-sm font-bold",
+                                  alert.priority === "critical" || alert.priority === "high" 
+                                    ? "text-critical" 
+                                    : "text-warning"
+                                )}>
+                                  {alert.alert_type === "out_of_stock" ? "Stock Out" : "Low Stock"}: {alert.product?.product_name}
+                                </p>
+                                <p className="text-xs text-muted-foreground font-medium">
+                                  {alert.warehouse?.warehouse_name} • Current: {alert.current_stock}
+                                </p>
+                            </div>
+                       </div>
+                     ))
+                   ) : (
+                     <div className="flex items-start gap-4 p-4 rounded-xl bg-success/5 border-l-4 border-success">
+                          <CheckCircle2 className="h-5 w-5 text-success shrink-0 mt-0.5" />
+                          <div className="text-left">
+                              <p className="text-sm font-bold text-success">All Systems Normal</p>
+                              <p className="text-xs text-muted-foreground font-medium">No critical alerts at this time.</p>
+                          </div>
+                     </div>
+                   )}
+                   
+                   {isLoadingAlerts ? null : (
+                     <div className="flex items-start gap-4 p-4 rounded-xl bg-primary/5 border-l-4 border-primary">
+                          <Shield className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                          <div className="text-left">
+                              <p className="text-sm font-bold text-primary">License Tracking</p>
+                              <p className="text-xs text-muted-foreground font-medium">PSARA renewals managed via Compliance Module.</p>
+                          </div>
+                     </div>
+                   )}
                </CardContent>
             </Card>
         </div>

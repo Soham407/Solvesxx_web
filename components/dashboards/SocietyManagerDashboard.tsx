@@ -9,6 +9,9 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { usePanicAlertSubscription } from "@/hooks/usePanicAlertSubscription";
 import { useEmployeeProfileWithFallback } from "@/hooks/useEmployeeProfile";
+import { useBehaviorTickets } from "@/hooks/useBehaviorTickets";
+import { useSocietyStats } from "@/hooks/useSocietyStats";
+import { ComingSoonWidget } from "@/components/shared/ComingSoon";
 import { useToast } from "@/components/ui/use-toast";
 
 // Fallback for development/testing when not authenticated
@@ -24,6 +27,10 @@ export function SocietyManagerDashboard() {
     isLoading: isProfileLoading, 
     error: profileError 
   } = useEmployeeProfileWithFallback(DEV_MOCK_EMPLOYEE_ID);
+
+  // Real data hooks
+  const { stats, isLoading: isLoadingStats, refresh: refreshStats } = useSocietyStats();
+  const { tickets, isLoading: isLoadingTickets, stats: ticketStats } = useBehaviorTickets();
 
   const {
     alerts,
@@ -174,9 +181,21 @@ export function SocietyManagerDashboard() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-4">
-        {[
-            { label: "Active Guards", value: "12 / 12", sub: "All posts occupied", color: "text-success", bg: "bg-success/5" },
-            { label: "Checklist Status", value: "88%", sub: "Due in 2 hours", color: "text-primary", bg: "bg-primary/5" },
+        {[}
+            { 
+              label: "Active Guards", 
+              value: isLoadingStats ? "..." : `${stats.activeGuards} / ${stats.totalGuards}`, 
+              sub: stats.activeGuards >= stats.totalGuards ? "All posts occupied" : `${stats.totalGuards - stats.activeGuards} posts empty`, 
+              color: stats.activeGuards >= stats.totalGuards ? "text-success" : "text-warning", 
+              bg: "bg-success/5" 
+            },
+            { 
+              label: "Checklist Status", 
+              value: isLoadingStats ? "..." : `${stats.checklistCompletion}%`, 
+              sub: `${stats.activeChecklists} of ${stats.totalChecklists} completed`, 
+              color: stats.checklistCompletion >= 80 ? "text-primary" : "text-warning", 
+              bg: "bg-primary/5" 
+            },
             { 
               label: "SOS Alerts", 
               value: isLoadingAlerts ? "..." : unresolvedCount.toString(), 
@@ -185,7 +204,13 @@ export function SocietyManagerDashboard() {
               bg: unresolvedCount > 0 ? "bg-critical/10 ring-2 ring-critical/30 animate-pulse" : "bg-muted/50",
               icon: unresolvedCount > 0 ? <Bell className="h-4 w-4 text-critical animate-bounce" /> : null
             },
-            { label: "New Visitors", value: "48", sub: "Since 8:00 AM", color: "text-info", bg: "bg-info/5" },
+            { 
+              label: "New Visitors", 
+              value: isLoadingStats ? "..." : stats.visitorsToday.toString(), 
+              sub: `${stats.pendingCheckouts} pending checkouts`, 
+              color: "text-info", 
+              bg: "bg-info/5" 
+            },
         ].map((stat, i) => (
             <Card key={i} className={cn("border-none shadow-card ring-1 ring-border p-4", stat.bg)}>
                 <div className="flex flex-col gap-1">
@@ -259,73 +284,92 @@ export function SocietyManagerDashboard() {
       <div className="grid gap-6 lg:grid-cols-3">
          <Card className="lg:col-span-2 border-none shadow-card ring-1 ring-border">
             <CardHeader className="border-b bg-muted/5">
-                <CardTitle className="text-base font-bold uppercase ">Recent Staff Misconduct Tickets</CardTitle>
+                <CardTitle className="text-base font-bold uppercase flex items-center justify-between">
+                  Recent Staff Misconduct Tickets
+                  {!isLoadingTickets && ticketStats && (
+                    <Badge variant="outline" className="text-xs font-medium">
+                      {ticketStats.active} Active
+                    </Badge>
+                  )}
+                </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
                <div className="divide-y text-left">
-                  {[
-                      { staff: "Amit K.", id: "EMP-402", reason: "Sleeping on Duty", time: "11:45 PM", severity: "High" },
-                      { staff: "Rahul S.", id: "EMP-105", reason: "Uniform Violation", time: "09:00 AM", severity: "Low" },
-                      { staff: "Suresh M.", id: "EMP-092", reason: "Absence from Post", time: "02:15 PM", severity: "Medium" },
-                  ].map((ticket, i) => (
-                      <div key={i} className="p-4 flex items-center justify-between group hover:bg-muted/20">
+                  {isLoadingTickets ? (
+                    <div className="p-8 text-center text-muted-foreground">Loading tickets...</div>
+                  ) : tickets && tickets.length > 0 ? (
+                    tickets.slice(0, 5).map((ticket) => (
+                      <div key={ticket.id} className="p-4 flex items-center justify-between group hover:bg-muted/20">
                           <div className="flex items-center gap-4">
                               <div className={cn("h-10 w-10 rounded-full flex items-center justify-center font-bold text-xs uppercase", 
-                                  ticket.severity === "High" ? "bg-critical/10 text-critical" : 
-                                  ticket.severity === "Medium" ? "bg-warning/10 text-warning" : "bg-primary/10 text-primary")}>
-                                  {ticket.severity.substring(0,1)}
+                                  ticket.severity === "high" ? "bg-critical/10 text-critical" : 
+                                  ticket.severity === "medium" ? "bg-warning/10 text-warning" : "bg-primary/10 text-primary")}>
+                                  {ticket.severity.substring(0,1).toUpperCase()}
                               </div>
                               <div className="flex flex-col">
-                                  <span className="text-sm font-bold ">{ticket.staff} ({ticket.id})</span>
-                                  <span className="text-xs text-muted-foreground">{ticket.reason}</span>
+                                  <span className="text-sm font-bold ">{ticket.employee?.full_name || "Unknown"} ({ticket.ticket_number})</span>
+                                  <span className="text-xs text-muted-foreground">{ticket.category.replace(/_/g, " ")}</span>
                               </div>
                           </div>
                           <div className="flex items-center gap-4">
-                              <span className="text-[10px] font-bold text-muted-foreground uppercase">{ticket.time}</span>
-                              <Button variant="ghost" size="sm" className="h-8 font-bold text-xs">View Proof</Button>
+                              <span className="text-[10px] font-bold text-muted-foreground uppercase">
+                                {new Date(ticket.created_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                              </span>
+                              <Badge variant={ticket.status === "open" ? "default" : "secondary"} className="text-[9px]">
+                                {ticket.status}
+                              </Badge>
                           </div>
                       </div>
-                  ))}
+                    ))
+                  ) : (
+                    <div className="p-8 text-center text-muted-foreground">
+                      No misconduct tickets found. Staff performing well!
+                    </div>
+                  )}
                </div>
             </CardContent>
          </Card>
 
          <div className="space-y-6">
-            <Card className="border-none shadow-card ring-1 ring-border">
-                <CardHeader>
-                    <CardTitle className="text-sm font-bold uppercase tracking-widest">Patrol Efficiency</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                        <div className="flex items-center justify-between text-xs font-bold">
-                            <span>Main Perimeter</span>
-                            <span>98%</span>
-                        </div>
-                        <Progress value={98} className="h-1 bg-muted" />
-                    </div>
-                    <div className="space-y-2">
-                        <div className="flex items-center justify-between text-xs font-bold">
-                            <span>Parking Level 1</span>
-                            <span>45%</span>
-                        </div>
-                        <Progress value={45} className="h-1 bg-muted" />
-                    </div>
-                    <Button variant="ghost" className="w-full text-[10px] font-bold uppercase text-primary tracking-widest mt-2 border-dashed border-2">Review Patrol Logs <ArrowRight className="ml-2 h-3 w-3" /></Button>
-                </CardContent>
-            </Card>
+             <Card className="border-none shadow-card ring-1 ring-border">
+                 <CardHeader>
+                     <CardTitle className="text-sm font-bold uppercase tracking-widest">Patrol Efficiency</CardTitle>
+                 </CardHeader>
+                 <CardContent className="space-y-4">
+                     <div className="space-y-2">
+                         <div className="flex items-center justify-between text-xs font-bold">
+                             <span>Overall Compliance</span>
+                             <span>{isLoadingStats ? "..." : `${stats.checklistCompletion}%`}</span>
+                         </div>
+                         <Progress value={isLoadingStats ? 0 : stats.checklistCompletion} className="h-1 bg-muted" />
+                     </div>
+                     <div className="space-y-2">
+                         <div className="flex items-center justify-between text-xs font-bold">
+                             <span>Active Checklists</span>
+                             <span>{isLoadingStats ? "..." : `${stats.activeChecklists}/${stats.totalChecklists}`}</span>
+                         </div>
+                         <Progress 
+                           value={isLoadingStats ? 0 : (stats.totalChecklists ? (stats.activeChecklists / stats.totalChecklists) * 100 : 0)} 
+                           className="h-1 bg-muted" 
+                         />
+                     </div>
+                     <Button variant="ghost" className="w-full text-[10px] font-bold uppercase text-primary tracking-widest mt-2 border-dashed border-2">
+                       Review Patrol Logs <ArrowRight className="ml-2 h-3 w-3" />
+                     </Button>
+                 </CardContent>
+             </Card>
 
-            <Card className="border-none shadow-card ring-1 ring-border bg-linear-to-br from-primary to-primary/80 text-white">
-                <CardHeader>
-                    <CardTitle className="text-sm font-bold uppercase text-white/70">Resident Feedback</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="flex items-center justify-between mb-2">
-                        <span className="text-2xl font-bold">4.8 / 5</span>
-                        <BarChart3 className="h-8 w-8 text-white/20" />
-                    </div>
-                    <p className="text-[10px] uppercase font-bold text-white/60 tracking-widest">Avg Quality Score</p>
-                </CardContent>
-            </Card>
+             <Card className="border-none shadow-card ring-1 ring-border">
+                 <CardHeader>
+                     <CardTitle className="text-sm font-bold uppercase tracking-widest">Resident Feedback</CardTitle>
+                 </CardHeader>
+                 <CardContent>
+                   <ComingSoonWidget 
+                     title="Feedback System"
+                     description="Resident satisfaction tracking will be available in a future update"
+                   />
+                 </CardContent>
+             </Card>
          </div>
       </div>
     </div>
