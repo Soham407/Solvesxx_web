@@ -92,7 +92,7 @@ export function TopNav({ onToggleSidebar, sidebarCollapsed }: TopNavProps) {
       
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="gap-2 hidden sm:flex hover:bg-muted/50 transition-all">
+          <Button variant="ghost" className="gap-2 hidden sm:flex hover:bg-muted/50 hover:text-foreground transition-all">
             <div className={cn("flex h-7 w-7 items-center justify-center rounded-md text-white text-[10px] font-bold shadow-sm", selectedCompany.color)}>
               {selectedCompany.logo}
             </div>
@@ -233,15 +233,15 @@ export function TopNav({ onToggleSidebar, sidebarCollapsed }: TopNavProps) {
         {/* User Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="gap-3 pl-2 pr-3 h-10 hover:bg-muted/50 transition-all group">
+            <Button variant="ghost" className="gap-3 pl-2 pr-3 h-10 hover:bg-muted/50 hover:text-foreground transition-all group">
               <Avatar className="h-8 w-8 ring-2 ring-transparent group-hover:ring-primary/20 transition-all shadow-sm">
                 <AvatarImage src="" />
                 <AvatarFallback className="bg-primary text-primary-foreground text-xs font-bold">
-                  JS
+                  V
                 </AvatarFallback>
               </Avatar>
               <div className="hidden sm:flex flex-col items-start text-left">
-                <span className="text-sm font-bold leading-tight">James Smith</span>
+                <span className="text-sm font-bold leading-tight">Vandanaa</span>
                 <span className="text-xs font-bold text-muted-foreground tracking-wide uppercase">System Admin</span>
               </div>
               <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
@@ -250,11 +250,11 @@ export function TopNav({ onToggleSidebar, sidebarCollapsed }: TopNavProps) {
           <DropdownMenuContent align="end" className="w-64 p-2 animate-in fade-in zoom-in-95">
             <div className="flex items-center gap-3 p-3 mb-2 rounded-lg bg-muted/30">
               <Avatar className="h-10 w-10">
-                <AvatarFallback className="bg-primary text-primary-foreground font-bold">JS</AvatarFallback>
+                <AvatarFallback className="bg-primary text-primary-foreground font-bold">V</AvatarFallback>
               </Avatar>
               <div className="flex flex-col">
-                <span className="text-sm font-bold">James Smith</span>
-                <span className="text-xs text-muted-foreground">james.smith@facilitypro.com</span>
+                <span className="text-sm font-bold">Vandanaa</span>
+                <span className="text-xs text-muted-foreground">vandanaa@facilitypro.com</span>
               </div>
             </div>
             <DropdownMenuItem className="gap-3 p-2.5 cursor-pointer rounded-md">

@@ -24,7 +24,7 @@ interface UserMaster {
 }
 
 const data: UserMaster[] = [
-  { id: "USR-001", name: "James Smith", email: "james.smith@facilitypro.com", role: "Administrator", lastLogin: "2024-02-02 10:45 AM", status: "Active" },
+  { id: "USR-001", name: "Vandanaa", email: "vandanaa@facilitypro.com", role: "Administrator", lastLogin: "2024-02-02 10:45 AM", status: "Active" },
   { id: "USR-002", name: "Alan Smith", email: "alan.s@facilitypro.com", role: "Operations Manager", lastLogin: "2024-02-01 04:12 PM", status: "Active" },
   { id: "USR-003", name: "Sarah Connor", email: "sarah@society.com", role: "Society Manager", lastLogin: "2024-01-28 09:00 AM", status: "Locked" },
   { id: "USR-004", name: "Michael Chen", email: "mchen@corp.com", role: "Accountant", lastLogin: "Never", status: "Pending" },
