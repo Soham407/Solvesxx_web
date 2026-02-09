@@ -1,181 +1,457 @@
 "use client";
 
-import { Shield, MapPin, Camera, Video, History, AlertCircle, UserCheck, Activity, Smartphone } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState } from "react";
+import { PageHeader } from "@/components/shared/PageHeader";
+import { DataTable } from "@/components/shared/DataTable";
 import { Button } from "@/components/ui/button";
-import { StatusBadge } from "@/components/shared/StatusBadge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { 
+  Shield, 
+  Users, 
+  AlertTriangle, 
+  MapPin, 
+  Clock, 
+  Battery,
+  Smartphone,
+  MoreHorizontal,
+  RefreshCw,
+  Loader2,
+  Signal,
+  Navigation,
+  User
+} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ColumnDef } from "@tanstack/react-table";
 import { cn } from "@/lib/utils";
+import { useSecurityGuards, SecurityGuard, GuardGrade } from "@/hooks/useSecurityGuards";
 
-export default function SecurityPage() {
-  const guards = [
-    { id: "G-01", name: "Robert Wilson", location: "Main Gate", battery: "85%", status: "Active", lastPatrol: "10 mins ago" },
-    { id: "G-02", name: "Sam Harris", location: "Tower B - Lobby", battery: "42%", status: "Active", lastPatrol: "2 mins ago" },
-    { id: "G-03", name: "Tina Fey", location: "Parking Level 1", battery: "98%", status: "On Break", lastPatrol: "45 mins ago" },
+export default function SecurityCommandPage() {
+  const {
+    guards,
+    activeGuards,
+    guardLocations,
+    stats,
+    isLoading,
+    error,
+    getGuardStatus,
+    getBatteryStatus,
+    filters,
+    setFilters,
+    refresh,
+    refreshLocations,
+  } = useSecurityGuards();
+
+  const [selectedGuard, setSelectedGuard] = useState<SecurityGuard | null>(null);
+
+  // Format time for display
+  const formatTime = (isoDate: string | null) => {
+    if (!isoDate) return "N/A";
+    return new Date(isoDate).toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
+
+  // Get grade badge color
+  const getGradeBadge = (grade: GuardGrade) => {
+    const colors: Record<GuardGrade, string> = {
+      A: "bg-success/10 text-success border-success/20",
+      B: "bg-primary/10 text-primary border-primary/20",
+      C: "bg-warning/10 text-warning border-warning/20",
+      D: "bg-muted text-muted-foreground border-muted",
+    };
+    return colors[grade] || colors.D;
+  };
+
+  // Table columns
+  const columns: ColumnDef<SecurityGuard>[] = [
+    {
+      accessorKey: "employee",
+      header: "Guard Details",
+      cell: ({ row }) => {
+        const guard = row.original;
+        return (
+          <div className="flex items-center gap-3">
+            <Avatar className="h-10 w-10 border shadow-sm">
+              <AvatarImage src={guard.employee?.photo_url || undefined} />
+              <AvatarFallback className="bg-primary/5 text-primary text-xs font-bold">
+                {guard.employee?.first_name?.[0]}{guard.employee?.last_name?.[0]}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex flex-col">
+              <span className="font-bold text-sm">
+                {guard.employee?.first_name} {guard.employee?.last_name}
+              </span>
+              <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-bold uppercase">
+                <Badge variant="outline" className={cn("h-4 px-1.5 py-0 text-[8px]", getGradeBadge(guard.grade))}>
+                  Grade {guard.grade}
+                </Badge>
+                <span>{guard.guard_code}</span>
+              </div>
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: "assigned_location",
+      header: "Assigned Location",
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-sm">
+            {row.original.assigned_location?.location_name || "Unassigned"}
+          </span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "attendance",
+      header: "Shift Status",
+      cell: ({ row }) => {
+        const guard = row.original;
+        return (
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs">
+                In: {formatTime(guard.attendance?.check_in_time || null)}
+              </span>
+            </div>
+            {guard.attendance?.check_out_time && (
+              <span className="text-xs text-muted-foreground">
+                Out: {formatTime(guard.attendance.check_out_time)}
+              </span>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      id: "status",
+      header: "Status",
+      cell: ({ row }) => {
+        const status = getGuardStatus(row.original);
+        return (
+          <Badge variant="outline" className={cn("font-bold", status.color)}>
+            ● {status.label}
+          </Badge>
+        );
+      },
+    },
+    {
+      id: "battery",
+      header: "Device",
+      cell: ({ row }) => {
+        const battery = getBatteryStatus(row.original);
+        const location = guardLocations.get(row.original.employee_id);
+        
+        return (
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1">
+              <Battery className={cn("h-4 w-4", battery.color)} />
+              <span className={cn("text-xs font-bold", battery.color)}>
+                {battery.level !== null ? `${battery.level}%` : "N/A"}
+              </span>
+            </div>
+            {location && (
+              <div className="flex items-center gap-1">
+                <Signal className="h-3.5 w-3.5 text-success" />
+              </div>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      id: "actions",
+      cell: ({ row }) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="icon" variant="ghost" className="h-8 w-8">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => setSelectedGuard(row.original)}>
+              View on Map
+            </DropdownMenuItem>
+            <DropdownMenuItem>Contact Guard</DropdownMenuItem>
+            <DropdownMenuItem>View Patrol Log</DropdownMenuItem>
+            <DropdownMenuItem>View Checklist Status</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    },
   ];
 
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96 gap-4">
+        <p className="text-destructive">{error}</p>
+        <Button onClick={refresh} variant="outline" className="gap-2">
+          <RefreshCw className="h-4 w-4" /> Retry
+        </Button>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-8 pb-20">
-      <div className="module-header">
-        <h1 className="module-title font-bold flex items-center gap-3">
-           <Shield className="h-8 w-8 text-primary" />
-           Security Command Center
-        </h1>
-        <p className="module-description">Monitor real-time guard locations, patrolling status, and panic alerts.</p>
+    <div className="animate-fade-in space-y-8 pb-20">
+      <PageHeader
+        title="Security Command Center"
+        description="Real-time monitoring of security personnel, GPS tracking, and patrol management."
+        actions={
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={refreshLocations} className="gap-2">
+              <RefreshCw className="h-4 w-4" /> Refresh GPS
+            </Button>
+            <Button className="gap-2 shadow-lg shadow-primary/20">
+              <Shield className="h-4 w-4" /> Dispatch Guard
+            </Button>
+          </div>
+        }
+      />
+
+      {/* Stats Cards */}
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card className="border-none shadow-card ring-1 ring-border">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col">
+                <span className="text-2xl font-bold">{stats.totalGuards}</span>
+                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Total Guards</span>
+              </div>
+              <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Users className="h-5 w-5 text-primary" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-card ring-1 ring-border border-l-4 border-l-success">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col">
+                <span className="text-2xl font-bold text-success">{stats.activeOnDuty}</span>
+                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Active On Duty</span>
+              </div>
+              <div className="h-10 w-10 rounded-xl bg-success/10 flex items-center justify-center">
+                <Shield className="h-5 w-5 text-success" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-card ring-1 ring-border border-l-4 border-l-warning">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col">
+                <span className="text-2xl font-bold text-warning">{stats.inactiveAlerts}</span>
+                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Inactivity Alerts</span>
+              </div>
+              <div className="h-10 w-10 rounded-xl bg-warning/10 flex items-center justify-center">
+                <Clock className="h-5 w-5 text-warning" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-card ring-1 ring-border border-l-4 border-l-critical">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col">
+                <span className="text-2xl font-bold text-critical">{stats.geoFenceBreaches}</span>
+                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Geo-fence Breaches</span>
+              </div>
+              <div className="h-10 w-10 rounded-xl bg-critical/10 flex items-center justify-center">
+                <AlertTriangle className="h-5 w-5 text-critical" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-         {/* Live Map Placeholder */}
-         <Card className="lg:col-span-2 border-none shadow-card ring-1 ring-border min-h-[500px] flex flex-col">
-            <CardHeader className="border-b bg-muted/30">
-               <div className="flex items-center justify-between">
-                  <CardTitle className="text-base font-bold flex items-center gap-2">
-                     <MapPin className="h-4 w-4 text-primary" />
-                     Live Asset Tracking
-                  </CardTitle>
-                  <Badge variant="outline" className="animate-pulse-soft bg-success/10 text-success border-success/20">
-                     Live Feed Active
-                  </Badge>
-               </div>
+      {/* Main Content Grid */}
+      <div className="grid gap-8 lg:grid-cols-3">
+        {/* Map Section */}
+        <div className="lg:col-span-2">
+          <Card className="border-none shadow-card ring-1 ring-border h-[400px] relative overflow-hidden">
+            <CardHeader className="absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-background to-transparent pb-8">
+              <CardTitle className="text-sm font-bold uppercase flex items-center gap-2">
+                <Navigation className="h-4 w-4 text-primary" /> Live Guard Positions
+              </CardTitle>
             </CardHeader>
-            <CardContent className="flex-1 p-0 relative overflow-hidden bg-muted/20">
-               {/* Mock Map UI */}
-               <div className="absolute inset-0 bg-[url('https://api.mapbox.com/styles/v1/mapbox/light-v10/static/-74.00,40.71,12/800x600?access_token=pk.xxx')] bg-cover opacity-50 grayscale" />
-               <div className="absolute inset-0 flex items-center justify-center">
+            <CardContent className="p-0 h-full">
+              {/* Map Placeholder - Shows guard positions */}
+              <div className="absolute inset-0 bg-gradient-to-br from-muted/30 to-muted/60" />
+              
+              {/* Guard markers on map */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                {activeGuards.length === 0 ? (
                   <div className="flex flex-col items-center gap-4 text-center p-8 bg-white/80 backdrop-blur-md rounded-2xl shadow-xl max-w-xs ring-1 ring-border">
-                     <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                        <Smartphone className="h-6 w-6 text-primary" />
-                     </div>
-                     <h3 className="font-bold">GPS Integration Pending</h3>
-                     <p className="text-xs text-muted-foreground">Map view is mocked for UI purposes. In production, this integrates with Leaflet or Google Maps via GeoJSON.</p>
+                    <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Smartphone className="h-6 w-6 text-primary" />
+                    </div>
+                    <h3 className="font-bold">No Active Guards</h3>
+                    <p className="text-xs text-muted-foreground">
+                      No guards are currently on duty. GPS positions will appear here when guards check in.
+                    </p>
                   </div>
-               </div>
-
-               {/* Map Markers Overlay */}
-               <div className="absolute top-1/4 left-1/3">
-                  <div className="relative group cursor-pointer">
-                     <div className="h-4 w-4 bg-primary rounded-full border-2 border-white shadow-lg animate-ping absolute" />
-                     <div className="h-4 w-4 bg-primary rounded-full border-2 border-white shadow-lg relative" />
-                     <div className="absolute top-6 left-0 translate-x-[-40%] opacity-0 group-hover:opacity-100 transition-opacity">
-                        <div className="bg-card shadow-xl p-2 rounded-lg border min-w-[120px]">
-                           <p className="text-[10px] font-bold">Robert Wilson</p>
-                           <p className="text-[8px] text-muted-foreground uppercase">Main Gate</p>
-                        </div>
-                     </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-4 text-center p-8 bg-white/80 backdrop-blur-md rounded-2xl shadow-xl max-w-md ring-1 ring-border">
+                    <div className="h-12 w-12 rounded-full bg-success/10 flex items-center justify-center">
+                      <MapPin className="h-6 w-6 text-success" />
+                    </div>
+                    <h3 className="font-bold">{activeGuards.length} Guards Tracking</h3>
+                    <div className="flex flex-wrap gap-2 justify-center">
+                      {activeGuards.slice(0, 5).map((guard) => {
+                        const location = guardLocations.get(guard.employee_id);
+                        const status = getGuardStatus(guard);
+                        return (
+                          <Badge 
+                            key={guard.id} 
+                            variant="outline" 
+                            className={cn("gap-1", status.color)}
+                          >
+                            <User className="h-3 w-3" />
+                            {guard.employee?.first_name} {guard.employee?.last_name?.[0]}.
+                            {location && (
+                              <Signal className="h-3 w-3 ml-1" />
+                            )}
+                          </Badge>
+                        );
+                      })}
+                      {activeGuards.length > 5 && (
+                        <Badge variant="outline">+{activeGuards.length - 5} more</Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Full map integration with Leaflet/Google Maps coming soon. Currently tracking via GPS table.
+                    </p>
                   </div>
-               </div>
+                )}
+              </div>
             </CardContent>
-         </Card>
+          </Card>
+        </div>
 
-         {/* Guard List */}
-         <Card className="border-none shadow-card ring-1 ring-border">
-            <CardHeader>
-               <CardTitle className="text-base font-bold">Personnel on Duty</CardTitle>
-               <CardDescription>Live status of security staff.</CardDescription>
+        {/* Quick Stats Sidebar */}
+        <div className="space-y-6">
+          {/* Filters */}
+          <Card className="border-none shadow-card ring-1 ring-border">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-bold uppercase">Filters</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Select 
+                value={filters.grade || "all"} 
+                onValueChange={(val) => setFilters({ ...filters, grade: val === "all" ? undefined : val as GuardGrade })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Filter by Grade" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Grades</SelectItem>
+                  <SelectItem value="A">Grade A (Premium)</SelectItem>
+                  <SelectItem value="B">Grade B (Corporate)</SelectItem>
+                  <SelectItem value="C">Grade C (Standard)</SelectItem>
+                  <SelectItem value="D">Grade D (Basic)</SelectItem>
+                </SelectContent>
+              </Select>
+            </CardContent>
+          </Card>
+
+          {/* Active Guards Quick List */}
+          <Card className="border-none shadow-card ring-1 ring-border">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-bold uppercase flex items-center justify-between">
+                <span>Active Guards</span>
+                <Badge variant="outline" className="text-success bg-success/10">
+                  {activeGuards.length} Online
+                </Badge>
+              </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-               <div className="divide-y">
-                  {guards.map((guard) => (
-                    <div key={guard.id} className="p-4 hover:bg-muted/30 transition-colors flex items-center gap-4">
-                       <Avatar className="h-10 w-10 ring-2 ring-primary/5">
-                          <AvatarFallback className="text-[10px] font-bold">{guard.name.split(" ").map(n => n[0]).join("")}</AvatarFallback>
-                       </Avatar>
-                       <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                             <span className="text-sm font-bold ">{guard.name}</span>
-                             <span className="text-[10px] font-bold text-muted-foreground">{guard.battery} 🔋</span>
-                          </div>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                             <MapPin className="h-3 w-3 text-muted-foreground" />
-                             <span className="text-xs text-muted-foreground">{guard.location}</span>
-                          </div>
-                       </div>
-                       <StatusBadge status={guard.status === "Active" ? "success" : "warning"} className="text-[10px]" />
-                    </div>
-                  ))}
-               </div>
-               <div className="p-4 border-t">
-                  <Button variant="outline" className="w-full text-xs font-bold gap-2">
-                     <AlertCircle className="h-3 w-3" />
-                     Broadcast Alert to All
-                  </Button>
-               </div>
-            </CardContent>
-         </Card>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-2">
-         {/* Patch Checklist */}
-         <Card className="border-none shadow-card ring-1 ring-border">
-            <CardHeader className="flex flex-row items-center justify-between">
-               <div>
-                  <CardTitle className="text-lg font-bold">Incident Reporting</CardTitle>
-                  <CardDescription>Submit and track security incidents with evidence.</CardDescription>
-               </div>
-               <Button className="bg-critical hover:bg-critical/90 gap-2 h-9 px-4 font-bold shadow-lg shadow-critical/20">
-                  <AlertCircle className="h-4 w-4" />
-                  Raise Panic
-               </Button>
-            </CardHeader>
-            <CardContent className="space-y-6">
-               <div className="p-10 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-3 bg-muted/10 group hover:border-primary/50 transition-colors cursor-pointer">
-                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                     <Camera className="h-6 w-6 text-primary" />
+              <div className="divide-y max-h-[300px] overflow-y-auto">
+                {activeGuards.length === 0 ? (
+                  <div className="p-6 text-center">
+                    <CardDescription>No guards currently on duty</CardDescription>
                   </div>
-                  <div className="text-center">
-                     <p className="font-bold text-sm">Upload Evidence</p>
-                     <p className="text-xs text-muted-foreground">Drag and drop photos or videos from the site</p>
-                  </div>
-               </div>
-
-               <div className="grid grid-cols-3 gap-3">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="aspect-square rounded-xl bg-muted/30 border flex items-center justify-center relative overflow-hidden group">
-                       <Video className="h-6 w-6 text-muted-foreground/50 group-hover:text-primary transition-colors" />
-                       <div className="absolute bottom-0 left-0 right-0 p-1 bg-black/50 text-[8px] text-white text-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          cam_04_id_{i}.mp4
-                       </div>
-                    </div>
-                  ))}
-               </div>
-            </CardContent>
-         </Card>
-
-         {/* Patrol Log */}
-         <Card className="border-none shadow-card ring-1 ring-border">
-             <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                   <CardTitle className="text-lg font-bold">Inactivity & Compliance</CardTitle>
-                   <CardDescription>Automated alerts for static guards or missing checklists.</CardDescription>
-                </div>
-                <Badge variant="outline" className="bg-critical/5 text-critical border-critical/20 animate-pulse-soft">
-                   3 Active Alerts
-                </Badge>
-             </CardHeader>
-             <CardContent className="space-y-4">
-                {[
-                   { type: "Inactivity", guard: "G-03 (Tina Fey)", loc: "Parking Level 1", duration: "45m", severity: "High" },
-                   { type: "Checklist Missing", guard: "G-01 (Robert Wilson)", loc: "Main Gate", duration: "Due 9:00 AM", severity: "Medium" },
-                ].map((alert, i) => (
-                   <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-critical/5 border border-critical/10 shadow-sm">
-                      <div className="flex flex-col">
-                         <div className="flex items-center gap-2">
-                           <span className="text-xs font-bold text-critical uppercase">{alert.type}</span>
-                           <span className="text-[10px] bg-critical/10 px-1 rounded font-bold text-critical lowercase capitalize">{alert.severity}</span>
-                         </div>
-                         <span className="text-sm font-bold  mt-1">{alert.guard}</span>
-                         <span className="text-[10px] text-muted-foreground">{alert.loc} • {alert.duration}</span>
+                ) : (
+                  activeGuards.slice(0, 6).map((guard) => {
+                    const status = getGuardStatus(guard);
+                    const battery = getBatteryStatus(guard);
+                    return (
+                      <div key={guard.id} className="p-3 flex items-center justify-between hover:bg-muted/30 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={guard.employee?.photo_url || undefined} />
+                            <AvatarFallback className="text-xs">
+                              {guard.employee?.first_name?.[0]}{guard.employee?.last_name?.[0]}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium">
+                              {guard.employee?.first_name} {guard.employee?.last_name?.[0]}.
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {guard.assigned_location?.location_name || "Unassigned"}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={cn("text-xs font-bold", battery.color)}>
+                            {battery.level !== null ? `${battery.level}%` : ""}
+                          </span>
+                          <div className={cn("h-2 w-2 rounded-full", 
+                            status.label === "Active" ? "bg-success" : 
+                            status.label === "Inactive" ? "bg-critical animate-pulse" : "bg-warning"
+                          )} />
+                        </div>
                       </div>
-                      <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold border-critical/20 hover:bg-critical/10">Broadcast Call</Button>
-                   </div>
-                ))}
-                <div className="p-4 bg-muted/30 rounded-xl border border-dashed text-center">
-                   <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-widest">Geo-Fencing Heartbeat: Healthy</p>
-                </div>
-             </CardContent>
-         </Card>
+                    );
+                  })
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
+
+      {/* Guard Table */}
+      <Card className="border-none shadow-card ring-1 ring-border">
+        <CardHeader className="border-b">
+          <CardTitle className="text-sm font-bold uppercase flex items-center gap-2">
+            <Shield className="h-4 w-4 text-primary" /> All Security Personnel
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-4">
+          <DataTable columns={columns} data={guards} searchKey="guard_code" />
+        </CardContent>
+      </Card>
     </div>
   );
 }

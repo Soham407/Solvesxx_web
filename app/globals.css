@@ -23,15 +23,15 @@
     --input: 30 20% 88%;
     --ring: 13 86% 59%;
     --radius: 0.75rem;
-    --sidebar-background: 0 0% 6%;
-    --sidebar-foreground: 0 0% 100%;
+    --sidebar-background: 30 25% 86%;
+    --sidebar-foreground: 20 14% 4%;
     --sidebar-primary: 13 86% 59%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 0 0% 100%;
-    --sidebar-accent-foreground: 13 86% 59%;
-    --sidebar-border: 0 0% 15%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 13 86% 59%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 30 20% 80%;
     --sidebar-ring: 13 86% 59%;
-    --sidebar-muted: 0 0% 70%;
+    --sidebar-muted: 30 10% 40%;
 
     --success: 142 76% 36%;
     --success-foreground: 355 100% 100%;

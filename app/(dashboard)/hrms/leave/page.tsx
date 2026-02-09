@@ -12,45 +12,97 @@ import {
   MoreHorizontal,
   Briefcase,
   User,
-  Filter
+  Filter,
+  Loader2
 } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { useLeaveApplications, LeaveApplication } from "@/hooks/useLeaveApplications";
+import { format } from "date-fns";
+import { useToast } from "@/components/ui/use-toast";
 
-interface LeaveRequest {
+// Interface for the UI table row
+interface LeaveRequestRow {
   id: string;
-  employee: string;
+  employeeName: string;
+  employeeId: string;
   type: string;
   startDate: string;
   endDate: string;
   days: number;
   reason: string;
   status: "Approved" | "Pending" | "Rejected";
+  rawStatus: "approved" | "pending" | "rejected"; // For logic
+  photoUrl?: string;
 }
 
-const data: LeaveRequest[] = [
-  { id: "LR-001", employee: "David Miller", type: "Sick Leave", startDate: "2024-02-01", endDate: "2024-02-02", days: 2, reason: "Seasonal Fever", status: "Approved" },
-  { id: "LR-002", employee: "Sarah Miller", type: "Casual Leave", startDate: "2024-02-05", endDate: "2024-02-05", days: 1, reason: "Family Event", status: "Pending" },
-  { id: "LR-003", employee: "John Doe", type: "Paid Leave", startDate: "2024-02-10", endDate: "2024-02-15", days: 6, reason: "Vacation", status: "Pending" },
-  { id: "LR-004", employee: "Alan Smith", type: "Sick Leave", startDate: "2024-01-20", endDate: "2024-01-21", days: 2, reason: "Medical Checkup", status: "Rejected" },
-];
-
 export default function LeaveManagementPage() {
-  const columns: ColumnDef<LeaveRequest>[] = [
+  const { leaves, loading, error, stats, updateLeaveStatus } = useLeaveApplications();
+  const { toast } = useToast();
+
+  const handleApprove = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+        await updateLeaveStatus(id, "approved");
+    } catch (err) {
+        // Error handled in hook 
+    }
+  };
+
+  const handleReject = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+        await updateLeaveStatus(id, "rejected", "Rejected by admin");
+    } catch (err) {
+         // Error handled in hook
+    }
+  };
+
+  // Map hook data to table rows
+  const tableData: LeaveRequestRow[] = leaves.map(leave => {
+    const firstName = leave.employee?.first_name || "Unknown";
+    const lastName = leave.employee?.last_name || "";
+    const fullName = `${firstName} ${lastName}`.trim();
+    
+    // Capitalize status for display
+    const statusDisplay = (leave.status.charAt(0).toUpperCase() + leave.status.slice(1)) as "Approved" | "Pending" | "Rejected";
+
+    return {
+      id: leave.id,
+      employeeName: fullName,
+      employeeId: leave.employee_id, // Using concise ID for display
+      type: leave.leave_type?.leave_name || "Unspecified",
+      startDate: leave.from_date,
+      endDate: leave.to_date,
+      days: leave.number_of_days,
+      reason: leave.reason,
+      status: statusDisplay,
+      rawStatus: leave.status,
+      photoUrl: leave.employee?.photo_url
+    };
+  });
+
+  const columns: ColumnDef<LeaveRequestRow>[] = [
     {
-      accessorKey: "employee",
+      accessorKey: "employeeName",
       header: "Employee",
       cell: ({ row }) => (
         <div className="flex items-center gap-3 text-left">
           <Avatar className="h-9 w-9 border">
-            <AvatarFallback className="bg-primary/5 text-primary text-xs font-bold">{row.original.employee.substring(0,2).toUpperCase()}</AvatarFallback>
+            {row.original.photoUrl ? (
+                <img src={row.original.photoUrl} alt={row.original.employeeName} className="h-full w-full object-cover" />
+            ) : (
+                <AvatarFallback className="bg-primary/5 text-primary text-xs font-bold">
+                    {row.original.employeeName.substring(0,2).toUpperCase()}
+                </AvatarFallback>
+            )}
           </Avatar>
           <div className="flex flex-col">
-            <span className="font-bold text-sm ">{row.original.employee}</span>
-            <span className="text-[10px] text-muted-foreground uppercase font-bold ">{row.original.id}</span>
+            <span className="font-bold text-sm ">{row.original.employeeName}</span>
+            <span className="text-[10px] text-muted-foreground uppercase font-bold ">EMP-{row.original.employeeId.slice(0, 4)}</span>
           </div>
         </div>
       ),
@@ -78,7 +130,9 @@ export default function LeaveManagementPage() {
       accessorKey: "reason",
       header: "Reason",
       cell: ({ row }) => (
-        <span className="text-xs text-muted-foreground line-clamp-1 max-w-[200px]">{row.getValue("reason")}</span>
+        <span className="text-xs text-muted-foreground line-clamp-1 max-w-[200px]" title={row.getValue("reason")}>
+            {row.getValue("reason")}
+        </span>
       ),
     },
     {
@@ -102,12 +156,24 @@ export default function LeaveManagementPage() {
       id: "actions",
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-            {row.original.status === "Pending" && (
+            {row.original.rawStatus === "pending" && (
                 <>
-                    <Button variant="outline" size="icon" className="h-8 w-8 text-success hover:bg-success/5 border-success/20">
+                    <Button 
+                        variant="outline" 
+                        size="icon" 
+                        className="h-8 w-8 text-success hover:bg-success/5 border-success/20"
+                        onClick={(e) => handleApprove(row.original.id, e)}
+                        title="Approve Leave"
+                    >
                         <CheckCircle2 className="h-4 w-4" />
                     </Button>
-                    <Button variant="outline" size="icon" className="h-8 w-8 text-critical hover:bg-critical/5 border-critical/20">
+                    <Button 
+                        variant="outline" 
+                        size="icon" 
+                        className="h-8 w-8 text-critical hover:bg-critical/5 border-critical/20"
+                        onClick={(e) => handleReject(row.original.id, e)}
+                        title="Reject Leave"
+                    >
                         <XCircle className="h-4 w-4" />
                     </Button>
                 </>
@@ -119,6 +185,14 @@ export default function LeaveManagementPage() {
       ),
     },
   ];
+
+  if (loading) {
+      return (
+          <div className="flex items-center justify-center h-full min-h-[400px]">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+      );
+  }
 
   return (
     <div className="animate-fade-in space-y-8">
@@ -147,7 +221,10 @@ export default function LeaveManagementPage() {
                     <Badge className="bg-white/20 hover:bg-white/30 border-none">Active Today</Badge>
                 </div>
                 <div className="flex flex-col">
-                    <span className="text-3xl font-extrabold ">92%</span>
+                    <span className="text-3xl font-extrabold ">
+                        {/* Placeholder for attendance data - pending implementation of attendance hook */}
+                        92%
+                    </span>
                     <span className="text-[10px] uppercase font-bold text-primary-foreground/70 tracking-widest mt-1">Personnel Availability</span>
                 </div>
             </CardContent>
@@ -160,10 +237,10 @@ export default function LeaveManagementPage() {
                  </div>
                  <div className="flex flex-col">
                     <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Pending Review</span>
-                    <span className="text-2xl font-bold ">14 Requests</span>
+                    <span className="text-2xl font-bold ">{stats.pendingRequests} Requests</span>
                  </div>
             </div>
-            <p className="text-[10px] text-muted-foreground font-medium">8 Personnel seeking leave next week</p>
+            <p className="text-[10px] text-muted-foreground font-medium">Requiring your attention</p>
         </Card>
 
         <Card className="border-none shadow-card ring-1 ring-border p-6">
@@ -173,14 +250,14 @@ export default function LeaveManagementPage() {
                  </div>
                  <div className="flex flex-col">
                     <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">On Paid Leave</span>
-                    <span className="text-2xl font-bold ">6 Members</span>
+                    <span className="text-2xl font-bold ">{stats.onLeaveToday} Members</span>
                  </div>
             </div>
-            <p className="text-[10px] text-muted-foreground font-medium">Auto-synced with smart attendance</p>
+            <p className="text-[10px] text-muted-foreground font-medium">Currently on leave today</p>
         </Card>
       </div>
 
-      <DataTable columns={columns} data={data} searchKey="employee" />
+      <DataTable columns={columns} data={tableData} searchKey="employeeName" />
     </div>
   );
 }
