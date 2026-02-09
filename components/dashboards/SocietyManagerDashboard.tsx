@@ -181,13 +181,12 @@ export function SocietyManagerDashboard() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-4">
-        {[}
-            { 
-              label: "Active Guards", 
-              value: isLoadingStats ? "..." : `${stats.activeGuards} / ${stats.totalGuards}`, 
-              sub: stats.activeGuards >= stats.totalGuards ? "All posts occupied" : `${stats.totalGuards - stats.activeGuards} posts empty`, 
-              color: stats.activeGuards >= stats.totalGuards ? "text-success" : "text-warning", 
-              bg: "bg-success/5" 
+        {[{
+            label: "Active Guards",
+            value: isLoadingStats ? "..." : `${stats.activeGuards} / ${stats.totalGuards}`,
+            sub: stats.activeGuards >= stats.totalGuards ? "All posts occupied" : `${stats.totalGuards - stats.activeGuards} posts empty`,
+            color: stats.activeGuards >= stats.totalGuards ? "text-success" : "text-warning",
+            bg: "bg-success/5" 
             },
             { 
               label: "Checklist Status", 
