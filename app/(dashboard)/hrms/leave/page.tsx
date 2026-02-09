@@ -36,7 +36,7 @@ interface LeaveRequestRow {
   reason: string;
   status: "Approved" | "Pending" | "Rejected";
   rawStatus: "approved" | "pending" | "rejected"; // For logic
-  photoUrl?: string;
+  photoUrl?: string | null;
 }
 
 export default function LeaveManagementPage() {

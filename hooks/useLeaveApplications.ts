@@ -35,6 +35,7 @@ export interface LeaveApplication {
     first_name: string;
     last_name: string;
     employee_code: string;
+    photo_url?: string | null;
   };
   leave_type?: LeaveType;
   approver?: {
@@ -69,12 +70,16 @@ interface UseLeaveApplicationsState {
 
 export function useLeaveApplications(employeeId?: string) {
   const { toast } = useToast();
-  const [state, setState] = useState<UseLeaveApplicationsState>({
-    applications: [],
-    leaveTypes: [],
-    leaveBalance: [],
-    isLoading: true,
-    error: null,
+  const [leaves, setLeaves] = useState<LeaveApplication[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
+  const [leaveBalance, setLeaveBalance] = useState<LeaveBalance[]>([]);
+  const [stats, setStats] = useState({
+    pendingRequests: 0,
+    onLeaveToday: 0,
+    approvedMonth: 0,
+    rejectedMonth: 0,
   });
 
   // Fetch leave types
@@ -87,7 +92,9 @@ export function useLeaveApplications(employeeId?: string) {
         .order('leave_name');
 
       if (error) throw error;
-      return data as LeaveType[];
+      const types = data as LeaveType[];
+      setLeaveTypes(types);
+      return types;
     } catch (err) {
       console.error('Error fetching leave types:', err);
       return [];
@@ -97,15 +104,15 @@ export function useLeaveApplications(employeeId?: string) {
   // Fetch leave applications
   const fetchApplications = useCallback(async () => {
     try {
-      setState(prev => ({ ...prev, isLoading: true, error: null }));
+      setLoading(true);
+      setError(null);
 
       let query = supabase
         .from('leave_applications')
         .select(`
           *,
-          employee:employees!leave_applications_employee_id_fkey(first_name, last_name, employee_code),
-          leave_type:leave_types!leave_applications_leave_type_id_fkey(*),
-          approver:employees!leave_applications_approved_by_fkey(first_name, last_name)
+          employee:employees(first_name, last_name, photo_url, employee_code),
+          leave_type:leave_types(leave_name, leave_type, yearly_quota)
         `)
         .order('created_at', { ascending: false });
 
@@ -113,14 +120,43 @@ export function useLeaveApplications(employeeId?: string) {
         query = query.eq('employee_id', employeeId);
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
+      const { data, error: fetchError } = await (query as any);
+      if (fetchError) throw fetchError;
 
-      const leaveTypes = await fetchLeaveTypes();
+      const apps = data as LeaveApplication[];
+      setLeaves(apps);
+
+      const types = await fetchLeaveTypes();
+
+      // Calculate stats
+      const today = new Date().toISOString().split('T')[0];
+      const currentMonth = new Date().getMonth();
+      
+      const pending = apps.filter(l => l.status === 'pending').length;
+      const onLeave = apps.filter(l => 
+        l.status === 'approved' && 
+        l.from_date <= today && 
+        l.to_date >= today
+      ).length;
+      const approvedM = apps.filter(l => 
+        l.status === 'approved' && 
+        new Date(l.created_at).getMonth() === currentMonth
+      ).length;
+      const rejectedM = apps.filter(l => 
+        l.status === 'rejected' && 
+        new Date(l.created_at).getMonth() === currentMonth
+      ).length;
+
+      setStats({
+        pendingRequests: pending,
+        onLeaveToday: onLeave,
+        approvedMonth: approvedM,
+        rejectedMonth: rejectedM
+      });
 
       // Calculate leave balance
       const balanceMap: Record<string, LeaveBalance> = {};
-      leaveTypes.forEach(lt => {
+      types.forEach(lt => {
         balanceMap[lt.id] = {
           leave_type: lt.leave_type,
           leave_name: lt.leave_name,
@@ -131,10 +167,9 @@ export function useLeaveApplications(employeeId?: string) {
         };
       });
 
-      // Calculate used and pending from applications
-      if (employeeId && data) {
+      if (employeeId && apps) {
         const currentYear = new Date().getFullYear();
-        data.forEach((app: any) => {
+        apps.forEach(app => {
           const appYear = new Date(app.from_date).getFullYear();
           if (appYear === currentYear && balanceMap[app.leave_type_id]) {
             if (app.status === 'approved') {
@@ -145,33 +180,23 @@ export function useLeaveApplications(employeeId?: string) {
           }
         });
 
-        // Calculate available
         Object.values(balanceMap).forEach(balance => {
           balance.available = balance.yearly_quota - balance.used - balance.pending;
         });
       }
+      setLeaveBalance(Object.values(balanceMap));
 
-      setState({
-        applications: data as LeaveApplication[],
-        leaveTypes,
-        leaveBalance: Object.values(balanceMap),
-        isLoading: false,
-        error: null,
-      });
     } catch (err: any) {
       console.error('Error fetching leave applications:', err);
-      setState(prev => ({
-        ...prev,
-        isLoading: false,
-        error: err.message || 'Failed to fetch leave applications',
-      }));
+      setError(err.message || 'Failed to fetch leave applications');
+    } finally {
+      setLoading(false);
     }
   }, [employeeId, fetchLeaveTypes]);
 
   // Apply for leave
   const applyForLeave = async (application: CreateLeaveApplicationDTO) => {
     try {
-      // Get current user's employee ID if not provided
       let empId = employeeId;
       if (!empId) {
         const { data: { user } } = await supabase.auth.getUser();
@@ -185,11 +210,8 @@ export function useLeaveApplications(employeeId?: string) {
         }
       }
 
-      if (!empId) {
-        throw new Error('Employee ID not found');
-      }
+      if (!empId) throw new Error('Employee ID not found');
 
-      // Calculate number of days
       const fromDate = new Date(application.from_date);
       const toDate = new Date(application.to_date);
       const diffTime = Math.abs(toDate.getTime() - fromDate.getTime());
@@ -229,12 +251,9 @@ export function useLeaveApplications(employeeId?: string) {
     }
   };
 
-  // Approve leave (for managers)
-  const approveLeave = async (applicationId: string) => {
+  const updateLeaveStatus = async (id: string, status: "approved" | "rejected", reason?: string) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      
-      // Get approver's employee ID
       let approverId: string | null = null;
       if (user) {
         const { data: emp } = await supabase
@@ -245,93 +264,53 @@ export function useLeaveApplications(employeeId?: string) {
         if (emp) approverId = emp.id;
       }
 
-      const { error } = await supabase
-        .from('leave_applications')
-        .update({
-          status: 'approved',
-          approved_by: approverId,
-          approved_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', applicationId);
-
-      if (error) throw error;
-
-      toast({
-        title: "Leave Approved",
-        description: "The leave application has been approved.",
-      });
-
-      fetchApplications();
-    } catch (err: any) {
-      console.error('Error approving leave:', err);
-      toast({
-        title: "Error",
-        description: "Failed to approve leave",
-        variant: "destructive",
-      });
-    }
-  };
-
-  // Reject leave (for managers)
-  const rejectLeave = async (applicationId: string, reason: string) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const updateData: any = { 
+        status,
+        approved_by: approverId,
+        approved_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
       
-      let approverId: string | null = null;
-      if (user) {
-        const { data: emp } = await supabase
-          .from('employees')
-          .select('id')
-          .eq('user_id', user.id)
-          .single();
-        if (emp) approverId = emp.id;
+      if (status === "rejected" && reason) {
+        updateData.rejection_reason = reason;
       }
 
       const { error } = await supabase
         .from('leave_applications')
-        .update({
-          status: 'rejected',
-          approved_by: approverId,
-          approved_at: new Date().toISOString(),
-          rejection_reason: reason,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', applicationId);
+        .update(updateData)
+        .eq('id', id);
 
       if (error) throw error;
 
       toast({
-        title: "Leave Rejected",
-        description: "The leave application has been rejected.",
+        title: `Leave ${status === 'approved' ? 'Approved' : 'Rejected'}`,
+        description: `The leave application has been ${status}.`,
       });
 
       fetchApplications();
     } catch (err: any) {
-      console.error('Error rejecting leave:', err);
+      console.error('Error updating leave status:', err);
       toast({
         title: "Error",
-        description: "Failed to reject leave",
+        description: `Failed to ${status} leave`,
         variant: "destructive",
       });
     }
   };
 
-  // Cancel leave application (by employee)
+  const approveLeave = (id: string) => updateLeaveStatus(id, 'approved');
+  const rejectLeave = (id: string, reason: string) => updateLeaveStatus(id, 'rejected', reason);
+
   const cancelApplication = async (applicationId: string) => {
     try {
       const { error } = await supabase
         .from('leave_applications')
         .delete()
         .eq('id', applicationId)
-        .eq('status', 'pending'); // Can only cancel pending applications
+        .eq('status', 'pending');
 
       if (error) throw error;
-
-      setState(prev => ({
-        ...prev,
-        applications: prev.applications.filter(a => a.id !== applicationId),
-      }));
+      setLeaves(prev => prev.filter(a => a.id !== applicationId));
 
       toast({
         title: "Application Cancelled",
@@ -341,28 +320,37 @@ export function useLeaveApplications(employeeId?: string) {
       console.error('Error cancelling application:', err);
       toast({
         title: "Error",
-        description: "Failed to cancel application. Only pending applications can be cancelled.",
+        description: "Failed to cancel application",
         variant: "destructive",
       });
     }
   };
 
-  // Get statistics
-  const getStats = useCallback(() => {
-    const pending = state.applications.filter(a => a.status === 'pending').length;
-    const approved = state.applications.filter(a => a.status === 'approved').length;
-    const rejected = state.applications.filter(a => a.status === 'rejected').length;
-    
-    return { pending, approved, rejected, total: state.applications.length };
-  }, [state.applications]);
+  const getStats = () => ({
+    pending: stats.pendingRequests,
+    approved: stats.approvedMonth,
+    rejected: stats.rejectedMonth,
+    total: leaves.length
+  });
 
-  // Initial fetch
   useEffect(() => {
     fetchApplications();
   }, [fetchApplications]);
 
   return {
-    ...state,
+    // New API
+    leaves,
+    loading,
+    error,
+    stats,
+    updateLeaveStatus,
+    refreshLeaves: fetchApplications,
+    
+    // Old API Compatibility
+    applications: leaves,
+    isLoading: loading,
+    leaveTypes,
+    leaveBalance,
     fetchApplications,
     applyForLeave,
     approveLeave,
