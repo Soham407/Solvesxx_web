@@ -176,7 +176,7 @@ export interface AssetFilters {
 }
 
 export interface ServiceRequestFilters {
-  status?: ServiceRequestStatus;
+  status?: ServiceRequestStatus | ServiceRequestStatus[];
   priority?: ServicePriority;
   assignedTo?: string;
   assetId?: string;

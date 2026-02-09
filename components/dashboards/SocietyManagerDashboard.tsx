@@ -306,7 +306,9 @@ export function SocietyManagerDashboard() {
                                   {ticket.severity.substring(0,1).toUpperCase()}
                               </div>
                               <div className="flex flex-col">
-                                  <span className="text-sm font-bold ">{ticket.employee?.full_name || "Unknown"} ({ticket.ticket_number})</span>
+                                  <span className="text-sm font-bold ">
+                                    {ticket.employee ? `${ticket.employee.first_name} ${ticket.employee.last_name}` : "Unknown"} ({ticket.ticket_number})
+                                  </span>
                                   <span className="text-xs text-muted-foreground">{ticket.category.replace(/_/g, " ")}</span>
                               </div>
                           </div>

@@ -26,6 +26,7 @@ export function HODDashboard() {
   const tasksCompletedToday = requests?.filter(req => 
     req.status === "completed" && 
     req.completed_at && 
+    typeof req.completed_at === "string" &&
     req.completed_at.startsWith(today)
   ).length || 0;
 
@@ -115,9 +116,11 @@ export function HODDashboard() {
                                    </AvatarFallback>
                                </Avatar>
                                <div className="flex flex-col">
-                                   <span className="text-sm font-bold ">{req.employee?.full_name || "Unknown"}</span>
+                                   <span className="text-sm font-bold ">
+                                     {req.employee ? `${req.employee.first_name} ${req.employee.last_name}` : "Unknown"}
+                                   </span>
                                    <span className="text-[10px] text-muted-foreground font-bold uppercase ">
-                                     {req.leave_types?.leave_name} • {new Date(req.from_date).toLocaleDateString("en-IN")} - {new Date(req.to_date).toLocaleDateString("en-IN")}
+                                     {req.leave_type?.leave_name} • {new Date(req.from_date).toLocaleDateString("en-IN")} - {new Date(req.to_date).toLocaleDateString("en-IN")}
                                    </span>
                                </div>
                            </div>

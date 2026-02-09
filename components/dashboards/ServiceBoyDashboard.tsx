@@ -63,7 +63,7 @@ export function ServiceBoyDashboard() {
                 <div className="flex items-center justify-between">
                     <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px] font-bold uppercase">CURRENT JOB</Badge>
                     <span className="text-[10px] font-bold text-muted-foreground uppercase">
-                      Started: {new Date(activeSession.start_time).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                      Started: {activeSession.start_time ? new Date(activeSession.start_time).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "Recently"}
                     </span>
                 </div>
                 <div>

@@ -63,7 +63,11 @@ export function useServiceRequests(initialFilters?: ServiceRequestFilters): UseS
 
       // Apply filters
       if (filters.status) {
-        query = query.eq("status", filters.status);
+        if (Array.isArray(filters.status)) {
+          query = query.in("status", filters.status);
+        } else {
+          query = query.eq("status", filters.status);
+        }
       }
       if (filters.priority) {
         query = query.eq("priority", filters.priority);
