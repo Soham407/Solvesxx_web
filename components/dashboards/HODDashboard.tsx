@@ -111,9 +111,9 @@ export function HODDashboard() {
                        <div key={req.id} className="p-4 flex items-center justify-between group hover:bg-muted/20 transition-colors">
                            <div className="flex items-center gap-4">
                                <Avatar className="h-9 w-9 ring-2 ring-primary/5">
-                                   <AvatarFallback className="bg-primary/5 text-primary text-[10px] font-bold">
-                                     {req.employee?.full_name?.split(" ").map((n: string) => n[0]).join("") || "??"}
-                                   </AvatarFallback>
+                                    <AvatarFallback className="bg-primary/5 text-primary text-[10px] font-bold">
+                                      {req.employee ? `${req.employee.first_name.charAt(0)}${req.employee.last_name.charAt(0)}` : "??"}
+                                    </AvatarFallback>
                                </Avatar>
                                <div className="flex flex-col">
                                    <span className="text-sm font-bold ">

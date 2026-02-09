@@ -72,6 +72,10 @@ export function useJobSessions(serviceRequestId?: string, technicianId?: string)
       const sessionsWithPhotos: JobSessionWithPhotos[] = (data || []).map((session) => ({
         ...session,
         photos: session.job_photos || [],
+        service_request: session.service_request ? {
+          ...session.service_request,
+          location: session.service_request.location || undefined
+        } : undefined,
       }));
 
       // Find active session (started but not completed)

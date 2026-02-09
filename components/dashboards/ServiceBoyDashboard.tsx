@@ -25,7 +25,7 @@ export function ServiceBoyDashboard() {
   } = useEmployeeProfileWithFallback(DEV_MOCK_EMPLOYEE_ID);
 
   // Get real data for service technician
-  const { sessions, activeSession, isLoading: isLoadingSessions } = useJobSessions(undefined, employeeId);
+  const { sessions, activeSession, isLoading: isLoadingSessions } = useJobSessions(undefined, employeeId || undefined);
   const { requests, isLoading: isLoadingRequests } = useServiceRequests({ 
     assignedTo: employeeId || undefined,
     status: ["assigned", "in_progress"]
