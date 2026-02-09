@@ -31,8 +31,8 @@ interface Resident {
 
 const data: Resident[] = [
   { id: "RES-101", flatNo: "Penthouse P1", primaryMember: "Amit Khanna", familyCount: 4, vehicles: ["MH-01-AB-1234", "MH-01-XY-9000"], status: "Owner" },
-  { id: "RES-102", flatNo: "Tower B-203", primaryMember: "Sarah Sharma", familyCount: 2, vehicles: ["MH-02-CD-5678"], status: "Owner" },
-  { id: "RES-103", flatNo: "Sector C-404", primaryMember: "Robert Miller", familyCount: 5, vehicles: ["MH-04-EF-1122"], status: "Tenant" },
+  { id: "RES-102", flatNo: "Tower B-203", primaryMember: "Anjali Sharma", familyCount: 2, vehicles: ["MH-02-CD-5678"], status: "Owner" },
+  { id: "RES-103", flatNo: "Sector C-404", primaryMember: "Arjun Reddy", familyCount: 5, vehicles: ["MH-04-EF-1122"], status: "Tenant" },
   { id: "RES-104", flatNo: "Garden Villa V2", primaryMember: "Vicky Malhotara", familyCount: 3, vehicles: ["MH-01-ZZ-9999"], status: "Owner" },
 ];
 

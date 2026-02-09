@@ -35,8 +35,8 @@ interface FeedbackRecord {
 
 const data: FeedbackRecord[] = [
   { id: "FB-001", resident: "Amit Khanna", flatNo: "Penthouse P1", serviceCategory: "Security", rating: 5, comment: "Guard was very professional during night shift.", vendorRating: "Incentivize" },
-  { id: "FB-002", resident: "Sarah Sharma", flatNo: "Tower B-203", serviceCategory: "AC Service", rating: 2, comment: "Technician arrived 2 hours late. Cooling still not optimal.", vendorRating: "Warning" },
-  { id: "FB-003", resident: "Robert Miller", flatNo: "Sector C-404", serviceCategory: "Pest Control", rating: 4, comment: "Prompt service, clean execution.", vendorRating: "Standard" },
+  { id: "FB-002", resident: "Anjali Sharma", flatNo: "Tower B-203", serviceCategory: "AC Service", rating: 2, comment: "Technician arrived 2 hours late. Cooling still not optimal.", vendorRating: "Warning" },
+  { id: "FB-003", resident: "Arjun Reddy", flatNo: "Sector C-404", serviceCategory: "Pest Control", rating: 4, comment: "Prompt service, clean execution.", vendorRating: "Standard" },
 ];
 
 export default function PerformanceAuditPage() {

@@ -32,10 +32,10 @@ interface PayrollRecord {
 }
 
 const data: PayrollRecord[] = [
-  { id: "PAY-001", employee: "John Doe", basicSalary: "₹45,000", allowance: "₹5,200", deductions: "₹2,100", netPayable: "₹48,100", status: "Processed" },
-  { id: "PAY-002", employee: "Sarah Miller", basicSalary: "₹38,000", allowance: "₹4,000", deductions: "₹1,800", netPayable: "₹40,200", status: "Processed" },
-  { id: "PAY-003", employee: "David Miller", basicSalary: "₹32,000", allowance: "₹2,500", deductions: "₹3,400", netPayable: "₹31,100", status: "Pending" },
-  { id: "PAY-004", employee: "Alan Smith", basicSalary: "₹55,000", allowance: "₹8,000", deductions: "₹4,500", netPayable: "₹58,500", status: "On Hold" },
+  { id: "PAY-001", employee: "Rajesh Kumar", basicSalary: "₹45,000", allowance: "₹5,200", deductions: "₹2,100", netPayable: "₹48,100", status: "Processed" },
+  { id: "PAY-002", employee: "Sunita Rao", basicSalary: "₹38,000", allowance: "₹4,000", deductions: "₹1,800", netPayable: "₹40,200", status: "Processed" },
+  { id: "PAY-003", employee: "Suresh Raina", basicSalary: "₹32,000", allowance: "₹2,500", deductions: "₹3,400", netPayable: "₹31,100", status: "Pending" },
+  { id: "PAY-004", employee: "Amit Sharma", basicSalary: "₹55,000", allowance: "₹8,000", deductions: "₹4,500", netPayable: "₹58,500", status: "On Hold" },
 ];
 
 export default function PayrollPage() {

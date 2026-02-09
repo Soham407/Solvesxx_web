@@ -32,8 +32,8 @@ interface Employee {
 const data: Employee[] = [
   {
     id: "EMP-001",
-    name: "John Doe",
-    email: "john.doe@company.com",
+    name: "Rajesh Kumar",
+    email: "rajesh.k@company.com",
     role: "Admin",
     status: "Active",
     department: "Management",
@@ -41,8 +41,8 @@ const data: Employee[] = [
   },
   {
     id: "EMP-002",
-    name: "Jane Smith",
-    email: "jane.smith@company.com",
+    name: "Pooja Hegde",
+    email: "pooja.h@company.com",
     role: "Manager",
     status: "Active",
     department: "Operations",
@@ -50,8 +50,8 @@ const data: Employee[] = [
   },
   {
     id: "EMP-003",
-    name: "Robert Brown",
-    email: "robert.b@company.com",
+    name: "Karthik Aryan",
+    email: "karthik.a@company.com",
     role: "Guard",
     status: "Active",
     department: "Security",
@@ -59,8 +59,8 @@ const data: Employee[] = [
   },
   {
     id: "EMP-004",
-    name: "Alice Johnson",
-    email: "alice.j@company.com",
+    name: "Meena Kumari",
+    email: "meena.k@company.com",
     role: "Buyer",
     status: "Pending",
     department: "Procurement",

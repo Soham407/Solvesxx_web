@@ -34,10 +34,10 @@ interface AttendanceRecord {
 }
 
 const data: AttendanceRecord[] = [
-  { id: "EMP-001", employee: "John Doe", shift: "Morning (8AM-8PM)", checkIn: "07:55 AM", location: "Main Gate - Gate 1", verification: "Selfie + GPS", status: "Present" },
-  { id: "EMP-004", employee: "Sarah Miller", shift: "Morning (8AM-8PM)", checkIn: "08:15 AM", location: "Tower A Reception", verification: "Selfie + GPS", status: "Late" },
-  { id: "EMP-002", employee: "Alan Smith", shift: "General (9AM-6PM)", checkIn: "08:58 AM", location: "Administration HQ", verification: "Selfie + GPS", status: "Present" },
-  { id: "EMP-005", employee: "Mike Ross", shift: "Night (8PM-8AM)", checkIn: "-", location: "-", verification: "Failed", status: "Absent" },
+  { id: "EMP-001", employee: "Rajesh Kumar", shift: "Morning (8AM-8PM)", checkIn: "07:55 AM", location: "Main Gate - Gate 1", verification: "Selfie + GPS", status: "Present" },
+  { id: "EMP-004", employee: "Sunita Rao", shift: "Morning (8AM-8PM)", checkIn: "08:15 AM", location: "Tower A Reception", verification: "Selfie + GPS", status: "Late" },
+  { id: "EMP-002", employee: "Amit Sharma", shift: "General (9AM-6PM)", checkIn: "08:58 AM", location: "Administration HQ", verification: "Selfie + GPS", status: "Present" },
+  { id: "EMP-005", employee: "Rahul Verma", shift: "Night (8PM-8AM)", checkIn: "-", location: "-", verification: "Failed", status: "Absent" },
 ];
 
 export default function AttendancePage() {

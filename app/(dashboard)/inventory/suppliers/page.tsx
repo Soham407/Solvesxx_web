@@ -38,10 +38,10 @@ interface Supplier {
 }
 
 const data: Supplier[] = [
-  { id: "SUP-001", name: "Global Security Supplies", category: "Security Equipment", rating: 4.8, contactPerson: "Robert Frost", email: "robert@globalsupply.com", activeOrders: 3, status: "Verified" },
-  { id: "SUP-002", name: "Refresh Beverage Corp", category: "Pantry & Beverages", rating: 4.2, contactPerson: "Linda Chen", email: "linda@refresh.com", activeOrders: 0, status: "Verified" },
-  { id: "SUP-003", name: "CleanPro Industrial", category: "Cleaning Supplies", rating: 3.9, contactPerson: "Mark Wilson", email: "m.wilson@cleanpro.com", activeOrders: 1, status: "Pending" },
-  { id: "SUP-004", name: "QuickPrint Media", category: "Printing Services", rating: 4.5, contactPerson: "Sarah James", email: "sarah@qpmedia.com", activeOrders: 2, status: "Verified" },
+  { id: "SUP-001", name: "Bharat Security Supplies", category: "Security Equipment", rating: 4.8, contactPerson: "Manoj Tiwari", email: "manoj@bharatsupply.com", activeOrders: 3, status: "Verified" },
+  { id: "SUP-002", name: "Refresh Beverage Corp", category: "Pantry & Beverages", rating: 4.2, contactPerson: "Meena Patel", email: "meena@refresh.com", activeOrders: 0, status: "Verified" },
+  { id: "SUP-003", name: "CleanPro Industrial", category: "Cleaning Supplies", rating: 3.9, contactPerson: "Vikram Malhotra", email: "v.malhotra@cleanpro.com", activeOrders: 1, status: "Pending" },
+  { id: "SUP-004", name: "QuickPrint Media", category: "Printing Services", rating: 4.5, contactPerson: "Kavita Joshi", email: "kavita@qpmedia.com", activeOrders: 2, status: "Verified" },
 ];
 
 export default function SuppliersPage() {

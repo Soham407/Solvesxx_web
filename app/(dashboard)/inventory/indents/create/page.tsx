@@ -28,8 +28,8 @@ interface IndentRequest {
 }
 
 const data: IndentRequest[] = [
-  { id: "IND-1001", requester: "Alan Smith", department: "Facility Management", itemsCount: 5, totalEstValue: "₹45,000", priority: "Normal", status: "Pending Approval" },
-  { id: "IND-1005", requester: "Alan Smith", department: "Security", itemsCount: 2, totalEstValue: "₹1,20,000", priority: "High", status: "Approved" },
+  { id: "IND-1001", requester: "Amit Sharma", department: "Facility Management", itemsCount: 5, totalEstValue: "₹45,000", priority: "Normal", status: "Pending Approval" },
+  { id: "IND-1005", requester: "Amit Sharma", department: "Security", itemsCount: 2, totalEstValue: "₹1,20,000", priority: "High", status: "Approved" },
   { id: "IND-1008", requester: "Admin Port", department: "Pantry", itemsCount: 12, totalEstValue: "₹18,500", priority: "Normal", status: "Draft" },
 ];
 

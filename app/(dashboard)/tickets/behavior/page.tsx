@@ -33,9 +33,9 @@ interface BehaviorTicket {
 }
 
 const data: BehaviorTicket[] = [
-  { id: "TKT-B-901", employee: "John Doe", category: "Sleeping on Duty", severity: "High", reportedBy: "Alan Smith (Society Mgr)", date: "2024-02-01", status: "Open" },
-  { id: "TKT-B-905", employee: "Sarah Miller", category: "Uniform Issue", severity: "Low", reportedBy: "System Guard Audit", date: "2024-01-28", status: "Resolved-Warning" },
-  { id: "TKT-B-908", employee: "Mike Ross", category: "Absence", severity: "Medium", reportedBy: "Alan Smith (Society Mgr)", date: "2024-02-02", status: "Under Review" },
+  { id: "TKT-B-901", employee: "Rajesh Kumar", category: "Sleeping on Duty", severity: "High", reportedBy: "Amit Sharma (Society Mgr)", date: "2024-02-01", status: "Open" },
+  { id: "TKT-B-905", employee: "Sunita Rao", category: "Uniform Issue", severity: "Low", reportedBy: "System Guard Audit", date: "2024-01-28", status: "Resolved-Warning" },
+  { id: "TKT-B-908", employee: "Rahul Verma", category: "Absence", severity: "Medium", reportedBy: "Amit Sharma (Society Mgr)", date: "2024-02-02", status: "Under Review" },
 ];
 
 export default function BehaviorTicketsPage() {

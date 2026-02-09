@@ -20,10 +20,10 @@ interface Candidate {
 }
 
 const data: Candidate[] = [
-  { id: "APP-001", name: "Robert Wilson", appliedFor: "Night Shift Guard", source: "Security Agency A", interviewStatus: "Background Check", appliedDate: "2024-01-25" },
-  { id: "APP-002", name: "Jessica Day", appliedFor: "HR Coordinator", source: "Referral", interviewStatus: "Interviewing", appliedDate: "2024-01-28" },
-  { id: "APP-003", name: "Michael Vane", appliedFor: "Lift Technician", source: "Indeed", interviewStatus: "Screening", appliedDate: "2024-02-01" },
-  { id: "APP-004", name: "Sarah Miller", appliedFor: "Pantry Staff", source: "Agency B", interviewStatus: "Offered", appliedDate: "2024-01-20" },
+  { id: "APP-001", name: "Aditya Deshmukh", appliedFor: "Night Shift Guard", source: "Security Agency A", interviewStatus: "Background Check", appliedDate: "2024-01-25" },
+  { id: "APP-002", name: "Pooja Hegde", appliedFor: "HR Coordinator", source: "Referral", interviewStatus: "Interviewing", appliedDate: "2024-01-28" },
+  { id: "APP-003", name: "Ramesh Babu", appliedFor: "Lift Technician", source: "Indeed", interviewStatus: "Screening", appliedDate: "2024-02-01" },
+  { id: "APP-004", name: "Sunita Rao", appliedFor: "Pantry Staff", source: "Agency B", interviewStatus: "Offered", appliedDate: "2024-01-20" },
 ];
 
 export default function RecruitmentPortalPage() {

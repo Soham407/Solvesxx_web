@@ -33,7 +33,7 @@ const data: GuardDocument[] = [
   { id: "DOC-902", staffName: "Rahul Deshmukh", docType: "Police Verification", expiryDate: "2024-12-01", status: "Verified", fileSize: "3.4 MB" },
   { id: "DOC-903", staffName: "Kiran Kumar", docType: "PSARA License", expiryDate: "2024-02-15", status: "Expired", fileSize: "2.1 MB" },
   { id: "DOC-904", staffName: "Suresh P.", docType: "Medical Fitness", expiryDate: "2024-06-30", status: "Pending Review", fileSize: "1.8 MB" },
-  { id: "DOC-905", staffName: "Mike Ross", docType: "Police Verification", expiryDate: "-", status: "Missing", fileSize: "0 KB" },
+  { id: "DOC-905", staffName: "Rahul Verma", docType: "Police Verification", expiryDate: "-", status: "Missing", fileSize: "0 KB" },
 ];
 
 export default function DocumentGovernancePage() {

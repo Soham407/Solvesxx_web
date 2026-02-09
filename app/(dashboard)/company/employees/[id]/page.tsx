@@ -70,9 +70,9 @@ export default function EmployeeDetailPage() {
             <CardContent className="pt-0 relative px-6 pb-6">
               <div className="flex flex-col items-center -mt-12">
                 <Avatar className="h-24 w-24 border-4 border-background shadow-xl">
-                  <AvatarFallback className="bg-primary/10 text-primary text-2xl font-bold">JD</AvatarFallback>
+                  <AvatarFallback className="bg-primary/10 text-primary text-2xl font-bold">RK</AvatarFallback>
                 </Avatar>
-                <h2 className="text-xl font-bold mt-4">John Doe</h2>
+                <h2 className="text-xl font-bold mt-4">Rajesh Kumar</h2>
                 <p className="text-sm text-muted-foreground font-medium">Senior Operations Manager</p>
                 <div className="flex gap-2 mt-4">
                   <RoleTag role="Admin" />
@@ -87,7 +87,7 @@ export default function EmployeeDetailPage() {
                     </div>
                     <div className="flex flex-col">
                        <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Email</span>
-                       <span className="text-sm font-medium">john.doe@enterprise.com</span>
+                       <span className="text-sm font-medium">rajesh.kumar@enterprise.com</span>
                     </div>
                  </div>
                  <div className="flex items-center gap-3">
@@ -96,7 +96,7 @@ export default function EmployeeDetailPage() {
                     </div>
                     <div className="flex flex-col">
                        <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Phone</span>
-                       <span className="text-sm font-medium">+1 (555) 123-4567</span>
+                       <span className="text-sm font-medium">+91 98765 43210</span>
                     </div>
                  </div>
                  <div className="flex items-center gap-3">
@@ -154,13 +154,13 @@ export default function EmployeeDetailPage() {
                           <span className="text-sm text-muted-foreground">Department</span>
                           <span className="text-sm font-bold">Operations</span>
                        </div>
-                       <div className="flex justify-between py-2 border-b border-dashed">
+                        <div className="flex justify-between py-2 border-b border-dashed">
                           <span className="text-sm text-muted-foreground">Reporting To</span>
                           <div className="flex items-center gap-2">
                              <Avatar className="h-5 w-5"><AvatarFallback className="text-[8px] font-bold">AS</AvatarFallback></Avatar>
-                             <span className="text-sm font-bold">Alan Smith</span>
+                             <span className="text-sm font-bold">Amit Sharma</span>
                           </div>
-                       </div>
+                        </div>
                        <div className="flex justify-between py-2 border-b border-dashed">
                           <span className="text-sm text-muted-foreground">Joined Date</span>
                           <span className="text-sm font-bold">Jan 15, 2024</span>

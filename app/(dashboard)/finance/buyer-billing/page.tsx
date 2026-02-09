@@ -33,8 +33,8 @@ interface BuyerBill {
 
 const data: BuyerBill[] = [
   { id: "INV-B-4001", resident: "Amit Khanna", flatNo: "Penthouse P1", billType: "Maintenance", amount: "₹18,500", dueDate: "2024-02-10", status: "Sent" },
-  { id: "INV-B-4005", resident: "Sarah Sharma", flatNo: "Tower B-203", billType: "Special Service", amount: "₹4,200", dueDate: "2024-02-05", status: "Overdue" },
-  { id: "INV-B-4008", resident: "Robert Miller", flatNo: "Sector C-404", billType: "Pantry Order", amount: "₹1,250", dueDate: "2024-02-01", status: "Paid" },
+  { id: "INV-B-4005", resident: "Anjali Sharma", flatNo: "Tower B-203", billType: "Special Service", amount: "₹4,200", dueDate: "2024-02-05", status: "Overdue" },
+  { id: "INV-B-4008", resident: "Arjun Reddy", flatNo: "Sector C-404", billType: "Pantry Order", amount: "₹1,250", dueDate: "2024-02-01", status: "Paid" },
 ];
 
 export default function BuyerBillingPage() {

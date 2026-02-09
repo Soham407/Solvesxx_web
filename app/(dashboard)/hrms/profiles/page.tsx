@@ -27,10 +27,10 @@ interface Profile {
 }
 
 const data: Profile[] = [
-  { id: "P-101", name: "Sarah Connor", role: "HR Manager", department: "People & Culture", location: "Global HQ", email: "sarah.c@facilitypro.com", status: "Active" },
-  { id: "P-102", name: "Mike Ross", role: "Legal Associate", department: "Legal", location: "London Branch", email: "mike.r@facilitypro.com", status: "Active" },
-  { id: "P-103", name: "Harvey Specter", role: "Director", department: "Executive", location: "Global HQ", email: "harvey.s@facilitypro.com", status: "On Leave" },
-  { id: "P-104", name: "Louis Litt", role: "Finance Head", department: "Finance", location: "Global HQ", email: "louis.l@facilitypro.com", status: "Active" },
+  { id: "P-101", name: "Priya Patel", role: "HR Manager", department: "People & Culture", location: "Global HQ", email: "priya.p@facilitypro.com", status: "Active" },
+  { id: "P-102", name: "Rahul Verma", role: "Legal Associate", department: "Legal", location: "London Branch", email: "rahul.v@facilitypro.com", status: "Active" },
+  { id: "P-103", name: "Harish Sheth", role: "Director", department: "Executive", location: "Global HQ", email: "harish.s@facilitypro.com", status: "On Leave" },
+  { id: "P-104", name: "Lokesh Luthra", role: "Finance Head", department: "Finance", location: "Global HQ", email: "lokesh.l@facilitypro.com", status: "Active" },
 ];
 
 export default function HRMSProfilesPage() {
