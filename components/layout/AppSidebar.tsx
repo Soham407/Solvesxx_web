@@ -118,6 +118,7 @@ const navigation: NavGroup[] = [
           { title: "All Assets", href: "/assets" },
           { title: "Maintenance Schedules", href: "/assets/maintenance" },
           { title: "Asset Categories", href: "/assets/categories" },
+          { title: "QR Codes", href: "/assets/qr-codes" },
         ],
       },
       {
@@ -126,6 +127,7 @@ const navigation: NavGroup[] = [
         icon: ClipboardCheck,
         children: [
           { title: "All Requests", href: "/service-requests" },
+          { title: "Kanban Board", href: "/service-requests/board" },
           { title: "Create Request", href: "/service-requests/new" },
         ],
       },

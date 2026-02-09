@@ -1,92 +1,89 @@
 "use client";
 
+import { useEmergencyContacts, EmergencyContact } from "@/hooks/useEmergencyContacts";
+import { AddEmergencyContactDialog } from "@/components/phaseA/AddEmergencyContactDialog";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTable } from "@/components/shared/DataTable";
 import { Button } from "@/components/ui/button";
 import { 
   Phone, 
-  Plus, 
   MapPin, 
-  User, 
   ShieldAlert, 
   MoreHorizontal,
   Search,
-  ExternalLink,
-  ChevronRight
+  ChevronRight,
+  Trash2
 } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-interface EmergencyContact {
-  id: string;
-  name: string;
-  category: "Police" | "Fire" | "Ambulance" | "Utility" | "Management";
-  contactNo: string;
-  secondaryNo?: string;
-  address?: string;
-}
-
-const data: EmergencyContact[] = [
-  { id: "EMG-01", name: "District Police Station", category: "Police", contactNo: "100", secondaryNo: "+91 22 2345 6789", address: "Sector 4, Main Road, Park View" },
-  { id: "EMG-02", name: "City Fire Brigade", category: "Fire", contactNo: "101", secondaryNo: "+91 22 1122 3344", address: "Sector 12, Industrial Area" },
-  { id: "EMG-03", name: "LifeCare Ambulance", category: "Ambulance", contactNo: "102", secondaryNo: "+91 99999 88888", address: "24/7 Mobile Unit" },
-  { id: "EMG-04", name: "Society Electrician (On-Call)", category: "Utility", contactNo: "+91 88888 77777", address: "Basement Maintenance Hub" },
-];
-
 export default function EmergencyDirectoryPage() {
+  const { contacts, isLoading, deleteContact, fetchContacts } = useEmergencyContacts();
+
   const columns: ColumnDef<EmergencyContact>[] = [
     {
-      accessorKey: "name",
+      accessorKey: "contact_name",
       header: "Agency / Contact Name",
-      cell: ({ row }) => (
-        <div className="flex items-center gap-3">
-          <div className={cn(
-            "h-8 w-8 rounded-lg flex items-center justify-center",
-            row.original.category === "Police" ? "bg-critical/5 text-critical" :
-            row.original.category === "Fire" ? "bg-orange-500/5 text-orange-500" :
-            row.original.category === "Ambulance" ? "bg-success/5 text-success" : "bg-primary/5 text-primary"
-          )}>
-            <Phone className="h-4 w-4" />
+      cell: ({ row }) => {
+        const type = row.original.contact_type;
+        return (
+          <div className="flex items-center gap-3">
+            <div className={cn(
+              "h-8 w-8 rounded-lg flex items-center justify-center",
+              type === "police" ? "bg-critical/5 text-critical" :
+              type === "fire" ? "bg-orange-500/5 text-orange-500" :
+              type === "ambulance" ? "bg-success/5 text-success" : "bg-primary/5 text-primary"
+            )}>
+              <Phone className="h-4 w-4" />
+            </div>
+            <div className="flex flex-col text-left">
+              <span className="font-bold text-sm ">{row.original.contact_name}</span>
+              <span className="text-[10px] text-muted-foreground uppercase font-bold ">{type} • {row.original.id.slice(0, 8)}</span>
+            </div>
           </div>
-          <div className="flex flex-col text-left">
-            <span className="font-bold text-sm ">{row.original.name}</span>
-            <span className="text-[10px] text-muted-foreground uppercase font-bold ">{row.original.category} • {row.original.id}</span>
-          </div>
-        </div>
-      ),
+        );
+      },
     },
     {
-      accessorKey: "contactNo",
+      accessorKey: "phone_number",
       header: "Primary Contact",
-      cell: ({ row }) => <span className="text-sm font-bold text-foreground">{row.getValue("contactNo")}</span>,
+      cell: ({ row }) => <span className="text-sm font-bold text-foreground">{row.getValue("phone_number")}</span>,
     },
     {
-      accessorKey: "secondaryNo",
-      header: "Alternate Number",
-      cell: ({ row }) => <span className="text-xs font-medium text-muted-foreground">{row.getValue("secondaryNo") || "-"}</span>,
-    },
-    {
-      accessorKey: "address",
-      header: "Physical Address",
-      cell: ({ row }) => <span className="text-xs text-muted-foreground truncate max-w-[200px]">{row.getValue("address")}</span>,
+      accessorKey: "description",
+      header: "Description / Address",
+      cell: ({ row }) => <span className="text-xs text-muted-foreground truncate max-w-[200px]">{row.getValue("description") || "-"}</span>,
     },
     {
       id: "actions",
-      cell: () => (
+      cell: ({ row }) => (
         <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="h-8 gap-2 border-primary/20 hover:bg-primary/5 text-primary">
-                Call Now
+            <Button variant="outline" size="sm" className="h-8 gap-2 border-primary/20 hover:bg-primary/5 text-primary" asChild>
+                <a href={`tel:${row.original.phone_number}`}>Call Now</a>
             </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreHorizontal className="h-4 w-4" />
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-8 w-8 text-destructive hover:bg-destructive/10"
+              onClick={() => {
+                if (confirm('Are you sure you want to delete this contact?')) {
+                  deleteContact(row.original.id);
+                }
+              }}
+            >
+                <Trash2 className="h-4 w-4" />
             </Button>
         </div>
       ),
     },
   ];
+
+  if (isLoading) {
+    return <div className="p-8 text-center">Loading directory...</div>;
+  }
 
   return (
     <div className="animate-fade-in space-y-8 pb-20">
@@ -94,9 +91,7 @@ export default function EmergencyDirectoryPage() {
         title="Emergency Directory"
         description="Consolidated quick-dial list for local authorities, healthcare, and critical utility support."
         actions={
-          <Button className="gap-2 shadow-sm">
-            <Plus className="h-4 w-4" /> Add Emergency Contact
-          </Button>
+          <AddEmergencyContactDialog onSuccess={fetchContacts} />
         }
       />
 
@@ -134,7 +129,7 @@ export default function EmergencyDirectoryPage() {
           </div>
       </div>
 
-      <DataTable columns={columns} data={data} searchKey="name" />
+      <DataTable columns={columns} data={contacts} searchKey="contact_name" />
     </div>
   );
 }

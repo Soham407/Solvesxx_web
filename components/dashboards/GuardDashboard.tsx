@@ -39,6 +39,7 @@ import { useEmployeeProfileWithFallback } from "@/hooks/useEmployeeProfile";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/src/lib/supabaseClient";
+import { useEmergencyContacts } from "@/hooks/useEmergencyContacts";
 
 // Fallback for development/testing when not authenticated
 const DEV_MOCK_EMPLOYEE_ID = "11111111-1111-1111-1111-111111111111";
@@ -313,6 +314,12 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
     completeItem: completeChecklistItem,
     addEvidencePhoto: recordChecklistPhoto,
   } = useGuardChecklist(employeeId);
+
+  // Emergency Contacts Hook
+  const {
+    contacts: emergencyContacts,
+    isLoading: isLoadingEmergencyContacts,
+  } = useEmergencyContacts();
 
   // Handle panic button hold release
   const handlePanicRelease = async () => {
@@ -1057,39 +1064,94 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
           </CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-2 gap-2 pb-6">
-          <a href="tel:100" className="inline-flex">
-            <Button
-              variant="outline"
-              className="w-full h-10 justify-start gap-2 text-xs font-bold border-muted-foreground/20"
-            >
-              <Phone className="h-3 w-3 text-primary" /> Police (100)
-            </Button>
-          </a>
-          <a href="tel:101" className="inline-flex">
-            <Button
-              variant="outline"
-              className="w-full h-10 justify-start gap-2 text-xs font-bold border-muted-foreground/20"
-            >
-              <AlertCircle className="h-3 w-3 text-critical" /> Fire (101)
-            </Button>
-          </a>
-          <a href="tel:102" className="inline-flex">
-            <Button
-              variant="outline"
-              className="w-full h-10 justify-start gap-2 text-xs font-bold border-muted-foreground/20"
-            >
-              <Phone className="h-3 w-3 text-info" /> Ambulance (102)
-            </Button>
-          </a>
-          {supervisorPhone && (
-            <a href={`tel:${supervisorPhone}`} className="inline-flex">
-              <Button
-                variant="outline"
-                className="w-full h-10 justify-start gap-2 text-xs font-bold border-muted-foreground/20"
-              >
-                <Phone className="h-3 w-3 text-success" /> Supervisor
-              </Button>
-            </a>
+          {isLoadingEmergencyContacts ? (
+            <div className="col-span-2 flex justify-center py-4">
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            </div>
+          ) : emergencyContacts.length > 0 ? (
+            <>
+              {emergencyContacts.slice(0, 6).map((contact) => {
+                // Determine icon and color based on contact type
+                const getContactStyle = (type: string) => {
+                  switch (type) {
+                    case 'police':
+                      return { icon: <Shield className="h-3 w-3 text-primary" />, color: 'text-primary' };
+                    case 'fire':
+                      return { icon: <AlertCircle className="h-3 w-3 text-critical" />, color: 'text-critical' };
+                    case 'ambulance':
+                      return { icon: <Phone className="h-3 w-3 text-info" />, color: 'text-info' };
+                    case 'lift_support':
+                      return { icon: <Building className="h-3 w-3 text-warning" />, color: 'text-warning' };
+                    default:
+                      return { icon: <Phone className="h-3 w-3 text-muted-foreground" />, color: 'text-muted-foreground' };
+                  }
+                };
+                const style = getContactStyle(contact.contact_type);
+                
+                return (
+                  <a key={contact.id} href={`tel:${contact.phone_number}`} className="inline-flex">
+                    <Button
+                      variant="outline"
+                      className="w-full h-10 justify-start gap-2 text-xs font-bold border-muted-foreground/20"
+                    >
+                      {style.icon}
+                      <span className="truncate">
+                        {contact.contact_name} ({contact.phone_number})
+                      </span>
+                    </Button>
+                  </a>
+                );
+              })}
+              {/* Always show supervisor if available */}
+              {supervisorPhone && (
+                <a href={`tel:${supervisorPhone}`} className="inline-flex">
+                  <Button
+                    variant="outline"
+                    className="w-full h-10 justify-start gap-2 text-xs font-bold border-muted-foreground/20"
+                  >
+                    <Phone className="h-3 w-3 text-success" /> Supervisor
+                  </Button>
+                </a>
+              )}
+            </>
+          ) : (
+            /* Fallback to hardcoded numbers if database is empty */
+            <>
+              <a href="tel:100" className="inline-flex">
+                <Button
+                  variant="outline"
+                  className="w-full h-10 justify-start gap-2 text-xs font-bold border-muted-foreground/20"
+                >
+                  <Shield className="h-3 w-3 text-primary" /> Police (100)
+                </Button>
+              </a>
+              <a href="tel:101" className="inline-flex">
+                <Button
+                  variant="outline"
+                  className="w-full h-10 justify-start gap-2 text-xs font-bold border-muted-foreground/20"
+                >
+                  <AlertCircle className="h-3 w-3 text-critical" /> Fire (101)
+                </Button>
+              </a>
+              <a href="tel:102" className="inline-flex">
+                <Button
+                  variant="outline"
+                  className="w-full h-10 justify-start gap-2 text-xs font-bold border-muted-foreground/20"
+                >
+                  <Phone className="h-3 w-3 text-info" /> Ambulance (102)
+                </Button>
+              </a>
+              {supervisorPhone && (
+                <a href={`tel:${supervisorPhone}`} className="inline-flex">
+                  <Button
+                    variant="outline"
+                    className="w-full h-10 justify-start gap-2 text-xs font-bold border-muted-foreground/20"
+                  >
+                    <Phone className="h-3 w-3 text-success" /> Supervisor
+                  </Button>
+                </a>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
