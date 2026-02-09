@@ -51,7 +51,11 @@ export function useJobSessions(serviceRequestId?: string, technicianId?: string)
         .from("job_sessions")
         .select(`
           *,
-          job_photos (*)
+          job_photos (*),
+          service_request:service_requests (
+            *,
+            location:company_locations (location_name)
+          )
         `);
 
       if (serviceRequestId) {

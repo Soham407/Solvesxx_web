@@ -86,6 +86,11 @@ export interface ServiceRequestDisplay extends ServiceRequestWithDetails {
 export interface JobSessionWithPhotos extends JobSession {
   photos: JobPhoto[];
   technicianName?: string;
+  service_request?: ServiceRequest & {
+    location?: {
+      location_name: string;
+    };
+  };
 }
 
 /** Stock item with reorder info */

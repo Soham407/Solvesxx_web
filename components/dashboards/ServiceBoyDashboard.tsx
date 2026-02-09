@@ -116,7 +116,7 @@ export function ServiceBoyDashboard() {
                             <Wrench className="h-4 w-4 text-muted-foreground" />
                         </div>
                         <div className="flex flex-col">
-                            <span className="text-sm font-bold ">{job.title || job.service?.service_name || "Service Request"}</span>
+                            <span className="text-sm font-bold ">{job.title || job.service_name || "Service Request"}</span>
                             <span className="text-[9px] font-bold text-muted-foreground uppercase">{job.request_number}</span>
                         </div>
                       </div>
@@ -129,7 +129,7 @@ export function ServiceBoyDashboard() {
                   </div>
                   <div className="flex items-center justify-between pt-3 border-t">
                       <div className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground">
-                          <MapPin className="h-3 w-3" /> {job.location?.location_name || "TBD"}
+                          <MapPin className="h-3 w-3" /> {job.location_name || "TBD"}
                       </div>
                       <div className="flex items-center gap-1.5 text-[10px] font-bold text-primary uppercase">
                           <Clock className="h-3 w-3" /> 
@@ -166,9 +166,9 @@ export function ServiceBoyDashboard() {
               <div className="space-y-2">
                 {alerts.slice(0, 2).map((alert) => (
                   <div key={alert.id} className="flex items-center justify-between">
-                    <div className="flex flex-col">
-                        <span className="text-sm font-bold">{alert.product?.product_name || "Product"}</span>
-                        <span className="text-[10px] text-muted-foreground">{alert.warehouse?.warehouse_name || "Warehouse"}</span>
+                    <div className="flex flex-col text-left">
+                        <span className="text-sm font-bold">{alert.productName || "Product"}</span>
+                        <span className="text-[10px] text-muted-foreground">{alert.warehouseName || "Warehouse"}</span>
                     </div>
                     <div className="text-right">
                         <span className={cn(
@@ -176,9 +176,9 @@ export function ServiceBoyDashboard() {
                           alert.priority === "critical" ? "text-critical" : 
                           alert.priority === "high" ? "text-warning" : "text-primary"
                         )}>
-                          {alert.alert_type.replace("_", " ")}
+                          {alert.alertType.replace("_", " ")}
                         </span>
-                        <p className="text-[9px] font-bold text-muted-foreground uppercase">Qty: {alert.current_stock}</p>
+                        <p className="text-[9px] font-bold text-muted-foreground uppercase">Qty: {alert.currentStock}</p>
                     </div>
                   </div>
                 ))}

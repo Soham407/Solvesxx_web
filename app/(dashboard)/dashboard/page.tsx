@@ -253,10 +253,10 @@ function AdminView() {
                                     ? "text-critical" 
                                     : "text-warning"
                                 )}>
-                                  {alert.alert_type === "out_of_stock" ? "Stock Out" : "Low Stock"}: {alert.product?.product_name}
+                                  {alert.alertType === "out_of_stock" ? "Stock Out" : "Low Stock"}: {alert.productName}
                                 </p>
                                 <p className="text-xs text-muted-foreground font-medium">
-                                  {alert.warehouse?.warehouse_name} • Current: {alert.current_stock}
+                                  {alert.warehouseName} • Current: {alert.currentStock}
                                 </p>
                             </div>
                        </div>

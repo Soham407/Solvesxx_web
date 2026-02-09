@@ -15,6 +15,7 @@ interface ReorderAlert {
   reorderLevel: number;
   suggestedQuantity: number;
   alertType: "low_stock" | "out_of_stock";
+  priority: "critical" | "high" | "medium" | "low";
   createdAt: string;
   acknowledged: boolean;
   acknowledgedAt?: string;
@@ -82,6 +83,7 @@ export function useReorderAlerts(warehouseId?: string): UseReorderAlertsReturn {
         reorderLevel: stock.reorder_level ? Number(stock.reorder_level) : 0,
         suggestedQuantity: calculateSuggestedQuantity(stock),
         alertType: Number(stock.total_quantity) === 0 ? "out_of_stock" : "low_stock",
+        priority: Number(stock.total_quantity) === 0 ? "critical" : "high",
         createdAt: new Date().toISOString(),
         acknowledged: false,
       }));
