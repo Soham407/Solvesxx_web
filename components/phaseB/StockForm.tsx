@@ -41,7 +41,7 @@ interface Product {
   id: string;
   product_name: string;
   product_code: string | null;
-  unit: string | null;
+  unit_of_measurement: string | null;
 }
 
 export function StockForm({
@@ -73,7 +73,7 @@ export function StockForm({
       try {
         const { data, error } = await supabase
           .from("products")
-          .select("id, product_name, product_code, unit")
+          .select("id, product_name, product_code, unit_of_measurement")
           .eq("is_active", true)
           .order("product_name");
 
@@ -213,7 +213,7 @@ export function StockForm({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="quantity">
-                Quantity * {selectedProduct?.unit && `(${selectedProduct.unit})`}
+                Quantity * {selectedProduct?.unit_of_measurement && `(${selectedProduct.unit_of_measurement})`}
               </Label>
               <Input
                 id="quantity"

@@ -1,16 +1,57 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-// Create Supabase client lazily to avoid build-time errors
-function getSupabaseClient() {
+// Create Supabase admin client lazily to avoid build-time errors
+function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   return createClient(supabaseUrl, supabaseServiceKey);
 }
 
+// Create Supabase client from user's auth token for verification
+function getSupabaseFromRequest(request: NextRequest) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  const authHeader = request.headers.get("Authorization");
+
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    global: {
+      headers: authHeader ? { Authorization: authHeader } : {},
+    },
+  });
+}
+
+/**
+ * Verify the request is from an authenticated user.
+ * Returns the user or a NextResponse error.
+ */
+async function authenticateRequest(request: NextRequest) {
+  const supabase = getSupabaseFromRequest(request);
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error || !user) {
+    return {
+      user: null,
+      error: NextResponse.json(
+        { error: "Unauthorized - valid authentication required" },
+        { status: 401 }
+      ),
+    };
+  }
+
+  return { user, error: null };
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const supabase = getSupabaseClient();
+    // Authenticate the request
+    const auth = await authenticateRequest(request);
+    if (auth.error) return auth.error;
+
+    const supabase = getSupabaseAdmin();
     const body = await request.json();
     const { count, societyId, warehouseId, prefix } = body;
 
@@ -60,14 +101,14 @@ export async function POST(request: NextRequest) {
       generatedQrCodes.push(data);
     }
 
-    // Log batch generation
+    // Log batch generation with the authenticated user's ID
     await supabase.from("qr_batch_logs").insert({
       batch_id: batchId,
       society_id: societyId,
       warehouse_id: warehouseId || null,
       count: count,
       generated_at: new Date().toISOString(),
-      generated_by: null, // Will be populated from auth context if available
+      generated_by: auth.user!.id,
     });
 
     return NextResponse.json({
@@ -77,10 +118,11 @@ export async function POST(request: NextRequest) {
       qrCodes: generatedQrCodes,
       downloadUrl: `/api/assets/qr-batch/${batchId}/download`,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("QR Batch Generation Error:", error);
+    const message = error instanceof Error ? error.message : "Failed to generate QR codes";
     return NextResponse.json(
-      { error: error.message || "Failed to generate QR codes" },
+      { error: message },
       { status: 500 }
     );
   }
@@ -88,7 +130,11 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = getSupabaseClient();
+    // Authenticate the request
+    const auth = await authenticateRequest(request);
+    if (auth.error) return auth.error;
+
+    const supabase = getSupabaseAdmin();
     const { searchParams } = new URL(request.url);
     const societyId = searchParams.get("societyId");
     const batchId = searchParams.get("batchId");
@@ -116,10 +162,11 @@ export async function GET(request: NextRequest) {
       success: true,
       qrCodes: data || [],
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("QR Batch Fetch Error:", error);
+    const message = error instanceof Error ? error.message : "Failed to fetch QR codes";
     return NextResponse.json(
-      { error: error.message || "Failed to fetch QR codes" },
+      { error: message },
       { status: 500 }
     );
   }

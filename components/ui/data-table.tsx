@@ -17,6 +17,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
@@ -26,6 +33,7 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -44,15 +52,24 @@ export interface DataTableAction<T> {
   variant?: "default" | "destructive";
 }
 
+export interface BulkAction<T> {
+  label: string;
+  onClick: (items: T[]) => void;
+  icon?: React.ReactNode;
+  variant?: "default" | "destructive";
+}
+
 interface DataTableProps<T> {
   data: T[];
   columns: Column<T>[];
   actions?: DataTableAction<T>[];
+  bulkActions?: BulkAction<T>[];
   selectable?: boolean;
   onSelectionChange?: (selected: T[]) => void;
   searchable?: boolean;
   searchPlaceholder?: string;
   pageSize?: number;
+  pageSizeOptions?: number[];
   loading?: boolean;
   emptyMessage?: string;
   className?: string;
@@ -62,20 +79,25 @@ export function DataTable<T extends { id: string | number }>({
   data,
   columns,
   actions,
+  bulkActions,
   selectable = false,
   onSelectionChange,
   searchable = true,
   searchPlaceholder = "Search...",
-  pageSize = 10,
+  pageSize: initialPageSize = 10,
+  pageSizeOptions = [10, 25, 50, 100],
   loading = false,
   emptyMessage = "No data found",
   className,
 }: DataTableProps<T>) {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string | number>>(new Set());
+  const [selectAllAcrossPages, setSelectAllAcrossPages] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(initialPageSize);
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [jumpToPage, setJumpToPage] = useState("");
 
   // Filter data by search
   const filteredData = data.filter((item) =>
@@ -110,18 +132,57 @@ export function DataTable<T extends { id: string | number }>({
       newSelected.add(id);
     }
     setSelected(newSelected);
+    setSelectAllAcrossPages(false);
     onSelectionChange?.(data.filter((item) => newSelected.has(item.id)));
   };
 
   const toggleSelectAll = () => {
-    if (selected.size === paginatedData.length) {
+    if (selected.size === paginatedData.length && !selectAllAcrossPages) {
       setSelected(new Set());
+      setSelectAllAcrossPages(false);
       onSelectionChange?.([]);
     } else {
       const newSelected = new Set(paginatedData.map((item) => item.id));
       setSelected(newSelected);
+      setSelectAllAcrossPages(false);
       onSelectionChange?.(paginatedData);
     }
+  };
+
+  const selectAllItems = () => {
+    const allIds = new Set(sortedData.map((item) => item.id));
+    setSelected(allIds);
+    setSelectAllAcrossPages(true);
+    onSelectionChange?.(sortedData);
+  };
+
+  const clearSelection = () => {
+    setSelected(new Set());
+    setSelectAllAcrossPages(false);
+    onSelectionChange?.([]);
+  };
+
+  const handlePageSizeChange = (newSize: string) => {
+    const size = parseInt(newSize, 10);
+    setPageSize(size);
+    setCurrentPage(1);
+  };
+
+  const handleJumpToPage = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      const page = parseInt(jumpToPage, 10);
+      if (page >= 1 && page <= totalPages) {
+        setCurrentPage(page);
+      }
+      setJumpToPage("");
+    }
+  };
+
+  const getSelectedItems = (): T[] => {
+    if (selectAllAcrossPages) {
+      return sortedData;
+    }
+    return data.filter((item) => selected.has(item.id));
   };
 
   const handleSort = (key: string) => {
@@ -165,10 +226,51 @@ export function DataTable<T extends { id: string | number }>({
               className="pl-9"
             />
           </div>
-          {selected.size > 0 && (
-            <span className="text-sm text-muted-foreground">
-              {selected.size} selected
+        </div>
+      )}
+
+      {/* Bulk Actions Bar - shows when items are selected */}
+      {selectable && selected.size > 0 && (
+        <div className="flex items-center gap-4 px-4 py-3 bg-primary/5 border-b">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">
+              {selectAllAcrossPages ? sortedData.length : selected.size} item{(selectAllAcrossPages ? sortedData.length : selected.size) !== 1 ? 's' : ''} selected
             </span>
+            {!selectAllAcrossPages && selected.size === paginatedData.length && sortedData.length > pageSize && (
+              <Button
+                variant="link"
+                size="sm"
+                className="h-auto p-0 text-primary"
+                onClick={selectAllItems}
+              >
+                Select all {sortedData.length} items
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-muted-foreground hover:text-foreground"
+              onClick={clearSelection}
+            >
+              <X className="h-3 w-3 mr-1" />
+              Clear
+            </Button>
+          </div>
+          {bulkActions && bulkActions.length > 0 && (
+            <div className="flex items-center gap-2 ml-auto">
+              {bulkActions.map((action, index) => (
+                <Button
+                  key={index}
+                  variant={action.variant === "destructive" ? "destructive" : "outline"}
+                  size="sm"
+                  className="h-8 gap-1.5"
+                  onClick={() => action.onClick(getSelectedItems())}
+                >
+                  {action.icon}
+                  {action.label}
+                </Button>
+              ))}
+            </div>
           )}
         </div>
       )}
@@ -278,57 +380,100 @@ export function DataTable<T extends { id: string | number }>({
         </Table>
       </div>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between p-4 border-t">
+      {/* Pagination - Always show for consistency */}
+      <div className="flex items-center justify-between p-4 border-t">
+        <div className="flex items-center gap-4">
           <p className="text-sm text-muted-foreground">
-            Showing {(currentPage - 1) * pageSize + 1} to{" "}
-            {Math.min(currentPage * pageSize, sortedData.length)} of{" "}
-            {sortedData.length} results
+            {sortedData.length === 0 ? (
+              "No results"
+            ) : (
+              <>
+                Showing {(currentPage - 1) * pageSize + 1} to{" "}
+                {Math.min(currentPage * pageSize, sortedData.length)} of{" "}
+                {sortedData.length} results
+              </>
+            )}
           </p>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setCurrentPage(1)}
-              disabled={currentPage === 1}
-            >
-              <ChevronsLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setCurrentPage(currentPage - 1)}
-              disabled={currentPage === 1}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="px-3 text-sm">
-              Page {currentPage} of {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setCurrentPage(currentPage + 1)}
-              disabled={currentPage === totalPages}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setCurrentPage(totalPages)}
-              disabled={currentPage === totalPages}
-            >
-              <ChevronsRight className="h-4 w-4" />
-            </Button>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Rows:</span>
+            <Select value={String(pageSize)} onValueChange={handlePageSizeChange}>
+              <SelectTrigger className="h-8 w-[70px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {pageSizeOptions.map((size) => (
+                  <SelectItem key={size} value={String(size)}>
+                    {size}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
-      )}
+        <div className="flex items-center gap-2">
+          {totalPages > 1 && (
+            <>
+              <div className="flex items-center gap-1.5 mr-2">
+                <span className="text-sm text-muted-foreground">Go to:</span>
+                <Input
+                  type="number"
+                  min={1}
+                  max={totalPages}
+                  placeholder={String(currentPage)}
+                  value={jumpToPage}
+                  onChange={(e) => setJumpToPage(e.target.value)}
+                  onKeyDown={handleJumpToPage}
+                  className="h-8 w-16 text-center"
+                  aria-label="Jump to page"
+                />
+              </div>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage === 1}
+                aria-label="First page"
+              >
+                <ChevronsLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setCurrentPage(currentPage - 1)}
+                disabled={currentPage === 1}
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="px-3 text-sm tabular-nums">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setCurrentPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                aria-label="Next page"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={currentPage === totalPages}
+                aria-label="Last page"
+              >
+                <ChevronsRight className="h-4 w-4" />
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

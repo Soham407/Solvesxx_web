@@ -5,6 +5,7 @@ import { supabase } from "@/src/lib/supabaseClient";
 /**
  * Generates a signed URL for a visitor photo.
  * This ensures photos are only accessible to authorized users and expire after a set time.
+ * The visitor-photos bucket is PRIVATE -- signed URLs are the only way to access photos.
  * 
  * @param photoPath - The path to the photo in the visitor-photos bucket
  * @param expiresInSeconds - How long the URL is valid (default: 60 seconds)
@@ -31,24 +32,6 @@ export async function getSignedVisitorPhotoUrl(
     console.error("Error creating signed URL:", err);
     return null;
   }
-}
-
-/**
- * Gets the public URL for a visitor photo.
- * WARNING: This URL is publicly accessible. Only use for non-sensitive testing.
- * For production, use getSignedVisitorPhotoUrl instead.
- * 
- * @param photoPath - The path to the photo in the visitor-photos bucket
- * @returns A public URL string
- */
-export function getPublicVisitorPhotoUrl(photoPath: string | null | undefined): string | null {
-  if (!photoPath) return null;
-
-  const { data } = supabase.storage
-    .from("visitor-photos")
-    .getPublicUrl(photoPath);
-
-  return data.publicUrl;
 }
 
 /**

@@ -51,7 +51,6 @@ export default function ProductsPage() {
     stats,
     isLoading,
     error,
-    isUsingMockData,
     updateStock,
     getStockStatus,
     filters,
@@ -215,7 +214,7 @@ export default function ProductsPage() {
   }
 
   // Error state
-  if (error && !isUsingMockData) {
+  if (error) {
     return (
       <div className="flex flex-col items-center justify-center h-96 gap-4">
         <p className="text-destructive">{error}</p>
@@ -242,21 +241,6 @@ export default function ProductsPage() {
           </div>
         }
       />
-
-      {/* Demo Mode Notice */}
-      {isUsingMockData && (
-        <Card className="border-info/20 bg-info/5">
-          <CardContent className="p-4 flex items-center gap-3">
-            <Info className="h-5 w-5 text-info" />
-            <div className="flex-1">
-              <p className="text-sm font-medium text-info">Demo Mode Active</p>
-              <p className="text-xs text-muted-foreground">
-                Products table not yet created in database. Showing sample data for demonstration.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-4">

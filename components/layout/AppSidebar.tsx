@@ -35,23 +35,25 @@ import {
   BookOpen,
   Menu,
   LogOut,
-  Moon,
-  Sun,
   LayoutGrid,
   Settings2,
   HardDrive,
   ClipboardCheck,
   Hammer,
 } from "lucide-react";
-import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 // 🔒 Feature Flags - Filter frozen features from navigation
 import { 
   isNavItemFrozen, 
@@ -270,12 +272,6 @@ interface AppSidebarProps {
 export function AppSidebar({ collapsed, onToggle, className, isMobile }: AppSidebarProps) {
   const pathname = usePathname();
   const [openGroups, setOpenGroups] = useState<string[]>([]);
-  const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     // Auto-open groups containing the current path
@@ -326,55 +322,65 @@ export function AppSidebar({ collapsed, onToggle, className, isMobile }: AppSide
 
 
   return (
-    <aside
-      className={cn(
-        "bg-sidebar transition-all duration-300 border-sidebar-border",
-        !isMobile ? "fixed left-0 top-0 z-40 h-screen border-r hidden lg:block" : "h-full w-full",
-        !isMobile && (collapsed ? "w-16" : "w-64"),
-        className
-      )}
-    >
-      {/* Logo Section & Toggle */}
-      <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-4">
-        {collapsed ? (
-          <div className="flex h-full w-full items-center justify-center">
-             {onToggle && (
-               <Button
+    <TooltipProvider delayDuration={0}>
+      <aside
+        className={cn(
+          "bg-sidebar transition-all duration-300 border-sidebar-border",
+          !isMobile ? "fixed left-0 top-0 z-40 h-screen border-r hidden lg:block" : "h-full w-full",
+          !isMobile && (collapsed ? "w-16" : "w-64"),
+          className
+        )}
+      >
+        {/* Logo Section & Toggle */}
+        <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-4">
+          {collapsed ? (
+            <div className="flex h-full w-full items-center justify-center">
+              {onToggle && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={onToggle}
+                      className="h-8 w-8 text-sidebar-muted hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+                      aria-label="Expand sidebar"
+                    >
+                      <Menu className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    <p>Expand sidebar</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary shadow-lg shadow-sidebar-primary/20">
+                  <span className="text-base font-bold text-sidebar-primary-foreground">F</span>
+                </div>
+                <div className="flex flex-col gap-0">
+                  <span className="text-sm font-extrabold text-sidebar-foreground leading-none">FacilityPro</span>
+                  <span className="text-[11px] text-sidebar-primary uppercase font-black tracking-wider opacity-90">Enterprise</span>
+                </div>
+              </div>
+              {onToggle && (
+                <Button
                   variant="ghost"
                   size="icon"
                   onClick={onToggle}
-                  className="h-8 w-8 text-sidebar-muted hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+                  className="h-8 w-8 text-sidebar-muted hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-all active:scale-90"
+                  aria-label="Collapse sidebar"
                 >
                   <Menu className="h-4 w-4" />
                 </Button>
-             )}
-          </div>
-        ) : (
-          <>
-            <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary shadow-lg shadow-sidebar-primary/20">
-                <span className="text-base font-bold text-sidebar-primary-foreground">F</span>
-              </div>
-              <div className="flex flex-col gap-0">
-                <span className="text-sm font-extrabold text-sidebar-foreground leading-none">FacilityPro</span>
-                <span className="text-[11px] text-sidebar-primary uppercase font-black tracking-wider opacity-90">Enterprise</span>
-              </div>
-            </div>
-            {onToggle && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onToggle}
-                className="h-8 w-8 text-sidebar-muted hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-all active:scale-90"
-              >
-                <Menu className="h-4 w-4" />
-              </Button>
-            )}
-          </>
-        )}
-      </div>
+              )}
+            </>
+          )}
+        </div>
 
-      <ScrollArea className="h-[calc(100vh-10rem)]">
+        <ScrollArea className="h-[calc(100vh-4rem)]">
         <div className="p-3 space-y-6">
           {/* 🔒 Using filteredNavigation to hide frozen features */}
           {filteredNavigation.map((group) => (
@@ -388,32 +394,49 @@ export function AppSidebar({ collapsed, onToggle, className, isMobile }: AppSide
                 {group.items.map((item) => (
                   <div key={item.title}>
                     {item.children ? (
-                      <Collapsible
-                        open={openGroups.includes(item.title)}
-                        onOpenChange={() => toggleGroup(item.title)}
-                      >
-                        <CollapsibleTrigger className="w-full">
-                          <div
-                            className={cn(
-                              "nav-item w-full cursor-pointer",
-                              isActive(item.href) ? "nav-item-active" : "nav-item-inactive"
-                            )}
-                          >
-                            <div className="flex items-center gap-3 flex-1">
+                      collapsed ? (
+                        // Collapsed state: show tooltip with item title
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Link
+                              href={item.href}
+                              className={cn(
+                                "nav-item",
+                                isActive(item.href) ? "nav-item-active" : "nav-item-inactive"
+                              )}
+                            >
                               <item.icon className="h-4 w-4 shrink-0" />
-                              {!collapsed && <span className="truncate">{item.title}</span>}
-                            </div>
-                            {!collapsed && (
+                            </Link>
+                          </TooltipTrigger>
+                          <TooltipContent side="right">
+                            <p>{item.title}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      ) : (
+                        // Expanded state: show collapsible menu
+                        <Collapsible
+                          open={openGroups.includes(item.title)}
+                          onOpenChange={() => toggleGroup(item.title)}
+                        >
+                          <CollapsibleTrigger className="w-full">
+                            <div
+                              className={cn(
+                                "nav-item w-full cursor-pointer",
+                                isActive(item.href) ? "nav-item-active" : "nav-item-inactive"
+                              )}
+                            >
+                              <div className="flex items-center gap-3 flex-1">
+                                <item.icon className="h-4 w-4 shrink-0" />
+                                <span className="truncate">{item.title}</span>
+                              </div>
                               <ChevronDown
                                 className={cn(
                                   "h-3.5 w-3.5 shrink-0 transition-transform opacity-60",
                                   openGroups.includes(item.title) && "rotate-180"
                                 )}
                               />
-                            )}
-                          </div>
-                        </CollapsibleTrigger>
-                        {!collapsed && (
+                            </div>
+                          </CollapsibleTrigger>
                           <CollapsibleContent className="pl-9 space-y-1 mt-1">
                             {item.children.map((child) => (
                               <Link
@@ -430,9 +453,28 @@ export function AppSidebar({ collapsed, onToggle, className, isMobile }: AppSide
                               </Link>
                             ))}
                           </CollapsibleContent>
-                        )}
-                      </Collapsible>
+                        </Collapsible>
+                      )
+                    ) : collapsed ? (
+                      // Collapsed state for items without children
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Link
+                            href={item.href}
+                            className={cn(
+                              "nav-item",
+                              isActive(item.href) ? "nav-item-active" : "nav-item-inactive"
+                            )}
+                          >
+                            <item.icon className="h-4 w-4 shrink-0" />
+                          </Link>
+                        </TooltipTrigger>
+                        <TooltipContent side="right">
+                          <p>{item.title}</p>
+                        </TooltipContent>
+                      </Tooltip>
                     ) : (
+                      // Expanded state for items without children
                       <Link
                         href={item.href}
                         className={cn(
@@ -441,7 +483,7 @@ export function AppSidebar({ collapsed, onToggle, className, isMobile }: AppSide
                         )}
                       >
                         <item.icon className="h-4 w-4 shrink-0" />
-                        {!collapsed && <span>{item.title}</span>}
+                        <span>{item.title}</span>
                       </Link>
                     )}
                   </div>
@@ -451,28 +493,7 @@ export function AppSidebar({ collapsed, onToggle, className, isMobile }: AppSide
           ))}
         </div>
       </ScrollArea>
-
-      <div className="p-4 border-t border-sidebar-border mt-auto">
-        <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-sidebar-accent/10 border border-sidebar-border/30 h-[58px]">
-          {mounted && !collapsed && (
-            <div className="flex flex-col gap-0.5">
-                <span className="text-sm font-bold text-sidebar-foreground">
-                {theme === "dark" ? "Dark Mode" : "Light Mode"}
-              </span>
-              <span className="text-[11px] text-sidebar-foreground/40 uppercase font-black tracking-tight">Theme Switch</span>
-            </div>
-          )}
-          {mounted && (
-            <div className="flex items-center">
-              <Switch
-                checked={theme === "dark"}
-                onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")}
-                className="data-[state=unchecked]:bg-sidebar-muted/20 data-[state=checked]:bg-sidebar-primary"
-              />
-            </div>
-          )}
-        </div>
-      </div>
-    </aside>
+      </aside>
+    </TooltipProvider>
   );
 }

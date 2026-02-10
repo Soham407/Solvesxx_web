@@ -63,13 +63,34 @@ export function usePushNotifications() {
     checkSupport();
   }, []);
 
-  // Register service worker
+  // Register service worker and send Firebase config
   useEffect(() => {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
 
     navigator.serviceWorker.register('/firebase-messaging-sw.js')
       .then((registration) => {
         console.log('Firebase messaging SW registered:', registration.scope);
+        // Send Firebase config to the service worker (it can't access process.env)
+        const firebaseConfig = {
+          apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+          authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+          projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+          storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+          messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+          appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+        };
+        if (registration.active) {
+          registration.active.postMessage({ type: 'FIREBASE_CONFIG', config: firebaseConfig });
+        }
+        // Also send when the SW becomes active (first install)
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          newWorker?.addEventListener('statechange', () => {
+            if (newWorker.state === 'activated') {
+              newWorker.postMessage({ type: 'FIREBASE_CONFIG', config: firebaseConfig });
+            }
+          });
+        });
       })
       .catch((error) => {
         console.error('Firebase messaging SW registration failed:', error);

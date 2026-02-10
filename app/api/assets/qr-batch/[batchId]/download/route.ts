@@ -1,11 +1,43 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-// Create Supabase client lazily to avoid build-time errors
-function getSupabaseClient() {
+// Create Supabase admin client lazily to avoid build-time errors
+function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   return createClient(supabaseUrl, supabaseServiceKey);
+}
+
+/**
+ * Verify the request is from an authenticated user.
+ */
+async function authenticateRequest(request: NextRequest) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  const authHeader = request.headers.get("Authorization");
+
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    global: {
+      headers: authHeader ? { Authorization: authHeader } : {},
+    },
+  });
+
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error || !user) {
+    return {
+      user: null,
+      error: NextResponse.json(
+        { error: "Unauthorized - valid authentication required" },
+        { status: 401 }
+      ),
+    };
+  }
+
+  return { user, error: null };
 }
 
 export async function GET(
@@ -13,7 +45,11 @@ export async function GET(
   { params }: { params: Promise<{ batchId: string }> }
 ) {
   try {
-    const supabase = getSupabaseClient();
+    // Authenticate the request
+    const auth = await authenticateRequest(request);
+    if (auth.error) return auth.error;
+
+    const supabase = getSupabaseAdmin();
     const { batchId } = await params;
 
     if (!batchId) {
@@ -59,10 +95,11 @@ export async function GET(
         downloadUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/assets/qr/${qr.id}/image`,
       })),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("QR Batch Download Error:", error);
+    const message = error instanceof Error ? error.message : "Failed to fetch batch";
     return NextResponse.json(
-      { error: error.message || "Failed to fetch batch" },
+      { error: message },
       { status: 500 }
     );
   }

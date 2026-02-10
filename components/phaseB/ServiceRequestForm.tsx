@@ -35,6 +35,8 @@ import { useAssets } from "@/hooks/useAssets";
 import type { AssetWithDetails, CreateServiceRequestForm } from "@/src/types/phaseB";
 import { SERVICE_PRIORITY, SERVICE_PRIORITY_LABELS } from "@/src/lib/constants";
 import { supabase } from "@/src/lib/supabaseClient";
+import { toast } from "sonner";
+import { InlineLoader } from "@/components/ui/async-boundary";
 
 interface ServiceRequestFormProps {
   preselectedAsset?: AssetWithDetails | null;
@@ -61,10 +63,11 @@ export function ServiceRequestForm({
   const { services, isLoading: isServicesLoading } = useServices();
   const { assets: allAssets, isLoading: isAssetsLoading } = useAssets();
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
+const [isSubmitting, setIsSubmitting] = useState(false);
   const [locations, setLocations] = useState<Location[]>([]);
   const [societies, setSocieties] = useState<Society[]>([]);
   const [referenceDataError, setReferenceDataError] = useState<string | null>(null);
+  const [isLoadingReferenceData, setIsLoadingReferenceData] = useState(true);
 
   // Form state
   const [formData, setFormData] = useState<CreateServiceRequestForm>({
@@ -80,10 +83,11 @@ export function ServiceRequestForm({
     requesterPhone: "",
   });
 
-  // Fetch locations and societies
+// Fetch locations and societies
   useEffect(() => {
     async function fetchReferenceData() {
       setReferenceDataError(null);
+      setIsLoadingReferenceData(true);
       try {
         const [locRes, socRes] = await Promise.all([
           supabase.from("company_locations").select("id, location_name").eq("is_active", true),
@@ -111,6 +115,8 @@ export function ServiceRequestForm({
         console.error("Error fetching reference data:", err);
         const errorMessage = err instanceof Error ? err.message : "Unknown error occurred";
         setReferenceDataError(`Failed to load reference data: ${errorMessage}`);
+      } finally {
+        setIsLoadingReferenceData(false);
       }
     }
 
@@ -150,15 +156,16 @@ export function ServiceRequestForm({
         requester_phone: formData.requesterPhone || null,
       });
 
-      if (result.success) {
+if (result.success) {
+        toast.success("Service request created successfully");
         onSuccess?.();
       } else {
-        alert(result.error || "Failed to create service request");
+        toast.error(result.error || "Failed to create service request");
       }
     } catch (err) {
       console.error("Form submission error:", err);
       const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred";
-      alert(`Failed to submit form: ${errorMessage}`);
+      toast.error(`Failed to submit form: ${errorMessage}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -274,16 +281,21 @@ export function ServiceRequestForm({
             )}
           </div>
 
-          {/* Location & Society */}
+{/* Location & Society */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="location">Location</Label>
               <Select
                 value={formData.locationId || "__none__"}
                 onValueChange={(val) => setFormData({ ...formData, locationId: val === "__none__" ? "" : val })}
+                disabled={isLoadingReferenceData}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select location" />
+                  {isLoadingReferenceData ? (
+                    <InlineLoader />
+                  ) : (
+                    <SelectValue placeholder="Select location" />
+                  )}
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">None</SelectItem>
@@ -301,9 +313,14 @@ export function ServiceRequestForm({
               <Select
                 value={formData.societyId || "__none__"}
                 onValueChange={(val) => setFormData({ ...formData, societyId: val === "__none__" ? "" : val })}
+                disabled={isLoadingReferenceData}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select society" />
+                  {isLoadingReferenceData ? (
+                    <InlineLoader />
+                  ) : (
+                    <SelectValue placeholder="Select society" />
+                  )}
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">None</SelectItem>

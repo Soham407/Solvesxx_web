@@ -38,7 +38,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { AppSidebar } from "./AppSidebar";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -185,7 +185,7 @@ export function TopNav({ onToggleSidebar, sidebarCollapsed }: TopNavProps) {
         {/* Notifications */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative group">
+            <Button variant="ghost" size="icon" className="relative group" aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}>
               <Bell className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
               {unreadCount > 0 && (
                 <span className="absolute top-2 right-2 flex h-2 w-2 items-center justify-center">
@@ -231,7 +231,6 @@ export function TopNav({ onToggleSidebar, sidebarCollapsed }: TopNavProps) {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="gap-3 pl-2 pr-3 h-10 hover:bg-muted/50 hover:text-foreground transition-all group">
               <Avatar className="h-8 w-8 ring-2 ring-transparent group-hover:ring-primary/20 transition-all shadow-sm">
-                <AvatarImage src="" />
                 <AvatarFallback className="bg-primary text-primary-foreground text-xs font-bold">
                   V
                 </AvatarFallback>

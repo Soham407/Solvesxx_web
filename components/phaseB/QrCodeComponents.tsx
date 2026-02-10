@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   QrCode,
   Camera,
@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { useQrCodes } from "@/hooks/useQrCodes";
 import type { AssetWithDetails } from "@/src/types/phaseB";
 import { QR_CODE_CONFIG } from "@/src/lib/constants";
+import { QRCodeSVG } from "qrcode.react";
 
 interface QrCodeDisplayProps {
   qrId: string;
@@ -38,11 +39,8 @@ export function QrCodeDisplay({
 }: QrCodeDisplayProps) {
   const { generateQrUrl } = useQrCodes();
   const [copied, setCopied] = useState(false);
+  const qrRef = useRef<HTMLDivElement>(null);
   const qrUrl = generateQrUrl(qrId);
-
-  // Generate QR code using a simple SVG-based approach
-  // In production, use a library like qrcode.react
-  const qrDataUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(qrUrl)}`;
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(qrUrl);
@@ -50,12 +48,31 @@ export function QrCodeDisplay({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleDownload = () => {
-    const link = document.createElement("a");
-    link.href = qrDataUrl;
-    link.download = `qr-${asset?.asset_code || qrId}.png`;
-    link.click();
-  };
+  const handleDownload = useCallback(() => {
+    if (!qrRef.current) return;
+    const svg = qrRef.current.querySelector("svg");
+    if (!svg) return;
+
+    // Convert SVG to a downloadable PNG via canvas
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const img = new Image();
+    img.onload = () => {
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, size, size);
+      ctx.drawImage(img, 0, 0, size, size);
+      const link = document.createElement("a");
+      link.href = canvas.toDataURL("image/png");
+      link.download = `qr-${asset?.asset_code || qrId}.png`;
+      link.click();
+    };
+    img.src = `data:image/svg+xml;base64,${btoa(svgData)}`;
+  }, [size, asset?.asset_code, qrId]);
 
   return (
     <Card className="border-none shadow-card ring-1 ring-border">
@@ -66,13 +83,12 @@ export function QrCodeDisplay({
         </CardTitle>
       </CardHeader>
       <CardContent className="p-6 flex flex-col items-center">
-        {/* QR Code Image */}
-        <div className="bg-white p-4 rounded-lg shadow-inner">
-          <img
-            src={qrDataUrl}
-            alt="QR Code"
-            width={size}
-            height={size}
+        {/* QR Code - generated locally, no external service */}
+        <div className="bg-white p-4 rounded-lg shadow-inner" ref={qrRef}>
+          <QRCodeSVG
+            value={qrUrl}
+            size={size}
+            level="M"
             className="rounded"
           />
         </div>

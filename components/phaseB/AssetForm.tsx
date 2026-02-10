@@ -11,6 +11,7 @@ import {
   Save,
   X,
   Loader2,
+  AlertTriangle,
 } from "lucide-react";
 import {
   Card,
@@ -34,6 +35,8 @@ import { useAssetCategories } from "@/hooks/useAssetCategories";
 import type { AssetWithDetails, CreateAssetForm, AssetStatus } from "@/src/types/phaseB";
 import { ASSET_STATUS, ASSET_STATUS_LABELS } from "@/src/lib/constants";
 import { supabase } from "@/src/lib/supabaseClient";
+import { toast } from "sonner";
+import { InlineLoader } from "@/components/ui/async-boundary";
 
 interface AssetFormProps {
   asset?: AssetWithDetails | null;
@@ -61,10 +64,12 @@ export function AssetForm({ asset, onSuccess, onCancel }: AssetFormProps) {
   const { createAsset, updateAsset } = useAssets();
   const { categories, isLoading: isCategoriesLoading } = useAssetCategories();
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
+const [isSubmitting, setIsSubmitting] = useState(false);
   const [locations, setLocations] = useState<Location[]>([]);
   const [societies, setSocieties] = useState<Society[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [isLoadingReferenceData, setIsLoadingReferenceData] = useState(true);
+  const [referenceDataError, setReferenceDataError] = useState<string | null>(null);
 
   // Form state
   const [formData, setFormData] = useState<CreateAssetForm>({
@@ -85,9 +90,11 @@ export function AssetForm({ asset, onSuccess, onCancel }: AssetFormProps) {
 
   const [status, setStatus] = useState<AssetStatus>(asset?.status || "functional");
 
-  // Fetch locations, societies, and suppliers
+// Fetch locations, societies, and suppliers
   useEffect(() => {
     async function fetchReferenceData() {
+      setIsLoadingReferenceData(true);
+      setReferenceDataError(null);
       try {
         const [locRes, socRes, supRes] = await Promise.all([
           supabase.from("company_locations").select("id, location_name, location_code").eq("is_active", true),
@@ -95,11 +102,30 @@ export function AssetForm({ asset, onSuccess, onCancel }: AssetFormProps) {
           supabase.from("suppliers").select("id, supplier_name").eq("is_active", true),
         ]);
 
-        if (locRes.data) setLocations(locRes.data);
-        if (socRes.data) setSocieties(socRes.data);
-        if (supRes.data) setSuppliers(supRes.data);
+        if (locRes.error) {
+          setReferenceDataError(`Failed to load locations: ${locRes.error.message}`);
+        } else if (locRes.data) {
+          setLocations(locRes.data);
+        }
+        
+        if (socRes.error) {
+          setReferenceDataError(prev => prev ? `${prev}; Failed to load societies` : `Failed to load societies: ${socRes.error.message}`);
+        } else if (socRes.data) {
+          setSocieties(socRes.data);
+        }
+        
+        if (supRes.error) {
+          setReferenceDataError(prev => prev ? `${prev}; Failed to load suppliers` : `Failed to load suppliers: ${supRes.error.message}`);
+        } else if (supRes.data) {
+          setSuppliers(supRes.data);
+        }
       } catch (err) {
         console.error("Error fetching reference data:", err);
+        const errorMessage = err instanceof Error ? err.message : "Unknown error";
+        setReferenceDataError(`Failed to load reference data: ${errorMessage}`);
+        toast.error("Failed to load form options. Please refresh.");
+      } finally {
+        setIsLoadingReferenceData(false);
       }
     }
 
@@ -111,11 +137,11 @@ export function AssetForm({ asset, onSuccess, onCancel }: AssetFormProps) {
     e.preventDefault();
     setIsSubmitting(true);
 
-    try {
+try {
       if (asset) {
         // Update existing asset
         if (!asset.id) {
-          alert("Invalid asset ID");
+          toast.error("Invalid asset ID");
           setIsSubmitting(false);
           return;
         }
@@ -137,9 +163,10 @@ export function AssetForm({ asset, onSuccess, onCancel }: AssetFormProps) {
         });
 
         if (result.success) {
+          toast.success("Asset updated successfully");
           onSuccess?.();
         } else {
-          alert(result.error || "Failed to update asset");
+          toast.error(result.error || "Failed to update asset");
         }
       } else {
         // Create new asset
@@ -161,13 +188,16 @@ export function AssetForm({ asset, onSuccess, onCancel }: AssetFormProps) {
         });
 
         if (result.success) {
+          toast.success("Asset created successfully");
           onSuccess?.();
         } else {
-          alert(result.error || "Failed to create asset");
+          toast.error(result.error || "Failed to create asset");
         }
       }
     } catch (err) {
       console.error("Form submission error:", err);
+      const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred";
+      toast.error(`Submission failed: ${errorMessage}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -188,7 +218,14 @@ export function AssetForm({ asset, onSuccess, onCancel }: AssetFormProps) {
           )}
         </div>
       </CardHeader>
-      <CardContent className="p-6">
+<CardContent className="p-6">
+        {/* Reference Data Error Banner */}
+        {referenceDataError && (
+          <div className="flex items-center gap-2 p-4 rounded-lg bg-destructive/10 text-destructive mb-6">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <p className="text-sm">{referenceDataError}</p>
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Basic Info */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -203,15 +240,20 @@ export function AssetForm({ asset, onSuccess, onCancel }: AssetFormProps) {
               />
             </div>
 
-            <div>
+<div>
               <Label htmlFor="category">Category *</Label>
               <Select
                 value={formData.categoryId}
                 onValueChange={(val) => setFormData({ ...formData, categoryId: val })}
                 required
+                disabled={isCategoriesLoading}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
+                  {isCategoriesLoading ? (
+                    <InlineLoader />
+                  ) : (
+                    <SelectValue placeholder="Select category" />
+                  )}
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map((cat) => (
@@ -229,9 +271,14 @@ export function AssetForm({ asset, onSuccess, onCancel }: AssetFormProps) {
                 value={formData.locationId}
                 onValueChange={(val) => setFormData({ ...formData, locationId: val })}
                 required
+                disabled={isLoadingReferenceData}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select location" />
+                  {isLoadingReferenceData ? (
+                    <InlineLoader />
+                  ) : (
+                    <SelectValue placeholder="Select location" />
+                  )}
                 </SelectTrigger>
                 <SelectContent>
                   {locations.map((loc) => (
@@ -246,14 +293,19 @@ export function AssetForm({ asset, onSuccess, onCancel }: AssetFormProps) {
             <div>
               <Label htmlFor="society">Society (Optional)</Label>
               <Select
-                value={formData.societyId || ""}
-                onValueChange={(val) => setFormData({ ...formData, societyId: val || undefined })}
+                value={formData.societyId || "__none__"}
+                onValueChange={(val) => setFormData({ ...formData, societyId: val === "__none__" ? undefined : val })}
+                disabled={isLoadingReferenceData}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select society" />
+                  {isLoadingReferenceData ? (
+                    <InlineLoader />
+                  ) : (
+                    <SelectValue placeholder="Select society" />
+                  )}
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="__none__">None</SelectItem>
                   {societies.map((soc) => (
                     <SelectItem key={soc.id} value={soc.id}>
                       {soc.society_name}
@@ -367,18 +419,23 @@ export function AssetForm({ asset, onSuccess, onCancel }: AssetFormProps) {
             </div>
           </div>
 
-          {/* Vendor */}
+{/* Vendor */}
           <div>
             <Label htmlFor="vendor">Vendor/Supplier</Label>
             <Select
-              value={formData.vendorId || ""}
-              onValueChange={(val) => setFormData({ ...formData, vendorId: val || undefined })}
+              value={formData.vendorId || "__none__"}
+              onValueChange={(val) => setFormData({ ...formData, vendorId: val === "__none__" ? undefined : val })}
+              disabled={isLoadingReferenceData}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select vendor" />
+                {isLoadingReferenceData ? (
+                  <InlineLoader />
+                ) : (
+                  <SelectValue placeholder="Select vendor" />
+                )}
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">None</SelectItem>
+                <SelectItem value="__none__">None</SelectItem>
                 {suppliers.map((sup) => (
                   <SelectItem key={sup.id} value={sup.id}>
                     {sup.supplier_name}

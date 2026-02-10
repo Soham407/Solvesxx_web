@@ -15,6 +15,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { supabase } from "@/src/lib/supabaseClient";
 
@@ -171,22 +177,42 @@ export default function LoginPage() {
                 </span>
                 <div className="h-px w-8 bg-white/10" />
               </div>
-              <div className="flex gap-4 w-full">
-                <Button
-                  variant="outline"
-                  className="flex-1 bg-white/5 border-white/10 text-white hover:bg-white/10 h-10 gap-2"
-                >
-                  <Building2 className="h-4 w-4" />
-                  SSO
-                </Button>
-                <Button
-                  variant="outline"
-                  className="flex-1 bg-white/5 border-white/10 text-white hover:bg-white/10 h-10 gap-2"
-                >
-                  <Globe className="h-4 w-4" />
-                  Azure
-                </Button>
-              </div>
+              <TooltipProvider>
+                <div className="flex gap-4 w-full">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        disabled
+                        className="flex-1 bg-white/5 border-white/10 text-white hover:bg-white/10 h-10 gap-2 disabled:opacity-50"
+                        aria-label="SSO login - Coming soon"
+                      >
+                        <Building2 className="h-4 w-4" />
+                        SSO
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Coming soon</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        disabled
+                        className="flex-1 bg-white/5 border-white/10 text-white hover:bg-white/10 h-10 gap-2 disabled:opacity-50"
+                        aria-label="Azure AD login - Coming soon"
+                      >
+                        <Globe className="h-4 w-4" />
+                        Azure
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Coming soon</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </TooltipProvider>
             </CardFooter>
           </Card>
         </motion.div>
@@ -198,15 +224,15 @@ export default function LoginPage() {
           transition={{ delay: 0.5 }}
           className="mt-8 flex justify-center gap-6 text-xs font-bold text-gray-500 uppercase tracking-widest"
         >
-          <a href="#" className="hover:text-primary transition-colors">
+          <span className="cursor-default" title="Coming soon">
             Security Audit
-          </a>
-          <a href="#" className="hover:text-primary transition-colors">
+          </span>
+          <span className="cursor-default" title="Coming soon">
             Privacy
-          </a>
-          <a href="#" className="hover:text-primary transition-colors">
+          </span>
+          <span className="cursor-default" title="Coming soon">
             Contact Support
-          </a>
+          </span>
         </motion.div>
       </div>
     </div>

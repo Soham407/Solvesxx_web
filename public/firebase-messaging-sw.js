@@ -1,47 +1,52 @@
 // ============================================
 // Firebase Cloud Messaging Service Worker
 // This file MUST be in the public folder
+// Config is injected at runtime via postMessage
 // ============================================
 
 importScripts('https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging-compat.js');
 
-// Firebase configuration (must match lib/firebase.ts)
-firebase.initializeApp({
-  apiKey: "AIzaSyDX-dx3tqYe1BFzB_vus2G9CoUuXYXLzpw",
-  authDomain: "facilitypro-81bde.firebaseapp.com",
-  projectId: "facilitypro-81bde",
-  storageBucket: "facilitypro-81bde.firebasestorage.app",
-  messagingSenderId: "675663268881",
-  appId: "1:675663268881:web:6767c3c25ca3e716ef75b0",
+let messagingInstance = null;
+
+// Listen for Firebase config from the main thread
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'FIREBASE_CONFIG') {
+    if (!firebase.apps.length) {
+      firebase.initializeApp(event.data.config);
+      messagingInstance = firebase.messaging();
+      setupBackgroundMessageHandler(messagingInstance);
+      console.log('[firebase-messaging-sw.js] Firebase initialized with runtime config');
+    }
+  }
 });
 
-const messaging = firebase.messaging();
+function setupBackgroundMessageHandler(messaging) {
+  // Handle background messages
+  messaging.onBackgroundMessage((payload) => {
+    console.log('[firebase-messaging-sw.js] Background message received:', payload);
 
-// Handle background messages
-messaging.onBackgroundMessage((payload) => {
-  console.log('[firebase-messaging-sw.js] Background message received:', payload);
+    const notificationTitle = payload.notification?.title || payload.data?.title || 'FacilityPro Alert';
+    const notificationOptions = {
+      body: payload.notification?.body || payload.data?.body || 'You have a new notification',
+      icon: '/favicon.ico',
+      badge: '/favicon.ico',
+      tag: payload.data?.tag || 'facility-notification',
+      data: payload.data,
+      // Vibration pattern for emergency alerts
+      vibrate: payload.data?.priority === 'critical' ? [200, 100, 200, 100, 200] : [200, 100, 200],
+      // Keep notification visible
+      requireInteraction: payload.data?.priority === 'critical',
+      // Actions for panic alerts
+      actions: payload.data?.type === 'panic_alert' ? [
+        { action: 'view', title: 'View Alert' },
+        { action: 'resolve', title: 'Resolve' }
+      ] : []
+    };
 
-  const notificationTitle = payload.notification?.title || payload.data?.title || 'FacilityPro Alert';
-  const notificationOptions = {
-    body: payload.notification?.body || payload.data?.body || 'You have a new notification',
-    icon: '/favicon.ico',
-    badge: '/favicon.ico',
-    tag: payload.data?.tag || 'facility-notification',
-    data: payload.data,
-    // Vibration pattern for emergency alerts
-    vibrate: payload.data?.priority === 'critical' ? [200, 100, 200, 100, 200] : [200, 100, 200],
-    // Keep notification visible
-    requireInteraction: payload.data?.priority === 'critical',
-    // Actions for panic alerts
-    actions: payload.data?.type === 'panic_alert' ? [
-      { action: 'view', title: 'View Alert' },
-      { action: 'resolve', title: 'Resolve' }
-    ] : []
-  };
-
-  self.registration.showNotification(notificationTitle, notificationOptions);
-});
+    self.registration.showNotification(notificationTitle, notificationOptions);
+  });
+}
 
 // Handle notification click
 self.addEventListener('notificationclick', (event) => {

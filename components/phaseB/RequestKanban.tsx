@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   DndContext,
   DragEndEvent,
@@ -35,8 +35,11 @@ import {
   Play,
   Filter,
   Plus,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 // Define status columns
 const STATUS_COLUMNS = [
@@ -106,6 +109,45 @@ export function RequestKanban({ filterByAssignee, showFilters = true }: RequestK
   const [activeRequest, setActiveRequest] = useState<any>(null);
   const [filteredRequests, setFilteredRequests] = useState<any[]>([]);
   const [priorityFilter, setPriorityFilter] = useState<string | null>(null);
+  
+  // Scroll indicators
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  // Check scroll position
+  const checkScrollPosition = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    
+    const { scrollLeft, scrollWidth, clientWidth } = container;
+    setCanScrollLeft(scrollLeft > 0);
+    setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 10);
+  }, []);
+
+  // Scroll handlers
+  const scrollLeft = () => {
+    scrollContainerRef.current?.scrollBy({ left: -300, behavior: 'smooth' });
+  };
+
+  const scrollRight = () => {
+    scrollContainerRef.current?.scrollBy({ left: 300, behavior: 'smooth' });
+  };
+
+  // Set up scroll event listener
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    checkScrollPosition();
+    container.addEventListener('scroll', checkScrollPosition);
+    window.addEventListener('resize', checkScrollPosition);
+
+    return () => {
+      container.removeEventListener('scroll', checkScrollPosition);
+      window.removeEventListener('resize', checkScrollPosition);
+    };
+  }, [checkScrollPosition, filteredRequests]);
 
   // Configure sensors for drag detection
   const sensors = useSensors(
@@ -262,40 +304,79 @@ export function RequestKanban({ filterByAssignee, showFilters = true }: RequestK
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex gap-4 overflow-x-auto pb-4 min-h-[600px]">
-          {STATUS_COLUMNS.map((column) => {
-            const columnRequests = getRequestsByStatus(column.id);
-            const Icon = column.icon;
+        <div className="relative">
+          {/* Left scroll indicator */}
+          {canScrollLeft && (
+            <div className="absolute left-0 top-0 bottom-4 w-16 bg-gradient-to-r from-background to-transparent z-10 pointer-events-none" />
+          )}
+          {canScrollLeft && (
+            <Button
+              variant="outline"
+              size="icon"
+              className="absolute left-2 top-1/2 -translate-y-1/2 z-20 h-10 w-10 rounded-full bg-background shadow-lg border-2"
+              onClick={scrollLeft}
+              aria-label="Scroll left"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+          )}
 
-            return (
-              <RequestKanbanColumn
-                key={column.id}
-                id={column.id}
-                title={column.title}
-                color={column.color}
-                headerColor={column.headerColor}
-                count={columnRequests.length}
-                icon={Icon}
-              >
-                <SortableContext
-                  items={columnRequests.map((r) => r.id)}
-                  strategy={verticalListSortingStrategy}
+          {/* Scrollable container */}
+          <div 
+            ref={scrollContainerRef}
+            className="flex gap-4 overflow-x-auto pb-4 min-h-[600px] scroll-smooth"
+            style={{ scrollbarWidth: 'thin' }}
+          >
+            {STATUS_COLUMNS.map((column) => {
+              const columnRequests = getRequestsByStatus(column.id);
+              const Icon = column.icon;
+
+              return (
+                <RequestKanbanColumn
+                  key={column.id}
+                  id={column.id}
+                  title={column.title}
+                  color={column.color}
+                  headerColor={column.headerColor}
+                  count={columnRequests.length}
+                  icon={Icon}
                 >
-                  <div className="space-y-3">
-                    {columnRequests.map((request: any) => (
-                      <RequestKanbanCard
-                        key={request.id}
-                        request={request as ServiceRequest}
-                        priorityColor={PRIORITY_COLORS[request.priority || 'low'] || "bg-gray-100"}
-                        assigneeName={getEmployeeName(request.assigned_to)}
-                        assigneeInitials={getEmployeeInitials(request.assigned_to)}
-                      />
-                    ))}
-                  </div>
-                </SortableContext>
-              </RequestKanbanColumn>
-            );
-          })}
+                  <SortableContext
+                    items={columnRequests.map((r) => r.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="space-y-3">
+                      {columnRequests.map((request: any) => (
+                        <RequestKanbanCard
+                          key={request.id}
+                          request={request as ServiceRequest}
+                          priorityColor={PRIORITY_COLORS[request.priority || 'low'] || "bg-gray-100"}
+                          assigneeName={getEmployeeName(request.assigned_to)}
+                          assigneeInitials={getEmployeeInitials(request.assigned_to)}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </RequestKanbanColumn>
+              );
+            })}
+          </div>
+
+          {/* Right scroll indicator */}
+          {canScrollRight && (
+            <div className="absolute right-0 top-0 bottom-4 w-16 bg-gradient-to-l from-background to-transparent z-10 pointer-events-none" />
+          )}
+          {canScrollRight && (
+            <Button
+              variant="outline"
+              size="icon"
+              className="absolute right-2 top-1/2 -translate-y-1/2 z-20 h-10 w-10 rounded-full bg-background shadow-lg border-2"
+              onClick={scrollRight}
+              aria-label="Scroll right"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </Button>
+          )}
         </div>
 
         {/* Drag Overlay */}
