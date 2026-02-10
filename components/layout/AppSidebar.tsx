@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -52,6 +52,13 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { ScrollArea } from "@/components/ui/scroll-area";
+// 🔒 Feature Flags - Filter frozen features from navigation
+import { 
+  isNavItemFrozen, 
+  isNavHrefFrozen,
+  FEATURE_FUTURE_PHASE 
+} from "@/src/lib/featureFlags";
+
 
 interface NavItem {
   title: string;
@@ -299,6 +306,25 @@ export function AppSidebar({ collapsed, onToggle, className, isMobile }: AppSide
     return pathname?.startsWith(href);
   };
 
+  // 🔒 Filter out frozen navigation items
+  const filteredNavigation = useMemo(() => {
+    if (FEATURE_FUTURE_PHASE) return navigation;
+    
+    return navigation.map(group => ({
+      ...group,
+      items: group.items
+        .filter(item => !isNavItemFrozen(item.title) && !isNavHrefFrozen(item.href))
+        .map(item => ({
+          ...item,
+          children: item.children?.filter(
+            child => !isNavItemFrozen(child.title) && !isNavHrefFrozen(child.href)
+          ),
+        }))
+        .filter(item => !item.children || item.children.length > 0),
+    })).filter(group => group.items.length > 0);
+  }, []);
+
+
   return (
     <aside
       className={cn(
@@ -350,7 +376,8 @@ export function AppSidebar({ collapsed, onToggle, className, isMobile }: AppSide
 
       <ScrollArea className="h-[calc(100vh-10rem)]">
         <div className="p-3 space-y-6">
-          {navigation.map((group) => (
+          {/* 🔒 Using filteredNavigation to hide frozen features */}
+          {filteredNavigation.map((group) => (
             <div key={group.title}>
               {!collapsed && (
                 <h4 className="mb-2 px-3 text-[11px] font-black uppercase tracking-[0.15em] text-sidebar-foreground/40">

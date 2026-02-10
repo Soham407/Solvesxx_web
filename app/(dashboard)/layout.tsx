@@ -4,6 +4,8 @@ import { useState } from "react";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { TopNav } from "@/components/layout/TopNav";
 import { cn } from "@/lib/utils";
+// 🔒 Route Guard - Blocks access to frozen features
+import { RouteGuard } from "@/components/shared/RouteGuard";
 
 export default function DashboardLayout({
   children,
@@ -32,7 +34,10 @@ export default function DashboardLayout({
         
         <main className="flex-1 overflow-x-hidden">
           <div className="animate-fade-in p-4 md:p-6 lg:p-8 max-w-[1600px] mx-auto">
-            {children}
+            {/* 🔒 RouteGuard blocks access to frozen features */}
+            <RouteGuard>
+              {children}
+            </RouteGuard>
           </div>
         </main>
         
@@ -43,3 +48,4 @@ export default function DashboardLayout({
     </div>
   );
 }
+
