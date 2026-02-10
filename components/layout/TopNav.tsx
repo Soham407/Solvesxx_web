@@ -48,9 +48,9 @@ interface TopNavProps {
 }
 
 const companies = [
-  { id: "1", name: "FacilityPro HQ", logo: "FP", color: "bg-blue-600" },
-  { id: "2", name: "TechPark Complex", logo: "TP", color: "bg-emerald-600" },
-  { id: "3", name: "Green Valley Society", logo: "GV", color: "bg-purple-600" },
+  { id: "1", name: "Company A", logo: "FP", color: "bg-blue-600" },
+  { id: "2", name: "Company B", logo: "TP", color: "bg-emerald-600" },
+  { id: "3", name: "Company C", logo: "GV", color: "bg-purple-600" },
 ];
 
 const notifications = [
@@ -169,10 +169,6 @@ export function TopNav({ onToggleSidebar, sidebarCollapsed }: TopNavProps) {
              </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-
-        <Button variant="ghost" size="icon" className="hidden sm:flex text-muted-foreground hover:text-foreground">
-          <LayoutGrid className="h-4 w-4" />
-        </Button>
 
         {/* Theme Toggle */}
         <Button 
