@@ -17,8 +17,8 @@ export function useAnalyticsData(reportType: ReportType) {
     try {
       if (reportType === "financial") {
         const [trendsRes, categoryRes] = await Promise.all([
-          (supabase as any).from("view_financial_monthly_trends").select("*").order("month", { ascending: true }),
-          (supabase as any).from("view_financial_revenue_by_category").select("*")
+          (supabase as any).from("view_financial_monthly_trends").select("*").order("month", { ascending: true }) as Promise<any>,
+          (supabase as any).from("view_financial_revenue_by_category").select("*") as Promise<any>
         ]);
 
         if (trendsRes.error) throw trendsRes.error;
