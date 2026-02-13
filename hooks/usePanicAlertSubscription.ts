@@ -110,8 +110,8 @@ export function usePanicAlertSubscription() {
         resolved_at: a.resolved_at as string | null,
         resolved_by: a.resolved_by as string | null,
         resolution_notes: a.resolution_notes as string | null,
-        guard: a.security_guards as PanicAlert["guard"],
-        location: a.company_locations as PanicAlert["location"],
+        guard: (Array.isArray(a.security_guards) ? a.security_guards[0] : a.security_guards) as PanicAlert["guard"],
+        location: (Array.isArray(a.company_locations) ? a.company_locations[0] : a.company_locations) as PanicAlert["location"],
       }));
 
       setState((prev) => ({
@@ -197,8 +197,8 @@ export function usePanicAlertSubscription() {
               resolved_at: data.resolved_at,
               resolved_by: data.resolved_by,
               resolution_notes: data.resolution_notes,
-              guard: data.security_guards as PanicAlert["guard"],
-              location: data.company_locations as PanicAlert["location"],
+              guard: (Array.isArray(data.security_guards) ? data.security_guards[0] : data.security_guards) as PanicAlert["guard"],
+              location: (Array.isArray(data.company_locations) ? data.company_locations[0] : data.company_locations) as PanicAlert["location"],
             };
 
             setState((prev) => ({

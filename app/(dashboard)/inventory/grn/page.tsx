@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTable } from "@/components/shared/DataTable";
@@ -90,7 +90,7 @@ import { useWarehouses } from "@/hooks/useWarehouses";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-export default function GRNPage() {
+function GRNPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { toast } = useToast();
@@ -644,6 +644,18 @@ export default function GRNPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function GRNPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-[450px] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    }>
+      <GRNPageContent />
+    </Suspense>
   );
 }
 

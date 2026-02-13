@@ -300,12 +300,14 @@ export function useGuardShift(employeeId: string | null): ShiftInfo & { isLoadin
           return;
         }
 
-        const shift = assignment.shift as {
-          shift_name: string;
-          start_time: string;
-          end_time: string;
-          is_night_shift: boolean;
-        };
+        const shiftsArray = Array.isArray(assignment.shift) ? assignment.shift : [assignment.shift];
+        const shift = shiftsArray[0] as any;
+        
+        if (!shift) {
+          // Fallback if somehow shift is missing
+          setShiftInfo(prev => ({ ...prev, isLoading: false }));
+          return;
+        }
 
         setShiftInfo({
           shiftName: shift.shift_name || "Shift",

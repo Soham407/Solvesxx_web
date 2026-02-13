@@ -57,7 +57,7 @@ export function useBudgets(filters?: {
     try {
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
-      let query = supabase
+      let query = (supabase as any)
         .from("budgets")
         .select(`
           *,
@@ -106,7 +106,7 @@ export function useBudgets(filters?: {
   // ============================================
   const createBudget = useCallback(async (input: Omit<Budget, "id" | "budget_code" | "used_amount" | "remaining_amount" | "created_at" | "updated_at" | "alert_notified_at" | "period_name">) => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("budgets")
         .insert(input)
         .select()
@@ -128,7 +128,7 @@ export function useBudgets(filters?: {
   // ============================================
   const updateBudget = useCallback(async (budgetId: string, updates: Partial<Budget>) => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("budgets")
         .update(updates)
         .eq("id", budgetId)

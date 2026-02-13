@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/src/lib/supabaseClient";
+import { supabase as supabaseClient } from "@/src/lib/supabaseClient";
+const supabase = supabaseClient as any;
 
 // ============================================
 // TYPES
@@ -289,9 +290,9 @@ export function usePurchaseOrders(filters?: { status?: POStatus; supplierId?: st
         return results;
       }
 
-      const spIds = supplierProducts.map(sp => sp.id);
+      const spIds = supplierProducts.map((sp: any) => sp.id);
       const spIdToProductId: Record<string, string> = {};
-      supplierProducts.forEach(sp => {
+      supplierProducts.forEach((sp: any) => {
         if (sp.product_id) {
           spIdToProductId[sp.id] = sp.product_id;
         }

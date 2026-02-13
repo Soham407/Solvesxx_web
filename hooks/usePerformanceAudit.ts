@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/src/lib/supabaseClient";
+import { supabase as supabaseClient } from "@/src/lib/supabaseClient";
+const supabase = supabaseClient as any;
 
 // ============================================
 // TYPES

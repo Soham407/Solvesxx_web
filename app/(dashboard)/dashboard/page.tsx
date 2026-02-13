@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Users, Building2, Package, Ticket, TrendingUp, AlertCircle, Clock, 
@@ -69,6 +69,18 @@ const roles = [
 ];
 
 export default function DashboardPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    }>
+      <DashboardPageContent />
+    </Suspense>
+  );
+}
+
+function DashboardPageContent() {
   const [selectedRole, setSelectedRole] = useState("admin");
 
   const renderDashboard = () => {

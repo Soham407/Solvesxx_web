@@ -146,7 +146,7 @@ export function useEmployeeProfile() {
           ...prev,
           isLoading: false,
           fullName: userData.full_name,
-          role: (userData.roles as { role_name: string } | null)?.role_name || null,
+          role: (Array.isArray(userData.roles) ? userData.roles[0] : userData.roles)?.role_name || null,
           error: "No employee record linked",
         }));
         return;
@@ -195,7 +195,7 @@ export function useEmployeeProfile() {
         guardCode: guardInfo?.guard_code || null,
         employeeCode: employeeData.employee_code,
         fullName,
-        role: (userData.roles as { role_name: string } | null)?.role_name || null,
+        role: (Array.isArray(userData.roles) ? userData.roles[0] : userData.roles)?.role_name || null,
         isLoading: false,
         error: null,
       });

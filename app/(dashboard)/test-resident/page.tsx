@@ -1,6 +1,8 @@
+import { Suspense } from "react";
 import { ResidentDashboard } from "@/components/dashboards/ResidentDashboard";
+import { Loader2 } from "lucide-react";
 
-export default function TestResidentPage() {
+function TestResidentPageContent() {
   return (
     <div className="p-6">
       <div className="mb-6 p-4 bg-info/10 border-l-4 border-info rounded">
@@ -20,5 +22,17 @@ export default function TestResidentPage() {
       </div>
       <ResidentDashboard />
     </div>
+  );
+}
+
+export default function TestResidentPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    }>
+      <TestResidentPageContent />
+    </Suspense>
   );
 }

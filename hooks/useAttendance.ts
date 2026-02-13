@@ -242,13 +242,10 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
       let shiftValidation = { isValid: true, message: "" };
 
       if (assignmentData && assignmentData.shifts) {
-        const shift = assignmentData.shifts as {
-          start_time: string;
-          end_time: string;
-          grace_time_minutes: number | null;
-          is_night_shift: boolean | null;
-          shift_name: string;
-        };
+        const shiftsArray = Array.isArray(assignmentData.shifts) ? assignmentData.shifts : [assignmentData.shifts];
+        const shift = shiftsArray[0] as any;
+        
+        if (!shift) return { success: true }; // Should not happen given the if check
 
         const now = new Date();
         const currentHours = now.getHours();

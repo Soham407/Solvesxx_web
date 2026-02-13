@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/src/lib/supabaseClient";
+import { supabase as supabaseClient } from "@/src/lib/supabaseClient";
+const supabase = supabaseClient as any;
 
 // ============================================
 // TYPES
@@ -816,9 +817,9 @@ export function useReconciliation(filters?: {
       if (!lines || lines.length === 0) return;
 
       // Determine overall status
-      const allMatched = lines.every((l) => l.status === "matched");
-      const allResolved = lines.every((l) => l.status === "matched" || l.status === "resolved");
-      const hasVariance = lines.some((l) => l.status === "variance");
+      const allMatched = lines.every((l: any) => l.status === "matched");
+      const allResolved = lines.every((l: any) => l.status === "matched" || l.status === "resolved");
+      const hasVariance = lines.some((l: any) => l.status === "variance");
 
       let newStatus: ReconciliationStatus;
       if (allMatched) {

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/src/lib/supabaseClient";
+import { supabase as supabaseClient } from "@/src/lib/supabaseClient";
+const supabase = supabaseClient as any;
 
 // ============================================
 // TYPES
@@ -59,8 +60,9 @@ export function useFinancialClosure() {
 
       // Find current period (the one that is 'open' and contains today's date, or the latest open one)
       const today = new Date().toISOString().split("T")[0];
-      const current = data?.find(p => p.status === 'open' && today >= p.start_date && today <= p.end_date) 
-                   || data?.find(p => p.status === 'open') 
+      const typedData = data as FinancialPeriod[] | null;
+      const current = typedData?.find((p: FinancialPeriod) => p.status === 'open' && today >= p.start_date && today <= p.end_date) 
+                   || typedData?.find((p: FinancialPeriod) => p.status === 'open') 
                    || null;
 
       setState((prev) => ({

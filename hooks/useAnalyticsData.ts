@@ -17,8 +17,8 @@ export function useAnalyticsData(reportType: ReportType) {
     try {
       if (reportType === "financial") {
         const [trendsRes, categoryRes] = await Promise.all([
-          supabase.from("view_financial_monthly_trends").select("*").order("month", { ascending: true }),
-          supabase.from("view_financial_revenue_by_category").select("*")
+          (supabase as any).from("view_financial_monthly_trends").select("*").order("month", { ascending: true }),
+          (supabase as any).from("view_financial_revenue_by_category").select("*")
         ]);
 
         if (trendsRes.error) throw trendsRes.error;
@@ -27,21 +27,21 @@ export function useAnalyticsData(reportType: ReportType) {
         setTrends(trendsRes.data || []);
         setData(categoryRes.data || []);
       } else if (reportType === "attendance") {
-        const { data: deptData, error: deptError } = await supabase
+        const { data: deptData, error: deptError } = await (supabase as any)
           .from("view_attendance_by_dept")
           .select("*");
         
         if (deptError) throw deptError;
         setData(deptData || []);
       } else if (reportType === "inventory") {
-        const { data: velocityData, error: velocityError } = await supabase
+        const { data: velocityData, error: velocityError } = await (supabase as any)
           .from("view_inventory_velocity")
           .select("*");
         
         if (velocityError) throw velocityError;
         setData(velocityData || []);
       } else if (reportType === "services") {
-        const { data: performanceData, error: performanceError } = await supabase
+        const { data: performanceData, error: performanceError } = await (supabase as any)
           .from("view_service_performance")
           .select("*");
         

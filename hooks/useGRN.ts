@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/src/lib/supabaseClient";
+import { supabase as supabaseClient } from "@/src/lib/supabaseClient";
+const supabase = supabaseClient as any;
 
 // ============================================
 // TYPES
@@ -562,7 +563,7 @@ export function useGRN(filters?: { status?: GRNStatus; poId?: string; supplierId
         .select("line_total")
         .eq("material_receipt_id", grnId);
 
-      const totalValue = (items || []).reduce((sum, item) => sum + (item.line_total || 0), 0);
+      const totalValue = (items || []).reduce((sum: number, item: any) => sum + (item.line_total || 0), 0);
 
       await supabase
         .from("material_receipts")
@@ -698,9 +699,9 @@ export function useGRN(filters?: { status?: GRNStatus; poId?: string; supplierId
       }
 
       // Determine final status based on items
-      const totalAccepted = items.reduce((sum, i) => sum + (i.accepted_quantity || 0), 0);
-      const totalRejected = items.reduce((sum, i) => sum + (i.rejected_quantity || 0), 0);
-      const totalOrdered = items.reduce((sum, i) => sum + (i.ordered_quantity || 0), 0);
+      const totalAccepted = items.reduce((sum: number, i: any) => sum + (i.accepted_quantity || 0), 0);
+      const totalRejected = items.reduce((sum: number, i: any) => sum + (i.rejected_quantity || 0), 0);
+      const totalOrdered = items.reduce((sum: number, i: any) => sum + (i.ordered_quantity || 0), 0);
 
       let newStatus: GRNStatus;
       if (totalRejected === 0 && totalAccepted >= totalOrdered) {
@@ -783,8 +784,8 @@ export function useGRN(filters?: { status?: GRNStatus; poId?: string; supplierId
         .eq("purchase_order_id", poId);
 
       if (poItems) {
-        const totalOrdered = poItems.reduce((sum, i) => sum + (i.ordered_quantity || 0), 0);
-        const totalReceived = poItems.reduce((sum, i) => sum + (i.received_quantity || 0), 0);
+        const totalOrdered = poItems.reduce((sum: number, i: any) => sum + (i.ordered_quantity || 0), 0);
+        const totalReceived = poItems.reduce((sum: number, i: any) => sum + (i.received_quantity || 0), 0);
 
         let newPOStatus: "received" | "partial_received" | undefined;
         if (totalReceived >= totalOrdered) {
@@ -841,7 +842,7 @@ export function useGRN(filters?: { status?: GRNStatus; poId?: string; supplierId
 
       // Update each item: set rejected_quantity = received_quantity, accepted = 0
       if (items && items.length > 0) {
-        const updatePromises = items.map((item) =>
+        const updatePromises = items.map((item: any) =>
           supabase
             .from("material_receipt_items")
             .update({
