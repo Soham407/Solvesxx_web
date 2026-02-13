@@ -19,7 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { useBudgets, Budget, BudgetStatus } from "@/hooks/useBudgets";
-import { formatCurrency, toRupees } from "@/hooks/useSupplierBills";
+import { formatCurrency, toRupees } from "@/src/lib/utils/currency";
 import { useState } from "react";
 
 export default function BudgetingPage() {

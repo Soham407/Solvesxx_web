@@ -14,7 +14,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { useBuyerInvoices, formatCurrency, INVOICE_STATUS_CONFIG, PAYMENT_STATUS_CONFIG } from "@/hooks/useBuyerInvoices";
+import { useBuyerInvoices, INVOICE_STATUS_CONFIG, PAYMENT_STATUS_CONFIG } from "@/hooks/useBuyerInvoices";
+import { formatCurrency } from "@/src/lib/utils/currency";
 import { Badge } from "@/components/ui/badge";
 
 export default function BuyerInvoicesPage() {

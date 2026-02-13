@@ -36,10 +36,9 @@ import {
   Indent, 
   IndentItem,
   INDENT_STATUS_CONFIG,
-  INDENT_PRIORITY_CONFIG,
-  formatCurrency,
-  toPaise
+  INDENT_PRIORITY_CONFIG
 } from "@/hooks/useIndents";
+import { formatCurrency, toPaise } from "@/src/lib/utils/currency";
 import { usePurchaseOrders } from "@/hooks/usePurchaseOrders";
 import { useSuppliers } from "@/hooks/useSuppliers";
 import { useProducts } from "@/hooks/useProducts";

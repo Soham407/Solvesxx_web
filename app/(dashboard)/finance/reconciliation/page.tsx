@@ -19,7 +19,8 @@ import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { useReconciliation, formatCurrency, RECONCILIATION_STATUS_CONFIG } from "@/hooks/useReconciliation";
+import { useReconciliation, RECONCILIATION_STATUS_CONFIG } from "@/hooks/useReconciliation";
+import { formatCurrency } from "@/src/lib/utils/currency";
 
 export default function ReconciliationHubPage() {
   const { reconciliations, isLoading, error } = useReconciliation();

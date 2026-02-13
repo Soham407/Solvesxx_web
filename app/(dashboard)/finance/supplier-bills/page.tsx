@@ -20,7 +20,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { useSupplierBills, formatCurrency, BILL_STATUS_CONFIG, PAYMENT_STATUS_CONFIG } from "@/hooks/useSupplierBills";
+import { useSupplierBills, BILL_STATUS_CONFIG, PAYMENT_STATUS_CONFIG } from "@/hooks/useSupplierBills";
+import { formatCurrency } from "@/src/lib/utils/currency";
 import { useReconciliation } from "@/hooks/useReconciliation";
 
 export default function SupplierBillsPage() {

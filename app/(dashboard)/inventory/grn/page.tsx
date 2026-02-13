@@ -81,9 +81,9 @@ import {
   GRNStatus, 
   GRN_STATUS_CONFIG,
   QUALITY_STATUS_CONFIG,
-  formatCurrency,
   QualityStatus
 } from "@/hooks/useGRN";
+import { formatCurrency } from "@/src/lib/utils/currency";
 import { usePurchaseOrders } from "@/hooks/usePurchaseOrders";
 import { useToast } from "@/components/ui/use-toast";
 import { useWarehouses } from "@/hooks/useWarehouses";

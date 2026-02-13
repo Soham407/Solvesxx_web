@@ -84,8 +84,8 @@ import {
   POItem, 
   POStatus, 
   PO_STATUS_CONFIG,
-  formatCurrency,
 } from "@/hooks/usePurchaseOrders";
+import { formatCurrency } from "@/src/lib/utils/currency";
 import { useSuppliers } from "@/hooks/useSuppliers";
 import { useToast } from "@/components/ui/use-toast";
 

@@ -55,7 +55,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useIndents, IndentItem, Indent, formatCurrency, toRupees } from "@/hooks/useIndents";
+import { useIndents, IndentItem, Indent } from "@/hooks/useIndents";
+import { formatCurrency, toRupees } from "@/src/lib/utils/currency";
 import { useSupplierRates } from "@/hooks/useSupplierRates";
 import { usePurchaseOrders, SupplierRateLookupResult } from "@/hooks/usePurchaseOrders";
 import { useSuppliers } from "@/hooks/useSuppliers";
