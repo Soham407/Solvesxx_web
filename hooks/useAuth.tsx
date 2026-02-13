@@ -3,23 +3,15 @@
 import React, { useState, useEffect, createContext, useContext } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
 import type { User } from "@supabase/supabase-js";
+import { useRouter } from "next/navigation";
 
-// Cookie name must match middleware.ts
-const AUTH_COOKIE = "fp-auth-status";
-
-/** Set or clear the auth indicator cookie used by middleware for route protection. */
-function setAuthCookie(authenticated: boolean) {
-  if (typeof document === "undefined") return;
-
-  if (authenticated) {
-    // HttpOnly is not possible from JS, but SameSite=Strict + Secure provides CSRF protection.
-    // This cookie is an indicator only -- actual auth is validated server-side via Supabase JWT.
-    const secure = window.location.protocol === "https:" ? "; Secure" : "";
-    document.cookie = `${AUTH_COOKIE}=1; path=/; SameSite=Strict; max-age=604800${secure}`;
-  } else {
-    document.cookie = `${AUTH_COOKIE}=; path=/; SameSite=Strict; max-age=0`;
-  }
-}
+/**
+ * Auth context using @supabase/ssr.
+ *
+ * Authentication is now handled via cookie-based sessions managed by @supabase/ssr.
+ * The middleware validates the session server-side via supabase.auth.getUser().
+ * No more spoofable fp-auth-status cookie.
+ */
 
 interface AuthContextType {
   user: User | null;
@@ -41,41 +33,38 @@ export function useAuth() {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
-    // Get initial session
+    // Get initial session - @supabase/ssr reads from cookies automatically
     supabase.auth.getSession().then(({ data: { session } }) => {
-      const currentUser = session?.user ?? null;
-      setUser(currentUser);
-      setAuthCookie(!!currentUser);
+      setUser(session?.user ?? null);
       setIsLoading(false);
     });
 
-    // Listen for auth changes
+    // Listen for auth changes (sign in, sign out, token refresh)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      const currentUser = session?.user ?? null;
-      setUser(currentUser);
-      setAuthCookie(!!currentUser);
+      setUser(session?.user ?? null);
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
   const signOut = async () => {
-    // Fix race condition: clear UI state and cookie BEFORE awaiting network call.
-    // This ensures the user sees "logged out" immediately, even if signOut() is slow or fails.
+    // Clear UI state immediately for responsive UX
     setUser(null);
-    setAuthCookie(false);
 
     try {
       await supabase.auth.signOut();
     } catch (error) {
       console.error("Sign out error:", error);
-      // State is already cleared -- user remains logged out in UI.
-      // If the server session persists, onAuthStateChange will re-authenticate on next page load.
     }
+
+    // Force a router refresh so middleware re-evaluates auth state
+    // and redirects to /login if needed
+    router.refresh();
   };
 
   return (

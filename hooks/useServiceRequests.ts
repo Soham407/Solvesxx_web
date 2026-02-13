@@ -11,6 +11,7 @@ import type {
   ServiceDashboardStats,
 } from "@/src/types/phaseB";
 import { PAGINATION } from "@/src/lib/constants";
+import { sanitizeLikeInput } from "@/lib/sanitize";
 
 interface UseServiceRequestsState {
   requests: ServiceRequestWithDetails[];
@@ -78,6 +79,9 @@ export function useServiceRequests(initialFilters?: ServiceRequestFilters): UseS
       if (filters.assetId) {
         query = query.eq("asset_id", filters.assetId);
       }
+      if (filters.serviceId) {
+        query = query.eq("service_id", filters.serviceId);
+      }
       if (filters.locationId) {
         query = query.eq("location_id", filters.locationId);
       }
@@ -92,7 +96,7 @@ export function useServiceRequests(initialFilters?: ServiceRequestFilters): UseS
       }
       if (filters.searchTerm) {
         query = query.or(
-          `title.ilike.%${filters.searchTerm}%,request_number.ilike.%${filters.searchTerm}%,description.ilike.%${filters.searchTerm}%`
+          `title.ilike.%${sanitizeLikeInput(filters.searchTerm)}%,request_number.ilike.%${sanitizeLikeInput(filters.searchTerm)}%,description.ilike.%${sanitizeLikeInput(filters.searchTerm)}%`
         );
       }
 

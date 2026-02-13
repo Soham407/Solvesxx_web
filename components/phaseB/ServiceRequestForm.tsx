@@ -82,6 +82,12 @@ const [isSubmitting, setIsSubmitting] = useState(false);
     scheduledTime: "",
     requesterPhone: "",
   });
+  
+  const [validationErrors, setValidationErrors] = useState<{
+    description?: string;
+    requesterPhone?: string;
+    scheduling?: string;
+  }>({});
 
 // Fetch locations and societies
   useEffect(() => {
@@ -137,9 +143,45 @@ const [isSubmitting, setIsSubmitting] = useState(false);
     }
   }, [formData.assetId, allAssets]);
 
+  // Validate phone number format
+  const isValidPhone = (phone: string): boolean => {
+    if (!phone) return true; // Optional field
+    // Accepts formats: +91 9876543210, 9876543210, +1-234-567-8900, etc.
+    const phoneRegex = /^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[(]?[0-9]{1,3}[)]?[-\s.]?[0-9]{3,4}[-\s.]?[0-9]{3,6}$/;
+    return phoneRegex.test(phone.replace(/\s/g, ''));
+  };
+
+  // Validate form before submit
+  const validateForm = (): boolean => {
+    const errors: typeof validationErrors = {};
+    
+    if (!formData.description.trim()) {
+      errors.description = "Description is required";
+    }
+    
+    if (formData.requesterPhone && !isValidPhone(formData.requesterPhone)) {
+      errors.requesterPhone = "Please enter a valid phone number";
+    }
+    
+    // Validate date/time coupling - if one is set, both should be set
+    if ((formData.scheduledDate && !formData.scheduledTime) || 
+        (!formData.scheduledDate && formData.scheduledTime)) {
+      errors.scheduling = "Please provide both date and time, or leave both empty";
+    }
+    
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   // Handle submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      toast.error("Please fix the validation errors");
+      return;
+    }
+    
     setIsSubmitting(true);
 
     try {
@@ -363,35 +405,55 @@ if (result.success) {
           {/* Scheduling */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="scheduledDate">Scheduled Date (Optional)</Label>
+              <Label htmlFor="scheduledDate">Scheduled Date</Label>
               <Input
                 id="scheduledDate"
                 type="date"
                 value={formData.scheduledDate}
-                onChange={(e) => setFormData({ ...formData, scheduledDate: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, scheduledDate: e.target.value });
+                  setValidationErrors((prev) => ({ ...prev, scheduling: undefined }));
+                }}
+                min={new Date().toISOString().split('T')[0]}
               />
             </div>
             <div>
-              <Label htmlFor="scheduledTime">Scheduled Time (Optional)</Label>
+              <Label htmlFor="scheduledTime">Scheduled Time</Label>
               <Input
                 id="scheduledTime"
                 type="time"
                 value={formData.scheduledTime}
-                onChange={(e) => setFormData({ ...formData, scheduledTime: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, scheduledTime: e.target.value });
+                  setValidationErrors((prev) => ({ ...prev, scheduling: undefined }));
+                }}
               />
             </div>
           </div>
+          {validationErrors.scheduling && (
+            <p className="text-sm text-destructive -mt-4">{validationErrors.scheduling}</p>
+          )}
+          <p className="text-xs text-muted-foreground -mt-4">
+            Leave both empty for immediate attention, or set both for scheduled service
+          </p>
 
           {/* Contact */}
           <div>
-            <Label htmlFor="requesterPhone">Contact Phone (Optional)</Label>
+            <Label htmlFor="requesterPhone">Contact Phone</Label>
             <Input
               id="requesterPhone"
               type="tel"
               value={formData.requesterPhone}
-              onChange={(e) => setFormData({ ...formData, requesterPhone: e.target.value })}
+              onChange={(e) => {
+                setFormData({ ...formData, requesterPhone: e.target.value });
+                setValidationErrors((prev) => ({ ...prev, requesterPhone: undefined }));
+              }}
               placeholder="+91 9876543210"
+              className={validationErrors.requesterPhone ? "border-destructive" : ""}
             />
+            {validationErrors.requesterPhone && (
+              <p className="text-sm text-destructive mt-1">{validationErrors.requesterPhone}</p>
+            )}
           </div>
 
           {/* Actions */}

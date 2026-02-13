@@ -77,6 +77,7 @@ export default function PayrollPage() {
     createPayrollCycle,
     approvePayrollCycle,
     disbursePayrollCycle,
+    generatePayslips,
     fetchPayslips,
     formatCurrency,
     getCycleDisplayName,
@@ -144,6 +145,17 @@ export default function PayrollPage() {
     setIsSubmitting(true);
     try {
       await disbursePayrollCycle(selectedCycle.id);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Handle generate payslips
+  const handleGeneratePayslips = async () => {
+    if (!selectedCycle) return;
+    setIsSubmitting(true);
+    try {
+      await generatePayslips(selectedCycle.id, []); // The hook handles fetching employee data if empty array passed or ignores it if RPC doesn't need it
     } finally {
       setIsSubmitting(false);
     }
@@ -322,8 +334,17 @@ export default function PayrollPage() {
               </Button>
             )}
             {selectedCycle?.status === "draft" && (
-              <Button className="gap-2 shadow-lg shadow-primary/20">
-                <ShieldCheck className="h-4 w-4" /> Generate Payslips
+              <Button 
+                className="gap-2 shadow-lg shadow-primary/20"
+                onClick={handleGeneratePayslips}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ShieldCheck className="h-4 w-4" />
+                )}
+                Generate Payslips
               </Button>
             )}
           </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
   Bell,
@@ -18,6 +19,7 @@ import {
   Moon,
   Sun,
   LayoutGrid,
+  Loader2,
 } from "lucide-react";
 import { CommandMenu } from "./CommandMenu";
 import { Button } from "@/components/ui/button";
@@ -41,6 +43,8 @@ import { AppSidebar } from "./AppSidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
 
 interface TopNavProps {
   onToggleSidebar: () => void;
@@ -53,20 +57,34 @@ const companies = [
   { id: "3", name: "Company C", logo: "GV", color: "bg-purple-600" },
 ];
 
-const notifications = [
-  { id: 1, title: "New service request", message: "AC maintenance required in Block A", time: "5 min ago", unread: true, type: "service" },
-  { id: 2, title: "Leave approved", message: "Your leave request has been approved", time: "1 hour ago", unread: true, type: "hrms" },
-  { id: 3, title: "Inventory alert", message: "Stock level low for cleaning supplies", time: "2 hours ago", unread: false, type: "inventory" },
-];
+// TODO: Replace with real notifications from API/hook when notification system is implemented
+// For now, show empty state to avoid misleading users with fake data
+const notifications: Array<{ id: number; title: string; message: string; time: string; unread: boolean; type: string }> = [];
 
 export function TopNav({ onToggleSidebar, sidebarCollapsed }: TopNavProps) {
+  const router = useRouter();
   const [selectedCompany, setSelectedCompany] = useState(companies[0]);
   const { theme, setTheme } = useTheme();
+  const { signOut, user } = useAuth();
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   const unreadCount = notifications.filter((n) => n.unread).length;
 
+  const handleSignOut = async () => {
+    setIsSigningOut(true);
+    try {
+      await signOut();
+      toast.success("Signed out successfully");
+      router.push("/login");
+    } catch (error) {
+      toast.error("Failed to sign out");
+    } finally {
+      setIsSigningOut(false);
+    }
+  };
+
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-md px-4 sm:px-6">
+    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-xl px-4 sm:px-6 shadow-sm">
       {/* Mobile Menu Toggle */}
       <div className="lg:hidden">
         <Sheet>
@@ -125,7 +143,7 @@ export function TopNav({ onToggleSidebar, sidebarCollapsed }: TopNavProps) {
             ))}
           </div>
           <DropdownMenuSeparator className="my-2" />
-          <DropdownMenuItem className="gap-3 p-2 cursor-pointer rounded-md">
+          <DropdownMenuItem className="gap-3 p-2 cursor-pointer rounded-md" onClick={() => router.push("/settings/company")}>
             <Building2 className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm">Organization Settings</span>
           </DropdownMenuItem>
@@ -142,28 +160,28 @@ export function TopNav({ onToggleSidebar, sidebarCollapsed }: TopNavProps) {
         {/* Quick Action */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="default" size="sm" className="hidden sm:flex gap-2 rounded-full h-9 px-4 shadow-lg shadow-primary/20 animate-in fade-in zoom-in-95 font-bold">
+            <Button variant="glow" size="sm" className="hidden sm:flex gap-2 rounded-full h-9 px-4 font-semibold">
               <Plus className="h-4 w-4" />
               <span>Create</span>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56 p-2 animate-in fade-in slide-in-from-top-2">
-             <DropdownMenuLabel className="text-[11px] uppercase tracking-widest text-muted-foreground py-2 px-3 font-bold">Operational Actions</DropdownMenuLabel>
-             <DropdownMenuItem className="gap-2 py-2.5">
+        <DropdownMenuContent align="end" className="w-56 p-2 animate-in fade-in slide-in-from-top-2">
+             <DropdownMenuLabel className="text-[11px] uppercase tracking-wider text-muted-foreground py-2 px-3 font-semibold">Operational Actions</DropdownMenuLabel>
+             <DropdownMenuItem className="gap-2 py-2.5 cursor-pointer" onClick={() => router.push("/tickets/behavior")}>
                 <Ticket className="h-4 w-4 text-primary" />
                 <span className="text-sm font-semibold">Incident Ticket</span>
              </DropdownMenuItem>
-             <DropdownMenuItem className="gap-2 py-2.5">
+             <DropdownMenuItem className="gap-2 py-2.5 cursor-pointer" onClick={() => router.push("/service-requests/new")}>
                 <Wrench className="h-4 w-4 text-primary" />
                 <span className="text-sm font-semibold">Service Request</span>
              </DropdownMenuItem>
              <DropdownMenuSeparator />
-             <DropdownMenuLabel className="text-[11px] uppercase tracking-widest text-muted-foreground py-2 px-3 font-bold">Administrative</DropdownMenuLabel>
-             <DropdownMenuItem className="gap-2 py-2.5">
+             <DropdownMenuLabel className="text-[11px] uppercase tracking-wider text-muted-foreground py-2 px-3 font-semibold">Administrative</DropdownMenuLabel>
+             <DropdownMenuItem className="gap-2 py-2.5 cursor-pointer" onClick={() => router.push("/company/employees/create")}>
                 <Users className="h-4 w-4 text-blue-500" />
                 <span className="text-sm font-semibold">New Employee</span>
              </DropdownMenuItem>
-             <DropdownMenuItem className="gap-2 py-2.5">
+             <DropdownMenuItem className="gap-2 py-2.5 cursor-pointer" onClick={() => router.push("/company/locations")}>
                 <Building2 className="h-4 w-4 text-blue-500" />
                 <span className="text-sm font-semibold">New Location</span>
              </DropdownMenuItem>
@@ -198,29 +216,41 @@ export function TopNav({ onToggleSidebar, sidebarCollapsed }: TopNavProps) {
           <DropdownMenuContent align="end" className="w-80 p-0 animate-in fade-in slide-in-from-top-2">
             <div className="flex items-center justify-between p-4 border-b">
               <h3 className="text-sm font-semibold">Notifications</h3>
-              <Badge variant="secondary" className="bg-primary text-white hover:bg-primary/90 transition-colors px-2 font-black text-[10px] tracking-widest">
-                {unreadCount} NEW
-              </Badge>
+              {unreadCount > 0 && (
+                <Badge variant="secondary" className="bg-primary text-white hover:bg-primary/90 transition-colors px-2 font-semibold text-[10px] tracking-wider">
+                  {unreadCount} NEW
+                </Badge>
+              )}
             </div>
             <div className="max-h-[400px] overflow-y-auto">
-              {notifications.map((notification) => (
-                <div key={notification.id} className={cn(
-                  "flex flex-col gap-1 p-4 cursor-pointer transition-colors border-b last:border-0",
-                  notification.unread ? "bg-primary/2" : "hover:bg-muted/30"
-                )}>
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-xs ">{notification.title}</span>
-                    <span className="text-[10px] text-muted-foreground ml-auto">{notification.time}</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{notification.message}</p>
+              {notifications.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center px-4">
+                  <Bell className="h-8 w-8 text-muted-foreground/30 mb-3" />
+                  <p className="text-sm font-medium text-muted-foreground">No notifications</p>
+                  <p className="text-xs text-muted-foreground/70 mt-1">You're all caught up!</p>
                 </div>
-              ))}
+              ) : (
+                notifications.map((notification) => (
+                  <div key={notification.id} className={cn(
+                    "flex flex-col gap-1 p-4 cursor-pointer transition-colors border-b last:border-0",
+                    notification.unread ? "bg-primary/2" : "hover:bg-muted/30"
+                  )}>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-xs ">{notification.title}</span>
+                      <span className="text-[10px] text-muted-foreground ml-auto">{notification.time}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{notification.message}</p>
+                  </div>
+                ))
+              )}
             </div>
-            <div className="p-2 border-t text-center">
-              <Button variant="ghost" size="sm" className="w-full text-xs font-medium text-primary hover:text-primary hover:bg-primary/5">
-                View all activities
-              </Button>
-            </div>
+            {notifications.length > 0 && (
+              <div className="p-2 border-t text-center">
+                <Button variant="ghost" size="sm" className="w-full text-xs font-medium text-primary hover:text-primary hover:bg-primary/5">
+                  View all activities
+                </Button>
+              </div>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
 
@@ -252,18 +282,26 @@ export function TopNav({ onToggleSidebar, sidebarCollapsed }: TopNavProps) {
                 <span className="text-xs text-muted-foreground">vandanaa@facilitypro.com</span>
               </div>
             </div>
-            <DropdownMenuItem className="gap-3 p-2.5 cursor-pointer rounded-md">
+            <DropdownMenuItem className="gap-3 p-2.5 cursor-pointer rounded-md" onClick={() => router.push("/hrms/profiles")}>
               <User className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium">My Profile</span>
             </DropdownMenuItem>
-            <DropdownMenuItem className="gap-3 p-2.5 cursor-pointer rounded-md">
+            <DropdownMenuItem className="gap-3 p-2.5 cursor-pointer rounded-md" onClick={() => router.push("/settings")}>
               <Settings className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium">Account Settings</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator className="my-2" />
-            <DropdownMenuItem className="gap-3 p-2.5 cursor-pointer rounded-md text-destructive focus:bg-destructive/5 focus:text-destructive">
-              <LogOut className="h-4 w-4" />
-              <span className="text-sm font-bold">Sign Out</span>
+            <DropdownMenuItem 
+              className="gap-3 p-2.5 cursor-pointer rounded-md text-destructive focus:bg-destructive/5 focus:text-destructive"
+              onClick={handleSignOut}
+              disabled={isSigningOut}
+            >
+              {isSigningOut ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <LogOut className="h-4 w-4" />
+              )}
+              <span className="text-sm font-bold">{isSigningOut ? "Signing out..." : "Sign Out"}</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

@@ -11,6 +11,7 @@ import type {
   AssetDashboardStats,
 } from "@/src/types/phaseB";
 import { PAGINATION } from "@/src/lib/constants";
+import { sanitizeLikeInput } from "@/lib/sanitize";
 
 interface UseAssetsState {
   assets: AssetWithDetails[];
@@ -74,7 +75,7 @@ export function useAssets(initialFilters?: AssetFilters): UseAssetsReturn {
       }
       if (filters.searchTerm) {
         query = query.or(
-          `name.ilike.%${filters.searchTerm}%,asset_code.ilike.%${filters.searchTerm}%,description.ilike.%${filters.searchTerm}%`
+          `name.ilike.%${sanitizeLikeInput(filters.searchTerm)}%,asset_code.ilike.%${sanitizeLikeInput(filters.searchTerm)}%,description.ilike.%${sanitizeLikeInput(filters.searchTerm)}%`
         );
       }
 

@@ -4595,28 +4595,49 @@ export type Database = {
       }
       sale_product_rates: {
         Row: {
+          base_cost: number | null
           created_at: string | null
           effective_from: string
+          effective_to: string | null
+          gst_percentage: number | null
           id: string
           is_active: boolean | null
+          margin_percentage: number | null
+          notes: string | null
           product_id: string | null
           rate: number
+          society_id: string | null
+          updated_at: string | null
         }
         Insert: {
+          base_cost?: number | null
           created_at?: string | null
           effective_from: string
+          effective_to?: string | null
+          gst_percentage?: number | null
           id?: string
           is_active?: boolean | null
+          margin_percentage?: number | null
+          notes?: string | null
           product_id?: string | null
           rate: number
+          society_id?: string | null
+          updated_at?: string | null
         }
         Update: {
+          base_cost?: number | null
           created_at?: string | null
           effective_from?: string
+          effective_to?: string | null
+          gst_percentage?: number | null
           id?: string
           is_active?: boolean | null
+          margin_percentage?: number | null
+          notes?: string | null
           product_id?: string | null
           rate?: number
+          society_id?: string | null
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -4632,6 +4653,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "stock_levels"
             referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "sale_product_rates_society_id_fkey"
+            columns: ["society_id"]
+            isOneToOne: false
+            referencedRelation: "societies"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -5177,20 +5205,38 @@ export type Database = {
         Row: {
           created_at: string | null
           id: string
+          is_preferred: boolean | null
+          lead_time_days: number | null
+          moq: number | null
+          notes: string | null
+          preference_rank: number | null
           product_id: string | null
           supplier_id: string | null
+          updated_at: string | null
         }
         Insert: {
           created_at?: string | null
           id?: string
+          is_preferred?: boolean | null
+          lead_time_days?: number | null
+          moq?: number | null
+          notes?: string | null
+          preference_rank?: number | null
           product_id?: string | null
           supplier_id?: string | null
+          updated_at?: string | null
         }
         Update: {
           created_at?: string | null
           id?: string
+          is_preferred?: boolean | null
+          lead_time_days?: number | null
+          moq?: number | null
+          notes?: string | null
+          preference_rank?: number | null
           product_id?: string | null
           supplier_id?: string | null
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -5219,27 +5265,45 @@ export type Database = {
       supplier_rates: {
         Row: {
           created_at: string | null
+          discount_percentage: number | null
           effective_from: string
+          effective_to: string | null
+          gst_percentage: number | null
           id: string
           is_active: boolean | null
+          min_qty_for_price: number | null
+          notes: string | null
           rate: number
           supplier_product_id: string | null
+          updated_at: string | null
         }
         Insert: {
           created_at?: string | null
+          discount_percentage?: number | null
           effective_from: string
+          effective_to?: string | null
+          gst_percentage?: number | null
           id?: string
           is_active?: boolean | null
+          min_qty_for_price?: number | null
+          notes?: string | null
           rate: number
           supplier_product_id?: string | null
+          updated_at?: string | null
         }
         Update: {
           created_at?: string | null
+          discount_percentage?: number | null
           effective_from?: string
+          effective_to?: string | null
+          gst_percentage?: number | null
           id?: string
           is_active?: boolean | null
+          min_qty_for_price?: number | null
+          notes?: string | null
           rate?: number
           supplier_product_id?: string | null
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -5260,8 +5324,15 @@ export type Database = {
           gst_number: string | null
           id: string
           is_active: boolean | null
+          is_verified: boolean | null
+          overall_score: number | null
           phone: string | null
+          rating: number | null
+          status: string | null
+          supplier_code: string | null
           supplier_name: string
+          tier: number | null
+          updated_at: string | null
         }
         Insert: {
           address?: string | null
@@ -5271,8 +5342,15 @@ export type Database = {
           gst_number?: string | null
           id?: string
           is_active?: boolean | null
+          is_verified?: boolean | null
+          overall_score?: number | null
           phone?: string | null
+          rating?: number | null
+          status?: string | null
+          supplier_code?: string | null
           supplier_name: string
+          tier?: number | null
+          updated_at?: string | null
         }
         Update: {
           address?: string | null
@@ -5282,8 +5360,15 @@ export type Database = {
           gst_number?: string | null
           id?: string
           is_active?: boolean | null
+          is_verified?: boolean | null
+          overall_score?: number | null
           phone?: string | null
+          rating?: number | null
+          status?: string | null
+          supplier_code?: string | null
           supplier_name?: string
+          tier?: number | null
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -6555,9 +6640,59 @@ export type Database = {
       }
     }
     Functions: {
+      approve_visitor: {
+        Args: { p_visitor_id: string; p_user_id: string }
+        Returns: Json
+      }
+      calculate_employee_salary: {
+        Args: {
+          p_employee_id: string
+          p_period_start: string
+          p_period_end: string
+          p_total_working_days: number
+        }
+        Returns: Json
+      }
       check_compliance: { Args: never; Returns: undefined }
+      checkout_visitor: {
+        Args: { p_visitor_id: string; p_user_id: string }
+        Returns: Json
+      }
       detect_geofence_breaches: { Args: never; Returns: undefined }
       detect_stationary_guards: { Args: never; Returns: undefined }
+      execute_reconciliation_match: {
+        Args: { p_reconciliation_id: string; p_user_id: string }
+        Returns: Json
+      }
+      generate_payroll_cycle: {
+        Args: { p_cycle_id: string; p_user_id: string }
+        Returns: Json
+      }
+      get_current_supplier_rate: {
+        Args: {
+          p_supplier_id: string
+          p_product_id: string
+          p_as_of: string
+        }
+        Returns: Json[]
+      }
+      get_current_sale_rate: {
+        Args: {
+          p_product_id: string
+          p_society_id: string | null
+          p_as_of: string
+        }
+        Returns: {
+          rate_id: string
+          rate: number
+          gst_percentage: number
+          margin_percentage: number | null
+          base_cost: number | null
+          is_society_specific: boolean
+          effective_from: string
+          effective_to: string | null
+        }[]
+      }
       get_employee_id: { Args: never; Returns: string }
       get_guard_id: { Args: never; Returns: string }
       get_guard_movement_variance: {
@@ -6575,6 +6710,10 @@ export type Database = {
         }[]
       }
       get_resident_id: { Args: never; Returns: string }
+      get_suppliers_for_product: {
+        Args: { p_product_id: string; p_as_of: string }
+        Returns: Json[]
+      }
       get_unlinked_qr_codes: {
         Args: { p_limit?: number; p_society_id: string }
         Returns: {
@@ -6593,6 +6732,10 @@ export type Database = {
       is_employee: { Args: never; Returns: boolean }
       is_guard: { Args: never; Returns: boolean }
       is_resident: { Args: never; Returns: boolean }
+      transition_po_status: {
+        Args: { p_po_id: string; p_new_status: string; p_user_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       alert_type:

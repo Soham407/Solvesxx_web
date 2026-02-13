@@ -135,20 +135,8 @@ const canTransition = (currentStatus: InvoiceStatus, targetStatus: InvoiceStatus
   return STATUS_TRANSITIONS[currentStatus]?.includes(targetStatus) ?? false;
 };
 
-// Convert paise to rupees for display
-export const toRupees = (paise: number): number => paise / 100;
-
-// Convert rupees to paise for storage
-export const toPaise = (rupees: number): number => Math.round(rupees * 100);
-
-// Format currency
-export const formatCurrency = (paiseAmount: number): string => {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(toRupees(paiseAmount));
-};
+import { toRupees, toPaise, formatCurrency } from "@/src/lib/utils/currency";
+export { formatCurrency };
 
 // Calculate line total including tax and discount
 export const calculateLineTotal = (

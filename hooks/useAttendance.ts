@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
-import { MAIN_GATE_CODE, CURRENT_ORG_ID } from "@/src/lib/constants";
+import { MAIN_GATE_CODE } from "@/src/lib/constants";
 
 interface GateLocation {
   id: string;

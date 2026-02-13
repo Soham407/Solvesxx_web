@@ -4,39 +4,28 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTable } from "@/components/shared/DataTable";
 import { Button } from "@/components/ui/button";
 import { 
-  BarChart, 
   BarChart4,
   TrendingDown, 
   TrendingUp, 
-  DollarSign, 
   Download, 
-  Filter, 
-  Calendar,
   Wallet,
-  ArrowRightLeft,
   PieChart as PieChartIcon
 } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { useAnalyticsData } from "@/hooks/useAnalyticsData";
+import { AnalyticsChart } from "@/components/shared/AnalyticsChart";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface LedgerSummary {
-  id: string;
   category: string;
-  revenue: string;
-  expense: string;
-  netMargin: string;
+  revenue: number;
 }
 
-const data: LedgerSummary[] = [
-  { id: "FIN-01", category: "Society Maintenance", revenue: "₹4,50,000", expense: "₹2,10,000", netMargin: "+₹2,40,000" },
-  { id: "FIN-02", category: "Specialized Services", revenue: "₹85,000", expense: "₹42,000", netMargin: "+₹43,000" },
-  { id: "FIN-03", category: "Pantry Operations", revenue: "₹24,000", expense: "₹18,500", netMargin: "+₹5,500" },
-  { id: "FIN-04", category: "Printing & Ads", revenue: "₹15,000", expense: "₹2,000", netMargin: "+₹13,000" },
-];
-
 export default function FinancialAnalyticsPage() {
+  const { data, trends, isLoading } = useAnalyticsData("financial");
+
   const columns: ColumnDef<LedgerSummary>[] = [
     {
       accessorKey: "category",
@@ -46,23 +35,23 @@ export default function FinancialAnalyticsPage() {
     {
       accessorKey: "revenue",
       header: "Collection (AR)",
-      cell: ({ row }) => <span className="text-sm font-medium text-success">{row.getValue("revenue")}</span>,
+      cell: ({ row }) => <span className="text-sm font-medium text-success">₹{(row.getValue("revenue") as number).toLocaleString()}</span>,
     },
     {
-        accessorKey: "expense",
-        header: "Payouts (AP)",
-        cell: ({ row }) => <span className="text-sm font-medium text-critical">{row.getValue("expense")}</span>,
-      },
-    {
-      accessorKey: "netMargin",
+      id: "netMargin",
       header: "P&L Impact",
       cell: ({ row }) => (
         <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 font-bold">
-            {row.getValue("netMargin")}
+            +₹{(row.getValue("revenue") as number).toLocaleString()}
         </Badge>
       ),
     },
   ];
+
+  const totalCollection = trends.reduce((acc, curr) => acc + Number(curr.revenue), 0);
+  const outstanding = 412000; // Mocked for now as per PRD requirement for aged outstanding
+  const totalExpense = trends.reduce((acc, curr) => acc + Number(curr.expense), 0);
+  const profitRetention = totalCollection > 0 ? (((totalCollection - totalExpense) / totalCollection) * 100).toFixed(1) : "0.0";
 
   return (
     <div className="animate-fade-in space-y-8 pb-20">
@@ -91,7 +80,7 @@ export default function FinancialAnalyticsPage() {
              </div>
              <div className="flex flex-col text-left">
                 <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Total Collection (YTD)</span>
-                <span className="text-2xl font-bold  text-primary mt-1">₹82,45,000</span>
+                <span className="text-2xl font-bold  text-primary mt-1">₹{totalCollection.toLocaleString()}</span>
              </div>
         </Card>
         <Card className="border-none shadow-card ring-1 ring-border p-6 bg-linear-to-br from-critical/5 to-transparent">
@@ -103,7 +92,7 @@ export default function FinancialAnalyticsPage() {
              </div>
              <div className="flex flex-col text-left">
                 <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Outstanding (Aged)</span>
-                <span className="text-2xl font-bold  text-critical mt-1">₹4,12,000</span>
+                <span className="text-2xl font-bold  text-critical mt-1">₹{outstanding.toLocaleString()}</span>
              </div>
         </Card>
         <Card className="border-none shadow-card ring-1 ring-border p-6 bg-linear-to-br from-success/5 to-transparent">
@@ -115,7 +104,7 @@ export default function FinancialAnalyticsPage() {
              </div>
              <div className="flex flex-col text-left">
                 <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Profit Retention</span>
-                <span className="text-2xl font-bold  text-success mt-1">32.4%</span>
+                <span className="text-2xl font-bold  text-success mt-1">{profitRetention}%</span>
              </div>
         </Card>
       </div>
@@ -129,12 +118,46 @@ export default function FinancialAnalyticsPage() {
                   </div>
                   <PieChartIcon className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
-              <CardContent className="h-[250px] flex items-center justify-center bg-muted/10 border-t border-dashed rounded-b-xl">
-                    <span className="text-xs font-medium text-muted-foreground italic">Pie chart components loading...</span>
+              <CardContent className="min-h-[250px] flex items-center justify-center">
+                  {isLoading ? <Skeleton className="h-[200px] w-full" /> : (
+                      <AnalyticsChart 
+                        type="pie" 
+                        data={data} 
+                        index="category" 
+                        categories={["revenue"]} 
+                        height={250}
+                      />
+                  )}
               </CardContent>
           </Card>
-          <DataTable columns={columns} data={data} searchKey="category" />
+          <Card className="border-none shadow-card ring-1 ring-border">
+              <CardHeader className="flex flex-row items-center justify-between">
+                  <div className="flex flex-col gap-1">
+                    <CardTitle className="text-sm font-bold">Monthly Profitability</CardTitle>
+                    <span className="text-[10px] text-muted-foreground uppercase font-bold">Collection vs Payouts</span>
+                  </div>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent className="min-h-[250px] flex items-center justify-center">
+                  {isLoading ? <Skeleton className="h-[200px] w-full" /> : (
+                      <AnalyticsChart 
+                        type="area" 
+                        data={trends} 
+                        index="month" 
+                        categories={["revenue", "expense"]} 
+                        height={250}
+                      />
+                  )}
+              </CardContent>
+          </Card>
       </div>
+
+      <DataTable 
+        columns={columns} 
+        data={data} 
+        searchKey="category" 
+        isLoading={isLoading} 
+      />
     </div>
   );
 }

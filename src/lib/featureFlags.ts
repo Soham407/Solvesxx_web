@@ -1,12 +1,13 @@
 /**
- * 🔒 FEATURE FLAGS CONFIGURATION
+ * Feature Flags Configuration
  *
- * This file controls which features are visible in production.
+ * This file controls which features are visible in the application.
  * Features marked as frozen are NOT part of the current client scope.
  *
- * To re-enable features:
- * 1. Set FEATURE_FUTURE_PHASE to true, OR
- * 2. Enable individual feature flags
+ * Configuration:
+ * - Set NEXT_PUBLIC_FEATURE_FUTURE_PHASE=true to enable ALL experimental features
+ * - Set NEXT_PUBLIC_FF_<FLAG_NAME>=true to enable individual features per-environment
+ *   e.g. NEXT_PUBLIC_FF_REPORTS_MODULE=true
  *
  * See /docs/FEATURE_FREEZE_REGISTER.md for complete documentation
  */
@@ -14,111 +15,105 @@
 // ===== GLOBAL FEATURE FLAG =====
 // Set to true to enable ALL experimental features
 export const FEATURE_FUTURE_PHASE =
-  process.env.NEXT_PUBLIC_FEATURE_FUTURE_PHASE === "true" || false;
+  process.env.NEXT_PUBLIC_FEATURE_FUTURE_PHASE === "true";
+
+/**
+ * Read a per-feature env var override.
+ * Returns true if NEXT_PUBLIC_FF_<name>=true, or if FEATURE_FUTURE_PHASE is on.
+ */
+function ff(name: string): boolean {
+  if (FEATURE_FUTURE_PHASE) return true;
+  return process.env[`NEXT_PUBLIC_FF_${name}`] === "true";
+}
 
 // ===== INDIVIDUAL FEATURE FLAGS =====
+// Each flag can be enabled independently via NEXT_PUBLIC_FF_<NAME>=true
 export const FEATURE_FLAGS = {
   // UI/UX Extras
-  KANBAN_BOARD: FEATURE_FUTURE_PHASE || false,
-  REPORTS_MODULE: FEATURE_FUTURE_PHASE || false,
-  GPS_COMMAND_CENTER: FEATURE_FUTURE_PHASE || false,
+  KANBAN_BOARD: ff("KANBAN_BOARD"),
+  REPORTS_MODULE: ff("REPORTS_MODULE"),
+  GPS_COMMAND_CENTER: ff("GPS_COMMAND_CENTER"),
 
   // Advanced Operations
-  MAINTENANCE_SCHEDULING: FEATURE_FUTURE_PHASE || false,
-  QR_BATCH_GENERATOR: FEATURE_FUTURE_PHASE || false,
-  JOB_MATERIAL_TRACKING: FEATURE_FUTURE_PHASE || false,
-  INDENT_VERIFICATION: FEATURE_FUTURE_PHASE || false,
-  SERVICE_BOY_PAGE: FEATURE_FUTURE_PHASE || false,
+  MAINTENANCE_SCHEDULING: ff("MAINTENANCE_SCHEDULING"),
+  QR_BATCH_GENERATOR: ff("QR_BATCH_GENERATOR"),
+  JOB_MATERIAL_TRACKING: ff("JOB_MATERIAL_TRACKING"),
+  INDENT_VERIFICATION: ff("INDENT_VERIFICATION"),
+  SERVICE_BOY_PAGE: ff("SERVICE_BOY_PAGE"),
 
   // Architecture/Data Power Features
-  MULTI_WAREHOUSE: FEATURE_FUTURE_PHASE || false,
-  ASSET_CATEGORY_HIERARCHY: FEATURE_FUTURE_PHASE || false,
-  STOCK_BATCH_MANAGEMENT: FEATURE_FUTURE_PHASE || false,
+  MULTI_WAREHOUSE: ff("MULTI_WAREHOUSE"),
+  ASSET_CATEGORY_HIERARCHY: ff("ASSET_CATEGORY_HIERARCHY"),
+  STOCK_BATCH_MANAGEMENT: ff("STOCK_BATCH_MANAGEMENT"),
 
   // Configuration-Heavy Modules
-  LEAVE_CONFIG_ADMIN: FEATURE_FUTURE_PHASE || false,
-  SPECIALIZED_PROFILES: FEATURE_FUTURE_PHASE || false,
+  LEAVE_CONFIG_ADMIN: ff("LEAVE_CONFIG_ADMIN"),
+  SPECIALIZED_PROFILES: ff("SPECIALIZED_PROFILES"),
 } as const;
 
 // ===== FROZEN ROUTES =====
 // Routes that should be blocked when features are disabled
-export const FROZEN_ROUTES: string[] = [
-  // Kanban Board
-  "/service-requests/board",
+// Mapped to their controlling feature flag for targeted enable/disable
+const ROUTE_FLAG_MAP: Record<string, keyof typeof FEATURE_FLAGS> = {
+  "/service-requests/board": "KANBAN_BOARD",
+  "/reports": "REPORTS_MODULE",
+  "/reports/attendance": "REPORTS_MODULE",
+  "/reports/financial": "REPORTS_MODULE",
+  "/reports/services": "REPORTS_MODULE",
+  "/reports/inventory": "REPORTS_MODULE",
+  "/assets/maintenance": "MAINTENANCE_SCHEDULING",
+  "/inventory/indents/verification": "INDENT_VERIFICATION",
+  "/inventory/warehouses": "MULTI_WAREHOUSE",
+  "/assets/categories": "ASSET_CATEGORY_HIERARCHY",
+  "/hrms/leave/config": "LEAVE_CONFIG_ADMIN",
+  "/hrms/specialized-profiles": "SPECIALIZED_PROFILES",
+  "/service-boy": "SERVICE_BOY_PAGE",
+};
 
-  // Reports Module (all 4 reports pages)
-  "/reports",
-  "/reports/attendance",
-  "/reports/financial",
-  "/reports/services",
-  "/reports/inventory",
-
-  // Maintenance Scheduling
-  "/assets/maintenance",
-
-  // QR Batch Generator (inside QR Codes page)
-  // Note: Main QR page is PRD-compliant, batch generator is extra
-
-  // Indent Verification
-  "/inventory/indents/verification",
-
-  // Warehouse Management
-  "/inventory/warehouses",
-
-  // Asset Category Manager (hierarchy)
-  "/assets/categories",
-
-  // Leave Configuration Admin
-  "/hrms/leave/config",
-
-  // Specialized Profiles
-  "/hrms/specialized-profiles",
-
-  // Service Boy Page (technician mobile view)
-  "/service-boy",
-];
+// Derived frozen routes for backward compatibility
+export const FROZEN_ROUTES: string[] = Object.entries(ROUTE_FLAG_MAP)
+  .filter(([, flag]) => !FEATURE_FLAGS[flag])
+  .map(([route]) => route);
 
 // ===== FROZEN NAVIGATION ITEMS =====
-// Titles of nav items to hide from sidebar
-export const FROZEN_NAV_ITEMS: string[] = [
-  "Kanban Board",
-  "Analytics Hub",
-  "Attendance Analysis",
-  "Financial Health",
-  "Service Excellence",
-  "Inventory Burn",
-  "Maintenance Schedules",
-  "Warehouses",
-  "Asset Categories",
-  "Indent Verification",
-  "Leave Config",
-  "Specialized Profiles",
-  "My Jobs",
-];
+// Title -> feature flag mapping
+const NAV_ITEM_FLAG_MAP: Record<string, keyof typeof FEATURE_FLAGS> = {
+  "Kanban Board": "KANBAN_BOARD",
+  "Analytics Hub": "REPORTS_MODULE",
+  "Attendance Analysis": "REPORTS_MODULE",
+  "Financial Health": "REPORTS_MODULE",
+  "Service Excellence": "REPORTS_MODULE",
+  "Inventory Burn": "REPORTS_MODULE",
+  "Maintenance Schedules": "MAINTENANCE_SCHEDULING",
+  "Warehouses": "MULTI_WAREHOUSE",
+  "Asset Categories": "ASSET_CATEGORY_HIERARCHY",
+  "Indent Verification": "INDENT_VERIFICATION",
+  "Leave Config": "LEAVE_CONFIG_ADMIN",
+  "Specialized Profiles": "SPECIALIZED_PROFILES",
+  "My Jobs": "SERVICE_BOY_PAGE",
+};
 
-// ===== FROZEN NAV CHILDREN =====
-// Specific child hrefs to hide
-export const FROZEN_NAV_HREFS: string[] = [
-  "/service-requests/board",
-  "/reports/attendance",
-  "/reports/financial",
-  "/reports/services",
-  "/reports/inventory",
-  "/assets/maintenance",
-  "/assets/categories",
-  "/inventory/warehouses",
-  "/inventory/indents/verification",
-  "/hrms/leave/config",
-  "/hrms/specialized-profiles",
-  "/service-boy",
-];
+export const FROZEN_NAV_ITEMS: string[] = Object.entries(NAV_ITEM_FLAG_MAP)
+  .filter(([, flag]) => !FEATURE_FLAGS[flag])
+  .map(([title]) => title);
+
+// ===== FROZEN NAV HREFS =====
+export const FROZEN_NAV_HREFS: string[] = Object.entries(ROUTE_FLAG_MAP)
+  .filter(([, flag]) => !FEATURE_FLAGS[flag])
+  .map(([href]) => href);
 
 /**
  * Check if a route is frozen (disabled)
  */
 export function isRouteFrozen(pathname: string): boolean {
   if (FEATURE_FUTURE_PHASE) return false;
-  return FROZEN_ROUTES.some((route) => pathname.startsWith(route));
+  // Check exact match or prefix match
+  for (const [route, flag] of Object.entries(ROUTE_FLAG_MAP)) {
+    if (pathname.startsWith(route) && !FEATURE_FLAGS[flag]) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -126,7 +121,8 @@ export function isRouteFrozen(pathname: string): boolean {
  */
 export function isNavItemFrozen(title: string): boolean {
   if (FEATURE_FUTURE_PHASE) return false;
-  return FROZEN_NAV_ITEMS.includes(title);
+  const flag = NAV_ITEM_FLAG_MAP[title];
+  return flag ? !FEATURE_FLAGS[flag] : false;
 }
 
 /**
@@ -134,7 +130,8 @@ export function isNavItemFrozen(title: string): boolean {
  */
 export function isNavHrefFrozen(href: string): boolean {
   if (FEATURE_FUTURE_PHASE) return false;
-  return FROZEN_NAV_HREFS.includes(href);
+  const flag = ROUTE_FLAG_MAP[href];
+  return flag ? !FEATURE_FLAGS[flag] : false;
 }
 
 /**

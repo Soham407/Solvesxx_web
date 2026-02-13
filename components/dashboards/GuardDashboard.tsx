@@ -709,6 +709,7 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
               className="h-8 w-8"
               onClick={refresh}
               disabled={isLoading}
+              aria-label="Refresh attendance status"
             >
               <RefreshCw
                 className={cn("h-4 w-4", isLoading && "animate-spin")}
@@ -1014,6 +1015,7 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
                         variant="ghost"
                         className="h-8 w-8 text-muted-foreground hover:text-primary"
                         title="Add Photo Evidence"
+                        aria-label="Add photo evidence for this task"
                         onClick={(e) => {
                           e.stopPropagation();
                           document.getElementById(`upload-${item.id}`)?.click();

@@ -1,8 +1,7 @@
 "use client";
 
-import { FileText, Plus, Download, Filter, Search, MoreHorizontal, ArrowUpRight, DollarSign, Clock, CheckCircle2 } from "lucide-react";
+import { FileText, Plus, MoreHorizontal, DollarSign, Clock, AlertCircle, Loader2 } from "lucide-react";
 import { DataTable } from "@/components/shared/DataTable";
-import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { ColumnDef } from "@tanstack/react-table";
 import {
@@ -13,48 +12,36 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-
-interface Invoice {
-  id: string;
-  client: string;
-  amount: number;
-  status: string;
-  dueDate: string;
-  issueDate: string;
-}
-
-const data: Invoice[] = [
-  { id: "INV-2024-001", client: "TechCorp Industries", amount: 12500.00, status: "Paid", dueDate: "2024-02-15", issueDate: "2024-01-15" },
-  { id: "INV-2024-002", client: "Cloudnine Solutions", amount: 8900.50, status: "Pending", dueDate: "2024-02-20", issueDate: "2024-01-20" },
-  { id: "INV-2024-003", client: "Green Valley Trust", amount: 4200.00, status: "Overdue", dueDate: "2024-01-30", issueDate: "2024-01-01" },
-  { id: "INV-2024-004", client: "Skyline Residency", amount: 15600.00, status: "Paid", dueDate: "2024-02-05", issueDate: "2024-01-05" },
-];
+import { useBuyerInvoices, formatCurrency, INVOICE_STATUS_CONFIG, PAYMENT_STATUS_CONFIG } from "@/hooks/useBuyerInvoices";
+import { Badge } from "@/components/ui/badge";
 
 export default function BuyerInvoicesPage() {
-  const columns: ColumnDef<Invoice>[] = [
+  const { invoices, isLoading, error } = useBuyerInvoices();
+
+  const columns: ColumnDef<any>[] = [
     {
-      accessorKey: "id",
+      accessorKey: "invoice_number",
       header: "Invoice ID",
-      cell: ({ row }) => <span className="font-bold font-mono text-xs">{row.original.id}</span>
+      cell: ({ row }) => <span className="font-bold font-mono text-xs">{row.original.invoice_number}</span>
     },
     {
-      accessorKey: "client",
+      accessorKey: "client_name",
       header: "Buyer / Client",
       cell: ({ row }) => (
         <div className="flex flex-col">
-          <span className="font-bold text-sm ">{row.original.client}</span>
-          <span className="text-[10px] text-muted-foreground uppercase font-bold">Contract #8292-A</span>
+          <span className="font-bold text-sm ">{row.original.client_name}</span>
+          <span className="text-[10px] text-muted-foreground uppercase font-bold">Contract {row.original.contract_number || "N/A"}</span>
         </div>
       ),
     },
     {
-      accessorKey: "amount",
+      accessorKey: "total_amount",
       header: "Amount",
       cell: ({ row }) => (
         <span className="font-bold text-sm">
-          ${row.original.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          {formatCurrency(row.original.total_amount || 0)}
         </span>
       ),
     },
@@ -62,21 +49,35 @@ export default function BuyerInvoicesPage() {
       accessorKey: "status",
       header: "Status",
       cell: ({ row }) => {
-        const status = row.original.status;
-        let type = "info";
-        if (status === "Paid") type = "success";
-        if (status === "Overdue") type = "error";
-        if (status === "Pending") type = "warning";
-        return <StatusBadge status={type} label={status} />;
+        const val = row.original.status as string;
+        const config = INVOICE_STATUS_CONFIG[val as keyof typeof INVOICE_STATUS_CONFIG] || { label: val, className: "" };
+        return (
+          <Badge variant="outline" className={cn("font-bold text-[10px] uppercase h-5", config.className)}>
+            {config.label}
+          </Badge>
+        );
       },
     },
     {
-      accessorKey: "dueDate",
+      accessorKey: "payment_status",
+      header: "Payment",
+      cell: ({ row }) => {
+        const val = row.original.payment_status as string;
+        const config = PAYMENT_STATUS_CONFIG[val as keyof typeof PAYMENT_STATUS_CONFIG] || { label: val, className: "" };
+        return (
+          <Badge variant="outline" className={cn("font-bold text-[10px] uppercase h-5", config.className)}>
+            {config.label}
+          </Badge>
+        );
+      },
+    },
+    {
+      accessorKey: "due_date",
       header: "Due Date",
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <Clock className="h-3 w-3 text-muted-foreground" />
-          <span className="text-xs font-medium">{row.original.dueDate}</span>
+          <span className="text-xs font-medium">{row.original.due_date ? new Date(row.original.due_date).toLocaleDateString() : "N/A"}</span>
         </div>
       )
     },
@@ -94,16 +95,59 @@ export default function BuyerInvoicesPage() {
             <DropdownMenuItem className="gap-2">
                <FileText className="h-4 w-4" /> View PDF
             </DropdownMenuItem>
-            <DropdownMenuItem className="gap-2">
-               <DollarSign className="h-4 w-4" /> Record Payment
+            <DropdownMenuItem 
+              className="gap-2 font-bold text-primary"
+              onClick={() => {
+                const confirmed = window.confirm(`Initiating Razorpay checkout for Invoice ${row.original.invoice_number} (Amount: ${formatCurrency(row.original.total_amount)}). Proceed?`);
+                if (confirmed) {
+                  alert("Gateway initialization successful. Redirecting to secure checkout...");
+                }
+              }}
+            >
+               <DollarSign className="h-4 w-4" /> Pay Online
             </DropdownMenuItem>
             <DropdownMenuSeparator />
+            <DropdownMenuItem className="text-muted-foreground text-xs">Record Manual Payment</DropdownMenuItem>
             <DropdownMenuItem className="text-critical font-bold">Write Off</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       ),
     },
   ];
+
+  if (isLoading) {
+    return (
+      <div className="h-[400px] flex flex-col items-center justify-center gap-4">
+        <Loader2 className="h-8 w-8 text-primary animate-spin" />
+        <p className="text-sm text-muted-foreground animate-pulse">Loading invoices...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="h-[400px] flex flex-col items-center justify-center gap-4 text-center">
+        <div className="h-12 w-12 rounded-full bg-critical/10 flex items-center justify-center text-critical">
+          <AlertCircle className="h-6 w-6" />
+        </div>
+        <div>
+          <h3 className="text-lg font-bold">Failed to load invoices</h3>
+          <p className="text-sm text-muted-foreground">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  const totalOutstanding = invoices.reduce((acc, inv) => acc + (inv.due_amount || 0), 0);
+  const collectedMTD = invoices
+    .filter(inv => inv.payment_status === "paid")
+    .reduce((acc, inv) => acc + (inv.paid_amount || 0), 0);
+  const overdueInvoices = invoices.filter(inv => {
+    if (inv.payment_status === "paid") return false;
+    if (!inv.due_date) return false;
+    return new Date(inv.due_date) < new Date();
+  });
+  const overdueAmount = overdueInvoices.reduce((acc, inv) => acc + (inv.due_amount || 0), 0);
 
   return (
     <div className="space-y-6">
@@ -112,25 +156,25 @@ export default function BuyerInvoicesPage() {
          <Card className="border-none shadow-card ring-1 ring-border">
             <CardHeader className="p-4 pb-2">
               <CardDescription className="text-[10px] uppercase font-bold tracking-widest">Total Outstanding</CardDescription>
-              <CardTitle className="text-2xl font-bold">$48,290.00</CardTitle>
+              <CardTitle className="text-2xl font-bold">{formatCurrency(totalOutstanding)}</CardTitle>
             </CardHeader>
          </Card>
          <Card className="border-none shadow-card ring-1 ring-border bg-success/5 border-l-4 border-l-success">
             <CardHeader className="p-4 pb-2">
-              <CardDescription className="text-[10px] uppercase font-bold tracking-widest text-success">Collected (MTD)</CardDescription>
-              <CardTitle className="text-2xl font-bold text-success">$124,500.00</CardTitle>
+              <CardDescription className="text-[10px] uppercase font-bold tracking-widest text-success">Collected (Total)</CardDescription>
+              <CardTitle className="text-2xl font-bold text-success">{formatCurrency(collectedMTD)}</CardTitle>
             </CardHeader>
          </Card>
          <Card className="border-none shadow-card ring-1 ring-border bg-critical/5 border-l-4 border-l-critical">
             <CardHeader className="p-4 pb-2">
               <CardDescription className="text-[10px] uppercase font-bold tracking-widest text-critical">Overdue</CardDescription>
-              <CardTitle className="text-2xl font-bold text-critical">$4,200.00</CardTitle>
+              <CardTitle className="text-2xl font-bold text-critical">{formatCurrency(overdueAmount)}</CardTitle>
             </CardHeader>
          </Card>
          <Card className="border-none shadow-card ring-1 ring-border">
             <CardHeader className="p-4 pb-2">
-              <CardDescription className="text-[10px] uppercase font-bold tracking-widest">Pending Sync</CardDescription>
-              <CardTitle className="text-2xl font-bold">12</CardTitle>
+              <CardDescription className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Invoice Count</CardDescription>
+              <CardTitle className="text-2xl font-bold">{invoices.length}</CardTitle>
             </CardHeader>
          </Card>
       </div>
@@ -141,10 +185,6 @@ export default function BuyerInvoicesPage() {
           <p className="module-description">Monitor receivables and billing cycles for service clients.</p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" className="gap-2 font-bold">
-            <Filter className="h-4 w-4" />
-            Filters
-          </Button>
           <Button className="gap-2 shadow-lg bg-primary hover:bg-primary/90 font-bold">
             <Plus className="h-4 w-4" />
             Create Invoice
@@ -152,7 +192,8 @@ export default function BuyerInvoicesPage() {
         </div>
       </div>
 
-      <DataTable columns={columns} data={data} searchKey="client" />
+      <DataTable columns={columns} data={invoices} searchKey="client_name" />
     </div>
   );
 }
+

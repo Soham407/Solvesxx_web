@@ -136,20 +136,25 @@ const canTransition = (currentStatus: POStatus, targetStatus: POStatus): boolean
   return STATUS_TRANSITIONS[currentStatus]?.includes(targetStatus) ?? false;
 };
 
-// Convert paise to rupees for display
-export const toRupees = (paise: number): number => paise / 100;
+import { toRupees, toPaise, formatCurrency } from "@/src/lib/utils/currency";
 
-// Convert rupees to paise for storage
-export const toPaise = (rupees: number): number => Math.round(rupees * 100);
+// ============================================
+// SUPPLIER RATE LOOKUP INTERFACES
+// ============================================
 
-// Format currency
-export const formatCurrency = (paiseAmount: number): string => {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(toRupees(paiseAmount));
-};
+export interface SupplierRateLookupResult {
+  rate: number; // In the same unit as stored (Rupees, not paise)
+  discountPercentage: number;
+  gstPercentage: number;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  supplierProductId: string;
+  found: boolean;
+}
+
+export interface SupplierRatesForProducts {
+  [productId: string]: SupplierRateLookupResult | null;
+}
 
 // Calculate line total with tax and discount
 const calculateLineTotal = (
@@ -179,6 +184,160 @@ export function usePurchaseOrders(filters?: { status?: POStatus; supplierId?: st
     isLoading: true,
     error: null,
   });
+
+  // ============================================
+  // SUPPLIER RATE LOOKUP FUNCTIONS
+  // ============================================
+
+  /**
+   * Get current supplier rate for a specific product
+   * Looks up from supplier_rates table via supplier_products
+   * Returns rate in Rupees (not paise)
+   */
+  const getSupplierRateForProduct = useCallback(async (
+    supplierId: string,
+    productId: string,
+    asOfDate?: string
+  ): Promise<SupplierRateLookupResult | null> => {
+    try {
+      const effectiveDate = asOfDate || new Date().toISOString().split('T')[0];
+
+      // First, find the supplier_product link
+      const { data: supplierProduct, error: spError } = await supabase
+        .from("supplier_products")
+        .select("id")
+        .eq("supplier_id", supplierId)
+        .eq("product_id", productId)
+        .maybeSingle();
+
+      if (spError) {
+        console.error("Error finding supplier product:", spError);
+        return null;
+      }
+
+      if (!supplierProduct) {
+        // No supplier-product link exists
+        return null;
+      }
+
+      // Now get the current active rate for this supplier-product
+      const { data: rateData, error: rateError } = await supabase
+        .from("supplier_rates")
+        .select("*")
+        .eq("supplier_product_id", supplierProduct.id)
+        .eq("is_active", true)
+        .lte("effective_from", effectiveDate)
+        .or(`effective_to.is.null,effective_to.gte.${effectiveDate}`)
+        .order("effective_from", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (rateError) {
+        console.error("Error fetching supplier rate:", rateError);
+        return null;
+      }
+
+      if (!rateData) {
+        return null;
+      }
+
+      // Cast to any to handle columns that may not exist yet (pending migration)
+      const rate = rateData as any;
+      
+      return {
+        rate: rate.rate || 0,
+        discountPercentage: rate.discount_percentage || 0,
+        gstPercentage: rate.gst_percentage || 0,
+        effectiveFrom: rate.effective_from,
+        effectiveTo: rate.effective_to,
+        supplierProductId: supplierProduct.id,
+        found: true,
+      };
+    } catch (err) {
+      console.error("Error in getSupplierRateForProduct:", err);
+      return null;
+    }
+  }, []);
+
+  /**
+   * Get supplier rates for multiple products at once (batch lookup)
+   * Useful when creating PO from indent with multiple items
+   */
+  const getSupplierRatesForProducts = useCallback(async (
+    supplierId: string,
+    productIds: string[],
+    asOfDate?: string
+  ): Promise<SupplierRatesForProducts> => {
+    const results: SupplierRatesForProducts = {};
+    
+    // Initialize all as null
+    productIds.forEach(id => { results[id] = null; });
+
+    if (productIds.length === 0) return results;
+
+    try {
+      const effectiveDate = asOfDate || new Date().toISOString().split('T')[0];
+
+      // Get all supplier_products for this supplier and these products
+      const { data: supplierProducts, error: spError } = await supabase
+        .from("supplier_products")
+        .select("id, product_id")
+        .eq("supplier_id", supplierId)
+        .in("product_id", productIds);
+
+      if (spError || !supplierProducts || supplierProducts.length === 0) {
+        return results;
+      }
+
+      const spIds = supplierProducts.map(sp => sp.id);
+      const spIdToProductId: Record<string, string> = {};
+      supplierProducts.forEach(sp => {
+        if (sp.product_id) {
+          spIdToProductId[sp.id] = sp.product_id;
+        }
+      });
+
+      // Get all current rates for these supplier_products
+      const { data: rates, error: ratesError } = await supabase
+        .from("supplier_rates")
+        .select("*")
+        .in("supplier_product_id", spIds)
+        .eq("is_active", true)
+        .lte("effective_from", effectiveDate)
+        .or(`effective_to.is.null,effective_to.gte.${effectiveDate}`)
+        .order("effective_from", { ascending: false });
+
+      if (ratesError || !rates) {
+        return results;
+      }
+
+      // Map rates back to product IDs (taking the most recent for each)
+      const processedSpIds = new Set<string>();
+      
+      rates.forEach((rate: any) => {
+        if (processedSpIds.has(rate.supplier_product_id)) return;
+        
+        const productId = spIdToProductId[rate.supplier_product_id];
+        if (productId) {
+          results[productId] = {
+            rate: rate.rate || 0,
+            discountPercentage: rate.discount_percentage || 0,
+            gstPercentage: rate.gst_percentage || 0,
+            effectiveFrom: rate.effective_from,
+            effectiveTo: rate.effective_to,
+            supplierProductId: rate.supplier_product_id,
+            found: true,
+          };
+          processedSpIds.add(rate.supplier_product_id);
+        }
+      });
+
+      return results;
+    } catch (err) {
+      console.error("Error in getSupplierRatesForProducts:", err);
+      return results;
+    }
+  }, []);
 
   // ============================================
   // FETCH PURCHASE ORDERS
@@ -357,6 +516,7 @@ export function usePurchaseOrders(filters?: { status?: POStatus; supplierId?: st
       billing_address?: string;
       payment_terms?: string;
       notes?: string;
+      useSupplierRates?: boolean; // If true, auto-populate rates from supplier_rates
     }
   ): Promise<PurchaseOrder | null> => {
     try {
@@ -385,6 +545,20 @@ export function usePurchaseOrders(filters?: { status?: POStatus; supplierId?: st
         throw new Error("Indent has no items");
       }
 
+      // Fetch supplier rates for all products if useSupplierRates is enabled (default: true)
+      let supplierRates: SupplierRatesForProducts = {};
+      const shouldUseSupplierRates = options?.useSupplierRates !== false;
+      
+      if (shouldUseSupplierRates) {
+        const productIds = indentItems
+          .map((item: any) => item.product_id)
+          .filter((id: string | null) => id !== null);
+        
+        if (productIds.length > 0) {
+          supplierRates = await getSupplierRatesForProducts(supplierId, productIds);
+        }
+      }
+
       // Create PO
       const { data: po, error: poError } = await supabase
         .from("purchase_orders")
@@ -404,25 +578,55 @@ export function usePurchaseOrders(filters?: { status?: POStatus; supplierId?: st
 
       if (poError) throw poError;
 
-      // Create PO items from indent items
-      const poItems = indentItems.map((item: any) => ({
-        purchase_order_id: po.id,
-        indent_item_id: item.id,
-        product_id: item.product_id,
-        item_description: item.item_description,
-        specifications: item.specifications,
-        ordered_quantity: item.approved_quantity || item.requested_quantity,
-        unit_of_measure: item.unit_of_measure,
-        unit_price: item.estimated_unit_price || 0,
-        tax_rate: 0,
-        tax_amount: 0,
-        discount_percent: 0,
-        discount_amount: 0,
-        line_total: (item.approved_quantity || item.requested_quantity) * (item.estimated_unit_price || 0),
-        unmatched_qty: item.approved_quantity || item.requested_quantity,
-        unmatched_amount: (item.approved_quantity || item.requested_quantity) * (item.estimated_unit_price || 0),
-        notes: item.notes,
-      }));
+      // Create PO items from indent items with supplier rates
+      const poItems = indentItems.map((item: any) => {
+        const quantity = item.approved_quantity || item.requested_quantity;
+        
+        // Try to get supplier rate, fall back to indent estimated price
+        const rateInfo = item.product_id ? supplierRates[item.product_id] : null;
+        
+        // If supplier rate found, convert from Rupees to paise for storage
+        // Otherwise use indent's estimated_unit_price (already in paise or 0)
+        let unitPrice = item.estimated_unit_price || 0;
+        let taxRate = 0;
+        let discountPercent = 0;
+
+        if (rateInfo && rateInfo.found) {
+          // Convert rate from Rupees to paise
+          unitPrice = toPaise(rateInfo.rate);
+          taxRate = rateInfo.gstPercentage || 0;
+          discountPercent = rateInfo.discountPercentage || 0;
+        }
+
+        // Calculate line totals
+        const { lineTotal, taxAmount, discountAmount } = calculateLineTotal(
+          quantity,
+          unitPrice,
+          taxRate,
+          discountPercent
+        );
+
+        return {
+          purchase_order_id: po.id,
+          indent_item_id: item.id,
+          product_id: item.product_id,
+          item_description: item.item_description,
+          specifications: item.specifications,
+          ordered_quantity: quantity,
+          unit_of_measure: item.unit_of_measure,
+          unit_price: unitPrice,
+          tax_rate: taxRate,
+          tax_amount: taxAmount,
+          discount_percent: discountPercent,
+          discount_amount: discountAmount,
+          line_total: lineTotal,
+          unmatched_qty: quantity,
+          unmatched_amount: lineTotal,
+          notes: rateInfo?.found 
+            ? `${item.notes || ''} [Rate from supplier contract]`.trim()
+            : item.notes,
+        };
+      });
 
       const { error: poItemsError } = await supabase
         .from("purchase_order_items")
@@ -452,7 +656,7 @@ export function usePurchaseOrders(filters?: { status?: POStatus; supplierId?: st
       setState((prev) => ({ ...prev, error: errorMessage }));
       return null;
     }
-  }, [fetchPurchaseOrders]);
+  }, [fetchPurchaseOrders, getSupplierRatesForProducts]);
 
   // ============================================
   // UPDATE PURCHASE ORDER
@@ -563,6 +767,96 @@ export function usePurchaseOrders(filters?: { status?: POStatus; supplierId?: st
   }, [fetchPOItems, fetchPurchaseOrders]);
 
   // ============================================
+  // ADD PO ITEM WITH AUTO RATE LOOKUP
+  // ============================================
+  /**
+   * Add a PO item with automatic rate lookup from supplier_rates
+   * If rate is found, it will be auto-populated along with discount and tax
+   * If rate is not found, falls back to provided unit_price or 0
+   */
+  const addPOItemWithAutoRate = useCallback(async (
+    poId: string,
+    productId: string,
+    supplierId: string,
+    input: {
+      ordered_quantity: number;
+      item_description?: string;
+      specifications?: string;
+      unit_of_measure?: string;
+      indent_item_id?: string;
+      notes?: string;
+      fallback_unit_price?: number; // Fallback price in paise if no rate found
+    }
+  ): Promise<{ item: POItem | null; rateFound: boolean; rateInfo: SupplierRateLookupResult | null }> => {
+    try {
+      // Look up supplier rate for this product
+      const rateInfo = await getSupplierRateForProduct(supplierId, productId);
+      
+      let unitPrice = input.fallback_unit_price || 0;
+      let taxRate = 0;
+      let discountPercent = 0;
+      let rateFound = false;
+
+      if (rateInfo && rateInfo.found) {
+        // Convert rate from Rupees to paise
+        unitPrice = toPaise(rateInfo.rate);
+        taxRate = rateInfo.gstPercentage || 0;
+        discountPercent = rateInfo.discountPercentage || 0;
+        rateFound = true;
+      }
+
+      // Calculate totals
+      const { lineTotal, taxAmount, discountAmount } = calculateLineTotal(
+        input.ordered_quantity,
+        unitPrice,
+        taxRate,
+        discountPercent
+      );
+
+      const { data, error } = await supabase
+        .from("purchase_order_items")
+        .insert({
+          purchase_order_id: poId,
+          indent_item_id: input.indent_item_id,
+          product_id: productId,
+          item_description: input.item_description,
+          specifications: input.specifications,
+          ordered_quantity: input.ordered_quantity,
+          unit_of_measure: input.unit_of_measure || "pcs",
+          unit_price: unitPrice,
+          tax_rate: taxRate,
+          tax_amount: taxAmount,
+          discount_percent: discountPercent,
+          discount_amount: discountAmount,
+          line_total: lineTotal,
+          unmatched_qty: input.ordered_quantity,
+          unmatched_amount: lineTotal,
+          notes: rateFound 
+            ? `${input.notes || ''} [Rate from supplier contract]`.trim()
+            : input.notes,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      await fetchPOItems(poId);
+      await fetchPurchaseOrders();
+      
+      return { 
+        item: data as POItem, 
+        rateFound, 
+        rateInfo 
+      };
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to add PO item";
+      console.error("Error adding PO item with auto rate:", err);
+      setState((prev) => ({ ...prev, error: errorMessage }));
+      return { item: null, rateFound: false, rateInfo: null };
+    }
+  }, [fetchPOItems, fetchPurchaseOrders, getSupplierRateForProduct]);
+
+  // ============================================
   // UPDATE PO ITEM
   // ============================================
   const updatePOItem = useCallback(async (
@@ -643,28 +937,23 @@ export function usePurchaseOrders(filters?: { status?: POStatus; supplierId?: st
   // ============================================
   const sendToVendor = useCallback(async (poId: string): Promise<boolean> => {
     try {
-      const po = state.purchaseOrders.find((p) => p.id === poId);
-      if (!po) throw new Error("Purchase order not found");
-
-      if (!po.status || !canTransition(po.status, "sent_to_vendor")) {
-        throw new Error(`Cannot send to vendor from status: ${po.status}`);
-      }
-
-      // Validate PO has items
+      // Validate PO has items (client-side pre-check)
       const items = await fetchPOItems(poId);
       if (items.length === 0) {
         throw new Error("Cannot send PO without items");
       }
 
-      const { error } = await supabase
-        .from("purchase_orders")
-        .update({
-          status: "sent_to_vendor",
-          sent_to_vendor_at: new Date().toISOString(),
-        })
-        .eq("id", poId);
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id;
 
-      if (error) throw error;
+      const { data: result, error: rpcError } = await supabase.rpc('transition_po_status' as any, {
+        p_po_id: poId,
+        p_new_status: 'sent_to_vendor',
+        p_user_id: userId,
+      });
+      if (rpcError) throw rpcError;
+      const rpcResult = result as any;
+      if (!rpcResult?.success) throw new Error(rpcResult?.error || 'Status transition failed');
 
       await fetchPurchaseOrders();
       return true;
@@ -674,29 +963,24 @@ export function usePurchaseOrders(filters?: { status?: POStatus; supplierId?: st
       setState((prev) => ({ ...prev, error: errorMessage }));
       return false;
     }
-  }, [state.purchaseOrders, fetchPOItems, fetchPurchaseOrders]);
+  }, [fetchPOItems, fetchPurchaseOrders]);
 
   // ============================================
   // ACKNOWLEDGE PO (Vendor Acknowledged)
   // ============================================
   const acknowledgePO = useCallback(async (poId: string): Promise<boolean> => {
     try {
-      const po = state.purchaseOrders.find((p) => p.id === poId);
-      if (!po) throw new Error("Purchase order not found");
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id;
 
-      if (!po.status || !canTransition(po.status, "acknowledged")) {
-        throw new Error(`Cannot acknowledge from status: ${po.status}`);
-      }
-
-      const { error } = await supabase
-        .from("purchase_orders")
-        .update({
-          status: "acknowledged",
-          vendor_acknowledged_at: new Date().toISOString(),
-        })
-        .eq("id", poId);
-
-      if (error) throw error;
+      const { data: result, error: rpcError } = await supabase.rpc('transition_po_status' as any, {
+        p_po_id: poId,
+        p_new_status: 'acknowledged',
+        p_user_id: userId,
+      });
+      if (rpcError) throw rpcError;
+      const rpcResult = result as any;
+      if (!rpcResult?.success) throw new Error(rpcResult?.error || 'Status transition failed');
 
       await fetchPurchaseOrders();
       return true;
@@ -706,7 +990,7 @@ export function usePurchaseOrders(filters?: { status?: POStatus; supplierId?: st
       setState((prev) => ({ ...prev, error: errorMessage }));
       return false;
     }
-  }, [state.purchaseOrders, fetchPurchaseOrders]);
+  }, [fetchPurchaseOrders]);
 
   // ============================================
   // UPDATE PO STATUS
@@ -716,28 +1000,17 @@ export function usePurchaseOrders(filters?: { status?: POStatus; supplierId?: st
     newStatus: POStatus
   ): Promise<boolean> => {
     try {
-      const po = state.purchaseOrders.find((p) => p.id === poId);
-      if (!po) throw new Error("Purchase order not found");
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id;
 
-      if (!po.status || !canTransition(po.status, newStatus)) {
-        throw new Error(`Cannot transition from ${po.status} to ${newStatus}`);
-      }
-
-      const updateData: any = { status: newStatus };
-
-      // Set timestamps based on status
-      if (newStatus === "sent_to_vendor") {
-        updateData.sent_to_vendor_at = new Date().toISOString();
-      } else if (newStatus === "acknowledged") {
-        updateData.vendor_acknowledged_at = new Date().toISOString();
-      }
-
-      const { error } = await supabase
-        .from("purchase_orders")
-        .update(updateData)
-        .eq("id", poId);
-
-      if (error) throw error;
+      const { data: result, error: rpcError } = await supabase.rpc('transition_po_status' as any, {
+        p_po_id: poId,
+        p_new_status: newStatus,
+        p_user_id: userId,
+      });
+      if (rpcError) throw rpcError;
+      const rpcResult = result as any;
+      if (!rpcResult?.success) throw new Error(rpcResult?.error || 'Status transition failed');
 
       await fetchPurchaseOrders();
       return true;
@@ -747,26 +1020,24 @@ export function usePurchaseOrders(filters?: { status?: POStatus; supplierId?: st
       setState((prev) => ({ ...prev, error: errorMessage }));
       return false;
     }
-  }, [state.purchaseOrders, fetchPurchaseOrders]);
+  }, [fetchPurchaseOrders]);
 
   // ============================================
   // CANCEL PO
   // ============================================
   const cancelPO = useCallback(async (poId: string): Promise<boolean> => {
     try {
-      const po = state.purchaseOrders.find((p) => p.id === poId);
-      if (!po) throw new Error("Purchase order not found");
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id;
 
-      if (!po.status || !canTransition(po.status, "cancelled")) {
-        throw new Error(`Cannot cancel PO from status: ${po.status}`);
-      }
-
-      const { error } = await supabase
-        .from("purchase_orders")
-        .update({ status: "cancelled" })
-        .eq("id", poId);
-
-      if (error) throw error;
+      const { data: result, error: rpcError } = await supabase.rpc('transition_po_status' as any, {
+        p_po_id: poId,
+        p_new_status: 'cancelled',
+        p_user_id: userId,
+      });
+      if (rpcError) throw rpcError;
+      const rpcResult = result as any;
+      if (!rpcResult?.success) throw new Error(rpcResult?.error || 'Status transition failed');
 
       await fetchPurchaseOrders();
       return true;
@@ -776,7 +1047,7 @@ export function usePurchaseOrders(filters?: { status?: POStatus; supplierId?: st
       setState((prev) => ({ ...prev, error: errorMessage }));
       return false;
     }
-  }, [state.purchaseOrders, fetchPurchaseOrders]);
+  }, [fetchPurchaseOrders]);
 
   // ============================================
   // UPDATE RECEIVED QUANTITY (for partial/full receipt)
@@ -807,20 +1078,12 @@ export function usePurchaseOrders(filters?: { status?: POStatus; supplierId?: st
 
       if (error) throw error;
 
-      // Check if all items are received to update PO status
-      const allItems = await fetchPOItems(item.purchase_order_id);
-      const totalOrdered = allItems.reduce((sum, i) => sum + i.ordered_quantity, 0);
-      const totalReceived = allItems.reduce((sum, i) => sum + (i.received_quantity || 0), 0);
+      // Delegate receipt status derivation to server-side RPC
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id;
+      await supabase.rpc('update_po_receipt_status' as any, { p_po_id: item.purchase_order_id, p_user_id: userId });
 
-      if (totalReceived >= totalOrdered) {
-        await updatePOStatus(item.purchase_order_id, "received");
-      } else if (totalReceived > 0) {
-        const po = state.purchaseOrders.find((p) => p.id === item.purchase_order_id);
-        if (po && po.status === "acknowledged") {
-          await updatePOStatus(item.purchase_order_id, "partial_received");
-        }
-      }
-
+      await fetchPOItems(item.purchase_order_id);
       await fetchPurchaseOrders();
       return true;
     } catch (err: unknown) {
@@ -829,7 +1092,7 @@ export function usePurchaseOrders(filters?: { status?: POStatus; supplierId?: st
       setState((prev) => ({ ...prev, error: errorMessage }));
       return false;
     }
-  }, [state.items, state.purchaseOrders, fetchPOItems, updatePOStatus, fetchPurchaseOrders]);
+  }, [state.items, fetchPOItems, fetchPurchaseOrders]);
 
   // ============================================
   // SELECT PO
@@ -905,9 +1168,14 @@ export function usePurchaseOrders(filters?: { status?: POStatus; supplierId?: st
     // Item Operations
     fetchPOItems,
     addPOItem,
+    addPOItemWithAutoRate, // NEW: Auto-populate rate from supplier_rates
     updatePOItem,
     deletePOItem,
     updateReceivedQuantity,
+
+    // Rate Lookup Operations (NEW)
+    getSupplierRateForProduct,
+    getSupplierRatesForProducts,
 
     // Workflow Operations
     sendToVendor,

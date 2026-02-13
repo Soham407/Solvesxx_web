@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
 import { useToast } from "@/components/ui/use-toast";
+import { sanitizeLikeInput } from "@/lib/sanitize";
 
 /**
  * Products Hook
@@ -143,7 +144,7 @@ export function useProducts(initialFilters?: ProductFilters) {
       }
 
       if (filters.searchTerm) {
-        query = query.or(`product_name.ilike.%${filters.searchTerm}%,product_code.ilike.%${filters.searchTerm}%`);
+        query = query.or(`product_name.ilike.%${sanitizeLikeInput(filters.searchTerm)}%,product_code.ilike.%${sanitizeLikeInput(filters.searchTerm)}%`);
       }
 
       const { data, error: fetchError } = await query;

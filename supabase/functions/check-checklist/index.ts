@@ -1,13 +1,65 @@
+// Supabase Edge Function: check-checklist
+// Checks if guards have completed checklists before shift ends (~2 hours), sends reminders.
+//
+// Authentication: Requires CRON_SECRET header for cron/scheduler invocations.
+// Internal calls to send-notification use SUPABASE_SERVICE_ROLE_KEY as Bearer token.
+//
+// Deployment:
+//   supabase functions deploy check-checklist
+//   supabase secrets set CRON_SECRET=your-secret-here
+//
+// Schedule (hourly):
+//   Use pg_cron or external scheduler with header: x-cron-secret: <CRON_SECRET>
+
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') || '',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
 };
+
+/**
+ * Validate that the request is from an authorized cron scheduler.
+ * Checks the x-cron-secret header against the CRON_SECRET env var.
+ * Also allows requests with a valid SUPABASE_SERVICE_ROLE_KEY as Bearer token
+ * (for internal function-to-function calls).
+ */
+function validateCronAuth(req: Request): boolean {
+  // Check x-cron-secret header
+  const cronSecret = Deno.env.get('CRON_SECRET');
+  if (cronSecret && req.headers.get('x-cron-secret') === cronSecret) {
+    return true;
+  }
+
+  // Allow service role key as Bearer token (for internal calls / Supabase cron)
+  const authHeader = req.headers.get('Authorization');
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (authHeader && serviceRoleKey && authHeader === `Bearer ${serviceRoleKey}`) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Parse a time string "HH:MM:SS" or "HH:MM" into total minutes since midnight.
+ */
+function parseTimeToMinutes(timeStr: string): number {
+  const parts = timeStr.split(':');
+  return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
+  }
+
+  // Authenticate the request
+  if (!validateCronAuth(req)) {
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized. Provide a valid x-cron-secret header or service role Bearer token.' }),
+      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
 
   try {
@@ -16,20 +68,8 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // 1. Get Active Shifts ending in ~2 hours
     const now = new Date();
-    const twoHoursLater = new Date(now.getTime() + 2 * 60 * 60 * 1000);
-    const windowStart = new Date(twoHoursLater.getTime() - 15 * 60 * 1000); // 15 min window
-    const windowEnd = new Date(twoHoursLater.getTime() + 15 * 60 * 1000);
-
-    const timeStringStart = windowStart.toTimeString().substring(0, 5);
-    const timeStringEnd = windowEnd.toTimeString().substring(0, 5);
-
-    // Find active assignments where shift ends in ~2 hours
-    // We filter by shift end_time.
-    // Note: This logic assumes shifts don't cross midnight for simplicity, or we handle it carefully.
-    // Detailed query: Join assignments -> shifts.
-    
+    const nowMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
     const today = now.toISOString().split('T')[0];
 
     // Get active assignments
@@ -50,15 +90,18 @@ Deno.serve(async (req) => {
 
     for (const assignment of assignments) {
       const shiftEndTime = assignment.shift.end_time; // "20:00:00"
-      
-      // Simple check: is shiftEndTime roughly 2 hours from now?
-      // We parse the time strings.
-      // This is basic; robust production logic needs full DateTime handling.
-      // We'll skip the precise time check for this prototype and assume the Cron Job schedules it correctly 
-      // or we just check if it's "close enough".
-      
-      // Let's assume this script runs HOURLY and checks for shifts ending in [1.5, 2.5] hours.
-      
+      const shiftEndMinutes = parseTimeToMinutes(shiftEndTime);
+
+      // Check if shift ends in approximately 1.5 to 2.5 hours (90 to 150 minutes)
+      let diffMinutes = shiftEndMinutes - nowMinutes;
+      // Handle midnight crossover
+      if (diffMinutes < -720) diffMinutes += 1440;
+      if (diffMinutes > 720) diffMinutes -= 1440;
+
+      if (diffMinutes < 90 || diffMinutes > 150) {
+        continue; // Shift doesn't end in ~2 hours, skip
+      }
+
       // Check if checklist is completed
       const { data: checklistResponse } = await supabaseClient
         .from('checklist_responses')
@@ -70,7 +113,7 @@ Deno.serve(async (req) => {
       if (!checklistResponse || !checklistResponse.is_complete) {
         // Trigger Reminder
         const empName = `${assignment.employees.first_name} ${assignment.employees.last_name}`;
-        
+
         // Send Push Notification
         if (assignment.employees.user_id) {
           await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-notification`, {
@@ -97,9 +140,10 @@ Deno.serve(async (req) => {
     );
 
   } catch (error: any) {
+    console.error('[check-checklist] Error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ error: 'Internal server error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

@@ -9,11 +9,12 @@ import {
   Search,
   LayoutDashboard,
   Home,
-  Loader2
+  Loader2,
+  Info
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, 
   AreaChart, Area, PieChart, Pie, Cell 
 } from "recharts";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
@@ -82,6 +90,15 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-4">
+      {/* Preview Mode Disclaimer */}
+      <Alert variant="default" className="border-info/30 bg-info/5">
+        <Info className="h-4 w-4 text-info" />
+        <AlertDescription className="text-xs text-muted-foreground">
+          <strong className="text-foreground">Preview Mode:</strong> The role switcher below lets you preview different dashboard views. 
+          In production, users only see the dashboard for their assigned role.
+        </AlertDescription>
+      </Alert>
+
       {/* Role Selection Bar */}
       <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-md pb-4 pt-1 mb-6 border-b">
           <div className="flex items-center justify-between gap-4">
@@ -92,7 +109,19 @@ export default function DashboardPage() {
                  <span className="font-bold uppercase  text-sm">Dashboard Hub</span>
               </div>
               <div className="flex items-center gap-3">
-                  <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest hidden md:block">Switch Stakeholder View:</span>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest hidden md:flex items-center gap-1 cursor-help">
+                          <Info className="h-3 w-3" />
+                          Switch Stakeholder View:
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-xs">
+                        <p className="text-xs">This is a preview feature for testing. Users see their actual role's dashboard based on authentication.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                   <Select value={selectedRole} onValueChange={setSelectedRole}>
                     <SelectTrigger className="w-[180px] h-9 text-xs font-bold border-muted-foreground/20">
                       <SelectValue placeholder="Select Role" />
@@ -311,7 +340,7 @@ function AdminChart() {
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
           <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700}} />
           <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700}} tickFormatter={(v) => `₹${v/1000}k`} />
-          <Tooltip />
+          <RechartsTooltip />
           <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={3} fillOpacity={1} fill="url(#colorValue)" />
         </AreaChart>
       </ResponsiveContainer>

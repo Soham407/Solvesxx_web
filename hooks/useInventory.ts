@@ -13,6 +13,7 @@ import type {
   InventoryDashboardStats,
 } from "@/src/types/phaseB";
 import { PAGINATION } from "@/src/lib/constants";
+import { sanitizeLikeInput } from "@/lib/sanitize";
 
 interface UseInventoryState {
   stockLevels: StockLevel[];
@@ -77,7 +78,7 @@ export function useInventory(initialFilters?: InventoryFilters): UseInventoryRet
       }
       if (filters.searchTerm) {
         query = query.or(
-          `product_name.ilike.%${filters.searchTerm}%,product_code.ilike.%${filters.searchTerm}%`
+          `product_name.ilike.%${sanitizeLikeInput(filters.searchTerm)}%,product_code.ilike.%${sanitizeLikeInput(filters.searchTerm)}%`
         );
       }
 

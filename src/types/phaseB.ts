@@ -185,6 +185,7 @@ export interface ServiceRequestFilters {
   priority?: ServicePriority;
   assignedTo?: string;
   assetId?: string;
+  serviceId?: string;
   locationId?: string;
   societyId?: string;
   dateFrom?: string;

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
+import { formatCurrency as centralizedFormatCurrency, toPaise } from "@/src/lib/utils/currency";
 
 // ============================================
 // TYPES
@@ -181,6 +182,8 @@ function calculateProfessionalTax(grossSalary: number): number {
 }
 
 // Calculate salary for an employee
+// NOTE: Kept for UI preview/display purposes only. The authoritative calculation
+// is now performed server-side by the database function `calculate_employee_salary`.
 export function calculateSalary(
   employee: EmployeeSalaryInfo,
   attendance: AttendanceData,
@@ -392,60 +395,23 @@ export function usePayroll(selectedCycleId?: string) {
     }>
   ): Promise<Payslip[] | null> => {
     try {
-      // Get cycle info
-      const cycle = state.cycles.find((c) => c.id === cycleId);
-      if (!cycle) throw new Error("Payroll cycle not found");
+      // Delegate salary calculation and payslip creation to the server
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
 
-      if (cycle.status !== "draft") {
-        throw new Error("Payslips can only be generated for cycles in draft status");
-      }
-
-      // Update cycle to processing
-      await supabase
-        .from("payroll_cycles")
-        .update({ status: "processing" })
-        .eq("id", cycleId);
-
-      // Calculate and create payslips
-      const payslipInserts = employeeData.map(({ employee, attendance }) => {
-        const calculation = calculateSalary(employee, attendance, cycle.total_working_days);
-        return {
-          payroll_cycle_id: cycleId,
-          employee_id: employee.employee_id,
-          status: "computed" as PayslipStatus,
-          ...calculation,
-        };
+      const { data: result, error: rpcError } = await supabase.rpc('generate_payroll_cycle' as any, {
+        p_cycle_id: cycleId,
+        p_user_id: user.id,
       });
+      if (rpcError) throw rpcError;
+      const rpcResult = result as any;
+      if (!rpcResult?.success) throw new Error(rpcResult?.error || 'Payroll generation failed');
 
-      const { data: payslips, error: insertError } = await supabase
-        .from("payslips")
-        .insert(payslipInserts)
-        .select();
-
-      if (insertError) throw insertError;
-
-      // Update cycle summary
-      const totalGross = payslips!.reduce((sum, ps) => sum + (ps.gross_salary || 0), 0);
-      const totalDeductions = payslips!.reduce((sum, ps) => sum + (ps.total_deductions || 0), 0);
-      const totalNet = payslips!.reduce((sum, ps) => sum + (ps.net_payable || 0), 0);
-
-      await supabase
-        .from("payroll_cycles")
-        .update({
-          status: "computed",
-          computed_at: new Date().toISOString(),
-          total_employees: payslips!.length,
-          total_gross: Math.round(totalGross * 100) / 100,
-          total_deductions: Math.round(totalDeductions * 100) / 100,
-          total_net: Math.round(totalNet * 100) / 100,
-        })
-        .eq("id", cycleId);
-
-      // Refresh data
+      // Re-fetch the cycle and payslips after server-side generation
       await fetchPayrollCycles();
       await fetchPayslips(cycleId);
 
-      return payslips as Payslip[];
+      return state.payslips;
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Failed to generate payslips";
       console.error("Error generating payslips:", err);
@@ -621,11 +587,7 @@ export function usePayroll(selectedCycleId?: string) {
   }, [state.cycles]);
 
   const formatCurrency = useCallback((amount: number): string => {
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      maximumFractionDigits: 0,
-    }).format(amount);
+    return centralizedFormatCurrency(toPaise(amount));
   }, []);
 
   const getCycleDisplayName = useCallback((cycle: PayrollCycle): string => {
@@ -723,14 +685,9 @@ export function usePayroll(selectedCycleId?: string) {
       });
 
       return result;
-    } catch {
-      // Return zero values on error
-      return {
-        present_days: 0,
-        absent_days: 0,
-        leave_days: 0,
-        overtime_hours: 0,
-      };
+    } catch (rpcError) {
+      console.error('Attendance data fetch failed:', rpcError);
+      throw new Error('Failed to fetch attendance data. Ensure the attendance_logs table is properly configured.');
     }
   }, []);
 

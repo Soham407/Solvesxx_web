@@ -11,10 +11,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Camera, User, Phone, Car, MapPin, Loader2 } from "lucide-react";
+import { Camera, User, Phone, Car, MapPin, Loader2, AlertCircle } from "lucide-react";
 import { supabase } from "@/src/lib/supabaseClient";
-import { CURRENT_ORG_ID, MAIN_GATE_CODE } from "@/src/lib/constants";
+import { MAIN_GATE_CODE } from "@/src/lib/constants";
 import { useToast } from "@/components/ui/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 interface AddVisitorFormProps {
   onSuccess?: () => void;
@@ -23,12 +24,14 @@ interface AddVisitorFormProps {
 
 export function AddVisitorForm({ onSuccess, onCancel }: AddVisitorFormProps) {
   const { toast } = useToast();
+  const { userId } = useAuth();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     visitor_name: "",
@@ -37,6 +40,23 @@ export function AddVisitorForm({ onSuccess, onCancel }: AddVisitorFormProps) {
     visitor_type: "guest",
     flat_id: "",
   });
+
+  // Validate phone number
+  const isValidPhone = (phone: string): boolean => {
+    if (!phone) return false; // Required field
+    // Accepts formats: +91 9876543210, 9876543210, +1-234-567-8900, etc.
+    const phoneRegex = /^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[(]?[0-9]{1,3}[)]?[-\s.]?[0-9]{3,4}[-\s.]?[0-9]{3,6}$/;
+    return phoneRegex.test(phone.replace(/\s/g, ''));
+  };
+
+  const handlePhoneChange = (value: string) => {
+    setFormData({ ...formData, phone: value });
+    if (value && !isValidPhone(value)) {
+      setPhoneError("Please enter a valid phone number");
+    } else {
+      setPhoneError(null);
+    }
+  };
 
   const [flats, setFlats] = useState<Array<{ id: string; flat_number: string; building_name: string }>>([]);
 
@@ -139,6 +159,23 @@ export function AddVisitorForm({ onSuccess, onCancel }: AddVisitorFormProps) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    
+    // Validate phone before submit
+    if (!isValidPhone(formData.phone)) {
+      setPhoneError("Please enter a valid phone number");
+      return;
+    }
+    
+    // Validate flat selection
+    if (!formData.flat_id) {
+      toast({
+        title: "Validation Error",
+        description: "Please select a flat for the visitor",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsSubmitting(true);
 
     try {
@@ -193,11 +230,20 @@ export function AddVisitorForm({ onSuccess, onCancel }: AddVisitorFormProps) {
         }
       }
 
-      // Step 3: Insert Visitor
-      // For now, we'll use a dummy UUID for entry_guard_id
-      // In production, you should fetch the current logged-in guard's ID
-      const dummyGuardId = "00000000-0000-0000-0000-000000000000";
+      // Step 3: Get the guard's employee ID from their user ID
+      let guardEmployeeId: string | null = null;
+      
+      if (userId) {
+        const { data: employeeData } = await supabase
+          .from("employees")
+          .select("id")
+          .eq("user_id", userId)
+          .single();
+        
+        guardEmployeeId = employeeData?.id || null;
+      }
 
+      // Step 4: Insert Visitor
       const { data: visitorData, error: visitorError } = await supabase
         .from("visitors")
         .insert({
@@ -208,7 +254,7 @@ export function AddVisitorForm({ onSuccess, onCancel }: AddVisitorFormProps) {
           flat_id: formData.flat_id,
           entry_location_id: entryLocationId,
           photo_url: photoUrl,
-          entry_guard_id: dummyGuardId,
+          entry_guard_id: guardEmployeeId, // Use actual guard ID or null
           entry_time: new Date().toISOString(),
         })
         .select()
@@ -342,19 +388,25 @@ export function AddVisitorForm({ onSuccess, onCancel }: AddVisitorFormProps) {
       <div className="space-y-2">
         <Label htmlFor="phone">Phone Number *</Label>
         <div className="relative">
-          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Phone className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 ${phoneError ? 'text-destructive' : 'text-muted-foreground'}`} />
           <Input
             id="phone"
             required
             type="tel"
             placeholder="+91 98765 43210"
-            className="pl-9"
+            className={`pl-9 ${phoneError ? 'border-destructive focus-visible:ring-destructive' : ''}`}
             value={formData.phone}
-            onChange={(e) =>
-              setFormData({ ...formData, phone: e.target.value })
-            }
+            onChange={(e) => handlePhoneChange(e.target.value)}
+            aria-invalid={!!phoneError}
+            aria-describedby={phoneError ? "phone-error" : undefined}
           />
         </div>
+        {phoneError && (
+          <p id="phone-error" className="text-xs text-destructive flex items-center gap-1">
+            <AlertCircle className="h-3 w-3" />
+            {phoneError}
+          </p>
+        )}
       </div>
 
       {/* Vehicle Number */}

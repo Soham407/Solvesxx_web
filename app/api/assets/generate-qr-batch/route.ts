@@ -21,6 +21,9 @@ function getSupabaseFromRequest(request: NextRequest) {
   });
 }
 
+/** Roles that are allowed to manage QR codes. */
+const QR_MANAGEMENT_ROLES = ["admin", "account", "security_supervisor"];
+
 /**
  * Verify the request is from an authenticated user.
  * Returns the user or a NextResponse error.
@@ -35,6 +38,7 @@ async function authenticateRequest(request: NextRequest) {
   if (error || !user) {
     return {
       user: null,
+      role: null,
       error: NextResponse.json(
         { error: "Unauthorized - valid authentication required" },
         { status: 401 }
@@ -42,7 +46,46 @@ async function authenticateRequest(request: NextRequest) {
     };
   }
 
-  return { user, error: null };
+  return { user, role: null as string | null, error: null };
+}
+
+/**
+ * After authentication, verify the user has a role that permits QR code management.
+ * Queries the employees table to find the user's role.
+ */
+async function authorizeQrManagement(userId: string) {
+  const supabase = getSupabaseAdmin();
+
+  const { data: employee, error } = await supabase
+    .from("employees")
+    .select("role")
+    .eq("auth_user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Role lookup error:", error);
+    return {
+      authorized: false,
+      role: null,
+      error: NextResponse.json(
+        { error: "Failed to verify permissions" },
+        { status: 500 }
+      ),
+    };
+  }
+
+  if (!employee || !QR_MANAGEMENT_ROLES.includes(employee.role)) {
+    return {
+      authorized: false,
+      role: employee?.role ?? null,
+      error: NextResponse.json(
+        { error: "Forbidden - insufficient permissions for QR code management" },
+        { status: 403 }
+      ),
+    };
+  }
+
+  return { authorized: true, role: employee.role, error: null };
 }
 
 export async function POST(request: NextRequest) {
@@ -50,6 +93,10 @@ export async function POST(request: NextRequest) {
     // Authenticate the request
     const auth = await authenticateRequest(request);
     if (auth.error) return auth.error;
+
+    // Authorize: verify user has QR management permissions
+    const authz = await authorizeQrManagement(auth.user!.id);
+    if (authz.error) return authz.error;
 
     const supabase = getSupabaseAdmin();
     const body = await request.json();
@@ -72,33 +119,31 @@ export async function POST(request: NextRequest) {
 
     // Generate batch ID
     const batchId = `batch-${Date.now()}`;
-    const generatedQrCodes = [];
+    const timestamp = Date.now();
 
-    // Generate QR codes in batch
-    for (let i = 0; i < count; i++) {
+    // Build all QR code records in memory
+    const qrCodeRecords = Array.from({ length: count }, (_, i) => {
       const sequenceNumber = i + 1;
-      const qrCode = `${prefix || "QR"}-${Date.now()}-${sequenceNumber.toString().padStart(4, "0")}`;
-      
-      const { data, error } = await supabase
-        .from("qr_codes")
-        .insert({
-          society_id: societyId,
-          warehouse_id: warehouseId || null,
-          batch_id: batchId,
-          qr_code: qrCode,
-          is_active: true,
-          is_linked: false,
-          sequence_number: sequenceNumber,
-        })
-        .select()
-        .single();
+      return {
+        society_id: societyId,
+        warehouse_id: warehouseId || null,
+        batch_id: batchId,
+        qr_code: `${prefix || "QR"}-${timestamp}-${sequenceNumber.toString().padStart(4, "0")}`,
+        is_active: true,
+        is_linked: false,
+        sequence_number: sequenceNumber,
+      };
+    });
 
-      if (error) {
-        console.error("Error generating QR code:", error);
-        throw error;
-      }
+    // Bulk insert all QR codes in a single database call
+    const { data: generatedQrCodes, error: insertError } = await supabase
+      .from("qr_codes")
+      .insert(qrCodeRecords)
+      .select();
 
-      generatedQrCodes.push(data);
+    if (insertError) {
+      console.error("Error generating QR codes:", insertError);
+      throw insertError;
     }
 
     // Log batch generation with the authenticated user's ID
@@ -114,15 +159,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       batchId,
-      count: generatedQrCodes.length,
-      qrCodes: generatedQrCodes,
+      count: generatedQrCodes?.length ?? 0,
+      qrCodes: generatedQrCodes ?? [],
       downloadUrl: `/api/assets/qr-batch/${batchId}/download`,
     });
   } catch (error: unknown) {
     console.error("QR Batch Generation Error:", error);
-    const message = error instanceof Error ? error.message : "Failed to generate QR codes";
     return NextResponse.json(
-      { error: message },
+      { error: "Failed to generate QR codes" },
       { status: 500 }
     );
   }
@@ -133,6 +177,10 @@ export async function GET(request: NextRequest) {
     // Authenticate the request
     const auth = await authenticateRequest(request);
     if (auth.error) return auth.error;
+
+    // Authorize: verify user has QR management permissions
+    const authz = await authorizeQrManagement(auth.user!.id);
+    if (authz.error) return authz.error;
 
     const supabase = getSupabaseAdmin();
     const { searchParams } = new URL(request.url);
@@ -164,9 +212,8 @@ export async function GET(request: NextRequest) {
     });
   } catch (error: unknown) {
     console.error("QR Batch Fetch Error:", error);
-    const message = error instanceof Error ? error.message : "Failed to fetch QR codes";
     return NextResponse.json(
-      { error: message },
+      { error: "Failed to fetch QR codes" },
       { status: 500 }
     );
   }

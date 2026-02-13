@@ -1,6 +1,6 @@
 "use client";
 
-import { Wrench, Camera, Play, CheckCircle, Clock, MapPin, ClipboardCheck, AlertCircle, Loader2, Navigation } from "lucide-react";
+import { Wrench, Camera, Play, CheckCircle, Clock, MapPin, ClipboardCheck, AlertCircle, Loader2, Navigation, FileText } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,18 +11,21 @@ import { useServiceRequests } from "@/hooks/useServiceRequests";
 import { useReorderAlerts } from "@/hooks/useReorderAlerts";
 import { ComingSoonWidget } from "@/components/shared/ComingSoon";
 import { useToast } from "@/components/ui/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
-
-const DEV_MOCK_EMPLOYEE_ID = "11111111-1111-1111-1111-111111111111";
 
 export function ServiceBoyDashboard() {
   const { toast } = useToast();
+  const router = useRouter();
+  const { userId, isLoading: isAuthLoading } = useAuth();
   
   const { 
     employeeId, 
     fullName,
-    isLoading: isProfileLoading 
-  } = useEmployeeProfileWithFallback(DEV_MOCK_EMPLOYEE_ID);
+    isLoading: isProfileLoading,
+    error: profileError 
+  } = useEmployeeProfileWithFallback();
 
   // Get real data for service technician
   const { sessions, activeSession, isLoading: isLoadingSessions } = useJobSessions(undefined, employeeId || undefined);
@@ -32,13 +35,68 @@ export function ServiceBoyDashboard() {
   });
   const { alerts, isLoading: isLoadingAlerts } = useReorderAlerts();
 
-  const isLoading = isProfileLoading || isLoadingSessions || isLoadingRequests || isLoadingAlerts;
+  const isLoading = isAuthLoading || isProfileLoading || isLoadingSessions || isLoadingRequests || isLoadingAlerts;
+  const [isStartingWork, setIsStartingWork] = useState(false);
+
+  // Show loading while auth/profile is being fetched
+  if (isAuthLoading || isProfileLoading) {
+    return (
+      <div className="max-w-md mx-auto flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">Loading your profile...</p>
+      </div>
+    );
+  }
+
+  // Show login prompt if not authenticated
+  if (!employeeId) {
+    return (
+      <div className="max-w-md mx-auto flex flex-col items-center justify-center min-h-[60vh] gap-4 p-6">
+        <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+          <Wrench className="h-8 w-8 text-primary" />
+        </div>
+        <h2 className="text-xl font-bold">Authentication Required</h2>
+        <p className="text-sm text-muted-foreground text-center">
+          {profileError || "Please log in to access the Technician Portal."}
+        </p>
+        <a href="/login" className="text-sm text-primary hover:underline font-medium">
+          Go to Login →
+        </a>
+      </div>
+    );
+  }
 
   const handleStartWork = () => {
-    toast({
-      title: "Starting Job Session",
-      description: "Opening job session tracker...",
-    });
+    if (activeSession?.service_request?.id) {
+      setIsStartingWork(true);
+      // Navigate to the service request detail page
+      router.push(`/service-requests/${activeSession.service_request.id}`);
+    } else {
+      toast({
+        title: "No Active Job",
+        description: "Select a task from the list below to start working.",
+        variant: "default",
+      });
+    }
+  };
+
+  const handleAddPhoto = () => {
+    if (activeSession?.id) {
+      // TODO: Implement photo capture modal or navigate to photo upload page
+      toast({
+        title: "Photo Upload",
+        description: "Photo upload feature is being developed. Coming soon!",
+      });
+    }
+  };
+
+  const handleViewServiceLog = () => {
+    // Navigate to service history/log page
+    router.push("/service-requests?tab=history");
+  };
+
+  const handleSelectTask = (taskId: string) => {
+    router.push(`/service-requests/${taskId}`);
   };
 
   return (
@@ -75,11 +133,18 @@ export function ServiceBoyDashboard() {
                 <div className="flex gap-2">
                       <Button 
                         onClick={handleStartWork}
+                        disabled={isStartingWork}
                         className="flex-1 font-bold uppercase text-[10px] tracking-widest gap-2 bg-success hover:bg-success/90 h-10 shadow-lg shadow-success/10"
+                        aria-label="Navigate to job location"
                       >
-                          <Navigation className="h-3.5 w-3.5" /> Navigate
+                          {isStartingWork ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Navigation className="h-3.5 w-3.5" />} Navigate
                       </Button>
-                      <Button variant="outline" className="flex-1 font-bold uppercase text-[10px] tracking-widest gap-2 h-10 border-muted-foreground/20">
+                      <Button 
+                        variant="outline" 
+                        onClick={handleAddPhoto}
+                        className="flex-1 font-bold uppercase text-[10px] tracking-widest gap-2 h-10 border-muted-foreground/20"
+                        aria-label="Add photo to current job"
+                      >
                           <Camera className="h-3.5 w-3.5" /> Add Photo
                       </Button>
                 </div>
@@ -100,7 +165,14 @@ export function ServiceBoyDashboard() {
               <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
                 Assigned Tasks ({isLoadingRequests ? "..." : requests.length})
               </h2>
-              <Button variant="link" className="text-xs font-bold p-0">Service Log</Button>
+              <Button 
+                variant="link" 
+                className="text-xs font-bold p-0 gap-1"
+                onClick={handleViewServiceLog}
+              >
+                <FileText className="h-3 w-3" />
+                Service Log
+              </Button>
           </div>
 
           {isLoadingRequests ? (
@@ -109,7 +181,14 @@ export function ServiceBoyDashboard() {
             </div>
           ) : requests && requests.length > 0 ? (
             requests.map((job) => (
-              <Card key={job.id} className="border-none shadow-card ring-1 ring-border p-4 text-left group hover:ring-primary/40 transition-all cursor-pointer">
+              <Card 
+                key={job.id ?? Math.random()} 
+                className="border-none shadow-card ring-1 ring-border p-4 text-left group hover:ring-primary/40 transition-all cursor-pointer"
+                onClick={() => job.id && handleSelectTask(job.id)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => e.key === 'Enter' && job.id && handleSelectTask(job.id)}
+              >
                   <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
                         <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center">

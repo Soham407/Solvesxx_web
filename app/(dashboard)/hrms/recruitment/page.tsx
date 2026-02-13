@@ -67,6 +67,7 @@ export default function RecruitmentPortalPage() {
     error,
     createCandidate,
     updateCandidateStatus,
+    convertToEmployee,
     canTransitionTo,
     getStatusStats,
     refresh,
@@ -82,6 +83,13 @@ export default function RecruitmentPortalPage() {
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
   const [newStatus, setNewStatus] = useState<CandidateStatus | null>(null);
   const [statusNotes, setStatusNotes] = useState("");
+
+  // Convert dialog
+  const [convertDialogOpen, setConvertDialogOpen] = useState(false);
+  const [convertData, setConvertData] = useState({
+    employee_code: "",
+    date_of_joining: new Date().toISOString().split("T")[0],
+  });
 
   // Calculate stats
   const stats = getStatusStats();
@@ -140,9 +148,35 @@ export default function RecruitmentPortalPage() {
   // Open status change dialog
   const openStatusDialog = (candidate: Candidate, status: CandidateStatus) => {
     setSelectedCandidate(candidate);
-    setNewStatus(status);
-    setStatusNotes("");
-    setStatusDialogOpen(true);
+    if (status === "hired") {
+      setConvertData({
+        employee_code: `EMP-${Math.floor(1000 + Math.random() * 9000)}`,
+        date_of_joining: new Date().toISOString().split("T")[0],
+      });
+      setConvertDialogOpen(true);
+    } else {
+      setNewStatus(status);
+      setStatusNotes("");
+      setStatusDialogOpen(true);
+    }
+  };
+
+  // Handle conversion
+  const handleConvert = async () => {
+    if (!selectedCandidate) return;
+
+    setIsSubmitting(true);
+    try {
+      await convertToEmployee(selectedCandidate.id, {
+        employee_code: convertData.employee_code,
+        date_of_joining: convertData.date_of_joining,
+        department: selectedCandidate.department || undefined,
+      });
+      setConvertDialogOpen(false);
+      setSelectedCandidate(null);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const columns: ColumnDef<Candidate>[] = [
@@ -531,6 +565,50 @@ export default function RecruitmentPortalPage() {
             >
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {newStatus === "rejected" ? "Reject" : "Confirm"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Convert to Employee Dialog */}
+      <Dialog open={convertDialogOpen} onOpenChange={setConvertDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Convert to Employee</DialogTitle>
+            <DialogDescription>
+              Assign employee details for {selectedCandidate?.full_name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="employee_code">Employee Code *</Label>
+              <Input
+                id="employee_code"
+                value={convertData.employee_code}
+                onChange={(e) => setConvertData({ ...convertData, employee_code: e.target.value })}
+                placeholder="EMP-XXXX"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="doj">Date of Joining *</Label>
+              <Input
+                id="doj"
+                type="date"
+                value={convertData.date_of_joining}
+                onChange={(e) => setConvertData({ ...convertData, date_of_joining: e.target.value })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConvertDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConvert}
+              disabled={isSubmitting || !convertData.employee_code || !convertData.date_of_joining}
+            >
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Convert to Employee
             </Button>
           </DialogFooter>
         </DialogContent>

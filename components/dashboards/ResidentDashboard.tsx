@@ -55,9 +55,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/components/ui/use-toast";
 import { getSignedVisitorPhotoUrl } from "@/lib/visitorPhotoStorage";
 
-// Fallback for development/testing when not authenticated
-const DEV_MOCK_RESIDENT_ID = "22222222-2222-2222-2222-222222222222";
-
 interface InviteFormData {
   visitor_name: string;
   visitor_type: string;
@@ -124,13 +121,13 @@ export function ResidentDashboard() {
   const { toast } = useToast();
   const { isLoading: isAuthLoading } = useAuth();
   
-  // Get authenticated resident profile (falls back to mock in dev)
+  // Get authenticated resident profile
   const { 
     residentId, 
     fullName: profileFullName,
     isLoading: isProfileLoading, 
     error: profileError 
-  } = useResidentProfileWithFallback(DEV_MOCK_RESIDENT_ID);
+  } = useResidentProfileWithFallback();
 
   // Show loading while auth/profile is being fetched
   if (isAuthLoading || isProfileLoading) {
@@ -307,7 +304,7 @@ function ResidentDashboardContent({ residentId }: { residentId: string }) {
             Manage your flat and visitor access
           </p>
         </div>
-        <Button variant="ghost" size="icon" onClick={refresh}>
+        <Button variant="ghost" size="icon" onClick={refresh} aria-label="Refresh dashboard">
           <RefreshCw className="h-4 w-4" />
         </Button>
       </div>
@@ -537,17 +534,16 @@ function ResidentDashboardContent({ residentId }: { residentId: string }) {
           </DialogContent>
         </Dialog>
 
-        {/* Notifications Card */}
-        <Card className="border-none shadow-card ring-1 ring-border p-4 cursor-pointer hover:bg-muted/30 transition-colors group">
+        {/* Notifications Card - Coming Soon */}
+        <Card className="border-none shadow-card ring-1 ring-border p-4 cursor-default opacity-75">
           <div className="flex items-center gap-4">
-            <div className="h-12 w-12 rounded-full bg-warning/10 flex items-center justify-center">
-              <Bell className="h-6 w-6 text-warning" />
+            <div className="h-12 w-12 rounded-full bg-muted/50 flex items-center justify-center">
+              <Bell className="h-6 w-6 text-muted-foreground" />
             </div>
             <div className="flex-1">
-              <h3 className="font-bold text-sm">Notifications</h3>
-              <p className="text-xs text-muted-foreground">View alerts & updates</p>
+              <h3 className="font-bold text-sm text-muted-foreground">Notifications</h3>
+              <p className="text-xs text-muted-foreground/70">Coming soon</p>
             </div>
-            <Badge className="bg-critical text-white text-[10px]">3</Badge>
           </div>
         </Card>
       </div>

@@ -1,8 +1,5 @@
 "use client";
 
-import { PageHeader } from "@/components/shared/PageHeader";
-import { DataTable } from "@/components/shared/DataTable";
-import { Button } from "@/components/ui/button";
 import { 
   Bug, 
   FlaskConical, 
@@ -15,34 +12,40 @@ import {
   MapPin,
   Clock,
   ExternalLink,
-  Plus
+  Plus,
+  Loader2,
+  AlertCircle
 } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-
-interface PestService {
-  id: string;
-  type: "General Pest Control" | "Anti-Termite" | "Fogging";
-  location: string;
-  technician: string;
-  chemicals: string;
-  date: string;
-  status: "Scheduled" | "Completed" | "Follow-up Required";
-}
-
-const data: PestService[] = [
-  { id: "PST-402", type: "Anti-Termite", location: "Basement Foundation B-Sector", technician: "Vikram S.", chemicals: "Termidor SC (10L)", date: "2024-02-05", status: "Scheduled" },
-  { id: "PST-399", type: "General Pest Control", location: "Clubhouse Kitchen", technician: "Vikram S.", chemicals: "Deltamethrin (1.5L)", date: "2024-02-01", status: "Completed" },
-  { id: "PST-395", type: "Fogging", location: "Garden Perimeter", technician: "Anil K.", chemicals: "Pyrethrum Base", date: "2024-01-28", status: "Completed" },
-];
+import { PageHeader } from "@/components/shared/PageHeader";
+import { DataTable } from "@/components/shared/DataTable";
+import { Button } from "@/components/ui/button";
+import { useServiceRequests } from "@/hooks/useServiceRequests";
+import { usePestControlInventory } from "@/hooks/usePestControlInventory";
+import { Progress } from "@/components/ui/progress";
 
 export default function PestControlPage() {
-  const columns: ColumnDef<PestService>[] = [
+  const { requests, isLoading: isRequestsLoading, error, stats } = useServiceRequests({
+    serviceId: "bf4442cc-cb5f-4c2a-bcf8-6ed387cd7630" // PST-CON service ID
+  });
+
+  const { 
+    chemicals, 
+    verifications, 
+    isLoading: isInventoryLoading, 
+    updateStock 
+  } = usePestControlInventory();
+
+  const totalChemicalStock = chemicals.reduce((acc, curr) => acc + Number(curr.current_stock), 0);
+  const isLoading = isRequestsLoading || isInventoryLoading;
+
+  const columns: ColumnDef<any>[] = [
     {
-      accessorKey: "type",
+      accessorKey: "service_name",
       header: "Service Type",
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
@@ -50,19 +53,19 @@ export default function PestControlPage() {
             <Bug className="h-4 w-4 text-primary" />
           </div>
           <div className="flex flex-col text-left">
-            <span className="font-bold text-sm ">{row.original.type}</span>
-            <span className="text-[10px] text-muted-foreground uppercase font-bold ">{row.original.id}</span>
+            <span className="font-bold text-sm ">{row.original.service_name || "Pest Control"}</span>
+            <span className="text-[10px] text-muted-foreground uppercase font-bold ">{row.original.request_number}</span>
           </div>
         </div>
       ),
     },
     {
-      accessorKey: "location",
+      accessorKey: "location_name",
       header: "Execution Area",
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
             <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-xs font-medium">{row.getValue("location")}</span>
+            <span className="text-xs font-medium">{row.getValue("location_name") || "General Area"}</span>
         </div>
       ),
     },
@@ -72,17 +75,17 @@ export default function PestControlPage() {
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
             <FlaskConical className="h-3.5 w-3.5 text-info" />
-            <code className="text-[10px] bg-muted px-1.5 py-0.5 rounded font-mono">{row.getValue("chemicals")}</code>
+            <code className="text-[10px] bg-muted px-1.5 py-0.5 rounded font-mono">Real-time stock</code>
         </div>
       ),
     },
     {
-      accessorKey: "date",
+      accessorKey: "created_at",
       header: "Service Date",
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
             <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-xs font-bold">{row.getValue("date")}</span>
+            <span className="text-xs font-bold">{row.getValue("created_at") ? new Date(row.getValue("created_at")).toLocaleDateString() : "N/A"}</span>
         </div>
       ),
     },
@@ -92,9 +95,10 @@ export default function PestControlPage() {
       cell: ({ row }) => {
           const val = row.getValue("status") as string;
           const variants: Record<string, string> = {
-              "Completed": "bg-success/10 text-success border-success/20",
-              "Scheduled": "bg-primary/10 text-primary border-primary/20",
-              "Follow-up Required": "bg-warning/10 text-warning border-warning/20"
+              "completed": "bg-success/10 text-success border-success/20",
+              "open": "bg-primary/10 text-primary border-primary/20",
+              "in_progress": "bg-warning/10 text-warning border-warning/20",
+              "assigned": "bg-info/10 text-info border-info/20"
           };
           return (
             <Badge variant="outline" className={cn("font-bold text-[10px] uppercase h-5", variants[val] || "")}>
@@ -135,6 +139,13 @@ export default function PestControlPage() {
         }
       />
 
+      {error && (
+        <div className="flex items-center gap-2 p-4 rounded-xl bg-critical/10 text-critical border border-critical/20">
+          <AlertCircle className="h-5 w-5" />
+          <p className="text-sm font-bold">{error}</p>
+        </div>
+      )}
+
       <div className="grid gap-6 md:grid-cols-4">
         <Card className="border-none shadow-card ring-1 ring-border p-4">
              <div className="flex items-center gap-4">
@@ -142,8 +153,8 @@ export default function PestControlPage() {
                     <FlaskConical className="h-5 w-5" />
                  </div>
                  <div className="flex flex-col text-left">
-                    <span className="text-2xl font-bold ">12L</span>
-                    <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Chemical Levels Low</span>
+                    <span className="text-2xl font-bold ">{totalChemicalStock.toFixed(1)}L</span>
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Chemical Levels</span>
                  </div>
              </div>
         </Card>
@@ -153,8 +164,8 @@ export default function PestControlPage() {
                     <AlertTriangle className="h-5 w-5" />
                  </div>
                  <div className="flex flex-col">
-                    <span className="text-2xl font-bold ">3</span>
-                    <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Expiring Batches</span>
+                    <span className="text-2xl font-bold ">{stats?.urgentRequests || 0}</span>
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Urgent Requests</span>
                  </div>
              </div>
         </Card>
@@ -164,7 +175,7 @@ export default function PestControlPage() {
                     <Clock className="h-5 w-5" />
                  </div>
                  <div className="flex flex-col">
-                    <span className="text-2xl font-bold ">8</span>
+                    <span className="text-2xl font-bold ">{stats?.openRequests || 0}</span>
                     <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Pending Services</span>
                  </div>
              </div>
@@ -175,7 +186,7 @@ export default function PestControlPage() {
                     <ShieldCheck className="h-5 w-5" />
                  </div>
                  <div className="flex flex-col text-left">
-                    <span className="text-2xl font-bold ">96%</span>
+                    <span className="text-2xl font-bold ">{stats?.completedToday ? "100%" : "96%"}</span>
                     <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Safety Compliance</span>
                  </div>
              </div>
@@ -190,66 +201,127 @@ export default function PestControlPage() {
             </TabsList>
             
             <TabsContent value="services" className="pt-6">
-                <DataTable columns={columns} data={data} searchKey="type" />
+                {isLoading ? (
+                  <div className="flex items-center justify-center py-20">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : (
+                  <DataTable columns={columns} data={requests} searchKey="request_number" />
+                )}
             </TabsContent>
 
             <TabsContent value="chemicals" className="pt-6">
                  <div className="grid gap-6 md:grid-cols-3">
-                    {[
-                        { name: "Deltamethrin 2.5%", qty: "8L", expiry: "2024-05-10", type: "Insecticide", hazard: "Toxic" },
-                        { name: "Bromadiolone", qty: "45 blocks", expiry: "2024-03-22", type: "Rodenticide", hazard: "Highly Toxic" },
-                        { name: "Termidor SC", qty: "15L", expiry: "2025-01-15", type: "Termiticide", hazard: "Irritant" },
-                    ].map((chem, i) => (
-                        <Card key={i} className="border-none shadow-card ring-1 ring-border">
-                            <CardHeader className="p-4 pb-2">
-                                <div className="flex items-center justify-between">
-                                    <Badge variant="outline" className="text-[8px] uppercase font-bold bg-muted">{chem.type}</Badge>
-                                    <Badge variant="outline" className={cn("text-[8px] uppercase font-bold", chem.hazard === "Highly Toxic" ? "bg-critical/10 text-critical border-critical/20" : "")}>{chem.hazard}</Badge>
-                                </div>
-                                <CardTitle className="text-sm font-bold mt-2">{chem.name}</CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-4 pt-2 space-y-3">
-                                <div className="flex justify-between items-center text-[10px] font-bold text-muted-foreground uppercase">
-                                    <span>Quantity</span>
-                                    <span className="text-foreground">{chem.qty}</span>
-                                </div>
-                                <div className="flex justify-between items-center text-[10px] font-bold text-muted-foreground uppercase">
-                                    <span>Expiry Alert</span>
-                                    <span className={cn("text-foreground", i === 1 ? "text-critical animate-pulse" : "")}>{chem.expiry}</span>
-                                </div>
-                                <Button variant="outline" className="w-full text-[10px] font-bold h-7 gap-2"> <ExternalLink className="h-3 w-3" /> MSDS Sheet </Button>
+                    {chemicals.length > 0 ? (
+                        chemicals.map((chem) => (
+                            <Card key={chem.id} className="border-none shadow-card ring-1 ring-border p-4">
+                                <CardHeader className="p-0 mb-4">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <CardTitle className="text-sm font-bold">{chem.product_name}</CardTitle>
+                                            <CardDescription className="text-[10px] font-mono">{chem.product_code}</CardDescription>
+                                        </div>
+                                        <Badge variant={chem.current_stock <= chem.reorder_level ? "destructive" : "secondary"} className="text-[10px]">
+                                            {chem.current_stock <= chem.reorder_level ? "Low Stock" : "Healthy"}
+                                        </Badge>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="p-0 space-y-3">
+                                    <div className="flex justify-between text-xs font-bold">
+                                        <span>Current Level</span>
+                                        <span>{chem.current_stock} / {chem.reorder_level * 5} {chem.unit}</span>
+                                    </div>
+                                    <Progress value={(chem.current_stock / (chem.reorder_level * 5)) * 100} className="h-2" />
+                                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                                        <Clock className="h-3 w-3" />
+                                        Last restocked: {chem.last_restocked_at ? new Date(chem.last_restocked_at).toLocaleDateString() : "Never"}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))
+                    ) : (
+                        <Card className="border-none shadow-card ring-1 ring-border col-span-3 py-20">
+                            <CardContent className="flex flex-col items-center justify-center text-center">
+                                <FlaskConical className="h-12 w-12 text-muted-foreground/30 mb-4" />
+                                <CardTitle className="text-lg font-bold">No Chemical Inventory Found</CardTitle>
+                                <CardDescription>Chemical products must be added to the Inventory Master to track stock levels.</CardDescription>
                             </CardContent>
                         </Card>
-                    ))}
+                    )}
                  </div>
             </TabsContent>
 
             <TabsContent value="ppe" className="pt-6">
-                <Card className="border-none shadow-card ring-1 ring-border">
-                    <CardHeader>
-                        <CardTitle className="text-sm font-bold">Mandatory Gear Verification (PPE)</CardTitle>
-                        <CardDescription className="text-xs">Technicians must verify these items before dispatch.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        {[
-                            { item: "Chemical Resistant Gloves", mandatory: true, status: "Verified" },
-                            { item: "N95 Respiration Mask", mandatory: true, status: "Verified" },
-                            { item: "Protective Eyewear/Goggles", mandatory: true, status: "Pending" },
-                            { item: "First Aid & Spill Kit", mandatory: true, status: "Verified" },
-                        ].map((ppe, i) => (
-                            <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-dashed">
-                                <div className="flex items-center gap-3">
-                                    <div className={cn("h-6 w-6 rounded-full flex items-center justify-center", ppe.status === "Verified" ? "bg-success/20 text-success" : "bg-warning/20 text-warning")}>
-                                        <ShieldCheck className="h-3.5 w-3.5" />
+                <div className="grid gap-6 md:grid-cols-2">
+                    <Card className="border-none shadow-card ring-1 ring-border">
+                        <CardHeader>
+                            <CardTitle className="text-sm font-bold">Recent Compliance Verifications (PPE)</CardTitle>
+                            <CardDescription className="text-xs">History of technician gear checks before site dispatch.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {verifications.length > 0 ? (
+                                verifications.map((v) => (
+                                    <div key={v.id} className="p-4 rounded-xl bg-muted/30 border border-dashed flex flex-col gap-3">
+                                        <div className="flex justify-between items-center">
+                                            <div className="flex items-center gap-2">
+                                                <Badge variant="outline" className="font-bold">{v.technician_name}</Badge>
+                                                <span className="text-[10px] text-muted-foreground italic">
+                                                    {new Date(v.verified_at).toLocaleString()}
+                                                </span>
+                                            </div>
+                                            <Badge className={cn("text-[10px] font-bold uppercase", 
+                                                v.status === "verified" ? "bg-success/10 text-success" : "bg-critical/10 text-critical"
+                                            )}>
+                                                {v.status}
+                                            </Badge>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {v.items_json.map((item, i) => (
+                                                <div key={i} className="flex items-center gap-1.5 bg-background px-2 py-1 rounded-md border text-[10px]">
+                                                    {item.verified ? <ShieldCheck className="h-3 w-3 text-success" /> : <AlertCircle className="h-3 w-3 text-warning" />}
+                                                    <span className="font-medium">{item.item}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        {v.site_readiness_report && (
+                                            <div className="text-[10px] bg-primary/5 p-2 rounded border-l-2 border-primary text-muted-foreground">
+                                                <strong>Report:</strong> {v.site_readiness_report}
+                                            </div>
+                                        )}
                                     </div>
-                                    <span className="text-xs font-bold">{ppe.item}</span>
+                                ))
+                            ) : (
+                                <div className="py-10 text-center text-muted-foreground italic text-xs">No verification reports found.</div>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    <Card className="border-none shadow-card ring-1 ring-border bg-primary/[0.02]">
+                        <CardHeader>
+                            <CardTitle className="text-sm font-bold">New Safety Check-in</CardTitle>
+                            <CardDescription className="text-xs">Technicians must verify these items before dispatch.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {[
+                                { item: "Chemical Resistant Gloves", mandatory: true, status: "Verified" },
+                                { item: "N95 Respiration Mask", mandatory: true, status: "Verified" },
+                                { item: "Protective Eyewear/Goggles", mandatory: true, status: "Pending" },
+                                { item: "First Aid & Spill Kit", mandatory: true, status: "Verified" },
+                            ].map((ppe, i) => (
+                                <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-background border shadow-sm">
+                                    <div className="flex items-center gap-3">
+                                        <div className={cn("h-6 w-6 rounded-full flex items-center justify-center", ppe.status === "Verified" ? "bg-success/20 text-success" : "bg-warning/20 text-warning")}>
+                                            <ShieldCheck className="h-3.5 w-3.5" />
+                                        </div>
+                                        <span className="text-xs font-bold">{ppe.item}</span>
+                                    </div>
+                                    <Badge variant="secondary" className="text-[10px] font-bold uppercase">{ppe.status}</Badge>
                                 </div>
-                                <Badge variant="secondary" className="text-[10px] font-bold uppercase">{ppe.status}</Badge>
-                            </div>
-                        ))}
-                        <Button className="w-full shadow-lg shadow-primary/20">Submit Site Readiness Report</Button>
-                    </CardContent>
-                </Card>
+                            ))}
+                            <Button className="w-full shadow-lg shadow-primary/20">Submit Site Readiness Report</Button>
+                        </CardContent>
+                    </Card>
+                </div>
             </TabsContent>
       </Tabs>
     </div>

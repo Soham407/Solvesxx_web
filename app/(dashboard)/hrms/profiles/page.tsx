@@ -1,53 +1,40 @@
 "use client";
 
-import { Users, UserPlus, Search, Filter, Mail, Phone, MapPin, Building2, MoreHorizontal } from "lucide-react";
+import { UserPlus, Building2, MoreHorizontal, Loader2 } from "lucide-react";
 import { DataTable } from "@/components/shared/DataTable";
 import { StatusBadge } from "@/components/shared/StatusBadge";
-import { RoleTag } from "@/components/shared/RoleTag";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ColumnDef } from "@tanstack/react-table";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-interface Profile {
-  id: string;
-  name: string;
-  role: string;
-  department: string;
-  location: string;
-  email: string;
-  status: string;
-}
-
-const data: Profile[] = [
-  { id: "P-101", name: "Priya Patel", role: "HR Manager", department: "People & Culture", location: "Global HQ", email: "priya.p@facilitypro.com", status: "Active" },
-  { id: "P-102", name: "Rahul Verma", role: "Legal Associate", department: "Legal", location: "London Branch", email: "rahul.v@facilitypro.com", status: "Active" },
-  { id: "P-103", name: "Harish Sheth", role: "Director", department: "Executive", location: "Global HQ", email: "harish.s@facilitypro.com", status: "On Leave" },
-  { id: "P-104", name: "Lokesh Luthra", role: "Finance Head", department: "Finance", location: "Global HQ", email: "lokesh.l@facilitypro.com", status: "Active" },
-];
+import { useEmployees, Employee } from "@/hooks/useEmployees";
 
 export default function HRMSProfilesPage() {
-  const columns: ColumnDef<Profile>[] = [
+  const { employees, isLoading, error, refresh, getEmployeeInitials } =
+    useEmployees();
+
+  const columns: ColumnDef<Employee>[] = [
     {
-      accessorKey: "name",
+      accessorKey: "full_name",
       header: "Employee",
       cell: ({ row }) => (
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 text-left">
           <Avatar className="h-9 w-9 ring-1 ring-border">
             <AvatarFallback className="bg-primary/5 text-primary text-xs font-bold">
-              {row.original.name.split(" ").map(n => n[0]).join("")}
+              {getEmployeeInitials(row.original.id)}
             </AvatarFallback>
           </Avatar>
           <div className="flex flex-col">
-            <span className="font-bold text-sm ">{row.original.name}</span>
-            <span className="text-[10px] text-muted-foreground uppercase font-bold">{row.original.id}</span>
+            <span className="font-bold text-sm ">{row.original.full_name}</span>
+            <span className="text-[10px] text-muted-foreground uppercase font-bold">
+              {row.original.employee_code}
+            </span>
           </div>
         </div>
       ),
@@ -55,22 +42,33 @@ export default function HRMSProfilesPage() {
     {
       accessorKey: "role",
       header: "Designation",
-      cell: ({ row }) => <span className="text-xs font-semibold">{row.original.role}</span>
+      cell: ({ row }) => (
+        <span className="text-xs font-semibold">
+          {row.original.role || "Not Assigned"}
+        </span>
+      ),
     },
     {
       accessorKey: "department",
       header: "Department",
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-           <Building2 className="h-3 w-3 text-muted-foreground" />
-           <span className="text-xs font-medium">{row.original.department}</span>
+          <Building2 className="h-3 w-3 text-muted-foreground" />
+          <span className="text-xs font-medium">
+            {row.original.department || "No Dept"}
+          </span>
         </div>
-      )
+      ),
     },
     {
-      accessorKey: "status",
+      accessorKey: "is_active",
       header: "Employment Status",
-      cell: ({ row }) => <StatusBadge status={row.original.status} className="text-[10px]" />
+      cell: ({ row }) => (
+        <StatusBadge
+          status={row.original.is_active ? "Active" : "Inactive"}
+          className="text-[10px]"
+        />
+      ),
     },
     {
       id: "actions",
@@ -86,22 +84,52 @@ export default function HRMSProfilesPage() {
             <DropdownMenuItem>Performance Review</DropdownMenuItem>
             <DropdownMenuItem>Payroll Settings</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-critical font-bold">Terminate Employment</DropdownMenuItem>
+            <DropdownMenuItem className="text-critical font-bold">
+              Terminate Employment
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-      )
-    }
+      ),
+    },
   ];
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-2 text-muted-foreground">
+          Loading employee profiles...
+        </span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-4">
+        <p className="text-destructive">Error: {error}</p>
+        <Button onClick={refresh} variant="outline">
+          Try Again
+        </Button>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="animate-fade-in space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="module-header">
-          <h1 className="module-title font-bold uppercase ">HRMS / Employee Profiles</h1>
-          <p className="module-description">Comprehensive management of workforce identities and records.</p>
+          <h1 className="module-title font-bold uppercase ">
+            HRMS / Employee Profiles
+          </h1>
+          <p className="module-description">
+            Comprehensive management of workforce identities and records.
+          </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" className="font-bold">Org Chart</Button>
+          <Button variant="outline" className="font-bold">
+            Org Chart
+          </Button>
           <Button className="gap-2 shadow-lg bg-primary hover:bg-primary/90 font-bold">
             <UserPlus className="h-4 w-4" />
             Bulk Onboard
@@ -109,7 +137,7 @@ export default function HRMSProfilesPage() {
         </div>
       </div>
 
-      <DataTable columns={columns} data={data} searchKey="name" />
+      <DataTable columns={columns} data={employees} searchKey="full_name" />
     </div>
   );
 }

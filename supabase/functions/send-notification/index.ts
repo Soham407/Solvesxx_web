@@ -1,4 +1,12 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+// Supabase Edge Function: send-notification
+// Sends push notifications via Firebase Cloud Messaging (FCM), with SMS placeholder.
+//
+// Authentication: Validates the caller's JWT via Supabase Auth.
+// Also allows service role key as Bearer token for internal function-to-function calls.
+//
+// Deployment:
+//   supabase functions deploy send-notification
+
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import admin from "npm:firebase-admin@11.11.1";
 
@@ -32,12 +40,58 @@ interface NotificationRequest {
   channel?: 'fcm' | 'sms' | 'both';
 }
 
-serve(async (req) => {
+/**
+ * Validate the caller is authenticated.
+ * Accepts either:
+ * 1. A valid user JWT (validated via supabase.auth.getUser())
+ * 2. The service role key as Bearer token (for internal function-to-function calls)
+ */
+async function validateAuth(req: Request): Promise<{ authorized: boolean; userId?: string }> {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) {
+    return { authorized: false };
+  }
+
+  // Check if it's the service role key (internal calls)
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (serviceRoleKey && authHeader === `Bearer ${serviceRoleKey}`) {
+    return { authorized: true, userId: 'service-role' };
+  }
+
+  // Validate as a user JWT
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+    {
+      global: { headers: { Authorization: authHeader } },
+      auth: { persistSession: false },
+    }
+  );
+
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error || !user) {
+    return { authorized: false };
+  }
+
+  return { authorized: true, userId: user.id };
+}
+
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  // Authenticate the request
+  const auth = await validateAuth(req);
+  if (!auth.authorized) {
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized. Provide a valid JWT or service role Bearer token.' }),
+      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
   try {
+    // Service role client for DB operations
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -89,7 +143,7 @@ serve(async (req) => {
         });
 
         const results = await Promise.all(promises);
-        
+
         results.forEach(res => {
           logs.push({
             user_id,
@@ -110,18 +164,81 @@ serve(async (req) => {
       }
     }
 
-    // 2. Send SMS (Placeholder for MSG91)
+    // 2. Send SMS (MSG91 Integration)
     if (channel === 'sms' || channel === 'both') {
-      // TODO: Integrate MSG91 API here
-      console.log(`[MSG91] Would send SMS to user ${user_id}: ${body}`);
-      
-      logs.push({
-        user_id,
-        channel: 'sms',
-        status: 'skipped',
-        error_message: 'SMS provider not configured',
-        sent_at: new Date().toISOString()
-      });
+      const msg91ApiKey = Deno.env.get('MSG91_API_KEY');
+      const senderId = Deno.env.get('SMS_SENDER_ID');
+
+      if (!msg91ApiKey) {
+        console.warn('[send-notification] MSG91_API_KEY not found. Skipping SMS.');
+        logs.push({
+          user_id,
+          channel: 'sms',
+          status: 'failed',
+          error_message: 'MSG91_API_KEY not configured',
+          sent_at: new Date().toISOString()
+        });
+      } else {
+        // Fetch phone number from profile
+        const { data: profile } = await supabaseClient
+          .from('users')
+          .select('phone')
+          .eq('id', user_id)
+          .single();
+
+        if (profile?.phone) {
+          try {
+            // MSG91 API call (Flow/Transactional)
+            // Note: Standard MSG91 flow requires mobile number without '+'
+            const cleanPhone = profile.phone.replace(/\D/g, ''); 
+            
+            const msgResponse = await fetch('https://api.msg91.com/api/v5/otp/send', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'authkey': msg91ApiKey
+              },
+              body: JSON.stringify({
+                template_id: Deno.env.get('MSG91_TEMPLATE_ID'),
+                mobile: cleanPhone,
+                authkey: msg91ApiKey,
+                sender: senderId || 'FACITY',
+                message: body // Using body as the raw message content
+              })
+            });
+
+            if (msgResponse.ok) {
+              logs.push({
+                user_id,
+                channel: 'sms',
+                status: 'sent',
+                recipient_phone: profile.phone,
+                sent_at: new Date().toISOString()
+              });
+            } else {
+              const errData = await msgResponse.text();
+              throw new Error(`MSG91 Error: ${errData}`);
+            }
+          } catch (smsErr: any) {
+            console.error('[send-notification] SMS Error:', smsErr);
+            logs.push({
+              user_id,
+              channel: 'sms',
+              status: 'failed',
+              error_message: smsErr.message,
+              sent_at: new Date().toISOString()
+            });
+          }
+        } else {
+          logs.push({
+            user_id,
+            channel: 'sms',
+            status: 'failed',
+            error_message: 'Recipient phone number missing in profile',
+            sent_at: new Date().toISOString()
+          });
+        }
+      }
     }
 
     // 3. Log results
@@ -135,8 +252,9 @@ serve(async (req) => {
     );
 
   } catch (error: any) {
+    console.error('[send-notification] Error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: 'Internal server error' }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

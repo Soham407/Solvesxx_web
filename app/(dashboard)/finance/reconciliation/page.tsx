@@ -6,46 +6,32 @@ import { Button } from "@/components/ui/button";
 import { 
   ArrowRightLeft, 
   CheckCircle2, 
-  XCircle, 
   AlertTriangle, 
   Receipt, 
   Box, 
   FileCheck2,
   MoreHorizontal,
   History,
-  Filter
+  Loader2,
+  AlertCircle
 } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-
-interface ReconRecord {
-  id: string;
-  billRef: string;
-  grnRef: string;
-  vendor: string;
-  amountBill: string;
-  amountReceived: string;
-  variance: string;
-  status: "Balanced" | "Discrepancy" | "Under Investigation";
-}
-
-const data: ReconRecord[] = [
-  { id: "REC-001", billRef: "BIL-1001", grnRef: "GRN-901", vendor: "Global Security Supplies", amountBill: "₹1,45,000", amountReceived: "₹1,45,000", variance: "₹0", status: "Balanced" },
-  { id: "REC-002", billRef: "BIL-1002", grnRef: "GRN-905", vendor: "Refresh Beverage Corp", amountBill: "₹22,400", amountReceived: "₹21,800", variance: "₹600", status: "Discrepancy" },
-  { id: "REC-003", billRef: "BIL-1003", grnRef: "GRN-908", vendor: "CleanPro Industrial", amountBill: "₹88,900", amountReceived: "₹88,900", variance: "₹0", status: "Balanced" },
-];
+import { useReconciliation, formatCurrency, RECONCILIATION_STATUS_CONFIG } from "@/hooks/useReconciliation";
 
 export default function ReconciliationHubPage() {
-  const columns: ColumnDef<ReconRecord>[] = [
+  const { reconciliations, isLoading, error } = useReconciliation();
+
+  const columns: ColumnDef<any>[] = [
     {
-      accessorKey: "vendor",
+      accessorKey: "supplier_name",
       header: "Vendor Entity",
       cell: ({ row }) => (
         <div className="flex flex-col text-left">
-            <span className="font-bold text-sm ">{row.original.vendor}</span>
-            <span className="text-[10px] text-muted-foreground uppercase font-bold ">ID: {row.original.id}</span>
+            <span className="font-bold text-sm ">{row.original.supplier_name}</span>
+            <span className="text-[10px] text-muted-foreground uppercase font-bold ">ID: {row.original.reconciliation_number}</span>
         </div>
       ),
     },
@@ -56,51 +42,50 @@ export default function ReconciliationHubPage() {
         <div className="flex items-center gap-2">
             <div className="flex flex-col items-center">
                  <Receipt className="h-3 w-3 text-primary/50" />
-                 <span className="text-[10px] font-mono font-bold mt-1">{row.original.billRef}</span>
+                 <span className="text-[10px] font-mono font-bold mt-1">{row.original.bill_number || "---"}</span>
             </div>
             <ArrowRightLeft className="h-3 w-3 text-muted-foreground" />
             <div className="flex flex-col items-center">
                  <Box className="h-3 w-3 text-info/50" />
-                 <span className="text-[10px] font-mono font-bold mt-1">{row.original.grnRef}</span>
+                 <span className="text-[10px] font-mono font-bold mt-1">{row.original.grn_number || "---"}</span>
             </div>
         </div>
       ),
     },
     {
-      accessorKey: "amountBill",
+      accessorKey: "bill_amount",
       header: "Billed Value",
-      cell: ({ row }) => <span className="text-sm font-medium text-muted-foreground">{row.getValue("amountBill")}</span>,
+      cell: ({ row }) => <span className="text-sm font-medium text-muted-foreground">{formatCurrency(row.original.bill_amount || 0)}</span>,
     },
     {
-        accessorKey: "amountReceived",
+        accessorKey: "grn_amount",
         header: "Received Value",
-        cell: ({ row }) => <span className="text-sm font-medium text-muted-foreground">{row.getValue("amountReceived")}</span>,
+        cell: ({ row }) => <span className="text-sm font-medium text-muted-foreground">{formatCurrency(row.original.grn_amount || 0)}</span>,
       },
     {
       accessorKey: "variance",
       header: "Variance",
-      cell: ({ row }) => (
-        <span className={cn(
-            "text-sm font-bold",
-            row.getValue("variance") === "₹0" ? "text-success" : "text-critical"
-        )}>
-            {row.getValue("variance")}
-        </span>
-      ),
+      cell: ({ row }) => {
+        const variance = row.original.bill_grn_variance || 0;
+        return (
+          <span className={cn(
+              "text-sm font-bold",
+              Math.abs(variance) < 100 ? "text-success" : "text-critical"
+          )}>
+              {formatCurrency(variance)}
+          </span>
+        );
+      },
     },
     {
       accessorKey: "status",
       header: "Recon Status",
       cell: ({ row }) => {
-          const val = row.getValue("status") as string;
-          const variants: Record<string, string> = {
-              "Balanced": "bg-success/10 text-success border-success/20",
-              "Discrepancy": "bg-critical/10 text-critical border-critical/20",
-              "Under Investigation": "bg-warning/10 text-warning border-warning/20",
-          };
+          const val = row.original.status as string;
+          const config = RECONCILIATION_STATUS_CONFIG[val as keyof typeof RECONCILIATION_STATUS_CONFIG] || { label: val, className: "" };
           return (
-            <Badge variant="outline" className={cn("font-bold text-[10px] uppercase h-5", variants[val] || "")}>
-                {val}
+            <Badge variant="outline" className={cn("font-bold text-[10px] uppercase h-5", config.className)}>
+                {config.label}
             </Badge>
           );
       },
@@ -119,6 +104,33 @@ export default function ReconciliationHubPage() {
       ),
     },
   ];
+
+  if (isLoading) {
+    return (
+      <div className="h-[400px] flex flex-col items-center justify-center gap-4">
+        <Loader2 className="h-8 w-8 text-primary animate-spin" />
+        <p className="text-sm text-muted-foreground animate-pulse">Loading reconciliation data...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="h-[400px] flex flex-col items-center justify-center gap-4 text-center">
+        <div className="h-12 w-12 rounded-full bg-critical/10 flex items-center justify-center text-critical">
+          <AlertCircle className="h-6 w-6" />
+        </div>
+        <div>
+          <h3 className="text-lg font-bold">Failed to load reconciliations</h3>
+          <p className="text-sm text-muted-foreground">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  const matchesFound = reconciliations.filter(r => r.status === "matched").length;
+  const discrepancies = reconciliations.filter(r => r.status === "discrepancy").length;
+  const pendingRecon = reconciliations.filter(r => r.status === "pending").length;
 
   return (
     <div className="animate-fade-in space-y-8 pb-20">
@@ -139,9 +151,9 @@ export default function ReconciliationHubPage() {
 
       <div className="grid gap-6 md:grid-cols-3">
         {[
-          { label: "Matches Found", value: "142", icon: CheckCircle2, color: "text-success", sub: "Verified this cycle" },
-          { label: "Billing Mismatch", value: "3", icon: AlertTriangle, color: "text-critical", sub: "Potential leakage" },
-          { label: "Pending Recon", value: "8", icon: History, color: "text-warning", sub: "Requires manual check" },
+          { label: "Matches Found", value: matchesFound.toString(), icon: CheckCircle2, color: "text-success", sub: "Verified this cycle" },
+          { label: "Billing Discrepancy", value: discrepancies.toString(), icon: AlertTriangle, color: "text-critical", sub: "Potential leakage" },
+          { label: "Pending Recon", value: pendingRecon.toString(), icon: History, color: "text-warning", sub: "Requires manual check" },
         ].map((stat, i) => (
           <Card key={i} className="border-none shadow-card ring-1 ring-border p-5">
                <div className="flex items-center justify-between">
@@ -160,7 +172,8 @@ export default function ReconciliationHubPage() {
         ))}
       </div>
 
-      <DataTable columns={columns} data={data} searchKey="vendor" />
+      <DataTable columns={columns} data={reconciliations} searchKey="supplier_name" />
     </div>
   );
 }
+

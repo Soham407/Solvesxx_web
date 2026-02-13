@@ -13,7 +13,8 @@ import {
   History,
   FileText,
   MoreVertical,
-  ArrowUpRight
+  ArrowUpRight,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,14 +24,36 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { RoleTag } from "@/components/shared/RoleTag";
 import { StepperTimeline } from "@/components/shared/StepperTimeline";
 import Link from "next/link";
+import { useEmployees } from "@/hooks/useEmployees";
 
 export default function EmployeeDetailPage() {
   const { id } = useParams();
   const router = useRouter();
+  const { getEmployeeById, isLoading, error } = useEmployees();
+  
+  const employee = getEmployeeById(id as string);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-2 text-muted-foreground">Loading dossier...</span>
+      </div>
+    );
+  }
+
+  if (error || !employee) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-4">
+        <p className="text-destructive font-medium">{error || "Employee not found."}</p>
+        <Button onClick={() => router.back()} variant="outline">Go Back</Button>
+      </div>
+    );
+  }
 
   const onboardingSteps = [
-    { title: "Document Verification", description: "Identity and address proof verified by HR", status: "complete" as const, date: "2024-01-05" },
-    { title: "Background Check", description: "Standard criminal and professional record check", status: "complete" as const, date: "2024-01-10" },
+    { title: "Document Verification", description: "Identity and address proof verified by HR", status: "complete" as const, date: employee.created_at ? new Date(employee.created_at).toLocaleDateString() : "2024-01-05" },
+    { title: "Background Check", description: "Standard criminal and professional record check", status: "complete" as const, date: employee.created_at ? new Date(employee.created_at).toLocaleDateString() : "2024-01-10" },
     { title: "Hardware Assignment", description: "Laptop and security badge issuance", status: "current" as const, date: "In Progress" },
     { title: "System Access", description: "Provisioning ERP and email accounts", status: "upcoming" as const },
     { title: "Final Orientation", description: "Introduction to company policies and culture", status: "upcoming" as const },
@@ -70,13 +93,15 @@ export default function EmployeeDetailPage() {
             <CardContent className="pt-0 relative px-6 pb-6">
               <div className="flex flex-col items-center -mt-12">
                 <Avatar className="h-24 w-24 border-4 border-background shadow-xl">
-                  <AvatarFallback className="bg-primary/10 text-primary text-2xl font-bold">RK</AvatarFallback>
+                  <AvatarFallback className="bg-primary/10 text-primary text-2xl font-bold">
+                    {employee.first_name?.[0]}{employee.last_name?.[0]}
+                  </AvatarFallback>
                 </Avatar>
-                <h2 className="text-xl font-bold mt-4">Rajesh Kumar</h2>
-                <p className="text-sm text-muted-foreground font-medium">Senior Operations Manager</p>
+                <h2 className="text-xl font-bold mt-4">{employee.full_name}</h2>
+                <p className="text-sm text-muted-foreground font-medium">{employee.role || "Employee"}</p>
                 <div className="flex gap-2 mt-4">
-                  <RoleTag role="Admin" />
-                  <StatusBadge status="Active" />
+                  <RoleTag role={employee.role || "Staff"} />
+                  <StatusBadge status={employee.is_active ? "Active" : "Inactive"} />
                 </div>
               </div>
 
@@ -87,7 +112,7 @@ export default function EmployeeDetailPage() {
                     </div>
                     <div className="flex flex-col">
                        <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Email</span>
-                       <span className="text-sm font-medium">rajesh.kumar@enterprise.com</span>
+                       <span className="text-sm font-medium">{employee.email || "N/A"}</span>
                     </div>
                  </div>
                  <div className="flex items-center gap-3">
@@ -96,7 +121,7 @@ export default function EmployeeDetailPage() {
                     </div>
                     <div className="flex flex-col">
                        <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Phone</span>
-                       <span className="text-sm font-medium">+91 98765 43210</span>
+                       <span className="text-sm font-medium">{employee.phone || "N/A"}</span>
                     </div>
                  </div>
                  <div className="flex items-center gap-3">
@@ -105,7 +130,7 @@ export default function EmployeeDetailPage() {
                     </div>
                     <div className="flex flex-col">
                        <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Location</span>
-                       <span className="text-sm font-medium">HQ - North Wing, Floor 4</span>
+                       <span className="text-sm font-medium">{employee.department || "Operations"}</span>
                     </div>
                  </div>
               </div>
@@ -152,18 +177,17 @@ export default function EmployeeDetailPage() {
                        </div>
                        <div className="flex justify-between py-2 border-b border-dashed">
                           <span className="text-sm text-muted-foreground">Department</span>
-                          <span className="text-sm font-bold">Operations</span>
+                          <span className="text-sm font-bold">{employee.department || "General"}</span>
                        </div>
-                        <div className="flex justify-between py-2 border-b border-dashed">
-                          <span className="text-sm text-muted-foreground">Reporting To</span>
-                          <div className="flex items-center gap-2">
-                             <Avatar className="h-5 w-5"><AvatarFallback className="text-[8px] font-bold">AS</AvatarFallback></Avatar>
-                             <span className="text-sm font-bold">Amit Sharma</span>
-                          </div>
+                        <div className="flex justify-between py-2 border-b border-dashed text-right">
+                          <span className="text-sm text-muted-foreground">Role</span>
+                          <span className="text-sm font-bold">{employee.role || "Staff"}</span>
                         </div>
                        <div className="flex justify-between py-2 border-b border-dashed">
                           <span className="text-sm text-muted-foreground">Joined Date</span>
-                          <span className="text-sm font-bold">Jan 15, 2024</span>
+                          <span className="text-sm font-bold">
+                            {employee.created_at ? new Date(employee.created_at).toLocaleDateString() : "N/A"}
+                          </span>
                        </div>
                     </CardContent>
                  </Card>

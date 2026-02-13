@@ -1,17 +1,15 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { updateSession } from "@/src/lib/supabase/middleware";
 
 /**
  * Next.js Middleware for FacilityPro
  *
  * Provides:
  * 1. Security headers on all responses
- * 2. Auth gate on protected routes (dashboard/*)
- * 3. API route protection basics
- *
- * NOTE: This uses a lightweight auth-indicator cookie set by useAuth.tsx.
- * For full JWT validation at the edge, migrate to @supabase/ssr which
- * stores auth tokens in cookies instead of localStorage.
+ * 2. Real Supabase session validation via @supabase/ssr (NOT a spoofable cookie)
+ * 3. Auth gate on protected routes (dashboard/*)
+ * 4. API route protection basics
  */
 
 // Routes that require authentication
@@ -35,9 +33,6 @@ const PROTECTED_PREFIXES = [
 // Routes that should NOT be accessible when authenticated
 const AUTH_ROUTES = ["/login"];
 
-// Auth indicator cookie name (set by useAuth.tsx)
-const AUTH_COOKIE = "fp-auth-status";
-
 function addSecurityHeaders(response: NextResponse): NextResponse {
   // Prevent clickjacking
   response.headers.set("X-Frame-Options", "DENY");
@@ -52,7 +47,7 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
   // Control referrer information
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
 
-  // Prevent browsers from caching sensitive pages
+  // Restrict browser features
   response.headers.set(
     "Permissions-Policy",
     "camera=(self), microphone=(), geolocation=(self)"
@@ -61,11 +56,15 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
   return response;
 }
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Check auth indicator cookie
-  const isAuthenticated = request.cookies.has(AUTH_COOKIE);
+  // Refresh the Supabase auth session and validate the user's token server-side.
+  // This calls supabase.auth.getUser() which validates the JWT against Supabase Auth,
+  // NOT just reading a local cookie value.
+  const { supabaseResponse, user } = await updateSession(request);
+
+  const isAuthenticated = !!user;
 
   // Protected routes: redirect to login if not authenticated
   const isProtectedRoute = PROTECTED_PREFIXES.some(
@@ -91,20 +90,25 @@ export function middleware(request: NextRequest) {
   // API routes: ensure they return proper CORS for same-origin only
   if (pathname.startsWith("/api/")) {
     const origin = request.headers.get("origin");
-    const host = request.headers.get("host");
+    
+    // Strict production allow-list
+    const ALLOWED_ORIGINS = [
+      "https://facilitypro.vercel.app",
+      "https://facility-pro-enterprise.com",
+      "http://localhost:3000"
+    ];
 
-    // Only allow same-origin requests to API routes
-    if (origin && host && !origin.includes(host)) {
-      return new NextResponse(JSON.stringify({ error: "Forbidden" }), {
+    if (origin && !ALLOWED_ORIGINS.includes(origin)) {
+      console.warn(`Blocked request from disallowed origin: ${origin}`);
+      return new NextResponse(JSON.stringify({ error: "Forbidden: Disallowed origin" }), {
         status: 403,
         headers: { "Content-Type": "application/json" },
       });
     }
   }
 
-  // Default: add security headers and continue
-  const response = NextResponse.next();
-  return addSecurityHeaders(response);
+  // Add security headers to the supabase response (which carries refreshed cookies)
+  return addSecurityHeaders(supabaseResponse);
 }
 
 export const config = {

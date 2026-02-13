@@ -87,16 +87,16 @@ export function AssetList({
     e.preventDefault();
     const filters: AssetFilters = {};
     if (searchTerm) filters.searchTerm = searchTerm;
-    if (selectedCategory) filters.categoryId = selectedCategory;
-    if (selectedStatus) filters.status = selectedStatus as AssetFilters["status"];
+    if (selectedCategory && selectedCategory !== 'all') filters.categoryId = selectedCategory;
+    if (selectedStatus && selectedStatus !== 'all') filters.status = selectedStatus as AssetFilters["status"];
     setFilters(filters);
   };
 
   // Clear filters
   const handleClearFilters = () => {
     setSearchTerm("");
-    setSelectedCategory("");
-    setSelectedStatus("");
+    setSelectedCategory("all");
+    setSelectedStatus("all");
     setFilters({});
   };
 
@@ -214,7 +214,7 @@ export function AssetList({
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Categories</SelectItem>
+                <SelectItem value="all">All Categories</SelectItem>
                 {categories.map((cat) => (
                   <SelectItem key={cat.id} value={cat.id}>
                     {cat.category_name}
@@ -227,7 +227,7 @@ export function AssetList({
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Status</SelectItem>
+                <SelectItem value="all">All Status</SelectItem>
                 {Object.entries(ASSET_STATUS_LABELS).map(([key, label]) => (
                   <SelectItem key={key} value={key}>
                     {label}

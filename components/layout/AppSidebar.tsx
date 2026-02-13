@@ -124,7 +124,7 @@ const navigation: NavGroup[] = [
         href: "/assets",
         icon: HardDrive,
         children: [
-          { title: "All Assets", href: "/assets" },
+          { title: "Asset Registry", href: "/assets" },
           { title: "Maintenance Schedules", href: "/assets/maintenance" },
           { title: "Asset Categories", href: "/assets/categories" },
           { title: "QR Codes", href: "/assets/qr-codes" },
@@ -160,8 +160,8 @@ const navigation: NavGroup[] = [
           { title: "Sale Rates", href: "/inventory/sales-rates" },
           { title: "Supplier Master", href: "/inventory/suppliers" },
           { title: "Purchase Orders", href: "/inventory/purchase-orders" },
-          { title: "Internal Indents", href: "/inventory/indents/create" },
-          { title: "Indent Verification", href: "/inventory/indents/verification" },
+          { title: "Stock Requests", href: "/inventory/indents/create" },
+          { title: "Approve Requests", href: "/inventory/indents/verification" },
         ],
       },
       {
@@ -170,8 +170,8 @@ const navigation: NavGroup[] = [
         icon: Wrench,
         children: [
           { title: "Checklist Config", href: "/services/masters/checklists" },
-          { title: "Work Library", href: "/services/masters/tasks" },
-          { title: "Vendor Auth", href: "/services/masters/vendor-services" },
+          { title: "Task Templates", href: "/services/masters/tasks" },
+          { title: "Approved Vendors", href: "/services/masters/vendor-services" },
           { title: "Service Mapping", href: "/services/masters/service-tasks" },
           { title: "Security Operations", href: "/services/security" },
           { title: "AC Maintenance", href: "/services/ac" },
@@ -188,7 +188,7 @@ const navigation: NavGroup[] = [
         children: [
           { title: "Resident Database", href: "/society/residents" },
           { title: "Visitor Log", href: "/society/visitors" },
-          { title: "Panic Response", href: "/society/panic-alerts" },
+          { title: "Emergency Alerts", href: "/society/panic-alerts" },
           { title: "Daily Checklists", href: "/society/checklists" },
           { title: "Emergency Directory", href: "/society/emergency" },
         ],
@@ -238,7 +238,7 @@ const navigation: NavGroup[] = [
           { title: "Attendance Analysis", href: "/reports/attendance" },
           { title: "Financial Health", href: "/reports/financial" },
           { title: "Service Excellence", href: "/reports/services" },
-          { title: "Inventory Burn", href: "/reports/inventory" },
+          { title: "Consumption Report", href: "/reports/inventory" },
         ],
       },
     ],
@@ -325,14 +325,14 @@ export function AppSidebar({ collapsed, onToggle, className, isMobile }: AppSide
     <TooltipProvider delayDuration={0}>
       <aside
         className={cn(
-          "bg-sidebar transition-all duration-300 border-sidebar-border",
+          "bg-gradient-to-b from-sidebar to-sidebar/95 transition-all duration-300 border-sidebar-border",
           !isMobile ? "fixed left-0 top-0 z-40 h-screen border-r hidden lg:block" : "h-full w-full",
           !isMobile && (collapsed ? "w-16" : "w-64"),
           className
         )}
       >
         {/* Logo Section & Toggle */}
-        <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-4">
+        <div className="flex h-16 items-center justify-between border-b border-sidebar-border/50 px-4 bg-sidebar/50 backdrop-blur-sm">
           {collapsed ? (
             <div className="flex h-full w-full items-center justify-center">
               {onToggle && (
@@ -357,7 +357,7 @@ export function AppSidebar({ collapsed, onToggle, className, isMobile }: AppSide
           ) : (
             <>
               <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary shadow-lg shadow-sidebar-primary/20">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary shadow-glow">
                   <span className="text-base font-bold text-sidebar-primary-foreground">F</span>
                 </div>
                 <div className="flex flex-col gap-0">
@@ -380,7 +380,7 @@ export function AppSidebar({ collapsed, onToggle, className, isMobile }: AppSide
           )}
         </div>
 
-        <ScrollArea className="h-[calc(100vh-4rem)]">
+        <ScrollArea className="h-[calc(100vh-4rem)] scrollbar-thin">
         <div className="p-3 space-y-6">
           {/* 🔒 Using filteredNavigation to hide frozen features */}
           {filteredNavigation.map((group) => (
@@ -418,7 +418,11 @@ export function AppSidebar({ collapsed, onToggle, className, isMobile }: AppSide
                           open={openGroups.includes(item.title)}
                           onOpenChange={() => toggleGroup(item.title)}
                         >
-                          <CollapsibleTrigger className="w-full">
+                          <CollapsibleTrigger 
+                            className="w-full"
+                            aria-expanded={openGroups.includes(item.title)}
+                            aria-controls={`nav-group-${item.title.replace(/\s+/g, '-').toLowerCase()}`}
+                          >
                             <div
                               className={cn(
                                 "nav-item w-full cursor-pointer",
@@ -434,21 +438,25 @@ export function AppSidebar({ collapsed, onToggle, className, isMobile }: AppSide
                                   "h-3.5 w-3.5 shrink-0 transition-transform opacity-60",
                                   openGroups.includes(item.title) && "rotate-180"
                                 )}
+                                aria-hidden="true"
                               />
                             </div>
                           </CollapsibleTrigger>
-                          <CollapsibleContent className="pl-9 space-y-1 mt-1">
+                          <CollapsibleContent 
+                            className="pl-9 space-y-1 mt-1"
+                            id={`nav-group-${item.title.replace(/\s+/g, '-').toLowerCase()}`}
+                          >
                             {item.children.map((child) => (
-                              <Link
-                                key={child.href}
-                                href={child.href}
-                                className={cn(
-                                  "block py-2 px-3 text-sm rounded-md transition-all duration-200",
-                                  pathname === child.href
-                                    ? "text-sidebar-primary-foreground font-extrabold bg-sidebar-primary flex items-center before:content-[''] before:w-1 before:h-4 before:bg-sidebar-primary-foreground before:mr-2 before:rounded-full shadow-lg shadow-sidebar-primary/20"
-                                    : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-foreground/10 pl-6 font-medium"
-                                )}
-                              >
+                                <Link
+                                              key={child.href}
+                                              href={child.href}
+                                              className={cn(
+                                                "block py-2 px-3 text-sm rounded-lg transition-all duration-200",
+                                                pathname === child.href
+                                                  ? "text-sidebar-primary-foreground font-semibold bg-sidebar-primary flex items-center before:content-[''] before:w-1 before:h-4 before:bg-sidebar-primary-foreground before:mr-2 before:rounded-full shadow-glow"
+                                                  : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-foreground/10 pl-6 font-medium"
+                                              )}
+                                            >
                                 {child.title}
                               </Link>
                             ))}

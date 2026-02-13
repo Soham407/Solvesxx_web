@@ -83,7 +83,7 @@ export function MaintenanceScheduleList({
       }
       
       // Frequency filter
-      if (selectedFrequency && schedule.frequency !== selectedFrequency) {
+      if (selectedFrequency && selectedFrequency !== 'all' && schedule.frequency !== selectedFrequency) {
         return false;
       }
       
@@ -100,7 +100,7 @@ export function MaintenanceScheduleList({
   // Clear filters
   const handleClearFilters = () => {
     setSearchTerm("");
-    setSelectedFrequency("");
+    setSelectedFrequency("all");
     setShowDueSoon(false);
   };
 
@@ -216,7 +216,7 @@ export function MaintenanceScheduleList({
                 <SelectValue placeholder="Frequency" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All</SelectItem>
+                <SelectItem value="all">All</SelectItem>
                 {Object.entries(MAINTENANCE_FREQUENCY_LABELS).map(([key, label]) => (
                   <SelectItem key={key} value={key}>
                     {label}

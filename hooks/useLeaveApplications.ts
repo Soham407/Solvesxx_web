@@ -186,9 +186,10 @@ export function useLeaveApplications(employeeId?: string) {
       }
       setLeaveBalance(Object.values(balanceMap));
 
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch leave applications';
       console.error('Error fetching leave applications:', err);
-      setError(err.message || 'Failed to fetch leave applications');
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

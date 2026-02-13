@@ -1,7 +1,12 @@
-import { createClient } from '@supabase/supabase-js'
-import { Database } from '@/src/types/supabase'
+/**
+ * Browser-side Supabase client.
+ *
+ * Re-exports the @supabase/ssr browser client for backward compatibility.
+ * All existing hooks that import `supabase` from this module will continue to work.
+ *
+ * Auth tokens are now stored in cookies (not localStorage), enabling
+ * server-side session validation in middleware.
+ */
+import { createClient } from '@/src/lib/supabase/client'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey)
+export const supabase = createClient()

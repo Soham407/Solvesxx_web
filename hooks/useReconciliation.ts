@@ -186,6 +186,8 @@ export const RESOLUTION_ACTION_CONFIG: Record<ResolutionAction, { label: string;
 };
 
 // Tolerance for variance (in paise) - amounts within this are considered matched
+// NOTE: This is used for UI display purposes only. The authoritative tolerance
+// check is performed in the database by the execute_reconciliation_match RPC function.
 const VARIANCE_TOLERANCE = 100; // 1 INR
 
 // ============================================
@@ -199,19 +201,11 @@ const canTransition = (
   return STATUS_TRANSITIONS[currentStatus]?.includes(targetStatus) ?? false;
 };
 
-// Convert paise to rupees for display
-export const toRupees = (paise: number): number => paise / 100;
+import { toRupees, toPaise, formatCurrency as centralizedFormatCurrency } from "@/src/lib/utils/currency";
 
-// Convert rupees to paise for storage
-export const toPaise = (rupees: number): number => Math.round(rupees * 100);
-
-// Format currency
+// Proxy to centralized utility with fraction digits
 export const formatCurrency = (paiseAmount: number): string => {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 2,
-  }).format(toRupees(paiseAmount));
+  return centralizedFormatCurrency(paiseAmount, 2);
 };
 
 // Calculate variance between two amounts
@@ -220,6 +214,8 @@ export const calculateVariance = (amount1: number, amount2: number): number => {
 };
 
 // Check if variance is within tolerance
+// NOTE: Used for UI display only. The authoritative check is in the database
+// (execute_reconciliation_match RPC function).
 export const isWithinTolerance = (variance: number): boolean => {
   return Math.abs(variance) <= VARIANCE_TOLERANCE;
 };
@@ -697,50 +693,28 @@ export function useReconciliation(filters?: {
 
         if (error) throw error;
 
-        // Perform three-way match and create line items
-        const matchResults = await performThreeWayMatch(
-          input.purchase_order_id || null,
-          input.material_receipt_id || null,
-          input.purchase_bill_id || null
-        );
+        // Execute matching, line creation, and residual updates via database RPC
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('Not authenticated');
 
-        // Create reconciliation lines
-        if (matchResults.length > 0) {
-          const lines = matchResults.map((result) => ({
-            reconciliation_id: data.id,
-            po_item_id: result.po_item_id || null,
-            grn_item_id: result.grn_item_id || null,
-            bill_item_id: result.bill_item_id || null,
-            product_id: result.product_id,
-            matched_qty: result.matched_qty,
-            matched_amount: result.matched_amount,
-            po_unit_price: result.po_unit_price || null,
-            grn_unit_price: result.grn_unit_price || null,
-            bill_unit_price: result.bill_unit_price || null,
-            unit_price_variance: result.unit_price_variance,
-            qty_ordered: result.qty_ordered || null,
-            qty_received: result.qty_received || null,
-            qty_billed: result.qty_billed || null,
-            qty_variance: result.qty_variance,
-            match_type: result.match_type,
-            status: result.status,
-          }));
+        const { data: result, error: rpcError } = await supabase.rpc('execute_reconciliation_match' as any, {
+          p_reconciliation_id: data.id,
+          p_user_id: user.id,
+        });
+        if (rpcError) throw rpcError;
+        const rpcResult = result as any;
+        if (!rpcResult?.success) throw new Error(rpcResult?.error || 'Reconciliation matching failed');
 
-          const { error: linesError } = await supabase
-            .from("reconciliation_lines")
-            .insert(lines);
-
-          if (linesError) throw linesError;
-
-          // Update residual columns on source items
-          await updateResiduals(matchResults);
-        }
-
-        // Update reconciliation status based on lines
-        await updateReconciliationStatus(data.id);
+        // Re-fetch the reconciliation after RPC to get updated status/amounts
+        const { data: updatedRec, error: refetchError } = await supabase
+          .from("reconciliations")
+          .select("*")
+          .eq("id", data.id)
+          .single();
+        if (refetchError) throw refetchError;
 
         await fetchReconciliations();
-        return data as Reconciliation;
+        return (updatedRec || data) as Reconciliation;
       } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : "Failed to create reconciliation";
         console.error("Error creating reconciliation:", err);
@@ -748,7 +722,7 @@ export function useReconciliation(filters?: {
         return null;
       }
     },
-    [fetchReconciliations, performThreeWayMatch]
+    [fetchReconciliations]
   );
 
   // ============================================

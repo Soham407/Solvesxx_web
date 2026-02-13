@@ -79,7 +79,7 @@ export function useEmployees(): UseEmployeesReturn {
       });
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Failed to fetch employees";
-      console.error("Error fetching employees:", err);
+      console.error("Error fetching employees:", err, typeof err === 'object' ? JSON.stringify(err) : '');
       setState((prev) => ({
         ...prev,
         isLoading: false,

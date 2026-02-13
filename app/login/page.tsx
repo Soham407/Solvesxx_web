@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { Shield, Lock, Mail, ArrowRight, Building2, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,11 +24,43 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/src/lib/supabaseClient";
 
+// Stagger animation variants - respects reduced motion preference
+const createContainerVariants = (prefersReducedMotion: boolean) => ({
+  hidden: { opacity: prefersReducedMotion ? 1 : 0 },
+  visible: {
+    opacity: 1,
+    transition: prefersReducedMotion 
+      ? { duration: 0 }
+      : {
+          staggerChildren: 0.1,
+          delayChildren: 0.2,
+        },
+  },
+});
+
+const createItemVariants = (prefersReducedMotion: boolean) => ({
+  hidden: { opacity: prefersReducedMotion ? 1 : 0, y: prefersReducedMotion ? 0 : 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: prefersReducedMotion 
+      ? { duration: 0 }
+      : {
+          duration: 0.5,
+          ease: "easeOut" as const,
+        },
+  },
+});
+
 export default function LoginPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const prefersReducedMotion = useReducedMotion() ?? false;
+  
+  const containerVariants = createContainerVariants(prefersReducedMotion);
+  const itemVariants = createItemVariants(prefersReducedMotion);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,57 +91,88 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-[#0a0c10]">
-      {/* Background Decorative Elements */}
-      <div className="absolute top-0 left-0 w-full h-full">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/20 rounded-full blur-[120px]" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-600/10 rounded-full blur-[120px]" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full opacity-5 bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-[#070a0f]">
+      {/* Background Decorative Elements - animations disabled for reduced motion */}
+      <div className="absolute inset-0">
+        {/* Gradient orbs - only animate if user doesn't prefer reduced motion */}
+        <div className={`absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-primary/20 rounded-full blur-[150px] ${prefersReducedMotion ? '' : 'animate-pulse-glow'}`} />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-accent-secondary/15 rounded-full blur-[150px]" />
+        <div className="absolute top-[40%] right-[20%] w-[30%] h-[30%] bg-accent-tertiary/10 rounded-full blur-[120px]" />
+        
+        {/* Inline noise texture */}
+        <div 
+          className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
+          }}
+        />
+
+        {/* Grid pattern */}
+        <div 
+          className="absolute inset-0 opacity-[0.02]"
+          style={{
+            backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
+            backgroundSize: '60px 60px',
+          }}
+        />
       </div>
 
-      <div className="relative z-10 w-full max-w-md px-4">
+      <motion.div 
+        className="relative z-10 w-full max-w-md px-4"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
         {/* Logo Section */}
         <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
+          variants={itemVariants}
           className="flex flex-col items-center mb-8"
         >
-          <div className="h-16 w-16 bg-primary rounded-2xl shadow-xl shadow-primary/20 flex items-center justify-center mb-4 border border-white/10">
+          <motion.div 
+            className="h-16 w-16 bg-primary rounded-2xl shadow-glow-lg flex items-center justify-center mb-4 border border-white/10"
+            whileHover={{ scale: 1.05, rotate: 5 }}
+            transition={{ type: "spring", stiffness: 400 }}
+          >
             <Shield className="h-8 w-8 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold text-white ">FacilityPro</h1>
-          <p className="text-gray-400 text-sm mt-1 uppercase tracking-widest font-semibold">
+          </motion.div>
+          <h1 className="text-3xl font-bold text-white tracking-tight">FacilityPro</h1>
+          <p className="text-gray-400 text-sm mt-1 uppercase tracking-[0.2em] font-medium">
             Enterprise Cloud Suite
           </p>
         </motion.div>
 
         {/* Login Card */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.4, ease: "easeOut" }}
-        >
-          <Card className="border-white/5 bg-white/5 backdrop-blur-xl shadow-2xl overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-1 bg-linear-to-r from-primary to-blue-400" />
+        <motion.div variants={itemVariants}>
+          <Card className="border-white/5 bg-white/[0.03] backdrop-blur-xl shadow-2xl overflow-hidden relative">
+            {/* Multi-color gradient top border */}
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-amber-500 to-accent-secondary" />
+            
             <CardHeader className="pt-8 pb-4">
-              <CardTitle className="text-2xl text-white font-bold text-center">
+              <CardTitle className="text-2xl text-white font-bold text-center tracking-tight">
                 Identity Portal
               </CardTitle>
               <CardDescription className="text-gray-400 text-center pt-2">
                 Secure access for authorized personnel only
               </CardDescription>
             </CardHeader>
+            
             <CardContent>
-              <form onSubmit={handleLogin} className="space-y-5">
-                <div className="space-y-2">
+              <motion.form 
+                onSubmit={handleLogin} 
+                className="space-y-5"
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+              >
+                <motion.div variants={itemVariants} className="space-y-2">
                   <Label
                     htmlFor="email"
-                    className="text-gray-300 text-xs font-bold uppercase tracking-wider"
+                    className="text-gray-300 text-xs font-semibold uppercase tracking-wider"
                   >
                     Corporate Email
                   </Label>
                   <div className="relative group">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 group-focus-within:text-primary transition-colors" />
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 group-focus-within:text-primary transition-colors duration-200" />
                     <Input
                       id="email"
                       type="email"
@@ -117,42 +180,44 @@ export default function LoginPage() {
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="bg-black/20 border-white/10 text-white pl-10 h-11 focus-visible:ring-primary/30 transition-all"
+                      className="bg-white/5 border-white/10 text-white pl-10 h-11 focus-visible:ring-primary/30 focus-visible:border-primary/50 transition-all placeholder:text-gray-500"
                     />
                   </div>
-                </div>
-                <div className="space-y-2">
+                </motion.div>
+                
+                <motion.div variants={itemVariants} className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label
                       htmlFor="password"
-                      className="text-gray-300 text-xs font-bold uppercase tracking-wider"
+                      className="text-gray-300 text-xs font-semibold uppercase tracking-wider"
                     >
                       Password
                     </Label>
-                    <Button
-                      variant="link"
-                      className="text-primary text-xs h-auto p-0 font-bold"
+                    <span
+                      className="text-gray-500 text-xs font-medium cursor-not-allowed"
+                      title="Contact your administrator for password assistance"
                     >
-                      Forgot Access?
-                    </Button>
+                      Forgot Access? Contact Admin
+                    </span>
                   </div>
                   <div className="relative group">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 group-focus-within:text-primary transition-colors" />
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 group-focus-within:text-primary transition-colors duration-200" />
                     <Input
                       id="password"
                       type="password"
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="bg-black/20 border-white/10 text-white pl-10 h-11 focus-visible:ring-primary/30 transition-all"
+                      className="bg-white/5 border-white/10 text-white pl-10 h-11 focus-visible:ring-primary/30 focus-visible:border-primary/50 transition-all"
                     />
                   </div>
-                </div>
-                <div className="pt-2">
+                </motion.div>
+                
+                <motion.div variants={itemVariants} className="pt-2">
                   <Button
                     type="submit"
                     disabled={isLoading}
-                    className="w-full h-11 bg-primary hover:bg-primary/90 text-white font-bold text-base shadow-lg shadow-primary/20 group"
+                    className="w-full h-11 bg-primary hover:bg-primary/90 text-white font-semibold text-base shadow-glow group transition-all duration-300"
                   >
                     {isLoading ? (
                       <div className="flex items-center gap-2">
@@ -161,30 +226,35 @@ export default function LoginPage() {
                       </div>
                     ) : (
                       <div className="flex items-center justify-center gap-2">
-                        Initialize Session
+                        Sign In
                         <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
                       </div>
                     )}
                   </Button>
-                </div>
-              </form>
+                </motion.div>
+              </motion.form>
             </CardContent>
+            
             <CardFooter className="pb-8 flex flex-col items-center gap-4">
-              <div className="flex items-center gap-4 text-gray-500">
+              <motion.div 
+                variants={itemVariants}
+                className="flex items-center gap-4 text-gray-500"
+              >
                 <div className="h-px w-8 bg-white/10" />
-                <span className="text-[10px] uppercase tracking-widest font-bold">
+                <span className="text-[10px] uppercase tracking-[0.15em] font-semibold">
                   Or authenticate with
                 </span>
                 <div className="h-px w-8 bg-white/10" />
-              </div>
+              </motion.div>
+              
               <TooltipProvider>
-                <div className="flex gap-4 w-full">
+                <motion.div variants={itemVariants} className="flex gap-4 w-full">
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
                         variant="outline"
                         disabled
-                        className="flex-1 bg-white/5 border-white/10 text-white hover:bg-white/10 h-10 gap-2 disabled:opacity-50"
+                        className="flex-1 bg-white/5 border-white/10 text-white hover:bg-white/10 h-10 gap-2 disabled:opacity-50 transition-all"
                         aria-label="SSO login - Coming soon"
                       >
                         <Building2 className="h-4 w-4" />
@@ -200,7 +270,7 @@ export default function LoginPage() {
                       <Button
                         variant="outline"
                         disabled
-                        className="flex-1 bg-white/5 border-white/10 text-white hover:bg-white/10 h-10 gap-2 disabled:opacity-50"
+                        className="flex-1 bg-white/5 border-white/10 text-white hover:bg-white/10 h-10 gap-2 disabled:opacity-50 transition-all"
                         aria-label="Azure AD login - Coming soon"
                       >
                         <Globe className="h-4 w-4" />
@@ -211,7 +281,7 @@ export default function LoginPage() {
                       <p>Coming soon</p>
                     </TooltipContent>
                   </Tooltip>
-                </div>
+                </motion.div>
               </TooltipProvider>
             </CardFooter>
           </Card>
@@ -219,22 +289,17 @@ export default function LoginPage() {
 
         {/* Footer Links */}
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-          className="mt-8 flex justify-center gap-6 text-xs font-bold text-gray-500 uppercase tracking-widest"
+          variants={itemVariants}
+          className="mt-8 flex flex-col items-center gap-2"
         >
-          <span className="cursor-default" title="Coming soon">
-            Security Audit
-          </span>
-          <span className="cursor-default" title="Coming soon">
-            Privacy
-          </span>
-          <span className="cursor-default" title="Coming soon">
-            Contact Support
-          </span>
+          <p className="text-[10px] text-gray-600 text-center">
+            Need help? Contact your system administrator
+          </p>
+          <p className="text-[10px] text-gray-600">
+            &copy; {new Date().getFullYear()} FacilityPro Enterprise
+          </p>
         </motion.div>
-      </div>
+      </motion.div>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { MessageSquare, Users, ShieldAlert, BarChart3, Clock, ArrowRight, UserMinus, Plus, AlertTriangle, X, Bell, MapPin, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,11 +15,9 @@ import { useSocietyStats } from "@/hooks/useSocietyStats";
 import { ComingSoonWidget } from "@/components/shared/ComingSoon";
 import { useToast } from "@/components/ui/use-toast";
 
-// Fallback for development/testing when not authenticated
-const DEV_MOCK_EMPLOYEE_ID = "11111111-1111-1111-1111-111111111111";
-
 export function SocietyManagerDashboard() {
   const { toast } = useToast();
+  const router = useRouter();
   
   // Get authenticated manager profile (falls back to mock in dev)
   const { 
@@ -26,7 +25,7 @@ export function SocietyManagerDashboard() {
     fullName: managerName,
     isLoading: isProfileLoading, 
     error: profileError 
-  } = useEmployeeProfileWithFallback(DEV_MOCK_EMPLOYEE_ID);
+  } = useEmployeeProfileWithFallback();
 
   // Real data hooks
   const { stats, isLoading: isLoadingStats, refresh: refreshStats } = useSocietyStats();
@@ -171,10 +170,22 @@ export function SocietyManagerDashboard() {
           </p>
         </div>
         <div className="flex gap-2">
-           <Button className="bg-critical hover:bg-critical/90 gap-2 shadow-lg shadow-critical/10 font-bold">
+           <Button 
+             className="bg-critical hover:bg-critical/90 gap-2 shadow-lg shadow-critical/10 font-bold"
+             onClick={() => router.push("/tickets/behavior")}
+           >
               <ShieldAlert className="h-4 w-4" /> Raise Breach Ticket
            </Button>
-           <Button variant="outline" className="gap-2 font-bold">
+           <Button 
+             variant="outline" 
+             className="gap-2 font-bold"
+             onClick={() => {
+               toast({
+                 title: "Notice Board",
+                 description: "Notice posting feature is coming soon. For now, use the Announcements section in Settings.",
+               });
+             }}
+           >
               <Plus className="h-4 w-4" /> Post Notice
            </Button>
         </div>
@@ -354,7 +365,11 @@ export function SocietyManagerDashboard() {
                            className="h-1 bg-muted" 
                          />
                      </div>
-                     <Button variant="ghost" className="w-full text-[10px] font-bold uppercase text-primary tracking-widest mt-2 border-dashed border-2">
+                     <Button 
+                       variant="ghost" 
+                       className="w-full text-[10px] font-bold uppercase text-primary tracking-widest mt-2 border-dashed border-2"
+                       onClick={() => router.push("/security/patrol-logs")}
+                     >
                        Review Patrol Logs <ArrowRight className="ml-2 h-3 w-3" />
                      </Button>
                  </CardContent>

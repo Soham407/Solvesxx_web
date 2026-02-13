@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
 import { useToast } from "@/components/ui/use-toast";
+import { sanitizeLikeInput } from "@/lib/sanitize";
 
 /**
  * Visitor Management Hook
@@ -140,7 +141,7 @@ export function useVisitors(initialFilters?: VisitorFilters) {
       }
 
       if (filters.searchTerm) {
-        query = query.or(`visitor_name.ilike.%${filters.searchTerm}%,phone.ilike.%${filters.searchTerm}%`);
+        query = query.or(`visitor_name.ilike.%${sanitizeLikeInput(filters.searchTerm)}%,phone.ilike.%${sanitizeLikeInput(filters.searchTerm)}%`);
       }
 
       const { data, error: fetchError } = await query;
@@ -264,15 +265,16 @@ export function useVisitors(initialFilters?: VisitorFilters) {
   // Check out visitor (PRD: Exit logging)
   const checkOutVisitor = async (visitorId: string, exitGuardId?: string) => {
     try {
-      const { error: updateError } = await supabase
-        .from("visitors")
-        .update({
-          exit_time: new Date().toISOString(),
-          exit_guard_id: exitGuardId,
-        })
-        .eq("id", visitorId);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
 
-      if (updateError) throw updateError;
+      const { data: result, error: rpcError } = await supabase.rpc('checkout_visitor' as any, {
+        p_visitor_id: visitorId,
+        p_user_id: user.id,
+      });
+      if (rpcError) throw rpcError;
+      const rpcResult = result as any;
+      if (!rpcResult?.success) throw new Error(rpcResult?.error || 'Visitor checkout failed');
 
       toast({
         title: "Visitor Checked Out",
@@ -299,12 +301,16 @@ export function useVisitors(initialFilters?: VisitorFilters) {
   // Approve visitor entry (PRD: Notification System approval)
   const approveVisitor = async (visitorId: string) => {
     try {
-      const { error: updateError } = await supabase
-        .from("visitors")
-        .update({ approved_by_resident: true })
-        .eq("id", visitorId);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
 
-      if (updateError) throw updateError;
+      const { data: result, error: rpcError } = await supabase.rpc('approve_visitor' as any, {
+        p_visitor_id: visitorId,
+        p_user_id: user.id,
+      });
+      if (rpcError) throw rpcError;
+      const rpcResult = result as any;
+      if (!rpcResult?.success) throw new Error(rpcResult?.error || 'Visitor approval failed');
 
       toast({
         title: "Entry Approved",
@@ -365,7 +371,7 @@ export function useVisitors(initialFilters?: VisitorFilters) {
           building:buildings(building_name),
           residents(id, full_name, phone, is_primary_contact)
         `)
-        .or(`flat_number.ilike.%${searchTerm}%`)
+        .or(`flat_number.ilike.%${sanitizeLikeInput(searchTerm)}%`)
         .limit(10);
 
       if (searchError) throw searchError;

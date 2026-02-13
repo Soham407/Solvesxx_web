@@ -108,24 +108,18 @@ export function CommandMenu() {
           </CommandGroup>
           <CommandSeparator />
           <CommandGroup heading="Quick Actions">
-            <CommandItem onSelect={() => runCommand(() => console.log("New Employee"))} className="gap-3 py-3">
+            <CommandItem onSelect={() => runCommand(() => router.push("/company/employees/create"))} className="gap-3 py-3">
               <div className="h-7 w-7 rounded-lg bg-blue-500 flex items-center justify-center text-white shadow-sm">
                 <Users className="h-4 w-4" />
               </div>
               <span>Add New Employee</span>
               <CommandShortcut>⌘N</CommandShortcut>
             </CommandItem>
-            <CommandItem onSelect={() => runCommand(() => console.log("New Service Request"))} className="gap-3 py-3">
+            <CommandItem onSelect={() => runCommand(() => router.push("/service-requests/new"))} className="gap-3 py-3">
               <div className="h-7 w-7 rounded-lg bg-orange-500 flex items-center justify-center text-white shadow-sm">
                 <Wrench className="h-4 w-4" />
               </div>
               <span>New Service Request</span>
-            </CommandItem>
-            <CommandItem onSelect={() => runCommand(() => console.log("Raise Alarm"))} className="gap-3 py-3">
-              <div className="h-7 w-7 rounded-lg bg-critical flex items-center justify-center text-white shadow-lg shadow-critical/20 animate-pulse">
-                <Shield className="h-4 w-4" />
-              </div>
-              <span className="text-critical font-bold">Panic Alarm</span>
             </CommandItem>
           </CommandGroup>
         </CommandList>

@@ -167,3 +167,131 @@ export const PAGINATION = {
   DEFAULT_PAGE_SIZE: 20,
   PAGE_SIZE_OPTIONS: [10, 20, 50, 100],
 } as const;
+
+// ===== PHASE D: SUPPLIER STATUS =====
+export const SUPPLIER_STATUS = {
+  ACTIVE: 'active',
+  INACTIVE: 'inactive',
+  BLACKLISTED: 'blacklisted',
+  PENDING_VERIFICATION: 'pending_verification',
+} as const;
+
+export const SUPPLIER_STATUS_LABELS: Record<string, string> = {
+  active: 'Active',
+  inactive: 'Inactive',
+  blacklisted: 'Blacklisted',
+  pending_verification: 'Pending Verification',
+};
+
+export const SUPPLIER_STATUS_COLORS: Record<string, string> = {
+  active: '#22c55e',              // green
+  inactive: '#6b7280',            // gray
+  blacklisted: '#ef4444',         // red
+  pending_verification: '#f59e0b', // amber
+};
+
+// Badge class names for UI components
+export const SUPPLIER_STATUS_BADGE_CLASSES: Record<string, string> = {
+  active: 'bg-success/10 text-success border-success/20',
+  inactive: 'bg-muted text-muted-foreground border-border',
+  blacklisted: 'bg-critical/10 text-critical border-critical/20',
+  pending_verification: 'bg-warning/10 text-warning border-warning/20',
+};
+
+// ===== PHASE D: SUPPLIER TYPE =====
+export const SUPPLIER_TYPE = {
+  MANUFACTURER: 'manufacturer',
+  DISTRIBUTOR: 'distributor',
+  WHOLESALER: 'wholesaler',
+  RETAILER: 'retailer',
+  SERVICE_PROVIDER: 'service_provider',
+} as const;
+
+export const SUPPLIER_TYPE_LABELS: Record<string, string> = {
+  manufacturer: 'Manufacturer',
+  distributor: 'Distributor',
+  wholesaler: 'Wholesaler',
+  retailer: 'Retailer',
+  service_provider: 'Service Provider',
+};
+
+export const SUPPLIER_TYPE_ICONS: Record<string, string> = {
+  manufacturer: 'Factory',
+  distributor: 'Truck',
+  wholesaler: 'Warehouse',
+  retailer: 'Store',
+  service_provider: 'Wrench',
+};
+
+// ===== PHASE D: SUPPLIER TIER =====
+export const SUPPLIER_TIER = {
+  PLATINUM: 1,
+  GOLD: 2,
+  SILVER: 3,
+} as const;
+
+export const SUPPLIER_TIER_LABELS: Record<number, string> = {
+  1: 'Platinum',
+  2: 'Gold',
+  3: 'Silver',
+};
+
+export const SUPPLIER_TIER_COLORS: Record<number, string> = {
+  1: '#a855f7',  // purple/platinum
+  2: '#f59e0b',  // amber/gold
+  3: '#94a3b8',  // slate/silver
+};
+
+export const SUPPLIER_TIER_BADGE_CLASSES: Record<number, string> = {
+  1: 'bg-purple-100 text-purple-700 border-purple-200',  // Platinum
+  2: 'bg-amber-100 text-amber-700 border-amber-200',     // Gold
+  3: 'bg-slate-100 text-slate-600 border-slate-200',     // Silver
+};
+
+// ===== PHASE D: RATE DEFAULTS =====
+export const RATE_DEFAULTS = {
+  GST_PERCENTAGE: 18,
+  CURRENCY: 'INR',
+  MIN_QTY_FOR_PRICE: 1,
+  PAYMENT_TERMS_DAYS: 30,
+} as const;
+
+// ===== PHASE D: SCORE THRESHOLDS =====
+export const SUPPLIER_SCORE_THRESHOLDS = {
+  EXCELLENT: 80,  // 80-100
+  GOOD: 60,       // 60-79
+  AVERAGE: 40,    // 40-59
+  POOR: 0,        // 0-39
+} as const;
+
+export const SUPPLIER_SCORE_LABELS: Record<string, { min: number; max: number; label: string; color: string }> = {
+  excellent: { min: 80, max: 100, label: 'Excellent', color: '#22c55e' },
+  good: { min: 60, max: 79, label: 'Good', color: '#3b82f6' },
+  average: { min: 40, max: 59, label: 'Average', color: '#f59e0b' },
+  poor: { min: 0, max: 39, label: 'Poor', color: '#ef4444' },
+};
+
+export const getScoreLabel = (score: number): string => {
+  if (score >= 80) return 'Excellent';
+  if (score >= 60) return 'Good';
+  if (score >= 40) return 'Average';
+  return 'Poor';
+};
+
+export const getScoreColor = (score: number): string => {
+  if (score >= 80) return '#22c55e';
+  if (score >= 60) return '#3b82f6';
+  if (score >= 40) return '#f59e0b';
+  return '#ef4444';
+};
+
+// ===== PHASE D: INDIAN STATES =====
+export const INDIAN_STATES = [
+  'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
+  'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka',
+  'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram',
+  'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu',
+  'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
+  'Andaman and Nicobar Islands', 'Chandigarh', 'Dadra and Nagar Haveli and Daman and Diu',
+  'Delhi', 'Jammu and Kashmir', 'Ladakh', 'Lakshadweep', 'Puducherry',
+] as const;
