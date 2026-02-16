@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils";
 import { RouteGuard } from "@/components/shared/RouteGuard";
 import ErrorBoundary from "@/components/shared/ErrorBoundary";
 
+import { DynamicBreadcrumbs } from "@/components/shared/DynamicBreadcrumbs";
+
 export default function DashboardLayout({
   children,
 }: {
@@ -46,6 +48,7 @@ export default function DashboardLayout({
             {/* 🔒 RouteGuard blocks access to frozen features */}
             <ErrorBoundary>
               <RouteGuard>
+                <DynamicBreadcrumbs />
                 {children}
               </RouteGuard>
             </ErrorBoundary>
