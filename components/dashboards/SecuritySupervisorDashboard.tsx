@@ -10,6 +10,7 @@ import { usePatrolLogs } from "@/hooks/usePatrolLogs";
 import { usePanicAlertSubscription } from "@/hooks/usePanicAlertSubscription";
 import { useEmployeeProfileWithFallback } from "@/hooks/useEmployeeProfile";
 import { Skeleton } from "@/components/ui/skeleton";
+import { GuardLiveMap } from "./GuardLiveMap";
 
 const DEV_MOCK_EMPLOYEE_ID = "11111111-1111-1111-1111-111111111111";
 
@@ -98,6 +99,10 @@ export function SecuritySupervisorDashboard() {
                   </div>
               </Card>
           ))}
+      </div>
+
+      <div className="grid gap-6">
+        <GuardLiveMap />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">

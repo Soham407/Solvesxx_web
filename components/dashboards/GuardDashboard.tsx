@@ -40,6 +40,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/src/lib/supabaseClient";
 import { useEmergencyContacts } from "@/hooks/useEmergencyContacts";
+import { useInactivityMonitor } from "@/hooks/useInactivityMonitor";
 
 // Fallback for development/testing when not authenticated
 const DEV_MOCK_EMPLOYEE_ID = "11111111-1111-1111-1111-111111111111";
@@ -266,11 +267,16 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
     todayAttendance,
     clockIn,
     clockOut,
+    autoClockOut,
     refresh,
   } = useAttendance(employeeId, guardId);
 
   const [isClockingIn, setIsClockingIn] = useState(false);
   const [isClockingOut, setIsClockingOut] = useState(false);
+  const [showSelfieDialog, setShowSelfieDialog] = useState(false);
+  const [selfieFile, setSelfieFile] = useState<File | null>(null);
+  const [selfiePreview, setSelfiePreview] = useState<string | null>(null);
+  const [isUploadingSelfie, setIsUploadingSelfie] = useState(false);
   const [visitorStats, setVisitorStats] = useState({
     visitorsToday: 0,
     pendingCheckouts: 0,
@@ -320,6 +326,9 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
     contacts: emergencyContacts,
     isLoading: isLoadingEmergencyContacts,
   } = useEmergencyContacts();
+
+  // Inactivity Monitoring (Anti-Sleeping)
+  useInactivityMonitor(employeeId, isClockedIn, currentPosition);
 
   // Handle panic button hold release
   const handlePanicRelease = async () => {
@@ -398,6 +407,14 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
           toastRef.current({
             title: "🚨 Geo-fence Breach Alert Sent!",
             description: "A persistent breach has been reported to the supervisor.",
+            variant: "destructive",
+          });
+
+          // Auto Punch-Out for persistent breach
+          await autoClockOut("Persistent geo-fence breach (5+ minutes)");
+          toastRef.current({
+            title: "Shift Auto-Terminated",
+            description: "You have been automatically clocked out due to geo-fence breach.",
             variant: "destructive",
           });
         } else {
@@ -587,10 +604,10 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
     }
   };
 
-  // Handle Clock In
-  const handleClockIn = async () => {
+  // Handle Clock In (Triggered after selfie)
+  const handleClockIn = async (selfieUrl: string) => {
     setIsClockingIn(true);
-    const result = await clockIn();
+    const result = await clockIn(selfieUrl);
     setIsClockingIn(false);
 
     if (result.success) {
@@ -598,12 +615,57 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
         title: "Clocked In Successfully",
         description: `Welcome! Your shift has started at ${new Date().toLocaleTimeString()}`,
       });
+      setShowSelfieDialog(false);
+      setSelfieFile(null);
+      setSelfiePreview(null);
     } else {
       toast({
         title: "Clock In Failed",
         description: result.error || "Please ensure you are within the geofenced area.",
         variant: "destructive",
       });
+    }
+  };
+
+  // Upload selfie and then clock in
+  const processCheckInWithSelfie = async () => {
+    if (!selfieFile) {
+      toast({ title: "Selfie Required", description: "Please take a photo to check in.", variant: "destructive" });
+      return;
+    }
+
+    setIsUploadingSelfie(true);
+    try {
+      const fileExt = selfieFile.name.split('.').pop() || 'jpg';
+      const fileName = `${employeeId}-${Date.now()}.${fileExt}`;
+      const filePath = `selfies/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('attendance-selfies')
+        .upload(filePath, selfieFile);
+
+      if (uploadError) throw uploadError;
+
+      // Get signed URL for the selfie (private bucket)
+      const { data: signedUrlData, error: urlError } = await supabase.storage
+        .from('attendance-selfies')
+        .createSignedUrl(filePath, 60 * 60 * 24 * 365); // 1 year expiry
+
+      if (urlError) throw urlError;
+
+      await handleClockIn(signedUrlData.signedUrl);
+    } catch (err: any) {
+      toast({ title: "Upload Failed", description: err.message, variant: "destructive" });
+    } finally {
+      setIsUploadingSelfie(false);
+    }
+  };
+
+  const handleSelfieCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setSelfieFile(file);
+      setSelfiePreview(URL.createObjectURL(file));
     }
   };
 
@@ -794,18 +856,25 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
 
           {/* Clock In/Out Button */}
           {!isClockedIn ? (
-            <Button
-              className="w-full h-14 text-base font-bold gap-2 bg-success hover:bg-success/90"
-              onClick={handleClockIn}
-              disabled={isClockingIn || !isWithinRange || isLoading}
-            >
-              {isClockingIn ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                <LogIn className="h-5 w-5" />
+            <div className="space-y-3">
+              <Button
+                className="w-full h-14 text-base font-bold gap-2 bg-success hover:bg-success/90"
+                onClick={() => setShowSelfieDialog(true)}
+                disabled={isClockingIn || !isWithinRange || isLoading}
+              >
+                {isClockingIn ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <LogIn className="h-5 w-5" />
+                )}
+                Start Shift (Clock In)
+              </Button>
+              {!isWithinRange && !isLoading && (
+                <p className="text-[10px] text-warning text-center font-bold uppercase">
+                  Approach the gate to enable Clock In
+                </p>
               )}
-              {isClockingIn ? "Clocking In..." : "Clock In"}
-            </Button>
+            </div>
           ) : (
             <Button
               className="w-full h-14 text-base font-bold gap-2"
@@ -954,7 +1023,7 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
                       className="flex items-start gap-3 flex-1 cursor-pointer"
                       onClick={async () => {
                         if (item.status === "pending") {
-                          const result = await completeChecklistItem(item.id);
+                          const result = await completeChecklistItem(item.id, currentPosition || undefined);
                           if (result.success) {
                             toast({
                               title: "Task Completed",
@@ -994,6 +1063,11 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
                           {item.task}
                         </span>
                         <div className="flex items-center gap-2 mt-1">
+                          {item.required && item.status === "pending" && (
+                            <Badge variant="outline" className="text-[7px] h-3 px-1 text-critical border-critical/30 bg-critical/5 uppercase font-black">
+                              Photo Proof Required
+                            </Badge>
+                          )}
                           {item.completedAt && (
                             <span className="text-[9px] text-muted-foreground">
                               {new Date(item.completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -1157,6 +1231,70 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
           )}
         </CardContent>
       </Card>
+      {/* Selfie Capture Dialog */}
+      {showSelfieDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in transition-all">
+          <Card className="w-full max-w-sm border-none shadow-2xl ring-1 ring-border">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-lg font-bold flex items-center gap-2">
+                <Camera className="h-5 w-5 text-primary" />
+                Identity Verification
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">Please take a selfie to verify your identity and start your shift.</p>
+            </CardHeader>
+            <CardContent className="space-y-6 pt-0">
+              <div className="relative aspect-square rounded-2xl bg-muted flex items-center justify-center overflow-hidden border-2 border-dashed border-primary/20">
+                {selfiePreview ? (
+                  <img src={selfiePreview} alt="Selfie preview" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="text-center p-6">
+                    <Camera className="h-10 w-10 mx-auto text-muted-foreground/30 mb-2" />
+                    <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Camera Ready</p>
+                  </div>
+                )}
+                {!isUploadingSelfie && !isClockingIn && (
+                  <label className="absolute inset-0 cursor-pointer">
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      capture="user" 
+                      className="hidden" 
+                      onChange={handleSelfieCapture} 
+                    />
+                  </label>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <Button 
+                  className="w-full h-12 font-bold uppercase tracking-wider gap-2 shadow-lg shadow-primary/20"
+                  disabled={!selfieFile || isUploadingSelfie || isClockingIn}
+                  onClick={processCheckInWithSelfie}
+                >
+                  {isUploadingSelfie || isClockingIn ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="h-4 w-4" />
+                  )}
+                  {isUploadingSelfie ? "Uploading Signature..." : "Confirm & Clock In"}
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  className="w-full text-xs font-bold uppercase text-muted-foreground"
+                  disabled={isUploadingSelfie || isClockingIn}
+                  onClick={() => {
+                    setShowSelfieDialog(false);
+                    setSelfieFile(null);
+                    setSelfiePreview(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

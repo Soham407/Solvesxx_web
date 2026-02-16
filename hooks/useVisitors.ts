@@ -31,7 +31,9 @@ export interface Visitor {
   entry_guard_id: string | null;
   exit_guard_id: string | null;
   entry_location_id: string | null;
-  approved_by_resident: boolean;
+  approved_by_resident: boolean | null;
+  rejection_reason: string | null;
+  bypass_reason: string | null;
   visitor_pass_number: string | null;
   is_frequent_visitor: boolean;
   created_at: string;
@@ -74,6 +76,8 @@ export interface CreateVisitorDTO {
   entry_guard_id?: string;
   entry_location_id?: string;
   is_frequent_visitor?: boolean;
+  bypass_reason?: string;
+  approval_required?: boolean;
 }
 
 export interface VisitorFilters {
@@ -218,6 +222,19 @@ export function useVisitors(initialFilters?: VisitorFilters) {
   // Add new visitor (PRD: Guest Entry)
   const addVisitor = async (visitor: CreateVisitorDTO) => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      // Try to get guard_id if the user is a guard
+      let guardId = visitor.entry_guard_id;
+      if (!guardId && user) {
+        const { data: guardData } = await supabase
+          .from("security_guards")
+          .select("id")
+          .eq("employee_id", (await supabase.from("employees").select("id").eq("auth_user_id", user.id).single()).data?.id)
+          .single();
+        guardId = guardData?.id;
+      }
+
       const { data, error: insertError } = await supabase
         .from("visitors")
         .insert({
@@ -229,10 +246,11 @@ export function useVisitors(initialFilters?: VisitorFilters) {
           flat_id: visitor.flat_id,
           resident_id: visitor.resident_id,
           purpose: visitor.purpose,
-          entry_guard_id: visitor.entry_guard_id,
+          entry_guard_id: guardId,
           entry_location_id: visitor.entry_location_id,
           is_frequent_visitor: visitor.is_frequent_visitor || false,
-          approved_by_resident: false,
+          approved_by_resident: (visitor.is_frequent_visitor && !visitor.approval_required) ? true : null, 
+          bypass_reason: visitor.bypass_reason || null,
           entry_time: new Date().toISOString(),
         })
         .select()
@@ -242,12 +260,35 @@ export function useVisitors(initialFilters?: VisitorFilters) {
 
       toast({
         title: "Visitor Registered",
-        description: `${visitor.visitor_name} has been checked in`,
+        description: data.approved_by_resident 
+          ? `${visitor.visitor_name} has been checked in (Pre-approved).`
+          : `${visitor.visitor_name} has been checked in. Waiting for resident approval.`,
       });
 
       // Refresh data
       fetchVisitors();
       fetchStats();
+
+      // Automated Trigger: Send Notification to Resident
+      if (visitor.resident_id) {
+        // Find the auth_user_id for this resident to target their push tokens
+        const { data: residentData } = await supabase
+          .from("residents")
+          .select("auth_user_id, full_name, flats(flat_number)")
+          .eq("id", visitor.resident_id)
+          .single();
+
+        if (residentData?.auth_user_id) {
+          supabase.functions.invoke('send-notification', {
+            body: {
+              user_id: residentData.auth_user_id,
+              title: "Visitor at the Gate",
+              body: `${visitor.visitor_name} is requesting entry to ${residentData.flats?.[0]?.flat_number || 'your unit'}.`,
+              data: { visitor_id: data.id, type: 'VISITOR_RECEPTION' }
+            }
+          }).catch(err => console.error("Notification trigger failed:", err));
+        }
+      }
 
       return { success: true, data };
     } catch (err: unknown) {
@@ -258,6 +299,26 @@ export function useVisitors(initialFilters?: VisitorFilters) {
         description: errorMessage,
         variant: "destructive",
       });
+      return { success: false, error: errorMessage };
+    }
+  };
+
+  // Upload visitor photo
+  const uploadVisitorPhoto = async (file: File) => {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
+      const filePath = `entries/${fileName}`;
+
+      const { error: uploadError, data } = await supabase.storage
+        .from('visitor-photos')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      return { success: true, url: filePath };
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Upload failed";
       return { success: false, error: errorMessage };
     }
   };
@@ -327,6 +388,92 @@ export function useVisitors(initialFilters?: VisitorFilters) {
         variant: "destructive",
       });
       return { success: false, error: errorMessage };
+    }
+  };
+
+  // Deny visitor entry (PRD: Notification System rejection)
+  const denyVisitor = async (visitorId: string, reason: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { data: result, error: rpcError } = await supabase.rpc('deny_visitor' as any, {
+        p_visitor_id: visitorId,
+        p_user_id: user.id,
+        p_reason: reason
+      });
+      if (rpcError) throw rpcError;
+      const rpcResult = result as any;
+      if (!rpcResult?.success) throw new Error(rpcResult?.error || 'Visitor denial failed');
+
+      toast({
+        title: "Entry Denied",
+        description: "Visitor entry has been denied",
+        variant: "destructive"
+      });
+
+      fetchVisitors();
+      return { success: true };
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to deny visitor";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      return { success: false, error: errorMessage };
+    }
+  };
+
+  // Issue pass to visitor (PRD: Guard resolution)
+  const issueVisitorPass = async (visitorId: string) => {
+    try {
+      const passNumber = `PASS-${Math.floor(1000 + Math.random() * 9000)}`;
+      const { error: updateError } = await supabase
+        .from("visitors")
+        .update({ visitor_pass_number: passNumber })
+        .eq("id", visitorId);
+
+      if (updateError) throw updateError;
+
+      toast({
+        title: "Pass Issued",
+        description: `Pass ${passNumber} has been generated for the visitor.`,
+      });
+
+      fetchVisitors();
+      return { success: true, passNumber };
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to issue pass";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      return { success: false, error: errorMessage };
+    }
+  };
+
+  // Check if visitor is pre-approved for flat (PRD: Phase 1B Fast Entry)
+  const checkFrequentVisitor = async (phone: string, flatId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("visitors")
+        .select("id, visitor_name, visitor_type, photo_url, is_frequent_visitor, approved_by_resident")
+        .eq("phone", phone)
+        .eq("flat_id", flatId)
+        .eq("is_frequent_visitor", true)
+        .eq("approved_by_resident", true) // Must have been approved once to be frequent
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      
+      return { success: true, data: data || null };
+    } catch (err: unknown) {
+      console.error("Error checking frequent visitor:", err);
+      return { success: false, error: "Lookup failed" };
     }
   };
 
@@ -426,6 +573,10 @@ export function useVisitors(initialFilters?: VisitorFilters) {
     addVisitor,
     checkOutVisitor,
     approveVisitor,
+    denyVisitor,
+    checkFrequentVisitor,
+    issueVisitorPass,
+    uploadVisitorPhoto,
     markAsFrequent,
     searchFlats,
     

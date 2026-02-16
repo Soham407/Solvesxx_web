@@ -1,148 +1,287 @@
 "use client";
 
-import { PageHeader } from "@/components/shared/PageHeader";
+import { useState } from "react";
+import { FileText, Plus, MoreHorizontal, DollarSign, Clock, AlertCircle, Loader2, CheckCircle2 } from "lucide-react";
 import { DataTable } from "@/components/shared/DataTable";
 import { Button } from "@/components/ui/button";
-import { 
-  Plus, 
-  Receipt, 
-  Download, 
-  Mail, 
-  MoreHorizontal, 
-  Clock, 
-  CreditCard,
-  Building,
-  User,
-  Filter,
-  FileCheck
-} from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogHeader, 
+  DialogTitle,
+  DialogFooter
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-
-interface BuyerBill {
-  id: string;
-  resident: string;
-  flatNo: string;
-  billType: "Maintenance" | "Special Service" | "Pantry Order" | "Electricity";
-  amount: string;
-  dueDate: string;
-  status: "Draft" | "Sent" | "Partially Paid" | "Paid" | "Overdue";
-}
-
-const data: BuyerBill[] = [
-  { id: "INV-B-4001", resident: "Amit Khanna", flatNo: "Penthouse P1", billType: "Maintenance", amount: "₹18,500", dueDate: "2024-02-10", status: "Sent" },
-  { id: "INV-B-4005", resident: "Anjali Sharma", flatNo: "Tower B-203", billType: "Special Service", amount: "₹4,200", dueDate: "2024-02-05", status: "Overdue" },
-  { id: "INV-B-4008", resident: "Arjun Reddy", flatNo: "Sector C-404", billType: "Pantry Order", amount: "₹1,250", dueDate: "2024-02-01", status: "Paid" },
-];
+import { useBuyerInvoices, INVOICE_STATUS_CONFIG, PAYMENT_STATUS_CONFIG, BuyerInvoice } from "@/hooks/useBuyerInvoices";
+import { useFinance } from "@/hooks/useFinance";
+import { formatCurrency } from "@/src/lib/utils/currency";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 
 export default function BuyerBillingPage() {
-  const columns: ColumnDef<BuyerBill>[] = [
+  const { invoices, isLoading, error, refresh: refreshInvoices } = useBuyerInvoices() as any;
+  const { methods, recordTransaction } = useFinance();
+  
+  const [selectedInvoice, setSelectedInvoice] = useState<BuyerInvoice | null>(null);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [selectedMethodId, setSelectedMethodId] = useState("");
+  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
+  const [notes, setNotes] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleRecordPayment = async () => {
+    if (!selectedInvoice) return;
+    
+    const amountNum = parseFloat(paymentAmount);
+    if (isNaN(amountNum) || amountNum <= 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+
+    if (!selectedMethodId) {
+      toast.error("Please select a payment method");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const success = await recordTransaction({
+        type: 'receipt',
+        referenceType: 'sale_bill',
+        referenceId: selectedInvoice.id,
+        amount: amountNum,
+        methodId: selectedMethodId,
+        date: paymentDate,
+        notes: notes,
+        payerId: selectedInvoice.client_id || '', // In a real app, this would be the specific user or entity ID
+        payeeId: '00000000-0000-0000-0000-000000000000', // System/Admin ID
+      });
+
+      if (success) {
+        toast.success("Payment recorded successfully");
+        setIsPaymentModalOpen(false);
+        refreshInvoices();
+      } else {
+        toast.error("Failed to record payment");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const columns: ColumnDef<BuyerInvoice>[] = [
     {
-      accessorKey: "resident",
-      header: "Resident / Buyer",
+      accessorKey: "invoice_number",
+      header: "Invoice ID",
+      cell: ({ row }) => <span className="font-bold font-mono text-xs">{row.original.invoice_number}</span>
+    },
+    {
+      accessorKey: "client_name",
+      header: "Buyer / Client",
       cell: ({ row }) => (
-        <div className="flex flex-col text-left">
-            <span className="font-bold text-sm ">{row.original.resident}</span>
-            <span className="text-[10px] text-muted-foreground uppercase font-bold ">{row.original.flatNo}</span>
+        <div className="flex flex-col">
+          <span className="font-bold text-sm ">{row.original.client_name}</span>
+          <span className="text-[10px] text-muted-foreground uppercase font-bold">Contract {row.original.contract_number || "N/A"}</span>
         </div>
       ),
     },
     {
-      accessorKey: "billType",
-      header: "Billing Category",
+      accessorKey: "total_amount",
+      header: "Grand Total",
+      cell: ({ row }) => <span className="font-bold text-sm">{formatCurrency(row.original.total_amount || 0)}</span>,
+    },
+    {
+      accessorKey: "due_amount",
+      header: "Due Balance",
       cell: ({ row }) => (
-        <Badge variant="outline" className="bg-muted/30 border-none font-medium h-5">
-          {row.getValue("billType")}
-        </Badge>
+        <span className={cn(
+          "font-bold text-sm",
+          (row.original.due_amount || 0) > 0 ? "text-critical" : "text-success"
+        )}>
+          {formatCurrency(row.original.due_amount || 0)}
+        </span>
       ),
     },
     {
-      accessorKey: "amount",
-      header: "Grand Total",
-      cell: ({ row }) => <span className="text-sm font-bold text-primary">{row.getValue("amount")}</span>,
-    },
-    {
-      accessorKey: "dueDate",
-      header: "Due By",
-      cell: ({ row }) => <span className="text-xs font-bold text-muted-foreground">{row.getValue("dueDate")}</span>,
-    },
-    {
-      accessorKey: "status",
-      header: "Flow Status",
+      accessorKey: "payment_status",
+      header: "Payment Truth",
       cell: ({ row }) => {
-          const val = row.getValue("status") as string;
-          const variants: Record<string, string> = {
-              "Paid": "bg-success/10 text-success border-success/20",
-              "Sent": "bg-info/10 text-info border-info/20",
-              "Overdue": "bg-critical/10 text-critical border-critical/20 animate-pulse-soft",
-              "Draft": "bg-muted text-muted-foreground border-border"
-          };
-          return (
-            <Badge variant="outline" className={cn("font-bold text-[10px] uppercase h-5", variants[val] || "")}>
-                {val}
-            </Badge>
-          );
+        const val = row.original.payment_status as string;
+        const config = PAYMENT_STATUS_CONFIG[val as keyof typeof PAYMENT_STATUS_CONFIG] || { label: val, className: "" };
+        return (
+          <Badge variant="outline" className={cn("font-bold text-[10px] uppercase h-5", config.className)}>
+            {config.label}
+          </Badge>
+        );
       },
     },
     {
       id: "actions",
-      cell: () => (
-        <div className="flex items-center gap-1">
-             <Button variant="ghost" size="icon" className="h-8 w-8 text-primary">
-                <Download className="h-4 w-4" />
-             </Button>
-             <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreHorizontal className="h-4 w-4" />
-             </Button>
-        </div>
+      cell: ({ row }) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Truth Controls</DropdownMenuLabel>
+            <DropdownMenuItem 
+              className="gap-2 font-bold text-primary"
+              disabled={row.original.payment_status === 'paid'}
+              onClick={() => {
+                setSelectedInvoice(row.original);
+                setPaymentAmount((row.original.due_amount || 0).toString());
+                setIsPaymentModalOpen(true);
+              }}
+            >
+               <CheckCircle2 className="h-4 w-4" /> Record Payment
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="gap-2">
+               <FileText className="h-4 w-4" /> View Details
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       ),
     },
   ];
 
+  if (isLoading) {
+    return (
+      <div className="h-[400px] flex flex-col items-center justify-center gap-4">
+        <Loader2 className="h-8 w-8 text-primary animate-spin" />
+        <p className="text-sm text-muted-foreground">Synchronizing billing state...</p>
+      </div>
+    );
+  }
+
+  const totalOutstanding = invoices.reduce((acc: number, inv: BuyerInvoice) => acc + (inv.due_amount || 0), 0);
+  const collectedTotal = invoices.reduce((acc: number, inv: BuyerInvoice) => acc + (inv.paid_amount || 0), 0);
+
   return (
     <div className="animate-fade-in space-y-8 pb-20">
-      <PageHeader
-        title="Buyer & Resident Invoicing"
-        description="Consolidated portal for generating and managing sale invoices for maintenance fees, specialized technical services, and internal pantry orders."
-        actions={
-          <div className="flex gap-2">
-            <Button variant="outline" className="gap-2">
-               <Mail className="h-4 w-4" /> Bulk Dispatch
-            </Button>
-            <Button className="gap-2 shadow-lg shadow-primary/20">
-               <Plus className="h-4 w-4" /> Generate Invoice
-            </Button>
-          </div>
-        }
-      />
-
-      <div className="grid gap-6 md:grid-cols-4">
-        {[
-          { label: "Accounts Receivable", value: "₹4,25,000", icon: CreditCard, color: "text-primary", sub: "Total outstanding" },
-          { label: "Collection (30d)", value: "₹2,12,000", icon: FileCheck, color: "text-success", sub: "Month-to-date" },
-          { label: "Overdue Count", value: "14", icon: Clock, color: "text-critical", sub: "Action required" },
-          { label: "Pending Drafts", value: "3", icon: Receipt, color: "text-warning", sub: "Ready to send" },
-        ].map((stat, i) => (
-          <Card key={i} className="border-none shadow-card ring-1 ring-border p-4">
-               <div className="flex flex-col gap-3">
-                    <div className="flex items-center justify-between">
-                        <div className={cn("h-8 w-8 rounded-lg bg-muted/50 flex items-center justify-center", stat.color)}>
-                            <stat.icon className="h-4 w-4" />
-                        </div>
-                        <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">{stat.label}</span>
-                    </div>
-                    <div className="flex flex-col text-left">
-                        <span className="text-xl font-bold ">{stat.value}</span>
-                        <span className="text-[10px] font-medium text-muted-foreground mt-0.5">{stat.sub}</span>
-                    </div>
-                </div>
-          </Card>
-        ))}
+      <div className="grid gap-4 md:grid-cols-4">
+         <Card className="border-none shadow-card ring-1 ring-border p-4">
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Accounts Receivable</span>
+              <span className="text-2xl font-bold font-mono text-critical">{formatCurrency(totalOutstanding)}</span>
+              <span className="text-[10px] text-muted-foreground">Verified outstanding</span>
+            </div>
+         </Card>
+         <Card className="border-none shadow-card ring-1 ring-border p-4 bg-success/5 border-l-4 border-l-success">
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] uppercase font-bold tracking-widest text-success">Total Collected</span>
+              <span className="text-2xl font-bold font-mono text-success">{formatCurrency(collectedTotal)}</span>
+              <span className="text-[10px] text-success/60">Audit-ready collections</span>
+            </div>
+         </Card>
       </div>
 
-      <DataTable columns={columns} data={data} searchKey="resident" />
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="module-header">
+          <h1 className="text-2xl font-bold uppercase tracking-tight">Buyer Financial Ledger</h1>
+          <p className="text-sm text-muted-foreground">Official record of client billing and payment reconciliation.</p>
+        </div>
+        <Button className="gap-2 shadow-lg bg-primary hover:bg-primary/90 font-bold">
+          <Plus className="h-4 w-4" />
+          Create Invoice
+        </Button>
+      </div>
+
+      <DataTable columns={columns} data={invoices} searchKey="client_name" />
+
+      {/* Payment Recording Dialog */}
+      <Dialog open={isPaymentModalOpen} onOpenChange={setIsPaymentModalOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-success" />
+              Record Buyer Payment
+            </DialogTitle>
+            <DialogDescription>
+              Record a manual payment for Invoice <strong>{selectedInvoice?.invoice_number}</strong>. This will update the financial truth.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="amount" className="text-right">Amount</Label>
+              <Input
+                id="amount"
+                type="number"
+                value={paymentAmount}
+                onChange={(e) => setPaymentAmount(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="method" className="text-right">Method</Label>
+              <Select onValueChange={setSelectedMethodId} value={selectedMethodId}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Select method" />
+                </SelectTrigger>
+                <SelectContent>
+                  {methods.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>{m.method_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="date" className="text-right">Date</Label>
+              <Input
+                id="date"
+                type="date"
+                value={paymentDate}
+                onChange={(e) => setPaymentDate(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="notes" className="text-right">Notes</Label>
+              <Input
+                id="notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Reference #, Bank Details, etc."
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsPaymentModalOpen(false)}>Cancel</Button>
+            <Button 
+              className="gap-2" 
+              onClick={handleRecordPayment}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <DollarSign className="h-4 w-4" />}
+              Finalize Receipt
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

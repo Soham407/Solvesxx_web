@@ -60,6 +60,8 @@ import {
   isNavHrefFrozen,
   FEATURE_FUTURE_PHASE 
 } from "@/src/lib/featureFlags";
+import { useAuth } from "@/hooks/useAuth";
+import { hasAccess } from "@/src/lib/auth/roles";
 
 
 interface NavItem {
@@ -212,12 +214,12 @@ const navigation: NavGroup[] = [
         href: "/finance",
         icon: Receipt,
         children: [
-          { title: "Buyer Billing", href: "/finance/buyer-billing" },
-          { title: "Reconciliation Hub", href: "/finance/reconciliation" },
-          { title: "Performance Audit", href: "/finance/performance-audit" },
-          { title: "Supplier Bills", href: "/finance/supplier-bills" },
-          { title: "Payments Tracker", href: "/finance/payments" },
-          { title: "General Ledger", href: "/finance/ledger" },
+          { title: "Buyer Receipts", href: "/finance/buyer-billing" },
+          { title: "3-Way Match Recon", href: "/finance/reconciliation" },
+          { title: "Supplier Payouts", href: "/finance/supplier-bills" },
+          { title: "Universal Ledger", href: "/finance/payments" },
+          { title: "Compliance & Exports", href: "/finance/compliance" },
+          { title: "Truth Audit Log", href: "/finance/ledger" },
         ],
       },
       {
@@ -239,6 +241,33 @@ const navigation: NavGroup[] = [
           { title: "Financial Health", href: "/reports/financial" },
           { title: "Service Excellence", href: "/reports/services" },
           { title: "Consumption Report", href: "/reports/inventory" },
+        ],
+      },
+    ],
+  },
+  {
+    title: "External Portals",
+    items: [
+      {
+        title: "Buyer Portal",
+        href: "/buyer",
+        icon: ShoppingCart,
+        children: [
+          { title: "Home", href: "/buyer" },
+          { title: "My Requests", href: "/buyer/requests" },
+          { title: "New Request", href: "/buyer/requests/new" },
+          { title: "My Invoices", href: "/buyer/invoices" },
+        ],
+      },
+      {
+        title: "Supplier Portal",
+        href: "/supplier",
+        icon: Truck,
+        children: [
+          { title: "Home", href: "/supplier" },
+          { title: "Incoming Indents", href: "/supplier/indents" },
+          { title: "Purchase Orders", href: "/supplier/purchase-orders" },
+          { title: "Billing & Invoices", href: "/supplier/bills" },
         ],
       },
     ],
@@ -271,6 +300,7 @@ interface AppSidebarProps {
 
 export function AppSidebar({ collapsed, onToggle, className, isMobile }: AppSidebarProps) {
   const pathname = usePathname();
+  const { role } = useAuth();
   const [openGroups, setOpenGroups] = useState<string[]>([]);
 
   useEffect(() => {
@@ -302,23 +332,47 @@ export function AppSidebar({ collapsed, onToggle, className, isMobile }: AppSide
     return pathname?.startsWith(href);
   };
 
-  // 🔒 Filter out frozen navigation items
+  // 🔒 Filter out frozen and unauthorized navigation items
   const filteredNavigation = useMemo(() => {
-    if (FEATURE_FUTURE_PHASE) return navigation;
+    // If role is not yet loaded, show nothing or admin view (role truth: show only authorized)
+    if (!role && !FEATURE_FUTURE_PHASE) return [];
+
+    let filtered = navigation;
     
-    return navigation.map(group => ({
-      ...group,
-      items: group.items
-        .filter(item => !isNavItemFrozen(item.title) && !isNavHrefFrozen(item.href))
-        .map(item => ({
-          ...item,
-          children: item.children?.filter(
-            child => !isNavItemFrozen(child.title) && !isNavHrefFrozen(child.href)
-          ),
-        }))
-        .filter(item => !item.children || item.children.length > 0),
-    })).filter(group => group.items.length > 0);
-  }, []);
+    // First apply Phase freeze (if any)
+    if (!FEATURE_FUTURE_PHASE) {
+      filtered = filtered.map(group => ({
+        ...group,
+        items: group.items
+          .filter(item => !isNavItemFrozen(item.title) && !isNavHrefFrozen(item.href))
+          .map(item => ({
+            ...item,
+            children: item.children?.filter(
+              child => !isNavItemFrozen(child.title) && !isNavHrefFrozen(child.href)
+            ),
+          }))
+          .filter(item => !item.children || item.children.length > 0),
+      })).filter(group => group.items.length > 0);
+    }
+
+    // Then apply Role-based access filtering
+    if (role !== "admin") {
+      filtered = filtered.map(group => ({
+        ...group,
+        items: group.items
+          .filter(item => hasAccess(role!, item.href))
+          .map(item => ({
+            ...item,
+            children: item.children?.filter(
+              child => hasAccess(role!, child.href)
+            ),
+          }))
+          .filter(item => (item.children && item.children.length > 0) || !item.children),
+      })).filter(group => group.items.length > 0);
+    }
+
+    return filtered;
+  }, [role]);
 
 
   return (

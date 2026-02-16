@@ -7,6 +7,7 @@ interface ChecklistItem {
   id: string;
   task: string;
   status: "pending" | "done";
+  required: boolean;
   completedAt?: string;
   photos?: { photo_path: string; timestamp: string }[];
 }
@@ -79,7 +80,7 @@ export function useGuardChecklist(employeeId: string | null) {
       }
 
       // Parse questions from JSONB
-      const questions = checklist.questions as { id: string; question: string }[] || [];
+      const questions = checklist.questions as { id: string; question: string; required?: boolean }[] || [];
       
       // Fetch today's response for this employee
       const { data: response, error: responseError } = await supabase
@@ -99,6 +100,7 @@ export function useGuardChecklist(employeeId: string | null) {
         return {
           id: q.id,
           task: q.question,
+          required: q.required || false,
           status: responseData?.completed ? "done" : "pending",
           completedAt: responseData?.completedAt,
           photos: responseData?.photos || [],
@@ -127,8 +129,13 @@ export function useGuardChecklist(employeeId: string | null) {
   }, [employeeId]);
 
   // Mark a checklist item as complete
-  const completeItem = useCallback(async (itemId: string) => {
+  const completeItem = useCallback(async (itemId: string, coords?: { latitude: number; longitude: number }) => {
     if (!employeeId || !data.checklistId) return { success: false, error: "Not ready" };
+
+    const item = data.items.find(i => i.id === itemId);
+    if (item?.required && (!item.photos || item.photos.length === 0)) {
+      return { success: false, error: "Photo evidence is required for this task" };
+    }
 
     try {
       const todayStr = new Date().toISOString().split('T')[0];
@@ -147,7 +154,13 @@ export function useGuardChecklist(employeeId: string | null) {
       const taskData = existingResponses[itemId] || { completed: false };
       const updatedResponses = {
         ...existingResponses,
-        [itemId]: { ...taskData, completed: true, completedAt: now },
+        [itemId]: { 
+          ...taskData, 
+          completed: true, 
+          completedAt: now,
+          latitude: coords?.latitude,
+          longitude: coords?.longitude
+        },
       };
 
       if (existing) {
@@ -167,6 +180,8 @@ export function useGuardChecklist(employeeId: string | null) {
             employee_id: employeeId,
             response_date: todayStr,
             responses: updatedResponses,
+            latitude: coords?.latitude,
+            longitude: coords?.longitude,
             is_complete: false,
           });
 

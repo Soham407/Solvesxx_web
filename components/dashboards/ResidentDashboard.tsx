@@ -18,8 +18,10 @@ import {
   RefreshCw,
   ChevronRight,
   Bell,
-  Shield,
   AlertCircle,
+  Star,
+  ShieldCheck,
+  Shield,
 } from "lucide-react";
 import {
   Card,
@@ -71,51 +73,7 @@ const initialFormData: InviteFormData = {
   vehicle_number: "",
 };
 
-function VisitorAvatar({ 
-  photoUrl, 
-  name 
-}: { 
-  photoUrl?: string | null; 
-  name: string; 
-}) {
-  const [url, setUrl] = useState<string | null>(null);
-
-  // Fetch signed URL if photoUrl exists
-  useEffect(() => {
-    if (photoUrl) {
-      getSignedVisitorPhotoUrl(photoUrl)
-        .then((signedUrl) => {
-          if (signedUrl) setUrl(signedUrl);
-        })
-        .catch((err) => {
-          console.error("Error fetching signed URL:", err);
-          setUrl(null);
-        });
-    }
-  }, [photoUrl]);
-
-  if (url) {
-    return (
-      <div className="h-10 w-10 rounded-full border bg-muted flex items-center justify-center shrink-0 overflow-hidden relative">
-        <img 
-          src={url} 
-          alt={name} 
-          className="h-full w-full object-cover" 
-          onError={() => setUrl(null)}
-        />
-      </div>
-    );
-  }
-
-  // Fallback to initials
-  return (
-    <div className="h-10 w-10 rounded-full bg-linear-to-br from-primary/20 to-primary/10 flex items-center justify-center shrink-0 border border-primary/10">
-      <span className="text-sm font-bold text-primary">
-        {name.charAt(0).toUpperCase()}
-      </span>
-    </div>
-  );
-}
+import { VisitorAvatar } from "@/components/society/VisitorAvatar";
 
 export function ResidentDashboard() {
   const { toast } = useToast();
@@ -170,9 +128,15 @@ function ResidentDashboardContent({ residentId }: { residentId: string }) {
     isLoadingVisitors,
     error,
     inviteVisitor,
+    approveVisitor,
+    denyVisitor,
+    toggleFrequentVisitor,
     refresh,
     refreshVisitors,
   } = useResident(residentId);
+
+  const pendingApprovals = visitors.filter(v => v.approved_by_resident === null && v.entry_time !== null);
+  const otherVisitors = visitors.filter(v => v.approved_by_resident !== null || v.entry_time === null);
 
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const searchParams = useSearchParams();
@@ -228,6 +192,43 @@ function ResidentDashboardContent({ residentId }: { residentId: string }) {
         title: "Failed to Invite",
         description: result.error || "An error occurred. Please try again.",
         variant: "destructive",
+      });
+    }
+  };
+
+  const [isProcessingApproval, setIsProcessingApproval] = useState<string | null>(null);
+
+  const handleApprove = async (visitorId: string) => {
+    setIsProcessingApproval(visitorId);
+    const result = await approveVisitor(visitorId);
+    setIsProcessingApproval(null);
+    if (!result.success) {
+      toast({ title: "Error", description: result.error, variant: "destructive" });
+    } else {
+      toast({ title: "Entry Approved", description: "The guard has been notified." });
+    }
+  };
+
+  const handleDeny = async (visitorId: string) => {
+    const reason = window.prompt("Enter rejection reason (optional):") || "Security policy";
+    setIsProcessingApproval(visitorId);
+    const result = await denyVisitor(visitorId, reason);
+    setIsProcessingApproval(null);
+    if (!result.success) {
+      toast({ title: "Error", description: result.error, variant: "destructive" });
+    } else {
+      toast({ title: "Entry Denied", description: "The guard has been notified." });
+    }
+  };
+
+  const handleToggleFrequent = async (visitorId: string, isFrequent: boolean) => {
+    const result = await toggleFrequentVisitor(visitorId, isFrequent);
+    if (!result.success) {
+      toast({ title: "Error", description: result.error, variant: "destructive" });
+    } else {
+      toast({ 
+        title: isFrequent ? "Partner Added" : "Partner Removed", 
+        description: isFrequent ? "Fast entry enabled for this visitor." : "Regular approval rules now apply." 
       });
     }
   };
@@ -308,6 +309,66 @@ function ResidentDashboardContent({ residentId }: { residentId: string }) {
           <RefreshCw className="h-4 w-4" />
         </Button>
       </div>
+
+      {/* 🚨 PENDING APPROVALS ALERT area */}
+      {pendingApprovals.length > 0 && (
+        <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-500">
+          <div className="flex items-center gap-2 px-1">
+            <span className="relative flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-critical opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-critical"></span>
+            </span>
+            <h2 className="text-sm font-black uppercase tracking-widest text-critical">Action Required: Visitor at Gate</h2>
+          </div>
+          
+          <div className="grid gap-4">
+            {pendingApprovals.map(visitor => (
+              <Card key={visitor.id} className="border-none shadow-premium ring-2 ring-critical/20 overflow-hidden bg-critical/5">
+                <CardContent className="p-4 flex flex-col sm:flex-row gap-4 items-center">
+                  <div className="h-20 w-20 rounded-xl overflow-hidden shadow-md ring-2 ring-white">
+                    <VisitorAvatar photoUrl={visitor.photo_url} name={visitor.visitor_name} />
+                  </div>
+                  <div className="flex-1 text-center sm:text-left">
+                    <h3 className="font-black text-lg leading-tight uppercase tracking-tight">{visitor.visitor_name}</h3>
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">
+                       {visitor.visitor_type} • {visitor.purpose || "Meeting Request"}
+                    </p>
+                    <div className="flex flex-wrap justify-center sm:justify-start gap-4 text-xs text-muted-foreground/80 font-bold">
+                      <span className="flex items-center gap-1.5 bg-white/50 px-2 py-0.5 rounded">
+                        <Clock className="h-3 w-3" /> {formatDate(visitor.entry_time)}
+                      </span>
+                      {visitor.vehicle_number && (
+                        <span className="flex items-center gap-1.5 bg-white/50 px-2 py-0.5 rounded">
+                          <Car className="h-3 w-3" /> {visitor.vehicle_number}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-2 w-full sm:w-auto">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1 sm:flex-none border-critical text-critical hover:bg-critical/10 font-bold uppercase text-[10px]"
+                      onClick={() => handleDeny(visitor.id)}
+                      disabled={isProcessingApproval === visitor.id}
+                    >
+                      {isProcessingApproval === visitor.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4 mr-2" />}
+                      Deny
+                    </Button>
+                    <Button 
+                      className="flex-1 sm:flex-none bg-success hover:bg-success/90 shadow-lg shadow-success/20 font-bold uppercase text-[10px]"
+                      onClick={() => handleApprove(visitor.id)}
+                      disabled={isProcessingApproval === visitor.id}
+                    >
+                      {isProcessingApproval === visitor.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+                      Confirm Entry
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Flat Details Card */}
       <Card className="border-none shadow-card ring-1 ring-border overflow-hidden">
@@ -580,15 +641,15 @@ function ResidentDashboardContent({ residentId }: { residentId: string }) {
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Shield className="h-12 w-12 text-muted-foreground/30 mb-4" />
               <p className="text-sm font-medium text-muted-foreground">
-                No visitor activity yet
+                No recent activity for this unit
               </p>
               <p className="text-xs text-muted-foreground/70 mt-1">
-                Invite your first visitor to get started
+                Visitor history will appear here once entry is recorded.
               </p>
             </div>
           ) : (
             <div className="divide-y max-h-[400px] overflow-y-auto">
-              {visitors.map((visitor) => (
+              {otherVisitors.map((visitor) => (
                 <div
                   key={visitor.id}
                   className="p-4 flex items-center gap-4 hover:bg-muted/30 transition-colors"
@@ -614,6 +675,19 @@ function ResidentDashboardContent({ residentId }: { residentId: string }) {
                       >
                         {visitor.visitor_type?.replace("_", " ") || "Guest"}
                       </Badge>
+                      
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={cn(
+                          "h-7 w-7 rounded-full ml-auto",
+                          visitor.is_frequent_visitor ? "text-amber-500 hover:text-amber-600" : "text-muted-foreground/30 hover:text-muted-foreground/50"
+                        )}
+                        onClick={() => handleToggleFrequent(visitor.id, !visitor.is_frequent_visitor)}
+                        title={visitor.is_frequent_visitor ? "Remove from Daily Helpers" : "Add to Daily Helpers"}
+                      >
+                        <Star className={cn("h-4 w-4", visitor.is_frequent_visitor && "fill-current")} />
+                      </Button>
                     </div>
                     <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
@@ -639,26 +713,34 @@ function ResidentDashboardContent({ residentId }: { residentId: string }) {
                     {visitor.exit_time ? (
                       <Badge
                         variant="outline"
-                        className="text-[9px] bg-muted text-muted-foreground"
+                        className="text-[9px] bg-muted text-muted-foreground border-transparent font-bold"
                       >
                         <XCircle className="h-3 w-3 mr-1" />
-                        Exited
+                        EXITED
                       </Badge>
-                    ) : visitor.entry_time ? (
+                    ) : visitor.entry_time && visitor.approved_by_resident === true ? (
                       <Badge
-                        variant="outline"
-                        className="text-[9px] bg-success/10 text-success border-success/20"
+                        variant="success"
+                        className="text-[9px] font-bold"
                       >
                         <CheckCircle2 className="h-3 w-3 mr-1" />
-                        Inside
+                        INSIDE
+                      </Badge>
+                    ) : visitor.entry_time && visitor.approved_by_resident === false ? (
+                      <Badge
+                        variant="destructive"
+                        className="text-[9px] font-bold"
+                      >
+                        <XCircle className="h-3 w-3 mr-1" />
+                        DENIED
                       </Badge>
                     ) : (
                       <Badge
                         variant="outline"
-                        className="text-[9px] bg-warning/10 text-warning border-warning/20"
+                        className="text-[9px] bg-warning/10 text-warning border-warning/20 font-bold"
                       >
                         <Clock className="h-3 w-3 mr-1" />
-                        Expected
+                        PRE-APPROVED
                       </Badge>
                     )}
                   </div>

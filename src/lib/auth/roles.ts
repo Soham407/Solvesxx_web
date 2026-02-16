@@ -1,0 +1,45 @@
+export type AppRole = 
+  | "admin"
+  | "company_md"
+  | "company_hod"
+  | "account"
+  | "delivery_boy"
+  | "buyer"
+  | "supplier"
+  | "vendor"
+  | "security_guard"
+  | "security_supervisor"
+  | "society_manager"
+  | "service_boy"
+  | "resident";
+
+/**
+ * Role-based access mapping
+ * Each role can access paths starting with these prefixes
+ */
+export const ROLE_ACCESS: Record<AppRole, string[]> = {
+  admin: ["/"], // Admin can access everything
+  company_md: ["/dashboard", "/reports", "/finance"],
+  company_hod: ["/dashboard", "/hrms", "/service-requests", "/tickets", "/services", "/company"],
+  account: ["/dashboard", "/finance"],
+  delivery_boy: ["/dashboard", "/logistics"],
+  buyer: ["/dashboard", "/buyer"],
+  supplier: ["/dashboard", "/supplier"],
+  vendor: ["/dashboard", "/supplier"],
+  security_guard: ["/dashboard", "/test-guard", "/tickets", "/society"],
+  security_supervisor: ["/dashboard", "/test-guard", "/tickets", "/society", "/hrms/attendance"],
+  society_manager: ["/dashboard", "/society", "/test-resident", "/tickets", "/finance/compliance"],
+  service_boy: ["/dashboard", "/service-boy", "/service-requests"],
+  resident: ["/test-resident", "/society/my-flat"],
+};
+
+export function hasAccess(role: AppRole, pathname: string): boolean {
+  if (role === "admin") return true;
+  const prefixes = ROLE_ACCESS[role];
+  if (!prefixes) return false;
+  
+  // Special case for dashboard which should be accessible to all roles
+  if (pathname === "/dashboard") return true;
+
+  return prefixes.some(prefix => pathname.startsWith(prefix));
+}

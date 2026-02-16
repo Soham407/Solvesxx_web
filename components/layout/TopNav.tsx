@@ -65,7 +65,7 @@ export function TopNav({ onToggleSidebar, sidebarCollapsed }: TopNavProps) {
   const router = useRouter();
   const [selectedCompany, setSelectedCompany] = useState(companies[0]);
   const { theme, setTheme } = useTheme();
-  const { signOut, user } = useAuth();
+  const { signOut, user, role } = useAuth();
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   const unreadCount = notifications.filter((n) => n.unread).length;
@@ -262,12 +262,16 @@ export function TopNav({ onToggleSidebar, sidebarCollapsed }: TopNavProps) {
             <Button variant="ghost" className="gap-3 pl-2 pr-3 h-10 hover:bg-muted/50 hover:text-foreground transition-all group">
               <Avatar className="h-8 w-8 ring-2 ring-transparent group-hover:ring-primary/20 transition-all shadow-sm">
                 <AvatarFallback className="bg-primary text-primary-foreground text-xs font-bold">
-                  V
+                  {user?.email?.[0].toUpperCase() || "U"}
                 </AvatarFallback>
               </Avatar>
               <div className="hidden sm:flex flex-col items-start text-left">
-                <span className="text-sm font-bold leading-tight">Vandanaa</span>
-                <span className="text-xs font-bold text-muted-foreground tracking-wide uppercase">System Admin</span>
+                <span className="text-sm font-bold leading-tight truncate max-w-[120px]">
+                  {user?.user_metadata?.full_name || user?.email?.split('@')[0] || "User"}
+                </span>
+                <span className="text-[10px] font-bold text-muted-foreground tracking-wide uppercase">
+                  {role?.replace(/_/g, ' ') || "Guest"}
+                </span>
               </div>
               <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
             </Button>
@@ -275,11 +279,15 @@ export function TopNav({ onToggleSidebar, sidebarCollapsed }: TopNavProps) {
           <DropdownMenuContent align="end" className="w-64 p-2 animate-in fade-in zoom-in-95">
             <div className="flex items-center gap-3 p-3 mb-2 rounded-lg bg-muted/30">
               <Avatar className="h-10 w-10">
-                <AvatarFallback className="bg-primary text-primary-foreground font-bold">V</AvatarFallback>
+                <AvatarFallback className="bg-primary text-primary-foreground font-bold">
+                  {user?.email?.[0].toUpperCase() || "U"}
+                </AvatarFallback>
               </Avatar>
-              <div className="flex flex-col">
-                <span className="text-sm font-bold">Vandanaa</span>
-                <span className="text-xs text-muted-foreground">vandanaa@facilitypro.com</span>
+              <div className="flex flex-col overflow-hidden">
+                <span className="text-sm font-bold truncate">
+                  {user?.user_metadata?.full_name || user?.email?.split('@')[0] || "User"}
+                </span>
+                <span className="text-[10px] text-muted-foreground truncate">{user?.email}</span>
               </div>
             </div>
             <DropdownMenuItem className="gap-3 p-2.5 cursor-pointer rounded-md" onClick={() => router.push("/hrms/profiles")}>

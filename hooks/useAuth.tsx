@@ -4,6 +4,7 @@ import React, { useState, useEffect, createContext, useContext } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
 import type { User } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
+import { type AppRole } from "@/src/lib/auth/roles";
 
 /**
  * Auth context using @supabase/ssr.
@@ -16,6 +17,7 @@ import { useRouter } from "next/navigation";
 interface AuthContextType {
   user: User | null;
   userId: string | null;
+  role: AppRole | null;
   isLoading: boolean;
   signOut: () => Promise<void>;
 }
@@ -32,29 +34,62 @@ export function useAuth() {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [role, setRole] = useState<AppRole | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
     // Get initial session - @supabase/ssr reads from cookies automatically
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setIsLoading(false);
+      if (session?.user) {
+        setUser(session.user);
+        fetchUserRole(session.user.id);
+      } else {
+        setUser(null);
+        setRole(null);
+        setIsLoading(false);
+      }
     });
 
     // Listen for auth changes (sign in, sign out, token refresh)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+      if (session?.user) {
+        setUser(session.user);
+        fetchUserRole(session.user.id);
+      } else {
+        setUser(null);
+        setRole(null);
+        setIsLoading(false);
+      }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
+  const fetchUserRole = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("users")
+        .select("roles!inner(role_name)")
+        .eq("id", userId)
+        .single();
+
+      if (error) throw error;
+      setRole((data as any).roles.role_name as AppRole);
+    } catch (error) {
+      console.error("Error fetching user role:", error);
+      setRole(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const signOut = async () => {
     // Clear UI state immediately for responsive UX
     setUser(null);
+    setRole(null);
 
     try {
       await supabase.auth.signOut();
@@ -72,6 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{
         user,
         userId: user?.id ?? null,
+        role,
         isLoading,
         signOut,
       }}

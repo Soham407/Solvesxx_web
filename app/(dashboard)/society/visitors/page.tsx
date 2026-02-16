@@ -16,7 +16,11 @@ import {
   XCircle,
   Search,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  ShieldCheck,
+  AlertCircle,
+  Users,
+  User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ColumnDef } from "@tanstack/react-table";
@@ -31,6 +35,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useVisitors, Visitor } from "@/hooks/useVisitors";
+import { VisitorRegistrationDialog } from "@/components/society/VisitorRegistrationDialog";
+import { VisitorAvatar } from "@/components/society/VisitorAvatar";
 
 export default function VisitorManagementPage() {
   const {
@@ -40,12 +46,15 @@ export default function VisitorManagementPage() {
     isLoading,
     error,
     checkOutVisitor,
+    approveVisitor,
+    issueVisitorPass,
     markAsFrequent,
     setFilters,
     refresh,
   } = useVisitors({ status: "active" });
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [isRegistrationOpen, setIsRegistrationOpen] = useState(false);
 
   // Handle search
   const handleSearch = (e: React.FormEvent) => {
@@ -90,12 +99,11 @@ export default function VisitorManagementPage() {
       header: "Visitor Details",
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
-          <Avatar className="h-10 w-10 border shadow-sm">
-            <AvatarImage src={row.original.photo_url || undefined} />
-            <AvatarFallback className="bg-primary/5 text-primary text-xs font-bold">
-              {row.original.visitor_name.substring(0, 2).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
+          <VisitorAvatar 
+            photoUrl={row.original.photo_url} 
+            name={row.original.visitor_name} 
+            className="h-10 w-10 border shadow-sm"
+          />
           <div className="flex flex-col">
             <span className="font-bold text-sm">{row.original.visitor_name}</span>
             <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-bold uppercase">
@@ -148,50 +156,67 @@ export default function VisitorManagementPage() {
     {
       accessorKey: "approved_by_resident",
       header: "Status",
-      cell: ({ row }) => (
-        <Badge
-          variant="outline"
-          className={cn(
-            row.original.approved_by_resident
-              ? "bg-success/10 text-success border-success/20"
-              : "bg-warning/10 text-warning border-warning/20",
-            "animate-pulse-soft"
-          )}
-        >
-          ● {row.original.exit_time ? "Completed" : row.original.approved_by_resident ? "In Building" : "Pending Approval"}
-        </Badge>
-      ),
+      cell: ({ row }) => {
+        const isApproved = row.original.approved_by_resident;
+        const isExited = !!row.original.exit_time;
+
+        if (isExited) return <Badge variant="outline" className="bg-muted text-muted-foreground border-muted-foreground/20 italic">Checked Out</Badge>;
+        
+        if (isApproved === true) return <Badge variant="outline" className="bg-success/10 text-success border-success/20 animate-pulse-soft font-bold">● In Building</Badge>;
+        if (isApproved === false) return <Badge variant="outline" className="bg-critical/10 text-critical border-critical/20 font-bold uppercase text-[9px]">Entry Denied</Badge>;
+        
+        return <Badge variant="outline" className="bg-warning/10 text-warning border-warning/20 animate-pulse font-bold">Awaiting Approval</Badge>;
+      },
     },
     {
       id: "actions",
-      cell: ({ row }) => (
-        <div className="flex items-center gap-1">
-          {!row.original.exit_time && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 gap-1.5 text-xs text-primary border-primary/20 hover:bg-primary/5"
-              onClick={() => handleCheckOut(row.original.id)}
-            >
-              <DoorOpen className="h-3.5 w-3.5" /> Out
-            </Button>
-          )}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button size="icon" variant="ghost" className="h-8 w-8">
-                <MoreHorizontal className="h-4 w-4" />
+      cell: ({ row }) => {
+        const isExited = !!row.original.exit_time;
+        return (
+          <div className="flex items-center gap-2">
+            {!isExited && row.original.approved_by_resident === true && !row.original.visitor_pass_number && (
+              <Button
+                size="sm"
+                className="h-8 gap-1.5 text-xs bg-primary shadow-glow font-bold uppercase transition-all hover:scale-105 active:scale-95"
+                onClick={() => issueVisitorPass(row.original.id)}
+              >
+                <ShieldCheck className="h-3.5 w-3.5" /> Issue Pass
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => markAsFrequent(row.original.id, !row.original.is_frequent_visitor)}>
-                {row.original.is_frequent_visitor ? "Remove from Daily Helpers" : "Add to Daily Helpers"}
-              </DropdownMenuItem>
-              <DropdownMenuItem>View Details</DropdownMenuItem>
-              <DropdownMenuItem>Print Pass</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      ),
+            )}
+            {!isExited && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5 text-xs text-primary border-primary/20 hover:bg-primary/5"
+                onClick={() => handleCheckOut(row.original.id)}
+              >
+                <DoorOpen className="h-3.5 w-3.5" /> Out
+              </Button>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="icon" variant="ghost" className="h-8 w-8">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {row.original.rejection_reason && (
+                  <DropdownMenuItem onClick={() => alert(`Reason: ${row.original.rejection_reason}`)}>
+                    <AlertCircle className="h-4 w-4 mr-2 text-critical" /> View Denial Reason
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onClick={() => markAsFrequent(row.original.id, !row.original.is_frequent_visitor)}>
+                  <Users className="h-4 w-4 mr-2" />
+                  {row.original.is_frequent_visitor ? "Remove from Daily Helpers" : "Add to Daily Helpers"}
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                   <User className="h-4 w-4 mr-2" /> View Details
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        );
+      },
     },
   ];
 
@@ -226,7 +251,10 @@ export default function VisitorManagementPage() {
             <Button variant="outline" className="gap-2" onClick={refresh}>
               <History className="h-4 w-4" /> Movement Logs
             </Button>
-            <Button className="gap-2 shadow-lg shadow-primary/20">
+            <Button 
+                className="gap-2 shadow-lg shadow-primary/20"
+                onClick={() => setIsRegistrationOpen(true)}
+            >
               <UserPlus className="h-4 w-4" /> Quick Entry
             </Button>
           </div>
@@ -318,6 +346,12 @@ export default function VisitorManagementPage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      <VisitorRegistrationDialog 
+        open={isRegistrationOpen} 
+        onOpenChange={setIsRegistrationOpen}
+        onSuccess={refresh}
+      />
     </div>
   );
 }

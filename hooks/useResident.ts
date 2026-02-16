@@ -228,6 +228,71 @@ export function useResident(residentId?: string) {
     [state.resident, fetchVisitors]
   );
 
+  // Approve a visitor (PRD: Resident confirmation)
+  const approveVisitor = useCallback(async (visitorId: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { data, error } = await supabase.rpc("approve_visitor" as any, {
+        p_visitor_id: visitorId,
+        p_user_id: user.id
+      });
+      if (error) throw error;
+      
+      const result = data as any;
+      if (!result.success) throw new Error(result.error);
+
+      fetchVisitors();
+      return { success: true };
+    } catch (err: any) {
+      console.error("Error approving visitor:", err);
+      return { success: false, error: err.message };
+    }
+  }, [fetchVisitors]);
+
+  // Deny a visitor (PRD: Resident denial)
+  const denyVisitor = useCallback(async (visitorId: string, reason: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { data, error } = await supabase.rpc("deny_visitor" as any, {
+        p_visitor_id: visitorId,
+        p_user_id: user.id,
+        p_reason: reason
+      });
+      if (error) throw error;
+      
+      const result = data as any;
+      if (!result.success) throw new Error(result.error);
+
+      fetchVisitors();
+      return { success: true };
+    } catch (err: any) {
+      console.error("Error denying visitor:", err);
+      return { success: false, error: err.message };
+    }
+  }, [fetchVisitors]);
+
+  // Toggle frequent visitor status (Phase 1B)
+  const toggleFrequentVisitor = useCallback(async (visitorId: string, isFrequent: boolean) => {
+    try {
+      const { error } = await supabase
+        .from("visitors")
+        .update({ is_frequent_visitor: isFrequent })
+        .eq("id", visitorId);
+
+      if (error) throw error;
+      
+      fetchVisitors();
+      return { success: true };
+    } catch (err: any) {
+      console.error("Error toggling frequent status:", err);
+      return { success: false, error: err.message };
+    }
+  }, [fetchVisitors]);
+
   // Refresh all data
   const refresh = useCallback(() => {
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
@@ -249,6 +314,9 @@ export function useResident(residentId?: string) {
   return {
     ...state,
     inviteVisitor,
+    approveVisitor,
+    denyVisitor,
+    toggleFrequentVisitor,
     refresh,
     refreshVisitors: fetchVisitors,
   };

@@ -23,6 +23,11 @@ interface AttendanceState {
   todayAttendance: {
     check_in_time: string | null;
     check_out_time: string | null;
+    check_in_selfie_url?: string | null;
+    check_in_latitude?: number | null;
+    check_in_longitude?: number | null;
+    check_out_latitude?: number | null;
+    check_out_longitude?: number | null;
   } | null;
 }
 
@@ -113,7 +118,7 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
       const today = new Date().toISOString().split("T")[0];
       const { data, error } = await supabase
         .from("attendance_logs")
-        .select("check_in_time, check_out_time")
+        .select("check_in_time, check_out_time, check_in_selfie_url, check_in_latitude, check_in_longitude, check_out_latitude, check_out_longitude")
         .eq("employee_id", employeeId)
         .eq("log_date", today)
         .single();
@@ -208,10 +213,14 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
     );
   }, []);
 
-  // Clock In action with shift enforcement
-  const clockIn = useCallback(async (): Promise<{ success: boolean; error?: string }> => {
+  // Clock In action with shift enforcement and selfie evidence
+  const clockIn = useCallback(async (selfieUrl?: string): Promise<{ success: boolean; error?: string }> => {
     if (!employeeId || !state.isWithinRange || !state.gateLocation) {
       return { success: false, error: "Location requirements not met" };
+    }
+
+    if (!selfieUrl) {
+      return { success: false, error: "Selfie capture is mandatory for check-in" };
     }
 
     try {
@@ -307,6 +316,9 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
         log_date: today,
         check_in_time: now.toISOString(),
         check_in_location_id: state.gateLocation.id,
+        check_in_latitude: state.currentPosition?.latitude,
+        check_in_longitude: state.currentPosition?.longitude,
+        check_in_selfie_url: selfieUrl,
         status: "present",
       });
 
@@ -318,6 +330,9 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
         todayAttendance: {
           check_in_time: now.toISOString(),
           check_out_time: null,
+          check_in_selfie_url: selfieUrl,
+          check_in_latitude: state.currentPosition?.latitude,
+          check_in_longitude: state.currentPosition?.longitude,
         },
       }));
 
@@ -329,7 +344,7 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
       console.error("Error clocking in:", err);
       return { success: false, error: errorMessage };
     }
-  }, [employeeId, state.isWithinRange, state.gateLocation]);
+  }, [employeeId, state.isWithinRange, state.gateLocation, state.currentPosition]);
 
   // Clock Out action
   const clockOut = useCallback(async (): Promise<boolean> => {
@@ -354,6 +369,8 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
         .update({
           check_out_time: now.toISOString(),
           check_out_location_id: state.gateLocation.id,
+          check_out_latitude: state.currentPosition?.latitude,
+          check_out_longitude: state.currentPosition?.longitude,
           total_hours: totalHours ? parseFloat(totalHours.toFixed(2)) : null,
         })
         .eq("employee_id", employeeId)
@@ -368,6 +385,8 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
           ...prev.todayAttendance,
           check_in_time: prev.todayAttendance?.check_in_time || null,
           check_out_time: now.toISOString(),
+          check_out_latitude: state.currentPosition?.latitude,
+          check_out_longitude: state.currentPosition?.longitude,
         },
       }));
 
@@ -379,7 +398,61 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
       console.error("Error clocking out:", err);
       return false;
     }
-  }, [employeeId, state.gateLocation, state.todayAttendance]);
+  }, [employeeId, state.gateLocation, state.todayAttendance, state.currentPosition]);
+
+  // Auto Punch Out action (triggered by system due to geo-fence breach)
+  const autoClockOut = useCallback(async (reason: string): Promise<boolean> => {
+    if (!employeeId || !state.gateLocation) {
+      return false;
+    }
+
+    try {
+      const now = new Date();
+      const today = now.toISOString().split("T")[0];
+
+      // Calculate total hours
+      const checkInTime = state.todayAttendance?.check_in_time
+        ? new Date(state.todayAttendance.check_in_time)
+        : null;
+      const totalHours = checkInTime
+        ? (now.getTime() - checkInTime.getTime()) / (1000 * 60 * 60)
+        : null;
+
+      const { error } = await supabase
+        .from("attendance_logs")
+        .update({
+          check_out_time: now.toISOString(),
+          check_out_location_id: state.gateLocation.id,
+          check_out_latitude: state.currentPosition?.latitude,
+          check_out_longitude: state.currentPosition?.longitude,
+          total_hours: totalHours ? parseFloat(totalHours.toFixed(2)) : null,
+          is_auto_punch_out: true,
+          status: "absent_breach", // Special status for auto-punch
+        })
+        .eq("employee_id", employeeId)
+        .eq("log_date", today);
+
+      if (error) throw error;
+
+      setState((prev) => ({
+        ...prev,
+        isClockedIn: false,
+        todayAttendance: {
+          ...prev.todayAttendance,
+          check_in_time: prev.todayAttendance?.check_in_time || null,
+          check_out_time: now.toISOString(),
+          check_out_latitude: state.currentPosition?.latitude,
+          check_out_longitude: state.currentPosition?.longitude,
+        },
+      }));
+
+      stopGpsTracking();
+      return true;
+    } catch (err: any) {
+      console.error("Error in auto clock out:", err);
+      return false;
+    }
+  }, [employeeId, state.gateLocation, state.todayAttendance, state.currentPosition]);
 
   // Start GPS tracking (every 5 minutes)
   const startGpsTracking = useCallback(() => {
@@ -477,6 +550,7 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
     ...state,
     clockIn,
     clockOut,
+    autoClockOut,
     refresh,
   };
 }

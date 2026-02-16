@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTable } from "@/components/shared/DataTable";
 import { Button } from "@/components/ui/button";
@@ -13,24 +14,101 @@ import {
   ArrowRightLeft,
   FileCheck2,
   AlertCircle,
-  Loader2
+  Loader2,
+  DollarSign
 } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogHeader, 
+  DialogTitle,
+  DialogFooter
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { useSupplierBills, BILL_STATUS_CONFIG, PAYMENT_STATUS_CONFIG } from "@/hooks/useSupplierBills";
+import { useSupplierBills, BILL_STATUS_CONFIG, PAYMENT_STATUS_CONFIG, SupplierBill } from "@/hooks/useSupplierBills";
+import { useFinance } from "@/hooks/useFinance";
 import { formatCurrency } from "@/src/lib/utils/currency";
 import { useReconciliation } from "@/hooks/useReconciliation";
+import { toast } from "sonner";
 
 export default function SupplierBillsPage() {
-  const { bills, isLoading: billsLoading, error } = useSupplierBills();
+  const { bills, isLoading: billsLoading, error, refresh: refreshBills } = useSupplierBills() as any;
   const { reconciliations, isLoading: reconLoading } = useReconciliation();
+  const { methods, recordTransaction } = useFinance();
+
+  const [selectedBill, setSelectedBill] = useState<SupplierBill | null>(null);
+  const [isPayoutModalOpen, setIsPayoutModalOpen] = useState(false);
+  const [payoutAmount, setPayoutAmount] = useState("");
+  const [selectedMethodId, setSelectedMethodId] = useState("");
+  const [payoutDate, setPayoutDate] = useState(new Date().toISOString().split('T')[0]);
+  const [notes, setNotes] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isLoading = billsLoading || reconLoading;
 
-  const columns: ColumnDef<any>[] = [
+  const handleRecordPayout = async () => {
+    if (!selectedBill) return;
+    
+    const amountNum = parseFloat(payoutAmount);
+    if (isNaN(amountNum) || amountNum <= 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+
+    if (!selectedMethodId) {
+      toast.error("Please select a payout method");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const success = await recordTransaction({
+        type: 'payout',
+        referenceType: 'purchase_bill',
+        referenceId: selectedBill.id,
+        amount: amountNum,
+        methodId: selectedMethodId,
+        date: payoutDate,
+        notes: notes,
+        payerId: '00000000-0000-0000-0000-000000000000', // System/Admin ID
+        payeeId: selectedBill.supplier_id || '',
+      });
+
+      if (success) {
+        toast.success("Payout recorded successfully");
+        setIsPayoutModalOpen(false);
+        refreshBills();
+      } else {
+        toast.error("Failed to record payout");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const columns: ColumnDef<SupplierBill>[] = [
     {
       accessorKey: "supplier_name",
       header: "Supplier Hub",
@@ -52,9 +130,16 @@ export default function SupplierBillsPage() {
       cell: ({ row }) => <span className="text-sm font-bold text-foreground">{formatCurrency(row.original.total_amount || 0)}</span>,
     },
     {
-      accessorKey: "bill_date",
-      header: "Date Received",
-      cell: ({ row }) => <span className="text-xs font-medium text-muted-foreground">{row.original.bill_date ? new Date(row.original.bill_date).toLocaleDateString() : "N/A"}</span>,
+      accessorKey: "due_amount",
+      header: "Due Balance",
+      cell: ({ row }) => (
+        <span className={cn(
+          "font-bold text-sm",
+          (row.original.due_amount || 0) > 0 ? "text-critical" : "text-success"
+        )}>
+          {formatCurrency(row.original.due_amount || 0)}
+        </span>
+      ),
     },
     {
       accessorKey: "status",
@@ -75,7 +160,7 @@ export default function SupplierBillsPage() {
     },
     {
       accessorKey: "payment_status",
-      header: "Payout Status",
+      header: "Payout Truth",
       cell: ({ row }) => {
           const val = row.original.payment_status as string;
           const config = PAYMENT_STATUS_CONFIG[val as keyof typeof PAYMENT_STATUS_CONFIG] || { label: val, className: "" };
@@ -88,15 +173,34 @@ export default function SupplierBillsPage() {
     },
     {
       id: "actions",
-      cell: () => (
-        <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" className="h-8 gap-2 text-primary border-primary/20 hover:bg-primary/5" asChild>
-                <Link href="/finance/reconciliation">Reconcile</Link>
-            </Button>
+      cell: ({ row }) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreHorizontal className="h-4 w-4" />
+              <MoreHorizontal className="h-4 w-4" />
             </Button>
-        </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Payout Controls</DropdownMenuLabel>
+            <DropdownMenuItem 
+              className="gap-2 font-bold text-primary"
+              disabled={row.original.status !== 'approved' || row.original.payment_status === 'paid'}
+              onClick={() => {
+                setSelectedBill(row.original);
+                setPayoutAmount((row.original.due_amount || 0).toString());
+                setIsPayoutModalOpen(true);
+              }}
+            >
+               <DollarSign className="h-4 w-4" /> Record Payout
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="gap-2" asChild>
+               <Link href="/finance/reconciliation">
+                  <ArrowRightLeft className="h-4 w-4" /> Reconcile Match
+               </Link>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       ),
     },
   ];
@@ -125,20 +229,20 @@ export default function SupplierBillsPage() {
   }
 
   // Calculate summary stats
-  const accountsPayable = bills.reduce((acc, bill) => acc + (bill.due_amount || 0), 0);
+  const accountsPayable = bills.reduce((acc: number, bill: SupplierBill) => acc + (bill.due_amount || 0), 0);
   const approvedPayouts = bills
-    .filter(b => b.status === "approved")
-    .reduce((acc, bill) => acc + (bill.total_amount || 0), 0);
+    .filter((b: SupplierBill) => b.status === "approved")
+    .reduce((acc: number, bill: SupplierBill) => acc + (bill.total_amount || 0), 0);
   const pendingVerification = bills
-    .filter(b => b.status === "submitted" || b.status === "draft")
+    .filter((b: SupplierBill) => b.status === "submitted" || b.status === "draft")
     .length;
 
-    const auditDiscrepancies = reconciliations.filter(r => r.status === "discrepancy").length;
+    const auditDiscrepancies = (reconciliations as any[]).filter(r => r.status === "discrepancy").length;
 
   return (
     <div className="animate-fade-in space-y-8 pb-20">
       <PageHeader
-        title="Supplier Bill Processing"
+        title="Supplier Payout Registry"
         description="Verify, reconcile and approve vendor invoices against Purchase Orders and Receipt Notes."
         actions={
           <div className="flex gap-2">
@@ -183,18 +287,73 @@ export default function SupplierBillsPage() {
             <CardTitle className="text-base font-bold">Billing Registry</CardTitle>
             <div className="flex items-center gap-2">
                 <Badge variant="outline" className="bg-success/5 text-success border-success/20">Active Cycle</Badge>
-                <div className="flex -space-x-2">
-                    {[1,2,3].map(i => (
-                        <div key={i} className="h-6 w-6 rounded-full border-2 border-background bg-muted flex items-center justify-center text-[8px] font-bold">A{i}</div>
-                    ))}
-                </div>
             </div>
         </CardHeader>
         <CardContent className="p-0">
             <DataTable columns={columns} data={bills} searchKey="supplier_name" />
         </CardContent>
       </Card>
+
+      {/* Payout Recording Dialog */}
+      <Dialog open={isPayoutModalOpen} onOpenChange={setIsPayoutModalOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-primary" />
+              Record Supplier Payout
+            </DialogTitle>
+            <DialogDescription>
+              Record a manual payout for Bill <strong>{selectedBill?.bill_number}</strong>. This will settle the liability.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="amount" className="text-right">Amount</Label>
+              <Input
+                id="amount"
+                type="number"
+                value={payoutAmount}
+                onChange={(e) => setPayoutAmount(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="method" className="text-right">Method</Label>
+              <Select onValueChange={setSelectedMethodId} value={selectedMethodId}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Select method" />
+                </SelectTrigger>
+                <SelectContent>
+                  {methods.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>{m.method_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="date" className="text-right">Date</Label>
+              <Input
+                id="date"
+                type="date"
+                value={payoutDate}
+                onChange={(e) => setPayoutDate(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsPayoutModalOpen(false)}>Cancel</Button>
+            <Button 
+              className="gap-2" 
+              onClick={handleRecordPayout}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <DollarSign className="h-4 w-4" />}
+              Dispatch Funds
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
-
