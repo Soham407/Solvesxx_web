@@ -57,14 +57,39 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [blockedByLimit, setBlockedByLimit] = useState(false);
+  const [blockedUntil, setBlockedUntil] = useState<Date | null>(null);
   const prefersReducedMotion = useReducedMotion() ?? false;
   
   const containerVariants = createContainerVariants(prefersReducedMotion);
   const itemVariants = createItemVariants(prefersReducedMotion);
 
+  const getIp = async () => {
+    try {
+      const res = await fetch("https://api.ipify.org?format=json");
+      const data = await res.json();
+      return data.ip;
+    } catch {
+      return "0.0.0.0"; // Fallback if ipify is down
+    }
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+
+    const ip = await getIp();
+
+    // 1. Check if blocked
+    const { data: blockData } = await supabase.rpc("proc_check_login_blocked", { p_ip: ip });
+    if (blockData && blockData[0]?.is_blocked) {
+      const until = new Date(blockData[0].blocked_until_time);
+      setBlockedByLimit(true);
+      setBlockedUntil(until);
+      toast.error(`Too many attempts. You are blocked until ${until.toLocaleTimeString()}.`);
+      setIsLoading(false);
+      return;
+    }
 
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -73,14 +98,32 @@ export default function LoginPage() {
       });
 
       if (error) {
-        toast.error(
-          error.message || "Login failed. Please check your credentials.",
-        );
+        // 2. Record failure
+        const { data: updateData } = await supabase.rpc("proc_handle_login_attempt", { 
+          p_ip: ip, 
+          p_is_failure: true 
+        });
+        
+        if (updateData && updateData[0]?.is_blocked) {
+          const until = new Date(updateData[0].blocked_until_time);
+          setBlockedByLimit(true);
+          setBlockedUntil(until);
+          toast.error(`Account locked due to consecutive failures. Blocked until ${until.toLocaleTimeString()}.`);
+        } else {
+          const remaining = updateData?.[0]?.remaining_attempts ?? 5;
+          toast.error(`Invalid credentials. ${remaining} attempts remaining before lockout.`);
+        }
+        
         setIsLoading(false);
         return;
       }
 
       if (data.user) {
+        // 3. Record success (reset)
+        await supabase.rpc("proc_handle_login_attempt", { 
+          p_ip: ip, 
+          p_is_failure: false 
+        });
         toast.success("Welcome back!");
         router.push("/dashboard");
       }
@@ -216,10 +259,14 @@ export default function LoginPage() {
                 <motion.div variants={itemVariants} className="pt-2">
                   <Button
                     type="submit"
-                    disabled={isLoading}
+                    disabled={isLoading || (blockedByLimit && blockedUntil && blockedUntil > new Date())}
                     className="w-full h-11 bg-primary hover:bg-primary/90 text-white font-semibold text-base shadow-glow group transition-all duration-300"
                   >
-                    {isLoading ? (
+                    {blockedByLimit && blockedUntil && blockedUntil > new Date() ? (
+                        <div className="flex items-center gap-2">
+                           <Lock className="h-4 w-4" /> Locked Out
+                        </div>
+                    ) : isLoading ? (
                       <div className="flex items-center gap-2">
                         <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                         Verifying...

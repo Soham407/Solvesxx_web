@@ -35,15 +35,14 @@ import { useAttendance } from "@/hooks/useAttendance";
 import { usePanicAlert } from "@/hooks/usePanicAlert";
 import { useGuardVisitors } from "@/hooks/useGuardVisitors";
 import { useGuardChecklist, useGuardShift } from "@/hooks/useGuardChecklist";
-import { useEmployeeProfileWithFallback } from "@/hooks/useEmployeeProfile";
+import { useEmployeeProfile } from "@/hooks/useEmployeeProfile";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/src/lib/supabaseClient";
 import { useEmergencyContacts } from "@/hooks/useEmergencyContacts";
 import { useInactivityMonitor } from "@/hooks/useInactivityMonitor";
 
-// Fallback for development/testing when not authenticated
-const DEV_MOCK_EMPLOYEE_ID = "11111111-1111-1111-1111-111111111111";
+
 
 // Expected Visitors Section Component
 interface ExpectedVisitorsSectionProps {
@@ -198,15 +197,15 @@ function ExpectedVisitorsSection({ gateLocation }: ExpectedVisitorsSectionProps)
 export function GuardDashboard() {
   const { userId, isLoading: isAuthLoading } = useAuth();
   
-  // Get authenticated employee profile (falls back to mock in dev)
-  const { 
-    employeeId, 
+  // Get authenticated employee profile
+  const {
+    employeeId,
     guardId,
     guardCode,
     fullName,
-    isLoading: isProfileLoading, 
-    error: profileError 
-  } = useEmployeeProfileWithFallback(DEV_MOCK_EMPLOYEE_ID);
+    isLoading: isProfileLoading,
+    error: profileError
+  } = useEmployeeProfile();
 
   // Show loading while auth/profile is being fetched
   if (isAuthLoading || isProfileLoading) {

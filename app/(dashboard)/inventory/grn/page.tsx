@@ -30,7 +30,8 @@ import {
   AlertTriangle,
   History,
   ClipboardCheck,
-  Undo2
+  Undo2,
+  ShieldCheck
 } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
@@ -85,6 +86,7 @@ import {
 } from "@/hooks/useGRN";
 import { formatCurrency } from "@/src/lib/utils/currency";
 import { usePurchaseOrders } from "@/hooks/usePurchaseOrders";
+import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/components/ui/use-toast";
 import { useWarehouses } from "@/hooks/useWarehouses";
 import { Label } from "@/components/ui/label";
@@ -94,7 +96,15 @@ function GRNPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { toast } = useToast();
+  const { user } = useAuth();
   const poIdFromQuery = searchParams.get("po_id");
+
+  // State
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<GRNStatus | "all">("all");
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const { warehouses } = useWarehouses();
 
   // Hooks
   const {
@@ -110,17 +120,22 @@ function GRNPageContent() {
     startInspection,
     completeQualityCheck,
     recordItemReceipt,
-  } = useGRN();
+  } = useGRN({ 
+    status: statusFilter === "all" ? undefined : statusFilter,
+    searchTerm: searchTerm || undefined
+  });
 
   const { purchaseOrders, isLoading: posLoading } = usePurchaseOrders();
-  const { warehouses } = useWarehouses();
-
-  // State
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<GRNStatus | "all">("all");
   const [selectedGRN, setSelectedGRN] = useState<MaterialReceipt | null>(null);
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [selectedPOId, setSelectedPOId] = useState<string | null>(null);
+  const [shippingDetails, setShippingDetails] = useState({
+    dcNumber: "",
+    vehicleNumber: "",
+    warehouseId: "",
+    notes: ""
+  });
   const [inspectionMode, setInspectionMode] = useState(false);
   const [itemInspections, setItemInspections] = useState<Record<string, {
     received: number;
@@ -149,23 +164,43 @@ function GRNPageContent() {
     }
   }, [poIdFromQuery, isLoading]);
 
+  // Refresh helper
+  const refresh = async () => {
+    await fetchGRNs();
+  };
+
   // Handle creating GRN from PO
-  const handleCreateFromPO = async (poId: string) => {
-    const grn = await createGRNFromPO(poId);
-    if (grn) {
-      toast({
-        title: "GRN Created",
-        description: `Material Receipt ${grn.grn_number} has been created in draft.`,
+  const handleCreateFromPO = async () => {
+    if (!selectedPOId) return;
+    
+    try {
+      setIsProcessing(true);
+      const grn = await createGRNFromPO(selectedPOId, {
+        delivery_challan_number: shippingDetails.dcNumber || undefined,
+        vehicle_number: shippingDetails.vehicleNumber || undefined,
+        warehouse_id: shippingDetails.warehouseId || undefined,
+        notes: shippingDetails.notes || undefined,
+        received_by: user?.email || undefined
       });
-      setCreateDialogOpen(false);
-      // Clean up URL
-      router.replace("/inventory/grn");
-    } else {
+      
+      if (grn) {
+        toast({
+          title: "GRN Created",
+          description: `GRN ${grn.grn_number} has been created for PO selection.`,
+        });
+        setCreateDialogOpen(false);
+        setSelectedPOId(null);
+        setShippingDetails({ dcNumber: "", vehicleNumber: "", warehouseId: "", notes: "" });
+        await refresh();
+      }
+    } catch (err: any) {
       toast({
         title: "Error",
-        description: "Failed to create GRN from Purchase Order.",
+        description: err.message || "Failed to create GRN",
         variant: "destructive",
       });
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -216,7 +251,8 @@ function GRNPageContent() {
     
     // Check if all items have been updated (simple check)
     // In a real app we'd validate more strictly
-    const success = await completeQualityCheck(selectedGRN.id, "Current User"); // Replace with actual user name
+    const userIdentifier = user?.email || user?.id || "System";
+    const success = await completeQualityCheck(selectedGRN.id, userIdentifier); 
     if (success) {
       toast({
         title: "Inspection Completed",
@@ -298,22 +334,11 @@ function GRNPageContent() {
     },
   ];
 
-  // Filtering
-  const filteredGRNs = useMemo(() => {
-    let result = materialReceipts;
-    if (statusFilter !== "all") {
-      result = result.filter(r => r.status === statusFilter);
-    }
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      result = result.filter(r => 
-        r.grn_number.toLowerCase().includes(term) ||
-        r.supplier_name?.toLowerCase().includes(term) ||
-        r.po_number?.toLowerCase().includes(term)
-      );
-    }
-    return result;
-  }, [materialReceipts, statusFilter, searchTerm]);
+  // Filtering logic moved server-side in useGRN
+  // but we can still show materialReceipts directly
+  const handleSearch = (val: string) => {
+    setSearchTerm(val);
+  };
 
   return (
     <div className="flex-1 space-y-6 p-8">
@@ -413,7 +438,9 @@ function GRNPageContent() {
           ) : (
             <DataTable
               columns={columns}
-              data={filteredGRNs}
+              data={materialReceipts}
+              onSearch={handleSearch}
+              searchKey="grn_number"
             />
           )}
         </CardContent>
@@ -603,43 +630,119 @@ function GRNPageContent() {
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label className="text-[10px] uppercase font-bold tracking-widest">Select Purchase Order</Label>
-              <Select onValueChange={handleCreateFromPO}>
-                <SelectTrigger className="h-12 border-2 focus:ring-primary">
-                  <SelectValue placeholder="Search Acknowledged POs" />
-                </SelectTrigger>
-                <SelectContent>
-                  {purchaseOrders
-                    .filter(po => ["acknowledged", "partial_received"].includes(po.status || ""))
-                    .map(po => (
-                      <SelectItem key={po.id} value={po.id}>
-                        <div className="flex flex-col text-left">
-                          <span className="font-bold">{po.po_number} - {po.supplier_name}</span>
-                          <span className="text-[10px] text-muted-foreground uppercase">{po.grand_total ? formatCurrency(po.grand_total) : ""}</span>
-                        </div>
-                      </SelectItem>
-                    ))
-                  }
-                  {purchaseOrders.filter(po => ["acknowledged", "partial_received"].includes(po.status || "")).length === 0 && (
-                    <div className="p-4 text-center text-sm text-muted-foreground">
-                      No active POs found ready for receipt.
-                    </div>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="p-4 rounded-xl bg-amber-500/5 border border-amber-500/20 flex gap-3">
-              <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
-              <p className="text-xs text-amber-800 font-medium leading-relaxed">
-                Only Acknowledged or Partially Received POs can be selected. This ensures the supplier has confirmed the order before we record receipt.
-              </p>
-            </div>
+            {!selectedPOId ? (
+              <div className="space-y-2">
+                <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Step 1: Select Purchase Order</Label>
+                <Select onValueChange={setSelectedPOId}>
+                  <SelectTrigger className="h-12 border-2 focus:ring-primary shadow-sm">
+                    <SelectValue placeholder="Search Acknowledged POs" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {purchaseOrders
+                      .filter(po => ["acknowledged", "partial_received"].includes(po.status || ""))
+                      .map(po => (
+                        <SelectItem key={po.id} value={po.id}>
+                          <div className="flex flex-col text-left py-0.5">
+                            <span className="font-bold text-sm">{po.po_number}</span>
+                            <span className="text-[10px] text-muted-foreground uppercase font-black tracking-tight">{po.supplier_name}</span>
+                          </div>
+                        </SelectItem>
+                      ))
+                    }
+                    {purchaseOrders.filter(po => ["acknowledged", "partial_received"].includes(po.status || "")).length === 0 && (
+                      <div className="p-4 text-center text-sm text-muted-foreground">
+                        No active POs found ready for receipt.
+                      </div>
+                    )}
+                  </SelectContent>
+                </Select>
+                
+                <div className="p-4 rounded-xl bg-amber-500/5 border border-amber-500/20 flex gap-3 mt-4">
+                  <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-800 font-medium leading-relaxed">
+                    Only Acknowledged or Partially Received POs can be selected.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+                <div className="flex items-center justify-between">
+                   <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Step 2: Receipt Details</Label>
+                   <Button variant="link" size="sm" onClick={() => setSelectedPOId(null)} className="h-auto p-0 text-xs font-bold text-primary">Change PO</Button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="dc_number" className="text-xs font-bold">DC / Invoice No.</Label>
+                    <Input 
+                      id="dc_number"
+                      placeholder="e.g. DC/123"
+                      value={shippingDetails.dcNumber}
+                      onChange={(e) => setShippingDetails({...shippingDetails, dcNumber: e.target.value})}
+                      className="bg-muted/30 border-none font-medium h-10"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="vehicle_number" className="text-xs font-bold">Vehicle No.</Label>
+                    <Input 
+                      id="vehicle_number"
+                      placeholder="e.g. MH-12-PQ-9876"
+                      value={shippingDetails.vehicleNumber}
+                      onChange={(e) => setShippingDetails({...shippingDetails, vehicleNumber: e.target.value})}
+                      className="bg-muted/30 border-none font-medium h-10"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="warehouse" className="text-xs font-bold">Receiving Warehouse <span className="text-critical">*</span></Label>
+                  <Select 
+                    value={shippingDetails.warehouseId} 
+                    onValueChange={(val) => setShippingDetails({...shippingDetails, warehouseId: val})}
+                  >
+                    <SelectTrigger className="bg-muted/30 border-none font-semibold h-10">
+                      <SelectValue placeholder="Select Destination" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {warehouses.map(w => (
+                        <SelectItem key={w.id} value={w.id} className="font-medium text-xs">
+                          {w.warehouse_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="grn_notes" className="text-xs font-bold">Remarks</Label>
+                  <Textarea 
+                    id="grn_notes"
+                    placeholder="Any observations about the shipment..."
+                    value={shippingDetails.notes}
+                    onChange={(e) => setShippingDetails({...shippingDetails, notes: e.target.value})}
+                    className="bg-muted/30 border-none resize-none h-20 text-xs font-medium"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="ghost" onClick={() => {
+              setCreateDialogOpen(false);
+              setSelectedPOId(null);
+            }} className="font-bold text-xs uppercase tracking-widest h-10">Cancel</Button>
+            
+            {selectedPOId && (
+              <Button 
+                onClick={handleCreateFromPO}
+                disabled={isProcessing || !shippingDetails.warehouseId}
+                className="bg-primary hover:bg-primary/90 font-bold text-xs uppercase tracking-widest h-10 px-8 shadow-lg shadow-primary/10"
+              >
+                {isProcessing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ShieldCheck className="h-4 w-4 mr-2" />}
+                Initiate Receipt
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

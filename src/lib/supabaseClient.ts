@@ -8,6 +8,6 @@
  * server-side session validation in middleware.
  */
 import { createClient } from '@/src/lib/supabase/client'
-import { SupabaseClient } from '@supabase/supabase-js'
+import { Database } from '@/src/types/supabase'
 
-export const supabase: SupabaseClient<any> = createClient() as any
+export const supabase = createClient()

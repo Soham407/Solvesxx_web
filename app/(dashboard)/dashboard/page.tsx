@@ -38,6 +38,7 @@ import { cn } from "@/lib/utils";
 import { useMDStats } from "@/hooks/useMDStats";
 import { useServiceRequests } from "@/hooks/useServiceRequests";
 import { useReorderAlerts } from "@/hooks/useReorderAlerts";
+import { useAuth } from "@/hooks/useAuth";
 import { ComingSoonChart, ComingSoonWidget } from "@/components/shared/ComingSoon";
 
 // Import all role dashboards
@@ -55,14 +56,14 @@ import { ResidentDashboard } from "@/components/dashboards/ResidentDashboard";
 
 const roles = [
   { id: "admin", label: "Admin", icon: Shield },
-  { id: "md", label: "Company MD", icon: TrendingUp },
-  { id: "hod", label: "Company HOD", icon: Briefcase },
-  { id: "accounts", label: "Account", icon: Calculator },
-  { id: "delivery", label: "Delivery Boy", icon: Truck },
+  { id: "company_md", label: "Company MD", icon: TrendingUp },
+  { id: "company_hod", label: "Company HOD", icon: Briefcase },
+  { id: "account", label: "Account", icon: Calculator },
+  { id: "delivery_boy", label: "Delivery Boy", icon: Truck },
   { id: "buyer", label: "Buyer", icon: ShoppingCart },
-  { id: "vendor", label: "Supplier / Vendor", icon: Package },
-  { id: "guard", label: "Security Guard", icon: Shield },
-  { id: "supervisor", label: "Security Supervisor", icon: UserCircle },
+  { id: "supplier", label: "Supplier / Vendor", icon: Package },
+  { id: "security_guard", label: "Security Guard", icon: Shield },
+  { id: "security_supervisor", label: "Security Supervisor", icon: UserCircle },
   { id: "society_manager", label: "Society Manager", icon: Building2 },
   { id: "service_boy", label: "Service Boy", icon: Wrench },
   { id: "resident", label: "Resident", icon: Home },
@@ -81,18 +82,27 @@ export default function DashboardPage() {
 }
 
 function DashboardPageContent() {
+  const { role } = useAuth();
   const [selectedRole, setSelectedRole] = useState("admin");
+
+  // Automatically set the selected role to the user's actual role on load
+  useEffect(() => {
+    if (role) {
+      setSelectedRole(role);
+    }
+  }, [role]);
 
   const renderDashboard = () => {
     switch (selectedRole) {
-      case "md": return <MDDashboard />;
-      case "hod": return <HODDashboard />;
-      case "accounts": return <AccountsDashboard />;
-      case "delivery": return <DeliveryDashboard />;
+      case "company_md": return <MDDashboard />;
+      case "company_hod": return <HODDashboard />;
+      case "account": return <AccountsDashboard />;
+      case "delivery_boy": return <DeliveryDashboard />;
       case "buyer": return <BuyerDashboard />;
+      case "supplier":
       case "vendor": return <SupplierDashboard />;
-      case "guard": return <GuardDashboard />;
-      case "supervisor": return <SecuritySupervisorDashboard />;
+      case "security_guard": return <GuardDashboard />;
+      case "security_supervisor": return <SecuritySupervisorDashboard />;
       case "society_manager": return <SocietyManagerDashboard />;
       case "service_boy": return <ServiceBoyDashboard />;
       case "resident": return <ResidentDashboard />;
@@ -102,56 +112,51 @@ function DashboardPageContent() {
 
   return (
     <div className="space-y-4">
-      {/* Preview Mode Disclaimer */}
-      <Alert variant="default" className="border-info/30 bg-info/5">
-        <Info className="h-4 w-4 text-info" />
-        <AlertDescription className="text-xs text-muted-foreground">
-          <strong className="text-foreground">Preview Mode:</strong> The role switcher below lets you preview different dashboard views. 
-          In production, users only see the dashboard for their assigned role.
-        </AlertDescription>
-      </Alert>
 
-      {/* Role Selection Bar */}
-      <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-md pb-4 pt-1 mb-6 border-b">
-          <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-2">
-                 <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <LayoutDashboard className="h-4 w-4 text-primary" />
-                 </div>
-                 <span className="font-bold uppercase  text-sm">Dashboard Hub</span>
-              </div>
-              <div className="flex items-center gap-3">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest hidden md:flex items-center gap-1 cursor-help">
-                          <Info className="h-3 w-3" />
-                          Switch Stakeholder View:
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" className="max-w-xs">
-                        <p className="text-xs">This is a preview feature for testing. Users see their actual role's dashboard based on authentication.</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  <Select value={selectedRole} onValueChange={setSelectedRole}>
-                    <SelectTrigger className="w-[180px] h-9 text-xs font-bold border-muted-foreground/20">
-                      <SelectValue placeholder="Select Role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {roles.map((role) => (
-                        <SelectItem key={role.id} value={role.id} className="text-xs font-medium">
-                          <div className="flex items-center gap-2">
-                            <role.icon className="h-3 w-3" />
-                            {role.label}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-              </div>
-          </div>
-      </div>
+
+      {/* Role Selection Bar - 🔒 Admin Only */}
+      {role === "admin" && (
+        <div className="sticky top-0 z-40 bg-background/80 backdrop-blur-md pb-4 pt-1 mb-6 border-b">
+            <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2">
+                   <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <LayoutDashboard className="h-4 w-4 text-primary" />
+                   </div>
+                   <span className="font-bold uppercase text-sm text-primary">Admin Control Center</span>
+                </div>
+                <div className="flex items-center gap-3">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest hidden md:flex items-center gap-1 cursor-help">
+                            <Shield className="h-3 w-3" />
+                            Security Context Switcher:
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="max-w-xs">
+                          <p className="text-xs">Authorized for Administrators only. This allows you to audit the UI state of different stakeholder roles.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <Select value={selectedRole} onValueChange={setSelectedRole}>
+                      <SelectTrigger className="w-[180px] h-9 text-xs font-bold border-primary/30 bg-primary/5">
+                        <SelectValue placeholder="Select Role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {roles.map((role) => (
+                          <SelectItem key={role.id} value={role.id} className="text-xs font-medium">
+                            <div className="flex items-center gap-2">
+                              <role.icon className="h-3 w-3" />
+                              {role.label}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                </div>
+            </div>
+        </div>
+      )}
 
       <AnimatePresence mode="wait">
         <motion.div

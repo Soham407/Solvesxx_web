@@ -52,7 +52,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useResident } from "@/hooks/useResident";
-import { useResidentProfileWithFallback } from "@/hooks/useResidentProfile";
+import { useResidentProfile } from "@/hooks/useResidentProfile";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/components/ui/use-toast";
 import { getSignedVisitorPhotoUrl } from "@/lib/visitorPhotoStorage";
@@ -85,7 +85,7 @@ export function ResidentDashboard() {
     fullName: profileFullName,
     isLoading: isProfileLoading, 
     error: profileError 
-  } = useResidentProfileWithFallback();
+  } = useResidentProfile();
 
   // Show loading while auth/profile is being fetched
   if (isAuthLoading || isProfileLoading) {

@@ -44,6 +44,7 @@ import { useSuppliers } from "@/hooks/useSuppliers";
 import { useProducts } from "@/hooks/useProducts";
 import { useEmployees } from "@/hooks/useEmployees";
 import { useSocieties } from "@/hooks/useSocieties";
+import { useAuth } from "@/hooks/useAuth";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -101,6 +102,8 @@ interface NewIndentItem {
 export default function IndentManagementPage() {
   const { toast } = useToast();
   
+  const [searchTerm, setSearchTerm] = useState("");
+  
   const { 
     indents, 
     items: indentItems,
@@ -114,7 +117,9 @@ export default function IndentManagementPage() {
     cancelIndent,
     fetchIndentItems,
     refresh
-  } = useIndents();
+  } = useIndents({ searchTerm: searchTerm || undefined });
+
+  const { user } = useAuth();
 
   const { createPOFromIndent } = usePurchaseOrders();
   const { suppliers, isLoading: suppliersLoading } = useSuppliers({ status: 'active' } as any);
@@ -290,7 +295,7 @@ export default function IndentManagementPage() {
   // Handlers
   const handleSubmitForApproval = async (indentId: string) => {
     setIsProcessing(true);
-    const success = await submitForApproval(indentId);
+    const success = await submitForApproval(indentId, user?.email || "System");
     setIsProcessing(false);
     if (success) {
       toast({ title: "Indent Submitted", description: "Indent has been submitted for approval" });
@@ -301,7 +306,7 @@ export default function IndentManagementPage() {
   const handleApprove = async () => {
     if (!selectedIndent) return;
     setIsProcessing(true);
-    const success = await approveIndent(selectedIndent.id, approverNotes || undefined);
+    const success = await approveIndent(selectedIndent.id, user?.email || "System", approverNotes || undefined);
     setIsProcessing(false);
     if (success) {
       setShowApproveDialog(false);
@@ -314,7 +319,7 @@ export default function IndentManagementPage() {
   const handleReject = async () => {
     if (!selectedIndent || !rejectionReason.trim()) return;
     setIsProcessing(true);
-    const success = await rejectIndent(selectedIndent.id, rejectionReason);
+    const success = await rejectIndent(selectedIndent.id, user?.email || "System", rejectionReason);
     setIsProcessing(false);
     if (success) {
       setShowRejectDialog(false);
@@ -660,7 +665,7 @@ export default function IndentManagementPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="p-4">
-          {indents.length === 0 ? (
+          {indents.length === 0 && !searchTerm ? (
             <div className="p-20 text-center border-2 border-dashed rounded-2xl bg-muted/20">
               <ClipboardList className="h-12 w-12 mx-auto text-muted-foreground/30 mb-4" />
               <CardDescription>No indents found</CardDescription>
@@ -669,7 +674,7 @@ export default function IndentManagementPage() {
               </Button>
             </div>
           ) : (
-            <DataTable columns={columns} data={indents} searchKey="indent_number" />
+            <DataTable columns={columns} data={indents} onSearch={setSearchTerm} searchKey="indent_number" />
           )}
         </CardContent>
       </Card>

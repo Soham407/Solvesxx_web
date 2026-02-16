@@ -39,11 +39,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    // Get initial session - @supabase/ssr reads from cookies automatically
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser(session.user);
-        fetchUserRole(session.user.id);
+    // Get initial user - MUST use getUser() for server-side validation
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        setUser(user);
+        fetchUserRole(user.id);
       } else {
         setUser(null);
         setRole(null);

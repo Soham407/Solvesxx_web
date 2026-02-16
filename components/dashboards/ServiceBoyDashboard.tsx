@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { useEmployeeProfileWithFallback } from "@/hooks/useEmployeeProfile";
+import { useEmployeeProfile } from "@/hooks/useEmployeeProfile";
 import { useJobSessions } from "@/hooks/useJobSessions";
 import { useServiceRequests } from "@/hooks/useServiceRequests";
 import { useReorderAlerts } from "@/hooks/useReorderAlerts";
@@ -25,7 +25,7 @@ export function ServiceBoyDashboard() {
     fullName,
     isLoading: isProfileLoading,
     error: profileError 
-  } = useEmployeeProfileWithFallback();
+  } = useEmployeeProfile();
 
   // Get real data for service technician
   const { sessions, activeSession, isLoading: isLoadingSessions } = useJobSessions(undefined, employeeId || undefined);

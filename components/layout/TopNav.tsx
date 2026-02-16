@@ -52,9 +52,7 @@ interface TopNavProps {
 }
 
 const companies = [
-  { id: "1", name: "Company A", logo: "FP", color: "bg-blue-600" },
-  { id: "2", name: "Company B", logo: "TP", color: "bg-emerald-600" },
-  { id: "3", name: "Company C", logo: "GV", color: "bg-purple-600" },
+  { id: "1", name: "Shri Radhamadhav Enterprise", logo: "SR", color: "bg-primary" },
 ];
 
 // TODO: Replace with real notifications from API/hook when notification system is implemented

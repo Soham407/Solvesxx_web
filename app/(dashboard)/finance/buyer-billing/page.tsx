@@ -34,11 +34,13 @@ import {
 import { cn } from "@/lib/utils";
 import { useBuyerInvoices, INVOICE_STATUS_CONFIG, PAYMENT_STATUS_CONFIG, BuyerInvoice } from "@/hooks/useBuyerInvoices";
 import { useFinance } from "@/hooks/useFinance";
+import { useAuth } from "@/hooks/useAuth";
 import { formatCurrency } from "@/src/lib/utils/currency";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
 export default function BuyerBillingPage() {
+  const { userId } = useAuth();
   const { invoices, isLoading, error, refresh: refreshInvoices } = useBuyerInvoices() as any;
   const { methods, recordTransaction } = useFinance();
   
@@ -48,6 +50,7 @@ export default function BuyerBillingPage() {
   const [selectedMethodId, setSelectedMethodId] = useState("");
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
   const [notes, setNotes] = useState("");
+  const [isConfirmed, setIsConfirmed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleRecordPayment = async () => {
@@ -64,6 +67,21 @@ export default function BuyerBillingPage() {
       return;
     }
 
+    if (!notes || notes.trim().length < 5) {
+      toast.error("Please provide a meaningful reason/note for this receipt (min 5 characters)");
+      return;
+    }
+
+    if (!isConfirmed) {
+      toast.error("Please confirm the transaction by checking the checkbox");
+      return;
+    }
+
+    if (!userId) {
+      toast.error("Security Error: No authenticated user ID found. Please re-login.");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const success = await recordTransaction({
@@ -75,7 +93,7 @@ export default function BuyerBillingPage() {
         date: paymentDate,
         notes: notes,
         payerId: selectedInvoice.client_id || '', // In a real app, this would be the specific user or entity ID
-        payeeId: '00000000-0000-0000-0000-000000000000', // System/Admin ID
+        payeeId: userId, // Use authenticated user ID (validated above)
       });
 
       if (success) {
@@ -264,10 +282,24 @@ export default function BuyerBillingPage() {
                 id="notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Reference #, Bank Details, etc."
+                placeholder="Reference #, Bank Details, Reason"
                 className="col-span-3"
+                required
               />
             </div>
+          </div>
+          <div className="flex items-center gap-2 p-3 bg-success/5 border border-success/10 rounded-lg mb-4">
+             <input 
+               type="checkbox" 
+               id="confirm-receipt" 
+               className="h-4 w-4 rounded border-success text-success focus:ring-success" 
+               checked={isConfirmed}
+               onChange={(e) => setIsConfirmed(e.target.checked)}
+               required
+             />
+             <label htmlFor="confirm-receipt" className="text-[10px] font-bold text-success uppercase">
+               I confirm this payment has been received and verified.
+             </label>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsPaymentModalOpen(false)}>Cancel</Button>

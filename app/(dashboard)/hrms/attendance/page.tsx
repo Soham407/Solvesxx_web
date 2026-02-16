@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { LiveMap } from "@/components/shared/LiveMap";
 
 interface AttendanceRecord {
   id: string;
@@ -144,6 +145,17 @@ export default function AttendancePage() {
             </Button>
           </div>
         }
+      />
+
+      <LiveMap 
+        className="mb-8"
+        markers={data.map(r => ({
+            id: r.id,
+            label: r.employee,
+            lat: Math.random() * 100, // Simulated lat
+            lng: Math.random() * 100, // Simulated lng
+            status: r.status === "Present" ? "active" : "warning"
+        }))}
       />
 
       <div className="grid gap-6 md:grid-cols-4">

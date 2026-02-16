@@ -33,6 +33,7 @@ interface DataTableProps<TData, TValue> {
   searchKey?: string;
   onRowClick?: (row: TData) => void;
   isLoading?: boolean;
+  onSearch?: (value: string) => void;
 }
 
 export function DataTable<TData, TValue>({
@@ -41,6 +42,7 @@ export function DataTable<TData, TValue>({
   searchKey,
   onRowClick,
   isLoading,
+  onSearch,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -70,10 +72,14 @@ export function DataTable<TData, TValue>({
           {searchKey && (
             <Input
               placeholder={`Search ${searchKey}...`}
-              value={(table.getColumn(searchKey)?.getFilterValue() as string) ?? ""}
-              onChange={(event) =>
-                table.getColumn(searchKey)?.setFilterValue(event.target.value)
-              }
+              value={onSearch ? undefined : (table.getColumn(searchKey)?.getFilterValue() as string) ?? ""}
+              onChange={(event) => {
+                if (onSearch) {
+                  onSearch(event.target.value);
+                } else {
+                  table.getColumn(searchKey)?.setFilterValue(event.target.value);
+                }
+              }}
               className="pl-9 bg-card border-border shadow-sm"
             />
           )}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTable } from "@/components/shared/DataTable";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import {
   ArrowRightLeft,
   FileCheck2,
   Lock,
+  Shield,
   Loader2,
   RefreshCw,
   Eye,
@@ -72,6 +74,7 @@ import {
   AlertDescription,
   AlertTitle,
 } from "@/components/ui/alert";
+import { useAuth } from "@/hooks/useAuth";
 
 // ============================================
 // TYPES
@@ -183,6 +186,8 @@ const STATUS_CONFIG: Record<VerificationStatus, { label: string; className: stri
 // ============================================
 
 export default function IndentVerificationPage() {
+  const { role, user } = useAuth();
+  const router = useRouter();
   // State
   const [verificationItems, setVerificationItems] = useState<VerificationItem[]>([]);
   const [isLoadingVerification, setIsLoadingVerification] = useState(true);
@@ -365,7 +370,7 @@ export default function IndentVerificationPage() {
       // Direct approve - mark as verified
       const overrideData = {
         reason: "Rate matches master contract",
-        approvedBy: "Current User",
+        approvedBy: user?.email || "System",
         approvedAt: new Date().toISOString(),
       };
       localStorage.setItem(`override_${item.indentItemId}`, JSON.stringify(overrideData));
@@ -387,7 +392,7 @@ export default function IndentVerificationPage() {
       // Store override in localStorage (in real app, this would be saved to database)
       const overrideData = {
         reason: overrideReason,
-        approvedBy: "Current User",
+        approvedBy: user?.email || "SYSTEM_AUDITOR",
         approvedAt: new Date().toISOString(),
       };
       localStorage.setItem(`override_${overrideItem.indentItemId}`, JSON.stringify(overrideData));
@@ -401,7 +406,7 @@ export default function IndentVerificationPage() {
         masterRate: overrideItem.masterRate,
         variancePercent: overrideItem.variancePercent,
         reason: overrideReason,
-        approvedBy: "Current User",
+        approvedBy: user?.email || "SYSTEM_AUDITOR",
         approvedAt: new Date().toISOString(),
       };
 
@@ -687,6 +692,17 @@ export default function IndentVerificationPage() {
   // ============================================
   // RENDER
   // ============================================
+
+  if (role !== "admin" && role !== "company_md" && role !== "company_hod") {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <Shield className="h-12 w-12 text-critical mb-4" />
+        <h2 className="text-xl font-bold">Access Denied</h2>
+        <p className="text-muted-foreground">Only authorized administrators can access Indent Price Verification.</p>
+        <Button className="mt-4" onClick={() => router.push("/dashboard")}>Return to Dashboard</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="animate-fade-in space-y-8 pb-20">

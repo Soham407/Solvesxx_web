@@ -243,30 +243,4 @@ export function useEmployeeProfile() {
   };
 }
 
-// For development/testing: allows falling back to a mock ID when not authenticated
-export function useEmployeeProfileWithFallback(mockEmployeeId?: string) {
-  const profile = useEmployeeProfile();
 
-  // If loading, return loading state
-  if (profile.isLoading) {
-    return profile;
-  }
-
-  // If authenticated and has employee ID, use it
-  if (profile.employeeId) {
-    return profile;
-  }
-
-  // If we have a mock ID and are in development, use it
-  if (mockEmployeeId && process.env.NODE_ENV === "development") {
-    return {
-      ...profile,
-      employeeId: mockEmployeeId,
-      isLoading: false,
-      error: null,
-      _isMock: true, // Flag to indicate mock usage
-    };
-  }
-
-  return profile;
-}

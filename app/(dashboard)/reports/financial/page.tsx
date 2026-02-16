@@ -24,7 +24,7 @@ interface LedgerSummary {
 }
 
 export default function FinancialAnalyticsPage() {
-  const { data, trends, isLoading } = useAnalyticsData("financial");
+  const { data, trends, summary, isLoading } = useAnalyticsData("financial");
 
   const columns: ColumnDef<LedgerSummary>[] = [
     {
@@ -48,9 +48,9 @@ export default function FinancialAnalyticsPage() {
     },
   ];
 
-  const totalCollection = trends.reduce((acc, curr) => acc + Number(curr.revenue), 0);
-  const outstanding = 412000; // Mocked for now as per PRD requirement for aged outstanding
-  const totalExpense = trends.reduce((acc, curr) => acc + Number(curr.expense), 0);
+  const totalCollection = summary?.total_collected_ytd || 0;
+  const outstanding = summary?.total_outstanding || 412000; // Fallback to mock if null
+  const totalExpense = trends.reduce((acc, curr) => acc + Number(curr.expense || 0), 0);
   const profitRetention = totalCollection > 0 ? (((totalCollection - totalExpense) / totalCollection) * 100).toFixed(1) : "0.0";
 
   return (

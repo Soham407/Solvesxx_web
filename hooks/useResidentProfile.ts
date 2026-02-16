@@ -137,30 +137,4 @@ export function useResidentProfile() {
   };
 }
 
-// For development/testing: allows falling back to a mock ID when not authenticated
-export function useResidentProfileWithFallback(mockResidentId?: string) {
-  const profile = useResidentProfile();
 
-  // If loading, return loading state
-  if (profile.isLoading) {
-    return profile;
-  }
-
-  // If authenticated and has resident ID, use it
-  if (profile.residentId) {
-    return profile;
-  }
-
-  // If we have a mock ID and are in development, use it
-  if (mockResidentId && process.env.NODE_ENV === "development") {
-    return {
-      ...profile,
-      residentId: mockResidentId,
-      isLoading: false,
-      error: null,
-      _isMock: true, // Flag to indicate mock usage
-    };
-  }
-
-  return profile;
-}

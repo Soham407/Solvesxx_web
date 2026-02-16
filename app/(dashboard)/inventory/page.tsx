@@ -103,6 +103,10 @@ export default function InventoryDashboardPage() {
     });
   };
 
+  const handleSearch = (value: string) => {
+    setFilters({ searchTerm: value });
+  };
+
   const lowStockItems = stockLevels.filter(item => item.needs_reorder);
   const outOfStockItems = stockLevels.filter(item => Number(item.total_quantity) === 0);
 
@@ -209,6 +213,7 @@ export default function InventoryDashboardPage() {
                 columns={stockLevelColumns as any}
                 data={stockLevels as any}
                 searchKey="product_name"
+                onSearch={handleSearch}
               />
             </CardContent>
           </Card>

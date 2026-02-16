@@ -2,11 +2,13 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
+import { Database } from "@/src/types/supabase";
 
 export type ReportType = "financial" | "attendance" | "inventory" | "services";
 
 export function useAnalyticsData(reportType: ReportType) {
   const [data, setData] = useState<any[]>([]);
+  const [summary, setSummary] = useState<any>(null);
   const [trends, setTrends] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -16,32 +18,35 @@ export function useAnalyticsData(reportType: ReportType) {
     setError(null);
     try {
       if (reportType === "financial") {
-        const [trendsRes, categoryRes] = await Promise.all([
-          (supabase as any).from("view_financial_monthly_trends").select("*").order("month", { ascending: true }) as Promise<any>,
-          (supabase as any).from("view_financial_revenue_by_category").select("*") as Promise<any>
+        const [trendsRes, categoryRes, summaryRes] = await Promise.all([
+          supabase.from("view_financial_monthly_trends").select("*").order("month", { ascending: true }),
+          supabase.from("view_financial_revenue_by_category").select("*"),
+          supabase.from("view_financial_kpis").select("*").single()
         ]);
 
         if (trendsRes.error) throw trendsRes.error;
         if (categoryRes.error) throw categoryRes.error;
+        if (summaryRes.error && summaryRes.error.code !== "PGRST116") throw summaryRes.error;
 
         setTrends(trendsRes.data || []);
         setData(categoryRes.data || []);
+        setSummary(summaryRes.data || null);
       } else if (reportType === "attendance") {
-        const { data: deptData, error: deptError } = await (supabase as any)
+        const { data: deptData, error: deptError } = await supabase
           .from("view_attendance_by_dept")
           .select("*");
         
         if (deptError) throw deptError;
         setData(deptData || []);
       } else if (reportType === "inventory") {
-        const { data: velocityData, error: velocityError } = await (supabase as any)
+        const { data: velocityData, error: velocityError } = await supabase
           .from("view_inventory_velocity")
           .select("*");
         
         if (velocityError) throw velocityError;
         setData(velocityData || []);
       } else if (reportType === "services") {
-        const { data: performanceData, error: performanceError } = await (supabase as any)
+        const { data: performanceData, error: performanceError } = await supabase
           .from("view_service_performance")
           .select("*");
         
@@ -60,5 +65,5 @@ export function useAnalyticsData(reportType: ReportType) {
     fetchData();
   }, [fetchData]);
 
-  return { data, trends, isLoading, error, refetch: fetchData };
+  return { data, trends, summary, isLoading, error, refetch: fetchData };
 }

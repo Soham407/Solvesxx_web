@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { Database } from '@/src/types/supabase'
 
 /**
  * Updates the Supabase auth session by refreshing tokens via cookies.
@@ -12,7 +13,7 @@ export async function updateSession(request: NextRequest) {
     request,
   })
 
-  const supabase = createServerClient(
+  const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -49,8 +50,10 @@ export async function updateSession(request: NextRequest) {
       .from('users')
       .select('roles!inner(role_name)')
       .eq('id', user.id)
-      .single();
-    role = (data as any)?.roles?.role_name || null;
+      .maybeSingle();
+    
+    // @ts-ignore - Supabase join types are sometimes tricky with maybeSingle
+    role = data?.roles?.role_name || null;
   }
 
   return { supabaseResponse, user, role }

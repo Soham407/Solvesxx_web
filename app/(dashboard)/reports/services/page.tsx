@@ -68,10 +68,10 @@ export default function ServiceAnalyticsPage() {
       },
   ];
 
-  const avgTAT = data.length > 0 ? (data.reduce((acc, curr) => acc + Number(curr.avg_response), 0) / data.length).toFixed(1) : "0";
-  const slaBreaches = 3; // Mocked for now
-  const avgSatisfaction = data.length > 0 ? (data.reduce((acc, curr) => acc + Number(curr.avg_rating), 0) / data.length).toFixed(1) : "0";
-  const totalJobs = data.reduce((acc, curr) => acc + Number(curr.total_jobs), 0);
+  const avgTAT = data.length > 0 ? (data.reduce((acc, curr) => acc + Number(curr.avg_response || 0), 0) / data.length).toFixed(1) : "0";
+  const slaBreaches = data.reduce((acc, curr) => acc + Number(curr.total_breaches || 0), 0);
+  const avgSatisfaction = data.length > 0 ? (data.reduce((acc, curr) => acc + Number(curr.avg_rating || 0), 0) / data.length).toFixed(1) : "0";
+  const totalJobs = data.reduce((acc, curr) => acc + Number(curr.total_jobs || 0), 0);
 
   return (
     <div className="animate-fade-in space-y-8 pb-20">

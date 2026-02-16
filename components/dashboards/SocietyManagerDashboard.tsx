@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { usePanicAlertSubscription } from "@/hooks/usePanicAlertSubscription";
-import { useEmployeeProfileWithFallback } from "@/hooks/useEmployeeProfile";
+import { useEmployeeProfile } from "@/hooks/useEmployeeProfile";
 import { useBehaviorTickets } from "@/hooks/useBehaviorTickets";
 import { useSocietyStats } from "@/hooks/useSocietyStats";
 import { useSocietyAudit } from "@/hooks/useSocietyAudit";
@@ -31,7 +31,7 @@ export function SocietyManagerDashboard() {
     fullName: managerName,
     isLoading: isProfileLoading, 
     error: profileError 
-  } = useEmployeeProfileWithFallback();
+  } = useEmployeeProfile();
 
   // Real data hooks
   const { stats, isLoading: isLoadingStats, refresh: refreshStats } = useSocietyStats();

@@ -49,11 +49,13 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { useSupplierBills, BILL_STATUS_CONFIG, PAYMENT_STATUS_CONFIG, SupplierBill } from "@/hooks/useSupplierBills";
 import { useFinance } from "@/hooks/useFinance";
+import { useAuth } from "@/hooks/useAuth";
 import { formatCurrency } from "@/src/lib/utils/currency";
 import { useReconciliation } from "@/hooks/useReconciliation";
 import { toast } from "sonner";
 
 export default function SupplierBillsPage() {
+  const { userId } = useAuth();
   const { bills, isLoading: billsLoading, error, refresh: refreshBills } = useSupplierBills() as any;
   const { reconciliations, isLoading: reconLoading } = useReconciliation();
   const { methods, recordTransaction } = useFinance();
@@ -64,6 +66,7 @@ export default function SupplierBillsPage() {
   const [selectedMethodId, setSelectedMethodId] = useState("");
   const [payoutDate, setPayoutDate] = useState(new Date().toISOString().split('T')[0]);
   const [notes, setNotes] = useState("");
+  const [isConfirmed, setIsConfirmed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isLoading = billsLoading || reconLoading;
@@ -82,6 +85,21 @@ export default function SupplierBillsPage() {
       return;
     }
 
+    if (!notes || notes.trim().length < 5) {
+      toast.error("Please provide a meaningful reason/note for this payout (min 5 characters)");
+      return;
+    }
+
+    if (!isConfirmed) {
+      toast.error("Please confirm the transaction by checking the checkbox");
+      return;
+    }
+
+    if (!userId) {
+      toast.error("Security Error: No authenticated user ID found. Please re-login.");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const success = await recordTransaction({
@@ -92,7 +110,7 @@ export default function SupplierBillsPage() {
         methodId: selectedMethodId,
         date: payoutDate,
         notes: notes,
-        payerId: '00000000-0000-0000-0000-000000000000', // System/Admin ID
+        payerId: userId, // Use authenticated user ID (validated above)
         payeeId: selectedBill.supplier_id || '',
       });
 
@@ -340,6 +358,30 @@ export default function SupplierBillsPage() {
                 className="col-span-3"
               />
             </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="notes" className="text-right">Justification</Label>
+              <Input
+                id="notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Reason for payout / Bill reference"
+                className="col-span-3"
+                required
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-2 p-3 bg-critical/5 border border-critical/10 rounded-lg mb-4">
+             <input 
+               type="checkbox" 
+               id="confirm-payout" 
+               className="h-4 w-4 rounded border-critical text-critical focus:ring-critical" 
+               checked={isConfirmed}
+               onChange={(e) => setIsConfirmed(e.target.checked)}
+               required
+             />
+             <label htmlFor="confirm-payout" className="text-[10px] font-bold text-critical uppercase">
+               I confirm this payout is valid and authorized. This action is irreversible.
+             </label>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsPayoutModalOpen(false)}>Cancel</Button>

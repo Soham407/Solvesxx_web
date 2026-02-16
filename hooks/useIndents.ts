@@ -145,7 +145,7 @@ import { toRupees, toPaise, formatCurrency } from "@/src/lib/utils/currency";
 // HOOK
 // ============================================
 
-export function useIndents(filters?: { status?: IndentStatus; department?: string }) {
+export function useIndents(filters?: { status?: IndentStatus; department?: string; searchTerm?: string }) {
   const [state, setState] = useState<UseIndentsState>({
     indents: [],
     items: [],
@@ -186,6 +186,12 @@ export function useIndents(filters?: { status?: IndentStatus; department?: strin
       if (filters?.department) {
         query = query.eq("department", filters.department);
       }
+      if (filters?.searchTerm) {
+        const term = filters.searchTerm;
+        query = query.or(
+          `indent_number.ilike.%${term}%,title.ilike.%${term}%,purpose.ilike.%${term}%`
+        );
+      }
 
       const { data, error } = await query;
 
@@ -216,7 +222,7 @@ export function useIndents(filters?: { status?: IndentStatus; department?: strin
         error: errorMessage,
       }));
     }
-  }, [filters?.status, filters?.department]);
+  }, [filters?.status, filters?.department, filters?.searchTerm]);
 
   // ============================================
   // FETCH INDENT ITEMS
@@ -352,6 +358,11 @@ export function useIndents(filters?: { status?: IndentStatus; department?: strin
   // ============================================
   const addIndentItem = useCallback(async (input: CreateIndentItemInput): Promise<IndentItem | null> => {
     try {
+      // Validate quantities
+      if (input.requested_quantity < 0 || (input.estimated_unit_price !== undefined && input.estimated_unit_price < 0)) {
+        throw new Error("Quantity and price cannot be negative");
+      }
+
       // Calculate estimated total
       const estimatedTotal = input.estimated_unit_price
         ? input.estimated_unit_price * input.requested_quantity
@@ -404,6 +415,11 @@ export function useIndents(filters?: { status?: IndentStatus; department?: strin
         if (item) {
           const unitPrice = updates.estimated_unit_price ?? item.estimated_unit_price ?? 0;
           const qty = updates.requested_quantity ?? item.requested_quantity;
+          
+          if (qty < 0 || unitPrice < 0) {
+            throw new Error("Quantity and price cannot be negative");
+          }
+          
           updateData.estimated_total = unitPrice * qty;
         }
       }
@@ -458,7 +474,7 @@ export function useIndents(filters?: { status?: IndentStatus; department?: strin
   // ============================================
   // SUBMIT FOR APPROVAL
   // ============================================
-  const submitForApproval = useCallback(async (indentId: string): Promise<boolean> => {
+  const submitForApproval = useCallback(async (indentId: string, submittedBy: string): Promise<boolean> => {
     try {
       const indent = state.indents.find((i) => i.id === indentId);
       if (!indent) throw new Error("Indent not found");
@@ -479,6 +495,7 @@ export function useIndents(filters?: { status?: IndentStatus; department?: strin
         .update({
           status: "pending_approval",
           submitted_at: new Date().toISOString(),
+          submitted_by: submittedBy,
         })
         .eq("id", indentId);
 
@@ -499,6 +516,7 @@ export function useIndents(filters?: { status?: IndentStatus; department?: strin
   // ============================================
   const approveIndent = useCallback(async (
     indentId: string,
+    approvedBy: string,
     approverNotes?: string,
     approvedQuantities?: Record<string, number> // itemId -> approved quantity
   ): Promise<boolean> => {
@@ -525,6 +543,7 @@ export function useIndents(filters?: { status?: IndentStatus; department?: strin
         .update({
           status: "approved",
           approved_at: new Date().toISOString(),
+          approved_by: approvedBy,
           approver_notes: approverNotes,
         })
         .eq("id", indentId);
@@ -546,10 +565,11 @@ export function useIndents(filters?: { status?: IndentStatus; department?: strin
   // ============================================
   const rejectIndent = useCallback(async (
     indentId: string,
-    rejectionReason: string
+    rejectedBy: string,
+    rejection_reason: string
   ): Promise<boolean> => {
     try {
-      if (!rejectionReason?.trim()) {
+      if (!rejection_reason?.trim()) {
         throw new Error("Rejection reason is required");
       }
 
@@ -565,7 +585,8 @@ export function useIndents(filters?: { status?: IndentStatus; department?: strin
         .update({
           status: "rejected",
           rejected_at: new Date().toISOString(),
-          rejection_reason: rejectionReason,
+          rejected_by: rejectedBy,
+          rejection_reason: rejection_reason,
         })
         .eq("id", indentId);
 

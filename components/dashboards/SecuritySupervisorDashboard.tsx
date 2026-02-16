@@ -8,17 +8,17 @@ import { cn } from "@/lib/utils";
 import { useSupervisorStats } from "@/hooks/useSupervisorStats";
 import { usePatrolLogs } from "@/hooks/usePatrolLogs";
 import { usePanicAlertSubscription } from "@/hooks/usePanicAlertSubscription";
-import { useEmployeeProfileWithFallback } from "@/hooks/useEmployeeProfile";
+import { useEmployeeProfile } from "@/hooks/useEmployeeProfile";
 import { Skeleton } from "@/components/ui/skeleton";
 import { GuardLiveMap } from "./GuardLiveMap";
 
-const DEV_MOCK_EMPLOYEE_ID = "11111111-1111-1111-1111-111111111111";
+
 
 export function SecuritySupervisorDashboard() {
   const { 
     employeeId, 
     isLoading: isProfileLoading 
-  } = useEmployeeProfileWithFallback(DEV_MOCK_EMPLOYEE_ID);
+  } = useEmployeeProfile();
 
   const { stats, isLoading: isLoadingStats } = useSupervisorStats();
   const { logs, isLoading: isLoadingLogs } = usePatrolLogs(undefined, 10);
