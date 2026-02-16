@@ -41,16 +41,9 @@ export default function AuditLogsPage() {
 
   useEffect(() => {
     async function fetchLogs() {
-      const { data, error } = await supabase
-        .from('audit_logs')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error(error);
-      } else {
-        setLogs(data || []);
-      }
+      // TODO: Implement audit_logs table in database schema
+      // Currently disabled as the table doesn't exist
+      setLogs([]);
       setIsLoading(false);
     }
     fetchLogs();

@@ -11,7 +11,10 @@ function getSupabaseAdmin() {
 /**
  * Verify the request is from an authenticated user.
  */
-async function authenticateRequest(request: NextRequest) {
+async function authenticateRequest(request: NextRequest): Promise<{
+  user: any | null;
+  error: NextResponse | null;
+}> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
   const authHeader = request.headers.get("Authorization");

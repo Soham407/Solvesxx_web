@@ -28,7 +28,11 @@ const QR_MANAGEMENT_ROLES = ["admin", "account", "security_supervisor"];
  * Verify the request is from an authenticated user.
  * Returns the user or a NextResponse error.
  */
-async function authenticateRequest(request: NextRequest) {
+async function authenticateRequest(request: NextRequest): Promise<{
+  user: any | null;
+  role: string | null;
+  error: NextResponse | null;
+}> {
   const supabase = getSupabaseFromRequest(request);
   const {
     data: { user },
