@@ -90,7 +90,8 @@ const CheckboxWithLabel = React.forwardRef<
   React.ElementRef<typeof CheckboxPrimitive.Root>,
   CheckboxWithLabelProps
 >(({ label, description, labelClassName, id, ...props }, ref) => {
-  const checkboxId = id || React.useId();
+  const generatedId = React.useId();
+  const checkboxId = id || generatedId;
 
   return (
     <div className="flex items-start gap-3">

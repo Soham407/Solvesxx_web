@@ -147,7 +147,8 @@ const SwitchWithLabel = React.forwardRef<
     { label, description, labelPosition = "right", id, className, ...props },
     ref
   ) => {
-    const switchId = id || React.useId();
+    const generatedId = React.useId();
+    const switchId = id || generatedId;
 
     const labelContent = (
       <div className="grid gap-0.5 leading-none">
@@ -184,11 +185,7 @@ interface ThemeSwitchProps extends Omit<SwitchProps, "onIcon" | "offIcon"> {
   isDark?: boolean;
 }
 
-const ThemeSwitch = React.forwardRef<
-  React.ElementRef<typeof SwitchPrimitives.Root>,
-  ThemeSwitchProps
->(({ isDark, ...props }, ref) => {
-  const SunIcon = () => (
+const SunIcon = () => (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="12"
@@ -227,6 +224,11 @@ const ThemeSwitch = React.forwardRef<
       <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
     </svg>
   );
+
+const ThemeSwitch = React.forwardRef<
+  React.ElementRef<typeof SwitchPrimitives.Root>,
+  ThemeSwitchProps
+>(({ isDark, ...props }, ref) => {
 
   return (
     <Switch
