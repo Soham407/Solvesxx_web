@@ -83,6 +83,7 @@ export default function SupplierBillsPage() {
 
   const openPayoutModal = async (bill: SupplierBill) => {
     setIsValidating(true);
+    setSelectedBill(bill); // Set this first so the loader shows on the right row
     try {
       // 1. Validate Bill for Payout (Truth Engine Check)
       const validation = await validateBillForPayout(bill.id);
@@ -93,14 +94,14 @@ export default function SupplierBillsPage() {
       }
 
       if (!validation.canPay) {
-        toast.error("Cannot Pay: " + validation.reason, {
-          description: "Reconciliation Status: " + validation.reconciliationStatus
+        toast.error("HARD TRUTH GATE: Cannot Pay", {
+          description: validation.reason || "Reconciliation match failed (3-Way Match mismatch).",
+          duration: 5000
         });
         return;
       }
 
       // If valid, open modal
-      setSelectedBill(bill);
       setPayoutAmount((bill.due_amount || 0).toString());
       setIsPayoutModalOpen(true);
     } finally {

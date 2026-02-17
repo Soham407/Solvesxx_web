@@ -81,6 +81,7 @@ export default function PayrollPage() {
     fetchPayslips,
     formatCurrency,
     getCycleDisplayName,
+    downloadPayslipPdf,
     refresh,
   } = usePayroll();
 
@@ -247,7 +248,12 @@ export default function PayrollPage() {
       id: "actions",
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-primary">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-8 w-8 text-primary"
+            onClick={() => downloadPayslipPdf(row.original.id)}
+          >
             <Download className="h-4 w-4" />
           </Button>
           <DropdownMenu>
@@ -257,8 +263,11 @@ export default function PayrollPage() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => downloadPayslipPdf(row.original.id)}>
+                 <Download className="mr-2 h-4 w-4" /> Download Payslip
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem>View Details</DropdownMenuItem>
-              <DropdownMenuItem>Download Payslip</DropdownMenuItem>
               {row.original.status === "approved" && (
                 <>
                   <DropdownMenuSeparator />

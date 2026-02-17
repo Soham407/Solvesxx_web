@@ -17,14 +17,11 @@ export interface ArrivalLog {
   id: string;
   po_id: string;
   vehicle_number: string;
-  arrival_photo_url: string;
-  arrival_signature_url: string | null;
+  photo_url: string;
+  signature_url: string | null;
+  driver_name: string | null;
   logged_by: string;
-  logged_at: string;
-  gate_location: string | null;
-  notes: string | null;
   created_at: string;
-  updated_at: string;
   // Joined data
   logged_by_name?: string;
   po_number?: string;
@@ -41,15 +38,13 @@ export function useDeliveryLogs() {
     setIsSubmitting(true);
     setError(null);
     try {
-      const { data, error: rpcError } = await supabase.rpc(
-        "log_material_arrival",
+      const { data, error: rpcError } = await (supabaseClient as any).rpc(
+        "log_gate_entry",
         {
           p_po_id: params.poId,
-          p_vehicle_number: params.vehicleNumber,
-          p_arrival_photo_url: params.arrivalPhotoUrl,
-          p_arrival_signature_url: params.arrivalSignatureUrl || null,
-          p_gate_location: params.gateLocation || null,
-          p_notes: params.notes || null,
+          p_photo_url: params.arrivalPhotoUrl,
+          p_signature_url: params.arrivalSignatureUrl || null,
+          p_vehicle_number: params.vehicleNumber || null,
         },
       );
 
@@ -70,8 +65,8 @@ export function useDeliveryLogs() {
     setIsFetching(true);
     setError(null);
     try {
-      let query = supabase
-        .from("material_arrival_logs")
+      let query = (supabaseClient as any)
+        .from("material_arrival_evidence")
         .select(
           `
           *,
@@ -83,8 +78,8 @@ export function useDeliveryLogs() {
           )
         `,
         )
-        .order("logged_at", { ascending: false })
-        .limit(50); // FIX: Add reasonable limit
+        .order("created_at", { ascending: false })
+        .limit(50);
 
       if (poId) {
         query = query.eq("po_id", poId);

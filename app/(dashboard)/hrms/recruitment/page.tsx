@@ -4,7 +4,7 @@ import { useState } from "react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTable } from "@/components/shared/DataTable";
 import { Button } from "@/components/ui/button";
-import { UserPlus, FileSearch, UserCheck, MoreHorizontal, Briefcase, Loader2 } from "lucide-react";
+import { UserPlus, FileSearch, UserCheck, MoreHorizontal, Briefcase, Loader2, Upload, FileText, ShieldCheck } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -37,6 +37,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+import { toast } from "sonner";
+
 // Status display configuration
 const STATUS_CONFIG: Record<CandidateStatus, { label: string; className: string }> = {
   screening: { label: "Screening", className: "bg-warning/10 text-warning border-warning/20" },
@@ -67,6 +69,7 @@ export default function RecruitmentPortalPage() {
     error,
     createCandidate,
     updateCandidateStatus,
+    uploadBGVDocument,
     convertToEmployee,
     canTransitionTo,
     getStatusStats,
@@ -83,6 +86,8 @@ export default function RecruitmentPortalPage() {
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
   const [newStatus, setNewStatus] = useState<CandidateStatus | null>(null);
   const [statusNotes, setStatusNotes] = useState("");
+  const [bgvFile, setBgvFile] = useState<File | null>(null);
+  const bgvInputRef = useState<any>(null); // For resetting input
 
   // Convert dialog
   const [convertDialogOpen, setConvertDialogOpen] = useState(false);
@@ -133,6 +138,21 @@ export default function RecruitmentPortalPage() {
         additionalData.interview_notes = statusNotes;
       } else if (newStatus === "background_check") {
         additionalData.bgv_notes = statusNotes;
+        
+        // Truth Engine: Upload BGV Evidence
+        if (bgvFile) {
+
+          const docUrl = await uploadBGVDocument(bgvFile, selectedCandidate.id);
+          if (docUrl) {
+            additionalData.bgv_document_url = docUrl;
+          }
+        } else {
+          toast.error("BGV Document Required", { 
+            description: "You must upload verification documents to initiate background check." 
+          });
+          setIsSubmitting(false);
+          return;
+        }
       }
 
       await updateCandidateStatus(selectedCandidate.id, newStatus, additionalData);
@@ -140,6 +160,7 @@ export default function RecruitmentPortalPage() {
       setSelectedCandidate(null);
       setNewStatus(null);
       setStatusNotes("");
+      setBgvFile(null);
     } finally {
       setIsSubmitting(false);
     }
@@ -553,6 +574,33 @@ export default function RecruitmentPortalPage() {
                 }
               />
             </div>
+
+            {newStatus === "background_check" && (
+              <div className="space-y-4 pt-2">
+                <div className="p-4 border-2 border-dashed border-primary/20 rounded-xl bg-primary/5 hover:bg-primary/10 transition-colors">
+                  <input
+                    type="file"
+                    id="bgv-doc"
+                    className="hidden"
+                    onChange={(e) => setBgvFile(e.target.files ? e.target.files[0] : null)}
+                    accept=".pdf,.jpg,.jpeg,.png"
+                  />
+                  <label htmlFor="bgv-doc" className="flex flex-col items-center justify-center cursor-pointer">
+                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+                       {bgvFile ? <FileText className="h-5 w-5 text-primary" /> : <Upload className="h-5 w-5 text-primary" />}
+                    </div>
+                    <span className="text-sm font-bold">{bgvFile ? bgvFile.name : "Upload BGV Evidence"}</span>
+                    <span className="text-[10px] text-muted-foreground uppercase mt-1">PDF, JPG or PNG (MAX 5MB)</span>
+                  </label>
+                </div>
+                <div className="flex items-center gap-2 p-3 bg-warning/5 border border-warning/10 rounded-lg">
+                  <ShieldCheck className="h-4 w-4 text-warning" />
+                  <p className="text-[10px] font-medium text-warning-foreground leading-tight">
+                    Truth Engine Requirement: This document will be permanently attached to the candidate profile for audit.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setStatusDialogOpen(false)}>

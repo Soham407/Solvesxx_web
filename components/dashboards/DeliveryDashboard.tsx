@@ -113,8 +113,6 @@ export function DeliveryDashboard() {
         poId: selectedPOId,
         vehicleNumber: vehicleNumber.trim().toUpperCase(),
         arrivalPhotoUrl: photoUrl,
-        gateLocation: gateLocation.trim() || undefined,
-        notes: notes.trim() || undefined,
       });
 
       if (result) {
@@ -316,7 +314,7 @@ export function DeliveryDashboard() {
                  <Card key={log.id} className="border-none shadow-card ring-1 ring-border group hover:ring-primary/50 transition-all overflow-hidden bg-card">
                    <CardContent className="p-0 flex flex-col sm:flex-row">
                      <div className="sm:h-24 sm:w-24 w-full h-40 bg-muted overflow-hidden shrink-0">
-                       <img src={log.arrival_photo_url} alt="Arrival evidence" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                       <img src={log.photo_url} alt="Arrival evidence" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                      </div>
                      <div className="flex-1 p-4 min-w-0">
                        <div className="flex items-center justify-between mb-1">
@@ -327,7 +325,7 @@ export function DeliveryDashboard() {
                        </div>
                        <div className="flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground mt-2">
                          <span className="flex items-center gap-1 font-bold">
-                            <Clock className="h-3 w-3" /> {new Date(log.logged_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            <Clock className="h-3 w-3" /> {new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                          </span>
                          <span className="flex items-center gap-1 font-bold">
                             <MapPin className="h-3 w-3" /> {log.gate_location || 'Main Gate'}

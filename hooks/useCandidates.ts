@@ -638,7 +638,30 @@ export function useCandidates(initialFilters?: UseCandidatesFilters) {
     deleteCandidate,
 
     // Status Management
+    // Status Management
     updateCandidateStatus,
+    uploadBGVDocument: async (file: File, candidateId: string): Promise<string | null> => {
+      try {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${candidateId}_bgv_${Date.now()}.${fileExt}`;
+        const filePath = `candidates/${candidateId}/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('staff-compliance-docs')
+          .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('staff-compliance-docs')
+          .getPublicUrl(filePath);
+
+        return publicUrl;
+      } catch (err: unknown) {
+        console.error("Error uploading BGV document:", err);
+        return null;
+      }
+    },
     convertToEmployee,
     canTransitionTo,
     scheduleInterview,
