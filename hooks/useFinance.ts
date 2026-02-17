@@ -1,9 +1,11 @@
-// @ts-nocheck
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/src/lib/supabaseClient";
+import { supabase as supabaseClient } from "@/src/lib/supabaseClient";
 import { useAuth } from "./useAuth";
+
+// FIX: Cast at import level instead of @ts-nocheck on entire file
+const supabase = supabaseClient as any;
 
 export type PaymentStatus = "pending" | "completed" | "failed" | "refunded";
 export type PaymentType = "receipt" | "payout";
@@ -76,7 +78,7 @@ export function useFinance() {
   }) => {
     try {
       // 1. Insert Payment Record
-      const { data: payment, error: payError } = await supabase
+      const { error: payError } = await supabase
         .from('payments')
         .insert([{
           payment_type: data.type,
@@ -91,9 +93,7 @@ export function useFinance() {
           payee_id: data.payeeId,
           status: 'completed',
           processed_by: user?.id
-        }])
-        .select()
-        .single();
+        }]);
 
       if (payError) throw payError;
 
@@ -123,11 +123,61 @@ export function useFinance() {
     }
   };
 
+  const forceMatchBill = async (billId: string, reason: string, evidenceUrl?: string) => {
+    try {
+      const { error } = await supabase.rpc('force_match_bill', {
+        p_bill_id: billId,
+        p_reason: reason,
+        p_evidence_url: evidenceUrl ?? null
+      });
+
+      if (error) throw error;
+      await fetchData();
+      return { success: true as const };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      console.error("Error force matching bill:", err);
+      return { success: false as const, error: message };
+    }
+  };
+
+  const validateBillForPayout = async (billId: string) => {
+    try {
+      const { data, error } = await supabase.rpc('validate_bill_for_payout', {
+        p_bill_id: billId
+      });
+
+      if (error) throw error;
+      
+      // RPC returns a table of results, but since we call it for one ID, we get one row? 
+      // Actually declared as RETURNS TABLE, so it returns an array.
+      const result = Array.isArray(data) ? data[0] : data;
+      
+      return { 
+        success: true as const, 
+        canPay: result?.can_pay ?? false,
+        reason: result?.reason,
+        reconciliationStatus: result?.reconciliation_status,
+        details: {
+          poAmount: result?.po_amount,
+          grnAmount: result?.grn_amount,
+          billAmount: result?.bill_amount
+        }
+      };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      console.error("Error validating bill:", err);
+      return { success: false as const, error: message };
+    }
+  };
+
   return {
     payments,
     methods,
     isLoading,
     recordTransaction,
+    forceMatchBill,
+    validateBillForPayout,
     refresh: fetchData
   };
 }

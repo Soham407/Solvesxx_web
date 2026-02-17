@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/src/lib/supabaseClient";
+import { supabase as supabaseClient } from "@/src/lib/supabaseClient";
+const supabase = supabaseClient as any;
 import type {
   ServiceRequest,
   ServiceRequestInsert,
@@ -29,6 +30,8 @@ interface UseServiceRequestsReturn extends UseServiceRequestsState {
   assignRequest: (id: string, technicianId: string) => Promise<{ success: boolean; error?: string }>;
   completeRequest: (id: string, resolutionNotes?: string) => Promise<{ success: boolean; error?: string }>;
   cancelRequest: (id: string, reason?: string) => Promise<{ success: boolean; error?: string }>;
+  startTask: (id: string, beforePhotoUrl?: string) => Promise<{ success: boolean; error?: string }>;
+  completeTask: (id: string, afterPhotoUrl: string, notes?: string) => Promise<{ success: boolean; error?: string }>;
   getRequestById: (id: string) => Promise<ServiceRequestWithDetails | null>;
   setFilters: (filters: ServiceRequestFilters) => void;
   setPage: (page: number) => void;
@@ -280,6 +283,52 @@ export function useServiceRequests(initialFilters?: ServiceRequestFilters): UseS
     [fetchRequests, fetchStats]
   );
 
+  // Start service task via RPC
+  const startTask = useCallback(
+    async (id: string, beforePhotoUrl?: string): Promise<{ success: boolean; error?: string }> => {
+      try {
+        const { error } = await supabase.rpc("start_service_task", {
+          p_request_id: id,
+          p_before_photo_url: beforePhotoUrl || null,
+        });
+
+        if (error) throw error;
+
+        fetchRequests();
+        return { success: true };
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : "Failed to start task";
+        console.error("Error starting service task:", err);
+        return { success: false, error: errorMessage };
+      }
+    },
+    [fetchRequests]
+  );
+
+  // Complete service task via RPC (Enforced photo evidence)
+  const completeTask = useCallback(
+    async (id: string, afterPhotoUrl: string, notes?: string): Promise<{ success: boolean; error?: string }> => {
+      try {
+        const { error } = await supabase.rpc("complete_service_task", {
+          p_request_id: id,
+          p_after_photo_url: afterPhotoUrl,
+          p_completion_notes: notes || null,
+        });
+
+        if (error) throw error;
+
+        fetchRequests();
+        fetchStats();
+        return { success: true };
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : "Failed to complete task";
+        console.error("Error completing service task:", err);
+        return { success: false, error: errorMessage };
+      }
+    },
+    [fetchRequests, fetchStats]
+  );
+
   // Cancel request
   const cancelRequest = useCallback(
     async (id: string, reason?: string): Promise<{ success: boolean; error?: string }> => {
@@ -365,6 +414,8 @@ export function useServiceRequests(initialFilters?: ServiceRequestFilters): UseS
     updateRequest,
     assignRequest,
     completeRequest,
+    startTask,
+    completeTask,
     cancelRequest,
     getRequestById,
     setFilters,
