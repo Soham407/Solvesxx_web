@@ -15,7 +15,8 @@ import {
   FileCheck2,
   AlertCircle,
   Loader2,
-  DollarSign
+  DollarSign,
+  ShieldAlert
 } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +31,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { 
   Select, 
   SelectContent, 
@@ -55,21 +57,56 @@ import { useReconciliation } from "@/hooks/useReconciliation";
 import { toast } from "sonner";
 
 export default function SupplierBillsPage() {
-  const { userId } = useAuth();
+    const { userId, role } = useAuth();
   const { bills, isLoading: billsLoading, error, refresh: refreshBills } = useSupplierBills() as any;
   const { reconciliations, isLoading: reconLoading } = useReconciliation();
-  const { methods, recordTransaction } = useFinance();
+  const { methods, recordTransaction, validateBillForPayout, forceMatchBill } = useFinance() as any;
 
   const [selectedBill, setSelectedBill] = useState<SupplierBill | null>(null);
+  
+  // Payout State
   const [isPayoutModalOpen, setIsPayoutModalOpen] = useState(false);
   const [payoutAmount, setPayoutAmount] = useState("");
   const [selectedMethodId, setSelectedMethodId] = useState("");
   const [payoutDate, setPayoutDate] = useState(new Date().toISOString().split('T')[0]);
   const [notes, setNotes] = useState("");
   const [isConfirmed, setIsConfirmed] = useState(false);
+  
+  // Force Match State
+  const [isForceMatchModalOpen, setIsForceMatchModalOpen] = useState(false);
+  const [forceMatchReason, setForceMatchReason] = useState("");
+
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
 
   const isLoading = billsLoading || reconLoading;
+
+  const openPayoutModal = async (bill: SupplierBill) => {
+    setIsValidating(true);
+    try {
+      // 1. Validate Bill for Payout (Truth Engine Check)
+      const validation = await validateBillForPayout(bill.id);
+      
+      if (!validation.success) {
+        toast.error("Validation Error: " + validation.error);
+        return;
+      }
+
+      if (!validation.canPay) {
+        toast.error("Cannot Pay: " + validation.reason, {
+          description: "Reconciliation Status: " + validation.reconciliationStatus
+        });
+        return;
+      }
+
+      // If valid, open modal
+      setSelectedBill(bill);
+      setPayoutAmount((bill.due_amount || 0).toString());
+      setIsPayoutModalOpen(true);
+    } finally {
+      setIsValidating(false);
+    }
+  };
 
   const handleRecordPayout = async () => {
     if (!selectedBill) return;
@@ -86,17 +123,17 @@ export default function SupplierBillsPage() {
     }
 
     if (!notes || notes.trim().length < 5) {
-      toast.error("Please provide a meaningful reason/note for this payout (min 5 characters)");
+      toast.error("Please provide a meaningful reason/note (min 5 chars)");
       return;
     }
 
     if (!isConfirmed) {
-      toast.error("Please confirm the transaction by checking the checkbox");
+      toast.error("Please confirm the transaction");
       return;
     }
 
     if (!userId) {
-      toast.error("Security Error: No authenticated user ID found. Please re-login.");
+      toast.error("Security Error: No authenticated user ID found.");
       return;
     }
 
@@ -110,7 +147,7 @@ export default function SupplierBillsPage() {
         methodId: selectedMethodId,
         date: payoutDate,
         notes: notes,
-        payerId: userId, // Use authenticated user ID (validated above)
+        payerId: userId,
         payeeId: selectedBill.supplier_id || '',
       });
 
@@ -120,6 +157,30 @@ export default function SupplierBillsPage() {
         refreshBills();
       } else {
         toast.error("Failed to record payout");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleForceMatch = async () => {
+    if (!selectedBill) return;
+
+    if (!forceMatchReason || forceMatchReason.trim().length < 10) {
+      toast.error("Reason must be at least 10 characters long.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const result = await forceMatchBill(selectedBill.id, forceMatchReason.trim());
+      
+      if (result.success) {
+        toast.success("Bill force matched successfully.");
+        setIsForceMatchModalOpen(false);
+        refreshBills();
+      } else {
+        toast.error("Force Match Failed: " + result.error);
       }
     } finally {
       setIsSubmitting(false);
@@ -194,8 +255,8 @@ export default function SupplierBillsPage() {
       cell: ({ row }) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <MoreHorizontal className="h-4 w-4" />
+            <Button variant="ghost" size="icon" className="h-8 w-8" disabled={isValidating && selectedBill?.id === row.original.id}>
+              {isValidating && selectedBill?.id === row.original.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -205,12 +266,25 @@ export default function SupplierBillsPage() {
               disabled={row.original.status !== 'approved' || row.original.payment_status === 'paid'}
               onClick={() => {
                 setSelectedBill(row.original);
-                setPayoutAmount((row.original.due_amount || 0).toString());
-                setIsPayoutModalOpen(true);
+                openPayoutModal(row.original);
               }}
             >
                <DollarSign className="h-4 w-4" /> Record Payout
             </DropdownMenuItem>
+            
+            {(role === 'company_md' || role === 'account') && (
+              <DropdownMenuItem 
+                className="gap-2 font-bold text-critical"
+                onClick={() => {
+                  setSelectedBill(row.original);
+                  setForceMatchReason("");
+                  setIsForceMatchModalOpen(true);
+                }}
+              >
+                 <ShieldAlert className="h-4 w-4" /> Force Match (Admin)
+              </DropdownMenuItem>
+            )}
+
             <DropdownMenuSeparator />
             <DropdownMenuItem className="gap-2" asChild>
                <Link href="/finance/reconciliation">
@@ -313,7 +387,16 @@ export default function SupplierBillsPage() {
       </Card>
 
       {/* Payout Recording Dialog */}
-      <Dialog open={isPayoutModalOpen} onOpenChange={setIsPayoutModalOpen}>
+      <Dialog open={isPayoutModalOpen} onOpenChange={(open) => {
+        setIsPayoutModalOpen(open);
+        if (!open) {
+          setPayoutAmount("");
+          setSelectedMethodId("");
+          setNotes("");
+          setIsConfirmed(false);
+          setSelectedBill(null);
+        }
+      }}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -342,7 +425,7 @@ export default function SupplierBillsPage() {
                   <SelectValue placeholder="Select method" />
                 </SelectTrigger>
                 <SelectContent>
-                  {methods.map((m) => (
+                  {methods.map((m: any) => (
                     <SelectItem key={m.id} value={m.id}>{m.method_name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -392,6 +475,48 @@ export default function SupplierBillsPage() {
             >
               {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <DollarSign className="h-4 w-4" />}
               Dispatch Funds
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Force Match Dialog */}
+      <Dialog open={isForceMatchModalOpen} onOpenChange={setIsForceMatchModalOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-critical">
+              <ShieldAlert className="h-5 w-5" />
+              Force Match Bill (Admin Override)
+            </DialogTitle>
+            <DialogDescription className="text-critical/80 font-medium">
+              You are about to override a 3-Way Match validation failure. This action will be logged in the permanent audit trail.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="force-reason" className="text-xs font-bold uppercase">Mandatory Override Reason</Label>
+              <Textarea
+                id="force-reason"
+                value={forceMatchReason}
+                onChange={(e) => setForceMatchReason(e.target.value)}
+                placeholder="Explain why this mismatch is being overridden (min 10 chars)..."
+                className="min-h-[100px] border-critical/30 focus:border-critical focus:ring-critical"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                This will be visible to Finance Auditors.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsForceMatchModalOpen(false)}>Cancel</Button>
+            <Button 
+              variant="destructive"
+              className="gap-2" 
+              onClick={handleForceMatch}
+              disabled={isSubmitting || forceMatchReason.length < 10}
+            >
+              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldAlert className="h-4 w-4" />}
+              Confirm Override
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
 import { formatCurrency as centralizedFormatCurrency, toPaise } from "@/src/lib/utils/currency";
+import { toast } from "sonner";
 
 // ============================================
 // TYPES
@@ -599,6 +600,77 @@ export function usePayroll(selectedCycleId?: string) {
   }, [fetchPayrollCycles]);
 
   // ============================================
+  // DOWNLOAD PAYSLIP PDF (Client-Side)
+  // ============================================
+  const downloadPayslipPdf = useCallback(async (payslipId: string) => {
+    try {
+      const payslip = state.payslips.find(p => p.id === payslipId);
+      if (!payslip) throw new Error("Payslip not found");
+
+      // Dynamic import to avoid loading heavy lib unless needed
+      // @ts-ignore
+      const jsPDF = (await import("jspdf")).default;
+      // @ts-ignore
+      const autoTable = (await import("jspdf-autotable")).default;
+
+      const doc = new jsPDF();
+      
+      // Header
+      doc.setFontSize(18);
+      doc.text("PAYSLIP", 105, 15, { align: "center" });
+      
+      doc.setFontSize(10);
+      doc.text(`Payslip #: ${payslip.payslip_number}`, 14, 25);
+      doc.text(`Period: ${payslip.cycle_code || 'N/A'}`, 14, 30);
+      
+      // Employee Details
+      doc.autoTable({
+        startY: 35,
+        head: [['Employee Details', '']],
+        body: [
+          ['Name', payslip.employee_name || 'N/A'],
+          ['ID', payslip.employee_code || 'N/A'],
+          ['Department', payslip.department || 'N/A'],
+          ['Bank Account', payslip.bank_account_number || 'N/A']
+        ],
+        theme: 'grid',
+        headStyles: { fillColor: [41, 128, 185] }
+      });
+
+      // Earnings & Deductions
+      doc.autoTable({
+        startY: (doc as any).lastAutoTable.finalY + 10,
+        head: [['Earnings', 'Amount', 'Deductions', 'Amount']],
+        body: [
+          ['Basic Salary', formatCurrency(payslip.basic_salary), 'PF', formatCurrency(payslip.pf_deduction)],
+          ['HRA', formatCurrency(payslip.hra), 'ESIC', formatCurrency(payslip.esic_deduction)],
+          ['Special Allowance', formatCurrency(payslip.special_allowance), 'Prof. Tax', formatCurrency(payslip.professional_tax)],
+          ['Overtime', formatCurrency(payslip.overtime_amount), 'TDS', formatCurrency(payslip.tds)],
+          ['Total Earnings', formatCurrency(payslip.gross_salary), 'Total Deductions', formatCurrency(payslip.total_deductions)]
+        ],
+        theme: 'striped'
+      });
+
+      // Net Pay
+      const finalY = (doc as any).lastAutoTable.finalY + 10;
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text(`NET PAYABLE: ${formatCurrency(payslip.net_payable)}`, 196, finalY, { align: "right" });
+      
+      doc.save(`Payslip_${payslip.payslip_number}.pdf`);
+      return true;
+
+    } catch (err: any) {
+      console.error("PDF Generation Error:", err);
+      const msg = typeof err?.message === 'string' ? err.message : '';
+      toast.error(msg.includes("Cannot find module") 
+        ? "Dependencies missing. Run: npm install jspdf jspdf-autotable" 
+        : "Failed to generate PDF");
+      return false;
+    }
+  }, [state.payslips, formatCurrency]);
+
+  // ============================================
   // ATTENDANCE INTEGRATION (Phase C items 5.19-5.20)
   // ============================================
 
@@ -795,6 +867,9 @@ export function usePayroll(selectedCycleId?: string) {
     // Attendance Integration (Phase C)
     getEmployeeAttendance,
     getBatchAttendance,
+
+    // PDF Generation (Phase E)
+    downloadPayslipPdf,
 
     // Refresh
     refresh,

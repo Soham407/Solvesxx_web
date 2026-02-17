@@ -32,7 +32,13 @@ export type Service = Database['public']['Tables']['services']['Row'];
 export type ServiceInsert = Database['public']['Tables']['services']['Insert'];
 export type ServiceUpdate = Database['public']['Tables']['services']['Update'];
 
-export type ServiceRequest = Database['public']['Tables']['service_requests']['Row'];
+export type ServiceRequest = Database['public']['Tables']['service_requests']['Row'] & {
+  before_photo_url?: string | null;
+  after_photo_url?: string | null;
+  completion_signature_url?: string | null;
+  completion_notes?: string | null;
+  started_at?: string | null;
+};
 export type ServiceRequestInsert = Database['public']['Tables']['service_requests']['Insert'];
 export type ServiceRequestUpdate = Database['public']['Tables']['service_requests']['Update'];
 
@@ -64,7 +70,13 @@ export type ReorderRuleUpdate = Database['public']['Tables']['reorder_rules']['U
 
 // ===== VIEW TYPES =====
 export type AssetWithDetails = Database['public']['Views']['assets_with_details']['Row'];
-export type ServiceRequestWithDetails = Database['public']['Views']['service_requests_with_details']['Row'];
+export type ServiceRequestWithDetails = Database['public']['Views']['service_requests_with_details']['Row'] & {
+  before_photo_url?: string | null;
+  after_photo_url?: string | null;
+  completion_signature_url?: string | null;
+  completion_notes?: string | null;
+  started_at?: string | null;
+};
 export type DueMaintenanceSchedule = Database['public']['Views']['due_maintenance_schedules']['Row'];
 export type StockLevel = Database['public']['Views']['stock_levels']['Row'];
 

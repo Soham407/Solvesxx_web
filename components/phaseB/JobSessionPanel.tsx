@@ -1,17 +1,14 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import {
   Play,
-  Pause,
   CheckCircle,
-  Clock,
   Camera,
-  Package,
-  MapPin,
-  X,
   Loader2,
   Image as ImageIcon,
+  Clock,
+  AlertCircle,
   XCircle,
 } from "lucide-react";
 import {
@@ -19,23 +16,29 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  CardDescription,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { useJobSessions } from "@/hooks/useJobSessions";
-import { useJobPhotos } from "@/hooks/useJobPhotos";
-import type { ServiceRequestWithDetails } from "@/src/types/phaseB";
 import {
-  JOB_SESSION_STATUS_LABELS,
-  JOB_SESSION_STATUS_COLORS,
-  JOB_PHOTO_TYPES,
-} from "@/src/lib/constants";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useServiceRequests } from "@/hooks/useServiceRequests";
+import type { ServiceRequestWithDetails } from "@/src/types/phaseB";
+import { supabase } from "@/src/lib/supabaseClient";
+import { toast } from "sonner";
+
 
 interface JobSessionPanelProps {
   serviceRequest: ServiceRequestWithDetails;
-  technicianId: string;
+  technicianId?: string; // Optional if derived from auth context elsewhere
   onComplete?: () => void;
   onClose?: () => void;
 }
@@ -46,425 +49,358 @@ export function JobSessionPanel({
   onComplete,
   onClose,
 }: JobSessionPanelProps) {
-  const serviceRequestId = serviceRequest.id || undefined;
+  const { startTask, completeTask, refresh } = useServiceRequests();
   
-  const {
-    activeSession,
-    isLoading,
-    error,
-    startSession,
-    pauseSession,
-    resumeSession,
-    completeSession,
-    cancelSession,
-    refresh,
-  } = useJobSessions(serviceRequestId, technicianId);
+  const [isStartModalOpen, setIsStartModalOpen] = useState(false);
+  const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const {
-    photos,
-    isUploading,
-    fetchPhotos,
-    uploadPhoto,
-    deletePhoto,
-  } = useJobPhotos();
-
+  // Form State
+  const [beforePhoto, setBeforePhoto] = useState<File | null>(null);
+  const [afterPhoto, setAfterPhoto] = useState<File | null>(null);
   const [completionNotes, setCompletionNotes] = useState("");
-  const [isCompleting, setIsCompleting] = useState(false);
-  const [elapsedTime, setElapsedTime] = useState(0);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Preview
+  const [beforePreview, setBeforePreview] = useState<string | null>(null);
+  const [afterPreview, setAfterPreview] = useState<string | null>(null);
 
-  // Fetch photos when session is active
-  useEffect(() => {
-    if (activeSession?.id) {
-      fetchPhotos(activeSession.id);
-    }
-  }, [activeSession?.id, fetchPhotos]);
+  // Separate refs for each modal's file input to prevent cross-triggering
+  const beforeFileInputRef = useRef<HTMLInputElement>(null);
+  const afterFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Timer for job duration
-  useEffect(() => {
-    if (activeSession?.status === "started" && activeSession.start_time) {
-      const startTime = new Date(activeSession.start_time).getTime();
-
-      const updateTimer = () => {
-        const now = Date.now();
-        const elapsed = Math.floor((now - startTime) / 1000);
-        setElapsedTime(elapsed);
-      };
-
-      updateTimer();
-      timerRef.current = setInterval(updateTimer, 1000);
-    } else {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-    }
-
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-    };
-  }, [activeSession?.status, activeSession?.start_time]);
-
-  // Format elapsed time
-  const formatElapsedTime = (seconds: number) => {
-    const hrs = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    return `${hrs.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  // Reset state when modals close
+  const resetState = () => {
+    // Revoke blob URLs to prevent memory leaks
+    if (beforePreview) URL.revokeObjectURL(beforePreview);
+    if (afterPreview) URL.revokeObjectURL(afterPreview);
+    setBeforePhoto(null);
+    setAfterPhoto(null);
+    setBeforePreview(null);
+    setAfterPreview(null);
+    setCompletionNotes("");
   };
 
-  // Handle start job
-  const handleStart = async () => {
-    if (!serviceRequest.id) {
-      alert("Invalid service request");
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'before' | 'after') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("File too large. Max 5MB allowed.");
       return;
     }
-    const result = await startSession({
-      serviceRequestId: serviceRequest.id,
-      technicianId: technicianId,
-    });
 
-    if (!result.success) {
-      alert(result.error || "Failed to start job");
-    }
-  };
-
-  // Handle pause
-  const handlePause = async () => {
-    if (!activeSession) return;
-    await pauseSession(activeSession.id);
-  };
-
-  // Handle resume
-  const handleResume = async () => {
-    if (!activeSession) return;
-    await resumeSession(activeSession.id);
-  };
-
-  // Handle complete
-  const handleComplete = async () => {
-    if (!activeSession) return;
-    setIsCompleting(true);
-
-    const result = await completeSession(activeSession.id, {
-      workPerformed: completionNotes || "Completed",
-      remarks: undefined,
-    });
-
-    if (result.success) {
-      onComplete?.();
+    const previewUrl = URL.createObjectURL(file);
+    if (type === 'before') {
+      setBeforePhoto(file);
+      setBeforePreview(previewUrl);
     } else {
-      alert(result.error || "Failed to complete job");
-    }
-
-    setIsCompleting(false);
-  };
-
-  // Handle cancel
-  const handleCancel = async () => {
-    if (!activeSession) return;
-    if (confirm("Are you sure you want to cancel this job?")) {
-      await cancelSession(activeSession.id);
-      onClose?.();
+      setAfterPhoto(file);
+      setAfterPreview(previewUrl);
     }
   };
 
-  // Handle photo upload
-  const handlePhotoUpload = async (photoType: string, file: File) => {
-    if (!activeSession) return;
+  const uploadEvidence = async (file: File, prefix: string) => {
+    const timestamp = Date.now();
+    const fileName = `${serviceRequest.id}/${prefix}_${timestamp}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+    
+    // Upload to 'service-evidence' bucket
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('service-evidence')
+      .upload(fileName, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
 
-    await uploadPhoto(
-      {
-        jobSessionId: activeSession.id,
-        photoType: photoType as "before" | "during" | "after",
-        photoUrl: "", // Will be set by upload
-      },
-      file
+    if (uploadError) throw uploadError;
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from('service-evidence')
+      .getPublicUrl(fileName);
+
+    return urlData.publicUrl;
+  };
+
+  const handleStartTask = async () => {
+    if (!beforePhoto) {
+      toast.error("Before photo is mandatory to prove start condition.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // 1. Upload Photo
+      const photoUrl = await uploadEvidence(beforePhoto, 'start');
+      
+      // 2. Call RPC
+      const result = await startTask(serviceRequest.id, photoUrl);
+      
+      if (result.success) {
+        toast.success("Task started successfully.");
+        setIsStartModalOpen(false);
+        resetState();
+        refresh(); // Refresh parent list
+      } else {
+        toast.error("Failed to start task: " + result.error);
+      }
+    } catch (err: any) {
+      console.error("Start task error:", err);
+      toast.error("Start failed: " + (err.message || "Unknown error"));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleCompleteTask = async () => {
+    if (!afterPhoto) {
+      toast.error("After photo is mandatory to prove completion.");
+      return;
+    }
+
+    if (!completionNotes || completionNotes.length < 5) {
+      toast.error("Please add completion notes.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // 1. Upload Photo
+      const photoUrl = await uploadEvidence(afterPhoto, 'complete');
+      
+      // 2. Call RPC
+      const result = await completeTask(serviceRequest.id, photoUrl, completionNotes);
+      
+      if (result.success) {
+        toast.success("Task completed successfully.");
+        setIsCompleteModalOpen(false);
+        resetState();
+        if (onComplete) onComplete();
+        refresh();
+      } else {
+        toast.error("Failed to complete task: " + result.error);
+      }
+    } catch (err: any) {
+      console.error("Complete task error:", err);
+      toast.error("Completion failed: " + (err.message || "Unknown error"));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Determine UI state
+  const isAssigned = serviceRequest.status === 'assigned';
+  const isInProgress = serviceRequest.status === 'in_progress';
+  const isCompleted = serviceRequest.status === 'completed';
+
+  if (!isAssigned && !isInProgress && !isCompleted) {
+    return (
+      <Card>
+        <CardContent className="pt-6 text-center text-muted-foreground">
+          <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+          <p>Task status: {serviceRequest.status}</p>
+          <p className="text-xs">Must be assigned to start work.</p>
+        </CardContent>
+      </Card>
     );
-  };
-
-  // Photo input ref
-  const photoInputRef = useRef<HTMLInputElement>(null);
-  const [selectedPhotoType, setSelectedPhotoType] = useState<string>("");
-
-  const triggerPhotoUpload = (type: string) => {
-    setSelectedPhotoType(type);
-    photoInputRef.current?.click();
-  };
-
-  const onFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && selectedPhotoType) {
-      handlePhotoUpload(selectedPhotoType, file);
-    }
-    e.target.value = "";
-  };
+  }
 
   return (
-    <Card className="border-none shadow-card ring-1 ring-border">
-      <CardHeader className="pb-3 border-b">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-bold uppercase flex items-center gap-2">
-            <Clock className="h-4 w-4 text-primary" />
-            Job Session
+    <>
+      <Card className="border-none shadow-premium bg-gradient-to-br from-card to-muted/20">
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span>Job Execution Panel</span>
+            {isInProgress && (
+              <span className="flex items-center gap-2 text-xs font-mono bg-primary/10 text-primary px-2 py-1 rounded animate-pulse">
+                <Clock className="h-3 w-3" /> IN PROGRESS
+              </span>
+            )}
           </CardTitle>
-          {onClose && (
-            <Button variant="ghost" size="icon" onClick={onClose}>
-              <X className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent className="p-6 space-y-6">
-        {/* Service Request Info */}
-        <div className="p-4 rounded-lg bg-muted/30 space-y-2">
-          <div className="flex items-center gap-2">
-            <Badge variant="outline">{serviceRequest.request_number}</Badge>
-            {activeSession && (
-              <Badge
-                style={{
-                  backgroundColor: `${JOB_SESSION_STATUS_COLORS[activeSession.status || "started"]}20`,
-                  color: JOB_SESSION_STATUS_COLORS[activeSession.status || "started"],
-                }}
-              >
-                {JOB_SESSION_STATUS_LABELS[activeSession.status || "started"]}
-              </Badge>
-            )}
-          </div>
-          <p className="font-semibold">
-            {serviceRequest.title || serviceRequest.service_name || "Service Request"}
-          </p>
-          <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-            {serviceRequest.asset_name && (
-              <span className="flex items-center gap-1">
-                <Package className="h-3 w-3" />
-                {serviceRequest.asset_name}
-              </span>
-            )}
-            {serviceRequest.location_name && (
-              <span className="flex items-center gap-1">
-                <MapPin className="h-3 w-3" />
-                {serviceRequest.location_name}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Timer Display */}
-        {activeSession && activeSession.status === "started" && (
-          <div className="text-center py-6">
-            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">
-              Job Duration
-            </p>
-            <p className="text-5xl font-mono font-bold text-primary">
-              {formatElapsedTime(elapsedTime)}
-            </p>
-          </div>
-        )}
-
-        {/* Loading */}
-        {isLoading && (
-          <div className="flex justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        )}
-
-        {/* Error */}
-        {error && (
-          <div className="p-4 rounded-lg bg-destructive/10 text-destructive text-sm">
-            {error}
-            <Button variant="ghost" size="sm" onClick={refresh} className="ml-2">
-              Retry
-            </Button>
-          </div>
-        )}
-
-        {/* Controls */}
-        {!isLoading && (
-          <div className="space-y-4">
-            {/* No active session - Start button */}
-            {!activeSession && (
-              <Button
-                className="w-full h-14 text-lg gap-2 bg-success hover:bg-success/90"
-                onClick={handleStart}
-              >
-                <Play className="h-6 w-6" />
-                Start Job
-              </Button>
-            )}
-
-            {/* Active session controls */}
-            {activeSession && activeSession.status === "started" && (
-              <div className="grid grid-cols-2 gap-3">
-                <Button
-                  variant="outline"
-                  className="h-12 gap-2"
-                  onClick={handlePause}
-                >
-                  <Pause className="h-5 w-5" />
-                  Pause
-                </Button>
-                <Button
-                  className="h-12 gap-2 bg-success hover:bg-success/90"
-                  onClick={() => document.getElementById("completion-section")?.scrollIntoView()}
-                >
-                  <CheckCircle className="h-5 w-5" />
-                  Complete
-                </Button>
-              </div>
-            )}
-
-            {/* Paused session */}
-            {activeSession && activeSession.status === "paused" && (
-              <div className="grid grid-cols-2 gap-3">
-                <Button
-                  className="h-12 gap-2"
-                  onClick={handleResume}
-                >
-                  <Play className="h-5 w-5" />
-                  Resume
-                </Button>
-                <Button
-                  variant="destructive"
-                  className="h-12 gap-2"
-                  onClick={handleCancel}
-                >
-                  <XCircle className="h-5 w-5" />
-                  Cancel
-                </Button>
-              </div>
-            )}
-
-            {/* Photo Capture Section */}
-            {activeSession && (activeSession.status === "started" || activeSession.status === "paused") && (
-              <div className="space-y-3">
-                <p className="text-sm font-medium">Capture Photos</p>
-                <div className="grid grid-cols-3 gap-2">
-                  {Object.entries(JOB_PHOTO_TYPES).map(([key, value]) => {
-                    const typePhotos = photos.filter((p) => p.photo_type === value);
-                    return (
-                      <Button
-                        key={key}
-                        variant="outline"
-                        className="h-20 flex-col gap-1 relative"
-                        onClick={() => triggerPhotoUpload(value)}
-                        disabled={isUploading}
-                      >
-                        {typePhotos.length > 0 ? (
-                          <ImageIcon className="h-6 w-6 text-success" />
-                        ) : (
-                          <Camera className="h-6 w-6" />
-                        )}
-                        <span className="text-xs capitalize">{value}</span>
-                        {typePhotos.length > 0 && (
-                          <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-[10px]">
-                            {typePhotos.length}
-                          </Badge>
-                        )}
-                      </Button>
-                    );
-                  })}
+          <CardDescription>
+            Strict evidence enforcement active. Photos required for all state transitions.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          
+          {/* Start Actions */}
+          {isAssigned && (
+            <div className="p-4 border rounded-lg bg-background/50 space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                  <Play className="h-5 w-5 ml-0.5" />
                 </div>
-                <input
-                  ref={photoInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={onFileSelect}
-                  className="hidden"
-                />
-                {isUploading && (
-                  <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Uploading photo...
+                <div>
+                  <h4 className="font-bold">Ready to Start?</h4>
+                  <p className="text-xs text-muted-foreground">Capture "Before" photo to begin.</p>
+                </div>
+              </div>
+              <Button onClick={() => setIsStartModalOpen(true)} className="w-full gap-2 font-bold">
+                <Camera className="h-4 w-4" /> Initialize Task
+              </Button>
+            </div>
+          )}
+
+          {/* In Progress Actions */}
+          {isInProgress && (
+            <div className="p-4 border rounded-lg bg-background/50 space-y-3 border-primary/20">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-warning/10 flex items-center justify-center text-warning">
+                  <Clock className="h-5 w-5" />
+                </div>
+                <div>
+                  <h4 className="font-bold">Work in Progress</h4>
+                  <p className="text-xs text-muted-foreground">Started at: {serviceRequest.started_at ? new Date(serviceRequest.started_at).toLocaleTimeString() : 'Unknown'}</p>
+                </div>
+              </div>
+              
+              {serviceRequest.before_photo_url && (
+                <div className="relative h-32 w-full rounded-md overflow-hidden bg-muted group">
+                   <img src={serviceRequest.before_photo_url} alt="Before Condition" className="h-full w-full object-cover" />
+                   <div className="absolute inset-x-0 bottom-0 bg-black/60 p-1 text-center text-xs text-white font-bold">
+                     Evidence: Before Condition
+                   </div>
+                </div>
+              )}
+
+              <Button onClick={() => setIsCompleteModalOpen(true)} className="w-full gap-2 font-bold bg-green-600 hover:bg-green-700" variant="default">
+                <CheckCircle className="h-4 w-4" /> Mark Complete
+              </Button>
+            </div>
+          )}
+
+          {/* Completed State */}
+          {isCompleted && (
+            <div className="p-4 border rounded-lg bg-success/5 space-y-3 border-success/20">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-success/10 flex items-center justify-center text-success">
+                  <CheckCircle className="h-5 w-5" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-success">Task Completed</h4>
+                  <p className="text-xs text-muted-foreground">Verified & Closed</p>
+                </div>
+              </div>
+              
+               <div className="grid grid-cols-2 gap-2">
+                  {serviceRequest.before_photo_url && (
+                    <div className="relative h-24 w-full rounded-md overflow-hidden bg-muted">
+                      <img src={serviceRequest.before_photo_url} alt="Before" className="h-full w-full object-cover" />
+                    </div>
+                  )}
+                  {serviceRequest.after_photo_url && (
+                    <div className="relative h-24 w-full rounded-md overflow-hidden bg-muted">
+                      <img src={serviceRequest.after_photo_url} alt="After" className="h-full w-full object-cover" />
+                    </div>
+                  )}
+               </div>
+               
+               <p className="text-xs italic bg-background p-2 rounded border">"{serviceRequest.completion_notes}"</p>
+            </div>
+          )}
+
+        </CardContent>
+      </Card>
+
+      {/* Start Modal */}
+      <Dialog open={isStartModalOpen} onOpenChange={(open) => { if (!isSubmitting) setIsStartModalOpen(open); if(!open) resetState(); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Initiate Service Task</DialogTitle>
+            <DialogDescription>
+              Upload a photo of the issue BEFORE starting work. This is required for operational truth.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+             <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => beforeFileInputRef.current?.click()}>
+                {beforePreview ? (
+                  <div className="relative h-48 w-full mx-auto">
+                    <img src={beforePreview} alt="Preview" className="h-full w-full object-contain rounded-md" />
+                    <Button size="icon" variant="destructive" className="absolute -top-2 -right-2 h-6 w-6 rounded-full" onClick={(e) => { e.stopPropagation(); setBeforePhoto(null); setBeforePreview(null); }}>
+                      <XCircle className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-2">
+                    <Camera className="h-8 w-8 text-muted-foreground" />
+                    <span className="text-sm font-medium text-muted-foreground">Click to upload photo</span>
                   </div>
                 )}
-              </div>
-            )}
-
-            {/* Photo Gallery */}
-            {photos.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Captured Photos ({photos.length})</p>
-                <div className="grid grid-cols-4 gap-2">
-                  {photos.map((photo) => (
-                    <div
-                      key={photo.id}
-                      className="relative aspect-square rounded-lg overflow-hidden bg-muted"
-                    >
-                      <img
-                        src={photo.photo_url}
-                        alt={photo.photo_type || "Job photo"}
-                        className="w-full h-full object-cover"
-                      />
-                      <Button
-                        variant="destructive"
-                        size="icon"
-                        className="absolute top-1 right-1 h-5 w-5"
-                        onClick={() => deletePhoto(photo.id)}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Completion Section */}
-            {activeSession && (activeSession.status === "started" || activeSession.status === "paused") && (
-              <div id="completion-section" className="space-y-3 pt-4 border-t">
-                <Label htmlFor="notes">Work Performed Notes</Label>
-                <Textarea
-                  id="notes"
-                  value={completionNotes}
-                  onChange={(e) => setCompletionNotes(e.target.value)}
-                  placeholder="Describe the work completed, parts replaced, etc."
-                  rows={3}
+                <Input 
+                  ref={beforeFileInputRef} 
+                  type="file" 
+                  accept="image/*" 
+                  className="hidden" 
+                  onChange={(e) => handleFileChange(e, 'before')} 
                 />
-                <Button
-                  className="w-full h-12 gap-2 bg-success hover:bg-success/90"
-                  onClick={handleComplete}
-                  disabled={isCompleting}
-                >
-                  {isCompleting ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <CheckCircle className="h-5 w-5" />
-                  )}
-                  Complete Job
-                </Button>
-              </div>
-            )}
-
-            {/* Completed Session Summary */}
-            {activeSession && activeSession.status === "completed" && (
-              <div className="p-4 rounded-lg bg-success/10 text-center">
-                <CheckCircle className="h-12 w-12 mx-auto text-success" />
-                <h3 className="font-bold mt-2 text-success">Job Completed</h3>
-                {activeSession.work_performed && (
-                  <p className="text-sm text-muted-foreground mt-2">
-                    {activeSession.work_performed}
-                  </p>
-                )}
-                {activeSession.end_time && activeSession.start_time && (
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Duration:{" "}
-                    {formatElapsedTime(
-                      Math.floor(
-                        (new Date(activeSession.end_time).getTime() -
-                          new Date(activeSession.start_time).getTime()) /
-                          1000
-                      )
-                    )}
-                  </p>
-                )}
-              </div>
-            )}
+             </div>
           </div>
-        )}
-      </CardContent>
-    </Card>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsStartModalOpen(false)} disabled={isSubmitting}>Cancel</Button>
+            <Button onClick={handleStartTask} disabled={!beforePhoto || isSubmitting} className="gap-2">
+              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+              Start Task
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Complete Modal */}
+      <Dialog open={isCompleteModalOpen} onOpenChange={(open) => { if (!isSubmitting) setIsCompleteModalOpen(open); if(!open) resetState(); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Complete Service Task</DialogTitle>
+            <DialogDescription>
+              Upload a photo of the completed work ("After" condition) and add notes.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+             <Label>Evidence Photo (Mandatory)</Label>
+             <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => afterFileInputRef.current?.click()}>
+                {afterPreview ? (
+                  <div className="relative h-48 w-full mx-auto">
+                    <img src={afterPreview} alt="Preview" className="h-full w-full object-contain rounded-md" />
+                    <Button size="icon" variant="destructive" className="absolute -top-2 -right-2 h-6 w-6 rounded-full" onClick={(e) => { e.stopPropagation(); setAfterPhoto(null); setAfterPreview(null); }}>
+                      <XCircle className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-2">
+                    <Camera className="h-8 w-8 text-muted-foreground" />
+                    <span className="text-sm font-medium text-muted-foreground">Click to upload result</span>
+                  </div>
+                )}
+                <Input 
+                  ref={afterFileInputRef} 
+                  type="file" 
+                  accept="image/*" 
+                  className="hidden" 
+                  onChange={(e) => handleFileChange(e, 'after')} 
+                />
+             </div>
+
+             <div className="space-y-2">
+               <Label htmlFor="notes">Completion Notes</Label>
+               <Textarea 
+                 id="notes" 
+                 placeholder="Describe work done, parts replaced, etc." 
+                 value={completionNotes}
+                 onChange={(e) => setCompletionNotes(e.target.value)}
+               />
+             </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCompleteModalOpen(false)} disabled={isSubmitting}>Cancel</Button>
+            <Button onClick={handleCompleteTask} disabled={!afterPhoto || completionNotes.length < 5 || isSubmitting} className="gap-2 bg-green-600 hover:bg-green-700" variant="default">
+              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+              Complete Task
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
