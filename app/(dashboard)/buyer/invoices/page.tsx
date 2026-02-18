@@ -12,11 +12,12 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Receipt, Download, ExternalLink, Filter, Wallet } from "lucide-react";
+import { Search, Receipt, Download, ExternalLink, Filter, Wallet, Star } from "lucide-react";
 import { format } from "date-fns";
 import { useState } from "react";
 import { formatCurrency } from "@/src/lib/utils/currency";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { BuyerFeedbackDialog } from "@/components/buyer/BuyerFeedbackDialog";
 
 export default function BuyerInvoicesPage() {
   const { invoices, isLoading } = useBuyerInvoices();
@@ -114,14 +115,27 @@ export default function BuyerInvoicesPage() {
                   </TableCell>
                   <TableCell className="text-right flex items-center justify-end gap-2">
                     <Button variant="ghost" size="sm" className="gap-1">
-                      <Download className="h-3 w-3" /> PDF
-                    </Button>
-                    {inv.payment_status !== 'paid' && (
-                      <Button size="sm" variant="outline" className="gap-1 border-primary text-primary hover:bg-primary/5">
-                        <Wallet className="h-3 w-3" /> Pay Now
-                      </Button>
-                    )}
-                  </TableCell>
+                       <Download className="h-3 w-3" /> PDF
+                     </Button>
+                     {inv.payment_status !== 'paid' ? (
+                       <Button size="sm" variant="outline" className="gap-1 border-primary text-primary hover:bg-primary/5">
+                         <Wallet className="h-3 w-3" /> Pay Now
+                       </Button>
+                     ) : !inv.feedback_submitted ? (
+                       <BuyerFeedbackDialog
+                         invoiceId={inv.id}
+                         supplierName={inv.supplier_name || "Supplier"}
+                       >
+                         <Button size="sm" variant="outline" className="gap-1 border-warning text-warning hover:bg-warning/5">
+                           <Star className="h-3 w-3" /> Rate
+                         </Button>
+                       </BuyerFeedbackDialog>
+                     ) : (
+                       <Badge variant="outline" className="text-xs">
+                         <Star className="h-3 w-3 fill-warning text-warning mr-1" /> Rated
+                       </Badge>
+                     )}
+                   </TableCell>
                 </TableRow>
               ))
             ) : (

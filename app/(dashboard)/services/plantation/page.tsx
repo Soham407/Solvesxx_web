@@ -23,6 +23,7 @@ import { DataTable } from "@/components/shared/DataTable";
 import { ColumnDef } from "@tanstack/react-table";
 import { cn } from "@/lib/utils";
 import { usePlantationOps, HorticultureTask } from "@/hooks/usePlantationOps";
+import { PlantationInventory } from "@/components/plantation/PlantationInventory";
 
 
 export default function PlantationPage() {
@@ -143,22 +144,10 @@ export default function PlantationPage() {
                       <CardTitle className="text-sm font-bold ">Horticulture Inventory</CardTitle>
                       <CardDescription className="text-xs">Seeds, Manure, and Tools.</CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                      {[
-                          { item: "Organic Cow Manure", qty: "24 kg", status: "Stable" },
-                          { item: "Liquid Fertilizer", qty: "2.5 L", status: "Low" },
-                          { item: "Seasonal Flower Seeds", qty: "12 packs", status: "Stable" },
-                      ].map((inv, i) => (
-                          <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-dashed">
-                              <div className="flex flex-col">
-                                  <span className="text-xs font-bold">{inv.item}</span>
-                                  <span className="text-[10px] text-muted-foreground">{inv.qty}</span>
-                              </div>
-                              <Badge variant="outline" className={cn("text-[9px] font-bold h-4", inv.status === "Low" ? "text-critical border-critical/20 bg-critical/5 animate-pulse" : "border-none")}>{inv.status}</Badge>
-                          </div>
-                      ))}
-                      <Button variant="ghost" className="w-full text-[10px] font-bold uppercase text-primary tracking-widest mt-2">Open Store Manager</Button>
-                  </CardContent>
+                   <CardContent className="space-y-4">
+                       <PlantationInventory />
+                       <Button variant="ghost" className="w-full text-[10px] font-bold uppercase text-primary tracking-widest mt-2" onClick={() => window.location.href = '/inventory/products'}>Open Store Manager</Button>
+                   </CardContent>
               </Card>
 
               <Card className="border-none shadow-card ring-1 ring-border bg-linear-to-br from-success/5 to-transparent">

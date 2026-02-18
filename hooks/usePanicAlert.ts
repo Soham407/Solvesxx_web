@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
+import { sendPanicAlertNotification } from "@/src/lib/notifications";
 
 interface PanicAlertState {
   isTriggering: boolean;
@@ -112,6 +113,36 @@ export function usePanicAlert() {
           .single();
 
         if (error) throw error;
+
+        // Get supervisor IDs to notify
+        const { data: supervisors } = await supabase
+          .from('employees')
+          .select('auth_user_id')
+          .in('designation', ['Security Supervisor', 'Society Manager', 'Admin'])
+          .eq('is_active', true);
+
+        const supervisorIds = (supervisors || [])
+          .map((s: any) => s.auth_user_id)
+          .filter(Boolean);
+
+        if (supervisorIds.length > 0) {
+          // Get guard name
+          const { data: guardInfo } = await supabase
+            .from('employees')
+            .select('first_name, last_name')
+            .eq('id', employeeData.id)
+            .single();
+
+          const guardName = guardInfo 
+            ? `${guardInfo.first_name} ${guardInfo.last_name}`.trim()
+            : 'A guard';
+
+          await sendPanicAlertNotification(
+            supervisorIds,
+            guardName,
+            params.locationId
+          );
+        }
 
         setState((prev) => ({
           ...prev,

@@ -26,11 +26,22 @@ import { DataTable } from "@/components/shared/DataTable";
 import { Button } from "@/components/ui/button";
 import { useServiceRequests } from "@/hooks/useServiceRequests";
 import { usePestControlInventory } from "@/hooks/usePestControlInventory";
+import { useServices } from "@/hooks/useServices";
 import { Progress } from "@/components/ui/progress";
+import { PPEChecklistDialog } from "@/components/phaseB/PPEChecklistDialog";
+import { useMemo } from "react";
 
 export default function PestControlPage() {
+  // Fetch service dynamically by code instead of hardcoded UUID
+  const { services, isLoading: servicesLoading } = useServices();
+  
+  const pestControlService = useMemo(() => {
+    return services.find(s => s.service_code === "PST-CON" || 
+      s.service_name?.toLowerCase().includes("pest"));
+  }, [services]);
+
   const { requests, isLoading: isRequestsLoading, error, stats } = useServiceRequests({
-    serviceId: "bf4442cc-cb5f-4c2a-bcf8-6ed387cd7630" // PST-CON service ID
+    serviceId: pestControlService?.id
   });
 
   const { 
@@ -318,7 +329,9 @@ export default function PestControlPage() {
                                     <Badge variant="secondary" className="text-[10px] font-bold uppercase">{ppe.status}</Badge>
                                 </div>
                             ))}
-                            <Button className="w-full shadow-lg shadow-primary/20">Submit Site Readiness Report</Button>
+                            <PPEChecklistDialog>
+                              <Button className="w-full shadow-lg shadow-primary/20">Submit Site Readiness Report</Button>
+                            </PPEChecklistDialog>
                         </CardContent>
                     </Card>
                 </div>

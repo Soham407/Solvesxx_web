@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
 import { useToast } from "@/components/ui/use-toast";
+import { sendLeaveApprovalNotification } from "@/src/lib/notifications";
 
 export interface LeaveType {
   id: string;
@@ -282,6 +283,47 @@ export function useLeaveApplications(employeeId?: string) {
         .eq('id', id);
 
       if (error) throw error;
+
+      // Get employee user ID for notification
+      const { data: leaveData } = await supabase
+        .from('leave_applications')
+        .select('employee_id, leave_type:leave_types(leave_name)')
+        .eq('id', id)
+        .single();
+
+      if (leaveData) {
+        const { data: empData } = await supabase
+          .from('employees')
+          .select('auth_user_id, first_name, last_name, phone')
+          .eq('id', leaveData.employee_id)
+          .single();
+
+        if (empData?.auth_user_id) {
+          const approverName = approverId ? 'your manager' : 'admin';
+          await sendLeaveApprovalNotification(
+            empData.auth_user_id,
+            (leaveData as any).leave_type?.leave_name || 'leave',
+            status,
+            approverName
+          );
+        }
+
+        // Send SMS notification
+        if (empData?.phone) {
+          try {
+            await supabase.functions.invoke('send-notification', {
+              body: {
+                mobile: empData.phone,
+                title: `Leave ${status === 'approved' ? 'Approved' : 'Rejected'}`,
+                body: `Your leave application has been ${status}${status === 'rejected' && reason ? ': ' + reason : ''}.`,
+                channel: 'sms',
+              },
+            });
+          } catch (notifyError) {
+            console.error('Failed to send SMS notification:', notifyError);
+          }
+        }
+      }
 
       toast({
         title: `Leave ${status === 'approved' ? 'Approved' : 'Rejected'}`,

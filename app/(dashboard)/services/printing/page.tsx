@@ -25,11 +25,22 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useServiceRequests } from "@/hooks/useServiceRequests";
 import { usePrintingMaster } from "@/hooks/usePrintingMaster";
+import { useServices } from "@/hooks/useServices";
 import { formatCurrency } from "@/src/lib/utils/currency";
+import { useMemo } from "react";
+import { IDPrintingModule } from "@/components/printing/IDPrintingModule";
 
 export default function PrintingAdvertisingPage() {
+  // Fetch service dynamically by code instead of hardcoded UUID
+  const { services, isLoading: servicesLoading } = useServices();
+  
+  const printingService = useMemo(() => {
+    return services.find(s => s.service_code === "PRN-ADV" || 
+      s.service_name?.toLowerCase().includes("print"));
+  }, [services]);
+
   const { requests, isLoading: isRequestsLoading, error } = useServiceRequests({
-    serviceId: "e76b5c1c-333e-4b68-8a8b-3e5f7f38d330" // PRN-ADV service ID
+    serviceId: printingService?.id
   });
 
   const { adSpaces, isLoading: isMasterLoading } = usePrintingMaster();
@@ -241,9 +252,7 @@ export default function PrintingAdvertisingPage() {
             </TabsContent>
 
             <TabsContent value="printing" className="pt-6">
-                <div className="p-20 text-center border-2 border-dashed rounded-2xl bg-muted/20">
-                    <CardDescription>UI for automated generation of long-term Visitor Passes and ID Cards.</CardDescription>
-                </div>
+                <IDPrintingModule />
             </TabsContent>
       </Tabs>
     </div>

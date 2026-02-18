@@ -146,6 +146,14 @@ export function useServices(): UseServicesReturn {
     [state.services]
   );
 
+  // Get service by code (useful for removing hardcoded UUIDs)
+  const getServiceByCode = useCallback(
+    (code: string): Service | undefined => {
+      return state.services.find((svc) => svc.service_code === code);
+    },
+    [state.services]
+  );
+
   // Get services by category
   const getServicesByCategory = useCallback(
     (category: string): Service[] => {
@@ -170,6 +178,7 @@ export function useServices(): UseServicesReturn {
     updateService,
     deleteService,
     getServiceById,
+    getServiceByCode,
     getServicesByCategory,
     refresh,
   };

@@ -3,6 +3,8 @@
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTable } from "@/components/shared/DataTable";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
   Box, 
   AlertTriangle, 
@@ -14,32 +16,123 @@ import {
   Camera,
   Layers,
   CheckCircle2,
-  XCircle,
-  Filter
+  RefreshCw,
+  AlertCircle
 } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { useGRN, GRN_STATUS_CONFIG, QualityStatus } from "@/hooks/useGRN";
+import { supabase } from "@/src/lib/supabaseClient";
+import { useEffect, useState } from "react";
 
 interface QualityTicket {
   id: string;
+  grnId: string;
   poRef: string;
   vendor: string;
   item: string;
-  issueType: "Shortage" | "Damaged" | "Expired" | "Wrong Item";
+  issueType: "Shortage" | "Damaged" | "Expired" | "Wrong Item" | "Partial";
   recordedQty: string;
   expectedQty: string;
-  status: "Under Review" | "Debit Note Raised" | "Returned" | "Resolved";
+  status: "Under Review" | "Debit Note Raised" | "Returned" | "Resolved" | "Accepted";
+  qualityStatus: QualityStatus;
 }
 
-const data: QualityTicket[] = [
-  { id: "TKT-Q-101", poRef: "PO-2024-001", vendor: "Global Security Supplies", item: "Safety Vests (L)", issueType: "Shortage", recordedQty: "45", expectedQty: "50", status: "Debit Note Raised" },
-  { id: "TKT-Q-105", poRef: "PO-2024-002", vendor: "Refresh Beverage Corp", item: "Mineral Water (20L)", issueType: "Damaged", recordedQty: "2", expectedQty: "50", status: "Under Review" },
-  { id: "TKT-Q-108", poRef: "PO-2024-004", vendor: "QuickPrint Media", item: "Staff ID Cards", issueType: "Wrong Item", recordedQty: "1", expectedQty: "1", status: "Returned" },
-];
+interface QualityStats {
+  shortageNotes: number;
+  damagedGoods: number;
+  returnPending: number;
+  qualityAudit: number;
+}
 
 export default function QualityTicketsPage() {
+  const [tickets, setTickets] = useState<QualityTicket[]>([]);
+  const [stats, setStats] = useState<QualityStats>({
+    shortageNotes: 0,
+    damagedGoods: 0,
+    returnPending: 0,
+    qualityAudit: 0,
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const { materialReceipts, isLoading: grnLoading, error: grnError, fetchGRNItems } = useGRN();
+
+  const fetchQualityData = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // Fetch all GRNs
+      const grnList = materialReceipts || [];
+      
+      // Fetch GRN items for all GRNs to check quality
+      const allTickets: QualityTicket[] = [];
+      
+      for (const grn of grnList) {
+        const items = await fetchGRNItems(grn.id);
+        
+        // Filter items with quality issues
+        items.forEach((item, index) => {
+          if (item.quality_status && item.quality_status !== "good" && item.quality_status !== "pending") {
+            let issueType: QualityTicket["issueType"] = "Partial";
+            if (item.quality_status === "damaged") issueType = "Damaged";
+            else if (item.quality_status === "rejected") issueType = "Wrong Item";
+            else if (item.rejected_quantity > 0) issueType = "Shortage";
+
+            let status: QualityTicket["status"] = "Under Review";
+            if (grn.status === "accepted") status = "Resolved";
+            else if (grn.status === "partial_accepted") status = "Debit Note Raised";
+            else if (grn.status === "rejected") status = "Returned";
+
+            allTickets.push({
+              id: `TKT-Q-${grn.grn_number}-${index}`,
+              grnId: grn.id,
+              poRef: grn.po_number || "N/A",
+              vendor: grn.supplier_name || "Unknown",
+              item: item.product_name || item.item_description || "Unknown Item",
+              issueType,
+              recordedQty: item.received_quantity?.toString() || "0",
+              expectedQty: item.ordered_quantity?.toString() || "0",
+              status,
+              qualityStatus: item.quality_status,
+            });
+          }
+        });
+      }
+
+      setTickets(allTickets);
+
+      // Calculate stats
+      const shortage = allTickets.filter(t => t.issueType === "Shortage" || t.qualityStatus === "partial").length;
+      const damaged = allTickets.filter(t => t.issueType === "Damaged" || t.qualityStatus === "damaged").length;
+      const pending = allTickets.filter(t => t.status === "Under Review" || t.status === "Debit Note Raised").length;
+      const resolved = allTickets.filter(t => t.status === "Resolved").length;
+      const total = allTickets.length || 1;
+
+      setStats({
+        shortageNotes: shortage,
+        damagedGoods: damaged,
+        returnPending: pending,
+        qualityAudit: Math.round((resolved / total) * 100),
+      });
+
+    } catch (err) {
+      console.error("Error fetching quality tickets:", err);
+      setError(err instanceof Error ? err.message : "Failed to fetch quality tickets");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!grnLoading) {
+      fetchQualityData();
+    }
+  }, [grnLoading, materialReceipts]);
+
   const columns: ColumnDef<QualityTicket>[] = [
     {
       accessorKey: "item",
@@ -50,8 +143,8 @@ export default function QualityTicketsPage() {
             <Box className="h-4 w-4 text-info" />
           </div>
           <div className="flex flex-col text-left">
-            <span className="font-bold text-sm ">{row.original.item}</span>
-            <span className="text-[10px] text-muted-foreground uppercase font-bold ">REF: {row.original.poRef} • {row.original.id}</span>
+            <span className="font-bold text-sm">{row.original.item}</span>
+            <span className="text-[10px] text-muted-foreground uppercase font-bold">REF: {row.original.poRef} • {row.original.id}</span>
           </div>
         </div>
       ),
@@ -92,7 +185,8 @@ export default function QualityTicketsPage() {
               "Under Review": "bg-warning/10 text-warning border-warning/20",
               "Debit Note Raised": "bg-primary/10 text-primary border-primary/20",
               "Returned": "bg-critical/10 text-critical border-critical/20",
-              "Resolved": "bg-success/10 text-success border-success/20"
+              "Resolved": "bg-success/10 text-success border-success/20",
+              "Accepted": "bg-success/10 text-success border-success/20"
           };
           return (
             <Badge variant="outline" className={cn("font-bold text-[10px] uppercase h-5", variants[val] || "")}>
@@ -116,6 +210,9 @@ export default function QualityTicketsPage() {
     },
   ];
 
+  const displayError = error || grnError;
+  const displayLoading = isLoading || grnLoading;
+
   return (
     <div className="animate-fade-in space-y-8 pb-20">
       <PageHeader
@@ -123,6 +220,14 @@ export default function QualityTicketsPage() {
         description="Logging material discrepancies, damaged goods, and shortage notes post-delivery verification."
         actions={
           <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              className="gap-2"
+              onClick={fetchQualityData}
+              disabled={displayLoading}
+            >
+              <RefreshCw className={cn("h-4 w-4", displayLoading && "animate-spin")} /> Refresh
+            </Button>
             <Button variant="outline" className="gap-2">
                <FileSearch className="h-4 w-4" /> Audit Logs
             </Button>
@@ -133,28 +238,56 @@ export default function QualityTicketsPage() {
         }
       />
 
+      {displayError && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{displayError}</AlertDescription>
+        </Alert>
+      )}
+
       <div className="grid gap-6 md:grid-cols-4">
-        {[
-          { label: "Shortage Notes", value: "3", icon: Layers, color: "text-warning" },
-          { label: "Damaged Goods", value: "1", icon: AlertTriangle, color: "text-critical" },
-          { label: "Return Pending (RTV)", value: "2", icon: ArrowLeftRight, color: "text-primary" },
-          { label: "Quality Audit", value: "100%", icon: CheckCircle2, color: "text-success" },
-        ].map((stat, i) => (
-          <Card key={i} className="border-none shadow-card ring-1 ring-border p-4">
-            <div className="flex items-center gap-4 text-left">
-              <div className={cn("h-10 w-10 rounded-xl bg-muted/50 flex items-center justify-center", stat.color)}>
-                <stat.icon className="h-5 w-5" />
+        {displayLoading ? (
+          Array(4).fill(0).map((_, i) => (
+            <Card key={i} className="border-none shadow-card ring-1 ring-border p-4">
+              <div className="flex items-center gap-4 text-left">
+                <Skeleton className="h-10 w-10 rounded-xl" />
+                <div className="flex flex-col gap-2">
+                  <Skeleton className="h-8 w-16" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
               </div>
-              <div className="flex flex-col">
-                <span className="text-2xl font-bold ">{stat.value}</span>
-                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">{stat.label}</span>
+            </Card>
+          ))
+        ) : (
+          [
+            { label: "Shortage Notes", value: stats.shortageNotes.toString(), icon: Layers, color: "text-warning" },
+            { label: "Damaged Goods", value: stats.damagedGoods.toString(), icon: AlertTriangle, color: "text-critical" },
+            { label: "Return Pending (RTV)", value: stats.returnPending.toString(), icon: ArrowLeftRight, color: "text-primary" },
+            { label: "Quality Audit", value: `${stats.qualityAudit}%`, icon: CheckCircle2, color: "text-success" },
+          ].map((stat, i) => (
+            <Card key={i} className="border-none shadow-card ring-1 ring-border p-4">
+              <div className="flex items-center gap-4 text-left">
+                <div className={cn("h-10 w-10 rounded-xl bg-muted/50 flex items-center justify-center", stat.color)}>
+                  <stat.icon className="h-5 w-5" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-2xl font-bold">{stat.value}</span>
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">{stat.label}</span>
+                </div>
               </div>
-            </div>
-          </Card>
-        ))}
+            </Card>
+          ))
+        )}
       </div>
 
-      <DataTable columns={columns} data={data} searchKey="item" />
+      {displayLoading ? (
+        <div className="space-y-4">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-32 w-full" />
+        </div>
+      ) : (
+        <DataTable columns={columns} data={tickets} searchKey="item" />
+      )}
     </div>
   );
 }

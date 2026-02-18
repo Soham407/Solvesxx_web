@@ -3,6 +3,7 @@
 
 import { useEffect, useRef } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
+import { sendPanicAlertNotification } from "@/src/lib/notifications";
 
 /**
  * Hook to detect guard inactivity (static GPS) and trigger alerts.
@@ -46,22 +47,57 @@ export function useInactivityMonitor(employeeId: string | null, isClockedIn: boo
 
   async function triggerInactivityAlert(empId: string, lat: number, lng: number) {
     try {
-      // Get location_id if possible
+      // Get guard details
       const { data: guard } = await supabase
         .from("security_guards")
-        .select("assigned_location_id")
+        .select("assigned_location_id, employee_id")
         .eq("employee_id", empId)
         .single();
 
-      await supabase.from("panic_alerts").insert({
-        employee_id: empId,
-        alert_type: "inactivity",
-        description: "Static inactivity detected for 30+ minutes. No GPS movement recorded.",
-        latitude: lat,
-        longitude: lng,
-        location_id: guard?.assigned_location_id,
-        status: "unresolved"
-      });
+      // Get guard name
+      const { data: empData } = await supabase
+        .from("employees")
+        .select("first_name, last_name")
+        .eq("id", empId)
+        .single();
+
+      const guardName = empData 
+        ? `${empData.first_name} ${empData.last_name}`.trim()
+        : "A guard";
+
+      // Insert panic alert
+      const { data: alert } = await supabase
+        .from("panic_alerts")
+        .insert({
+          guard_id: guard?.id || empId,
+          alert_type: "inactivity",
+          description: "Static inactivity detected for 30+ minutes. No GPS movement recorded.",
+          latitude: lat,
+          longitude: lng,
+          location_id: guard?.assigned_location_id,
+          is_resolved: false
+        })
+        .select()
+        .single();
+
+      // Send notifications to supervisors
+      const { data: supervisors } = await supabase
+        .from('employees')
+        .select('auth_user_id')
+        .in('designation', ['Security Supervisor', 'Society Manager', 'Admin'])
+        .eq('is_active', true);
+
+      const supervisorIds = (supervisors || [])
+        .map((s: any) => s.auth_user_id)
+        .filter(Boolean);
+
+      if (supervisorIds.length > 0) {
+        await sendPanicAlertNotification(
+          supervisorIds,
+          guardName,
+          `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`
+        );
+      }
       
       console.log("Inactivity alert triggered for", empId);
     } catch (err) {

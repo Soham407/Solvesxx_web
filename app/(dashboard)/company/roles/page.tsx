@@ -3,9 +3,13 @@
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTable } from "@/components/shared/DataTable";
 import { Button } from "@/components/ui/button";
-import { Plus, Shield, Users, Lock, MoreHorizontal } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Plus, Shield, Users, Lock, MoreHorizontal, RefreshCw, AlertCircle } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+import { useRoles } from "@/hooks/useRoles";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,48 +20,25 @@ import {
 interface Role {
   id: string;
   name: string;
-  description: string;
+  description: string | null;
   userCount: number;
   permissions: string[];
   status: "Active" | "Inactive";
 }
 
-const data: Role[] = [
-  {
-    id: "RL-001",
-    name: "System Administrator",
-    description: "Full access to all modules and system settings.",
-    userCount: 3,
-    permissions: ["All Access"],
-    status: "Active",
-  },
-  {
-    id: "RL-002",
-    name: "Company MD",
-    description: "Viewing rights for all reports and high-level decisioning.",
-    userCount: 1,
-    permissions: ["Reports", "Finance", "Approvals"],
-    status: "Active",
-  },
-  {
-    id: "RL-003",
-    name: "Society Manager",
-    description: "Local administration for society operations and visitor management.",
-    userCount: 5,
-    permissions: ["Visitors", "Services", "Tickets"],
-    status: "Active",
-  },
-  {
-    id: "RL-004",
-    name: "Accountant",
-    description: "Access to finance, billing, and supplier payments.",
-    userCount: 2,
-    permissions: ["Finance", "Ledger", "Invoices"],
-    status: "Active",
-  },
-];
-
 export default function RolesPage() {
+  const { roles, isLoading, error, refresh } = useRoles();
+
+  // Transform roles data for the table
+  const data: Role[] = roles.map(role => ({
+    id: role.id.substring(0, 8).toUpperCase(),
+    name: role.name,
+    description: role.description || "No description available",
+    userCount: role.userCount,
+    permissions: role.permissions.length > 0 ? role.permissions : ["Standard Access"],
+    status: role.isActive ? "Active" : "Inactive",
+  }));
+
   const columns: ColumnDef<Role>[] = [
     {
       accessorKey: "name",
@@ -68,8 +49,8 @@ export default function RolesPage() {
             <Shield className="h-4 w-4 text-primary" />
           </div>
           <div className="flex flex-col">
-            <span className="font-bold text-sm ">{row.original.name}</span>
-            <span className="text-[10px] text-muted-foreground uppercase font-bold ">ID: {row.original.id}</span>
+            <span className="font-bold text-sm">{row.original.name}</span>
+            <span className="text-[10px] text-muted-foreground uppercase font-bold">ID: {row.original.id}</span>
           </div>
         </div>
       ),
@@ -98,11 +79,16 @@ export default function RolesPage() {
       header: "Core Permissions",
       cell: ({ row }) => (
         <div className="flex flex-wrap gap-1">
-          {row.original.permissions.map((p) => (
+          {row.original.permissions.slice(0, 3).map((p) => (
             <Badge key={p} variant="secondary" className="text-[10px] font-bold px-1.5 py-0 h-4 bg-muted/50 border-none">
               {p}
             </Badge>
           ))}
+          {row.original.permissions.length > 3 && (
+            <Badge variant="secondary" className="text-[10px] font-bold px-1.5 py-0 h-4 bg-muted/50 border-none">
+              +{row.original.permissions.length - 3}
+            </Badge>
+          )}
         </div>
       ),
     },
@@ -110,7 +96,14 @@ export default function RolesPage() {
       accessorKey: "status",
       header: "Status",
       cell: ({ row }) => (
-        <Badge variant={row.getValue("status") === "Active" ? "default" : "secondary"} className={row.getValue("status") === "Active" ? "bg-success/10 text-success border-success/20 hover:bg-success/20" : ""}>
+        <Badge 
+          variant={row.getValue("status") === "Active" ? "default" : "secondary"} 
+          className={cn(
+            row.getValue("status") === "Active" 
+              ? "bg-success/10 text-success border-success/20 hover:bg-success/20" 
+              : "bg-muted text-muted-foreground"
+          )}
+        >
           {row.getValue("status")}
         </Badge>
       ),
@@ -138,17 +131,42 @@ export default function RolesPage() {
   ];
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in space-y-6">
       <PageHeader
         title="Role Master"
         description="Define and manage system access levels and operational permissions."
         actions={
-          <Button className="gap-2 shadow-sm">
-            <Plus className="h-4 w-4" /> Create New Role
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              className="gap-2"
+              onClick={refresh}
+              disabled={isLoading}
+            >
+              <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} /> Refresh
+            </Button>
+            <Button className="gap-2 shadow-sm">
+              <Plus className="h-4 w-4" /> Create New Role
+            </Button>
+          </div>
         }
       />
-      <DataTable columns={columns} data={data} searchKey="name" />
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {isLoading ? (
+        <div className="space-y-4">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-32 w-full" />
+        </div>
+      ) : (
+        <DataTable columns={columns} data={data} searchKey="name" />
+      )}
     </div>
   );
 }

@@ -23,8 +23,11 @@ import { useServiceRequests } from "@/hooks/useServiceRequests";
 import { useTechnicians } from "@/hooks/useTechnicians";
 import { useInventory } from "@/hooks/useInventory";
 import { ServiceRequestWithDetails } from "@/src/types/phaseB";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PhotoUploadDialog } from "@/components/phaseB/PhotoUploadDialog";
+import { ScheduleVisitDialog } from "@/components/dialogs/ScheduleVisitDialog";
+import { NewJobOrderDialog } from "@/components/dialogs/NewJobOrderDialog";
 
 export default function ACServicePage() {
   // Real Hooks
@@ -126,11 +129,16 @@ export default function ACServicePage() {
       },
     {
       id: "actions",
-      cell: () => (
+      cell: ({ row }) => (
         <div className="flex items-center gap-1">
-             <Button variant="ghost" size="icon" className="h-8 w-8 text-primary">
-                <Camera className="h-4 w-4" />
-             </Button>
+             <PhotoUploadDialog
+               serviceRequestId={row.original.id}
+               jobId={row.original.request_number || row.original.id.substring(0, 8)}
+             >
+               <Button variant="ghost" size="icon" className="h-8 w-8 text-primary">
+                  <Camera className="h-4 w-4" />
+               </Button>
+             </PhotoUploadDialog>
              <Button variant="ghost" size="icon" className="h-8 w-8">
                 <MoreHorizontal className="h-4 w-4" />
              </Button>
@@ -146,12 +154,16 @@ export default function ACServicePage() {
         description="Technical staff management, spare parts tracking, and maintenance workflow coordination."
         actions={
           <div className="flex gap-2">
-            <Button variant="outline" className="gap-2">
-              <Calendar className="h-4 w-4" /> Schedule Visit
-            </Button>
-            <Button className="gap-2 shadow-lg shadow-primary/20">
-               <Wrench className="h-4 w-4" /> New Job Order
-            </Button>
+            <ScheduleVisitDialog serviceType="AC Service">
+              <Button variant="outline" className="gap-2">
+                <Calendar className="h-4 w-4" /> Schedule Visit
+              </Button>
+            </ScheduleVisitDialog>
+            <NewJobOrderDialog serviceType="AC">
+              <Button className="gap-2 shadow-lg shadow-primary/20">
+                 <Wrench className="h-4 w-4" /> New Job Order
+              </Button>
+            </NewJobOrderDialog>
           </div>
         }
       />

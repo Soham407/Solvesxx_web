@@ -37,6 +37,7 @@ import {
 import { useVisitors, Visitor } from "@/hooks/useVisitors";
 import { VisitorRegistrationDialog } from "@/components/society/VisitorRegistrationDialog";
 import { VisitorAvatar } from "@/components/society/VisitorAvatar";
+import { FamilyDirectory } from "@/components/visitors/FamilyDirectory";
 
 export default function VisitorManagementPage() {
   const {
@@ -341,9 +342,7 @@ export default function VisitorManagementPage() {
         </TabsContent>
 
         <TabsContent value="residents" className="pt-6">
-          <div className="p-20 text-center border-2 border-dashed rounded-2xl bg-muted/20">
-            <CardDescription>Society Family Database for guard-side verification. Coming soon.</CardDescription>
-          </div>
+          <FamilyDirectory />
         </TabsContent>
       </Tabs>
 

@@ -25,6 +25,7 @@ import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useBehaviorTickets, BehaviorTicket } from "@/hooks/useBehaviorTickets";
 import { useEmployees } from "@/hooks/useEmployees";
+import { SummaryReportsDialog } from "@/components/dialogs/SummaryReportsDialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -217,9 +218,11 @@ export default function BehaviorTicketsPage() {
         description="Formal incident reporting system for tracking employee discipline, rudeness, and duty negligence."
         actions={
           <div className="flex gap-2">
-            <Button variant="outline" className="gap-2">
-               <Filter className="h-4 w-4" /> Summary Reports
-            </Button>
+            <SummaryReportsDialog reportType="tickets">
+              <Button variant="outline" className="gap-2">
+                 <Filter className="h-4 w-4" /> Summary Reports
+              </Button>
+            </SummaryReportsDialog>
             <Button className="gap-2 shadow-lg shadow-critical/20 bg-critical hover:bg-critical/90" onClick={() => setReportDialogOpen(true)}>
               <BadgeAlert className="h-4 w-4" /> Raise Incident
             </Button>
