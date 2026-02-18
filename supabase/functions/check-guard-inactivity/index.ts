@@ -6,14 +6,11 @@
 // Deployment:
 //   supabase functions deploy check-guard-inactivity
 //   supabase secrets set CRON_SECRET=your-secret-here
-//
-// Schedule (every 5 minutes):
-//   Use pg_cron or external scheduler with header: x-cron-secret: <CRON_SECRET>
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') || '',
+  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
 };
 
@@ -23,6 +20,7 @@ interface InactivityResult {
   minutes_inactive: number;
   alert_created: boolean;
   error_message: string | null;
+  supervisor_id?: string; // If the RPC returns this
 }
 
 /**
@@ -58,7 +56,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Get environment variables
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 
@@ -69,7 +66,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Create Supabase client with service role key
     const supabase = createClient(supabaseUrl, supabaseKey, {
       auth: {
         persistSession: false,
@@ -82,58 +78,88 @@ Deno.serve(async (req) => {
     const thresholdParam = url.searchParams.get('threshold');
     const thresholdMinutes = thresholdParam ? parseInt(thresholdParam, 10) : 15;
 
-    // Validate threshold
-    if (isNaN(thresholdMinutes) || thresholdMinutes < 1 || thresholdMinutes > 120) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid threshold. Must be between 1 and 120 minutes.', results: [] }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     console.log(`[check-guard-inactivity] Starting detection with threshold: ${thresholdMinutes} minutes`);
 
     // Call the SQL function to detect inactive guards
-    const { data, error } = await supabase.rpc('detect_inactive_guards', {
+    const { data: results, error } = await supabase.rpc('detect_inactive_guards', {
       p_threshold_minutes: thresholdMinutes
     });
 
     if (error) {
       console.error('[check-guard-inactivity] Error calling detect_inactive_guards:', error);
-      return new Response(
-        JSON.stringify({ error: 'Failed to detect inactive guards', results: [] }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      throw error;
     }
 
-    const results: InactivityResult[] = data || [];
+    const inactiveGuards: InactivityResult[] = results || [];
+    const alertsCreated = inactiveGuards.filter(r => r.alert_created);
+
+    const notificationsSent = [];
+    const notificationErrors = [];
+
+    // Trigger Notifications for created alerts
+    if (alertsCreated.length > 0) {
+      // Fetch Supervisors or Admin to notify
+      // Since we don't know exactly who to notify per guard yet (no hierarchy in this context),
+      // we'll fetch 'facility_manager' or 'admin' users.
+      // Optimally, we'd look up the guard's supervisor.
+      
+      const { data: supervisors } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .in('role', ['admin', 'security_supervisor', 'facility_manager']);
+
+      const supervisorIds = supervisors?.map(s => s.user_id) || [];
+      const distinctSupervisorIds = [...new Set(supervisorIds)];
+
+      if (distinctSupervisorIds.length > 0) {
+          for (const alert of alertsCreated) {
+              for (const supervisorId of distinctSupervisorIds) {
+                  const { error: notifyErr } = await supabase.functions.invoke('send-notification', {
+                      body: {
+                          user_id: supervisorId,
+                          title: "Guard Inactivity Alert",
+                          body: `Guard ${alert.guard_name} has been inactive for ${alert.minutes_inactive} minutes.`,
+                          channel: 'both', // Critical - send SMS + Push
+                          data: { 
+                              type: 'inactivity', 
+                              guard_id: alert.guard_id 
+                          }
+                      }
+                  });
+
+                  if (notifyErr) {
+                      console.error(`[check-guard-inactivity] Failed notification to ${supervisorId}:`, notifyErr);
+                      notificationErrors.push({ supervisorId, error: notifyErr });
+                  } else {
+                      notificationsSent.push({ supervisorId, guardId: alert.guard_id });
+                  }
+              }
+          }
+      } else {
+          console.warn('[check-guard-inactivity] No supervisors found to notify.');
+      }
+    }
 
     // Log summary
-    const inactiveCount = results.length;
-    const alertsCreated = results.filter(r => r.alert_created).length;
+    console.log(`[check-guard-inactivity] Complete: ${inactiveGuards.length} inactive, ${alertsCreated.length} alerts, ${notificationsSent.length} notifications.`);
 
-    console.log(`[check-guard-inactivity] Detection complete: ${inactiveCount} inactive guards found, ${alertsCreated} alerts created`);
-
-    // Return success response
     return new Response(
       JSON.stringify({
         success: true,
-        timestamp: new Date().toISOString(),
-        threshold_minutes: thresholdMinutes,
         summary: {
-          total_inactive: inactiveCount,
-          alerts_created: alertsCreated,
-          checked_guards: results.length
+          total_inactive: inactiveGuards.length,
+          alerts_created: alertsCreated.length,
+          notifications_sent: notificationsSent.length
         },
-        results: results
+        results: inactiveGuards
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (err) {
+  } catch (err: any) {
     console.error('[check-guard-inactivity] Unexpected error:', err);
-
     return new Response(
-      JSON.stringify({ error: 'Internal server error', results: [] }),
+      JSON.stringify({ error: err.message, results: [] }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

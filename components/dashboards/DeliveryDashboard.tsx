@@ -113,6 +113,8 @@ export function DeliveryDashboard() {
         poId: selectedPOId,
         vehicleNumber: vehicleNumber.trim().toUpperCase(),
         arrivalPhotoUrl: photoUrl,
+        gateLocation: gateLocation.trim(),
+        notes: notes.trim(),
       });
 
       if (result) {

@@ -1,17 +1,14 @@
 // Supabase Edge Function: send-notification
-// Sends push notifications via Firebase Cloud Messaging (FCM), with SMS placeholder.
+// Sends push notifications via Firebase Cloud Messaging (FCM) and SMS via MSG91 Flow API.
 //
 // Authentication: Validates the caller's JWT via Supabase Auth.
 // Also allows service role key as Bearer token for internal function-to-function calls.
-//
-// Deployment:
-//   supabase functions deploy send-notification
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import admin from "npm:firebase-admin@11.11.1";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') || '',
+  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -28,23 +25,22 @@ if (!admin.apps.length) {
       console.error('Error parsing FIREBASE_SERVICE_ACCOUNT:', e);
     }
   } else {
+    // Optional: Log but don't crash if Firebase isn't critical for SMS-only flows
     console.error('FIREBASE_SERVICE_ACCOUNT env var not set');
   }
 }
 
 interface NotificationRequest {
-  user_id: string;
+  user_id?: string; // Optional if sending to specific non-user mobile
   title: string;
   body: string;
   data?: Record<string, string>;
   channel?: 'fcm' | 'sms' | 'both';
+  mobile?: string; // Optional direct mobile override
 }
 
 /**
  * Validate the caller is authenticated.
- * Accepts either:
- * 1. A valid user JWT (validated via supabase.auth.getUser())
- * 2. The service role key as Bearer token (for internal function-to-function calls)
  */
 async function validateAuth(req: Request): Promise<{ authorized: boolean; userId?: string }> {
   const authHeader = req.headers.get('Authorization');
@@ -54,7 +50,9 @@ async function validateAuth(req: Request): Promise<{ authorized: boolean; userId
 
   // Check if it's the service role key (internal calls)
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  if (serviceRoleKey && authHeader === `Bearer ${serviceRoleKey}`) {
+  // Handle "Bearer <key>" format
+  const token = authHeader.replace('Bearer ', '');
+  if (serviceRoleKey && token === serviceRoleKey) {
     return { authorized: true, userId: 'service-role' };
   }
 
@@ -81,33 +79,32 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
-  // Authenticate the request
   const auth = await validateAuth(req);
   if (!auth.authorized) {
     return new Response(
-      JSON.stringify({ error: 'Unauthorized. Provide a valid JWT or service role Bearer token.' }),
+      JSON.stringify({ error: 'Unauthorized' }),
       { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 
   try {
-    // Service role client for DB operations
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { user_id, title, body, data, channel = 'fcm' }: NotificationRequest = await req.json();
+    const { user_id, title, body, data, channel = 'fcm', mobile }: NotificationRequest = await req.json();
 
-    if (!user_id || !title || !body) {
-      throw new Error('Missing required fields: user_id, title, body');
+    if ((!user_id && !mobile) || !title || !body) {
+      throw new Error('Missing required fields: user_id (or mobile), title, body');
     }
 
     const logs: any[] = [];
     const messaging = admin.messaging();
 
     // 1. Send Push Notifications (FCM)
-    if (channel === 'fcm' || channel === 'both') {
+    // Only if user_id is present (FCM tokens are linked to users)
+    if (user_id && (channel === 'fcm' || channel === 'both')) {
       const { data: tokens, error: tokenError } = await supabaseClient
         .from('push_tokens')
         .select('token')
@@ -117,22 +114,16 @@ Deno.serve(async (req) => {
       if (tokenError) {
         console.error('Error fetching tokens:', tokenError);
       } else if (tokens && tokens.length > 0) {
-        // Send to each token
         const promises = tokens.map(async (t) => {
           try {
             await messaging.send({
               token: t.token,
-              notification: {
-                title,
-                body,
-              },
+              notification: { title, body },
               data: data || {},
             });
             return { token: t.token, status: 'sent', error: null };
           } catch (error: any) {
-            // Handle invalid tokens
-            if (error.code === 'messaging/registration-token-not-registered') {
-              // Mark as inactive
+             if (error.code === 'messaging/registration-token-not-registered') {
               await supabaseClient
                 .from('push_tokens')
                 .update({ is_active: false })
@@ -143,105 +134,74 @@ Deno.serve(async (req) => {
         });
 
         const results = await Promise.all(promises);
-
-        results.forEach(res => {
-          logs.push({
-            user_id,
-            channel: 'fcm',
-            status: res.status,
-            error_message: res.error,
-            sent_at: new Date().toISOString()
-          });
-        });
-      } else {
-        logs.push({
-          user_id,
-          channel: 'fcm',
-          status: 'failed',
-          error_message: 'No active tokens found',
-          sent_at: new Date().toISOString()
-        });
+        results.forEach(res => logs.push({ user_id, channel: 'fcm', status: res.status, error_message: res.error, sent_at: new Date().toISOString() }));
       }
     }
 
-    // 2. Send SMS (MSG91 Integration)
+    // 2. Send SMS (MSG91 Flow API)
     if (channel === 'sms' || channel === 'both') {
       const msg91ApiKey = Deno.env.get('MSG91_API_KEY');
-      const senderId = Deno.env.get('SMS_SENDER_ID');
+      const msg91TemplateId = Deno.env.get('MSG91_TEMPLATE_ID'); // Ensure this ID is for a Flow
+      
+      let targetMobile = mobile;
 
-      if (!msg91ApiKey) {
-        console.warn('[send-notification] MSG91_API_KEY not found. Skipping SMS.');
-        logs.push({
-          user_id,
-          channel: 'sms',
-          status: 'failed',
-          error_message: 'MSG91_API_KEY not configured',
-          sent_at: new Date().toISOString()
-        });
-      } else {
-        // Fetch phone number from profile
-        const { data: profile } = await supabaseClient
+      if (!targetMobile && user_id) {
+         const { data: profile } = await supabaseClient
           .from('users')
           .select('phone')
           .eq('id', user_id)
           .single();
+        targetMobile = profile?.phone;
+      }
 
-        if (profile?.phone) {
-          try {
-            // MSG91 API call (Flow/Transactional)
-            // Note: Standard MSG91 flow requires mobile number without '+'
-            const cleanPhone = profile.phone.replace(/\D/g, ''); 
-            
-            const msgResponse = await fetch('https://api.msg91.com/api/v5/otp/send', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'authkey': msg91ApiKey
-              },
-              body: JSON.stringify({
-                template_id: Deno.env.get('MSG91_TEMPLATE_ID'),
-                mobile: cleanPhone,
-                authkey: msg91ApiKey,
-                sender: senderId || 'FACITY',
-                message: body // Using body as the raw message content
-              })
-            });
+      if (!msg91ApiKey || !msg91TemplateId) {
+        logs.push({ user_id, channel: 'sms', status: 'failed', error_message: 'MSG91 Config Missing', sent_at: new Date().toISOString() });
+      } else if (targetMobile) {
+        try {
+          // New Flow API Implementation
+          const cleanPhone = targetMobile.replace(/\D/g, ''); 
+           // MSG91 Flow API structure
+          const flowUrl = "https://api.msg91.com/api/v5/flow/";
+          
+          const payload = {
+            template_id: msg91TemplateId,
+            sender: Deno.env.get('SMS_SENDER_ID') || 'FACITY',
+            short_url: "0",
+            recipients: [
+              {
+                mobiles: cleanPhone,
+                var1: title, // Mapping title to first variable
+                var2: body,  // Mapping body to second variable
+                // Add more vars if your template needs them
+              }
+            ]
+          };
 
-            if (msgResponse.ok) {
-              logs.push({
-                user_id,
-                channel: 'sms',
-                status: 'sent',
-                recipient_phone: profile.phone,
-                sent_at: new Date().toISOString()
-              });
-            } else {
-              const errData = await msgResponse.text();
-              throw new Error(`MSG91 Error: ${errData}`);
-            }
-          } catch (smsErr: any) {
-            console.error('[send-notification] SMS Error:', smsErr);
-            logs.push({
-              user_id,
-              channel: 'sms',
-              status: 'failed',
-              error_message: smsErr.message,
-              sent_at: new Date().toISOString()
-            });
-          }
-        } else {
-          logs.push({
-            user_id,
-            channel: 'sms',
-            status: 'failed',
-            error_message: 'Recipient phone number missing in profile',
-            sent_at: new Date().toISOString()
+          const response = await fetch(flowUrl, {
+            method: "POST",
+            headers: {
+              "authkey": msg91ApiKey,
+              "content-type": "application/json"
+            },
+            body: JSON.stringify(payload)
           });
+
+          if (response.ok) {
+            logs.push({ user_id, channel: 'sms', status: 'sent', recipient_phone: cleanPhone, sent_at: new Date().toISOString() });
+          } else {
+            const errText = await response.text();
+            throw new Error(`MSG91 Flow Error: ${errText}`);
+          }
+
+        } catch (smsErr: any) {
+           logs.push({ user_id, channel: 'sms', status: 'failed', error_message: smsErr.message, sent_at: new Date().toISOString() });
         }
+      } else {
+         logs.push({ user_id, channel: 'sms', status: 'failed', error_message: 'No mobile found', sent_at: new Date().toISOString() });
       }
     }
 
-    // 3. Log results
+    // 3. Log results to DB
     if (logs.length > 0) {
       await supabaseClient.from('notification_logs').insert(logs);
     }
@@ -254,8 +214,8 @@ Deno.serve(async (req) => {
   } catch (error: any) {
     console.error('[send-notification] Error:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ error: error.message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

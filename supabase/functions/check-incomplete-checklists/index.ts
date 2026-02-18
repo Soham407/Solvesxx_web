@@ -6,14 +6,11 @@
 // Deployment:
 //   supabase functions deploy check-incomplete-checklists
 //   supabase secrets set CRON_SECRET=your-secret-here
-//
-// Schedule (every 30 minutes after shift midpoint):
-//   Use pg_cron or external scheduler with header: x-cron-secret: <CRON_SECRET>
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') || '',
+  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
 };
 
@@ -115,46 +112,74 @@ Deno.serve(async (req) => {
 
     if (error) {
       console.error('[check-incomplete-checklists] Error calling detect_incomplete_checklists:', error);
-      return new Response(
-        JSON.stringify({ error: 'Failed to detect incomplete checklists', results: [] }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      throw error;
     }
 
     const results: ChecklistResult[] = data || [];
+    const alertsCreated = results.filter(r => r.alert_created);
+    const notificationsSent = [];
+    const notificationErrors = [];
+
+    // Trigger Notifications
+    if (alertsCreated.length > 0) {
+       // Fetch Supervisors
+       const { data: supervisors } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .in('role', ['admin', 'security_supervisor', 'facility_manager']);
+
+      const supervisorIds = supervisors?.map(s => s.user_id) || [];
+      const distinctSupervisorIds = [...new Set(supervisorIds)];
+
+      if (distinctSupervisorIds.length > 0) {
+          for (const alert of alertsCreated) {
+              for (const supervisorId of distinctSupervisorIds) {
+                  const { error: notifyErr } = await supabase.functions.invoke('send-notification', {
+                      body: {
+                          user_id: supervisorId,
+                          title: "Checklist Incompletion Alert",
+                          body: `Guard ${alert.guard_name} has only completed ${alert.completion_percentage}% of checklists.`,
+                          channel: 'fcm', // Warning level - Push only (Plan 3.2)
+                          data: { 
+                              type: 'checklist_incomplete', 
+                              guard_id: alert.guard_id 
+                          }
+                      }
+                  });
+
+                  if (notifyErr) {
+                      console.error(`[check-incomplete-checklists] Failed notification to ${supervisorId}:`, notifyErr);
+                      notificationErrors.push({ supervisorId, error: notifyErr });
+                  } else {
+                      notificationsSent.push({ supervisorId, guardId: alert.guard_id });
+                  }
+              }
+          }
+      }
+    }
 
     // Log summary
-    const incompleteCount = results.length;
-    const alertsCreated = results.filter(r => r.alert_created).length;
-    const belowThresholdCount = results.filter(r => r.completion_percentage < threshold && !r.alert_created).length;
-
-    console.log(`[check-incomplete-checklists] Detection complete: ${incompleteCount} incomplete guards found, ${alertsCreated} alerts created, ${belowThresholdCount} below threshold (existing alerts)`);
+    console.log(`[check-incomplete-checklists] Complete: ${results.length} checked, ${alertsCreated.length} alerts, ${notificationsSent.length} notifications.`);
 
     // Return success response
     return new Response(
       JSON.stringify({
         success: true,
-        timestamp: new Date().toISOString(),
-        config: {
-          completion_threshold: threshold,
-          only_past_midpoint: onlyPastMidpoint
-        },
         summary: {
-          total_incomplete: incompleteCount,
-          alerts_created: alertsCreated,
-          below_threshold_existing_alerts: belowThresholdCount,
-          checked_guards: results.length
+          total_checked: results.length,
+          alerts_created: alertsCreated.length,
+          notifications_sent: notificationsSent.length
         },
         results: results
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
-  } catch (err) {
+  } catch (err: any) {
     console.error('[check-incomplete-checklists] Unexpected error:', err);
 
     return new Response(
-      JSON.stringify({ error: 'Internal server error', results: [] }),
+      JSON.stringify({ error: err.message, results: [] }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

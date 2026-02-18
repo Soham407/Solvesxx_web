@@ -25,6 +25,8 @@ export interface ArrivalLog {
   // Joined data
   logged_by_name?: string;
   po_number?: string;
+  gate_location?: string;
+  notes?: string;
 }
 
 export function useDeliveryLogs() {
@@ -45,6 +47,8 @@ export function useDeliveryLogs() {
           p_photo_url: params.arrivalPhotoUrl,
           p_signature_url: params.arrivalSignatureUrl || null,
           p_vehicle_number: params.vehicleNumber || null,
+          p_gate_location: params.gateLocation || null,
+          p_notes: params.notes || null,
         },
       );
 
