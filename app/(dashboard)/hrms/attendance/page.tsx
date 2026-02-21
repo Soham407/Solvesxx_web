@@ -151,8 +151,8 @@ export default function AttendancePage() {
         .limit(1)
         .single();
       
-      const currentSiteLat = locationData?.latitude ? parseFloat(locationData.latitude) : SITE_LOCATION.lat;
-      const currentSiteLng = locationData?.longitude ? parseFloat(locationData.longitude) : SITE_LOCATION.lng;
+      const currentSiteLat = locationData?.latitude ? Number(locationData.latitude) : SITE_LOCATION.lat;
+      const currentSiteLng = locationData?.longitude ? Number(locationData.longitude) : SITE_LOCATION.lng;
 
       // Transform data
       const records: AttendanceRecord[] = (attendanceData || []).map((log: any) => {

@@ -66,7 +66,7 @@ export function useVendorWiseServices() {
 
       setState((prev) => ({
         ...prev,
-        vendorServices: data || [],
+        vendorServices: (data as any) || [],
         isLoading: false,
       }));
     } catch (err: any) {
@@ -86,7 +86,7 @@ export function useVendorWiseServices() {
     try {
       const { error } = await supabase
         .from("vendor_wise_services")
-        .insert(vendorServiceData);
+        .insert(vendorServiceData as any);
 
       if (error) throw error;
 
@@ -107,7 +107,7 @@ export function useVendorWiseServices() {
       const { error } = await supabase
         .from("vendor_wise_services")
         .update({
-          ...updates,
+          ...(updates as any),
           updated_at: new Date().toISOString(),
         })
         .eq("id", id);

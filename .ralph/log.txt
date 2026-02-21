@@ -1,9 +1,0 @@
-[2026-02-18T14:13:15.547509] Ralph loop initialized
-[2026-02-18T14:13:15.547968] Executing: opencode --message 
-## Current Task (Iteration 2)
-
-Implement missing business logic and evidence capture across these modules: 1. AC Services: Add 'Before/After' photo upload logic to the camera button in the jobs table using Supabase storage. 2. PPE Checklist: In app/(dashboard)/services/pest-control/page.tsx, make the 'Submit Site Readiness' button write verified items to the DB. 3. Buyer Feedback: Implement a simple Rating/Feedback mechanism for the Buyer portal to trigger after an invoice is marked as paid. 4. Notifications: Wire the Leave Approval action in HRMS and the Panic Alert trigger to call the 'send-notification' Edge Function (SMS/Push). 5. SPO Flow: Create a basic 'Service Purchase Order' (SPO) schema/view for staffing deployments, distinct from material POs. When logic is verified and handlers are attached, output 'PHASE_2_WORKFLOWS_COMPLETE'.
-
-
-When you have fully completed this task, include 'PHASE_2_WORKFLOWS_COMPLETE' in your response.
-If not complete, continue working and describe what you've done and what remains.

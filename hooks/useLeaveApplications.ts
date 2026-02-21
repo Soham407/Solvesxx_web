@@ -206,7 +206,7 @@ export function useLeaveApplications(employeeId?: string) {
           const { data: emp } = await supabase
             .from('employees')
             .select('id')
-            .eq('user_id', user.id)
+            .eq('user_id', String(user.id))
             .single();
           if (emp) empId = emp.id;
         }
@@ -261,7 +261,7 @@ export function useLeaveApplications(employeeId?: string) {
         const { data: emp } = await supabase
           .from('employees')
           .select('id')
-          .eq('user_id', user.id)
+          .eq('user_id', String(user.id))
           .single();
         if (emp) approverId = emp.id;
       }

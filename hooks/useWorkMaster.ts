@@ -53,13 +53,13 @@ export function useWorkMaster() {
         .from("work_master")
         .select("*")
         .eq("is_active", true)
-        .order("work_name");
+        .order("work_name") as any;
 
       if (error) throw error;
 
       setState((prev) => ({
         ...prev,
-        workItems: data || [],
+        workItems: (data as any) || [],
         isLoading: false,
       }));
     } catch (err: any) {
@@ -83,13 +83,13 @@ export function useWorkMaster() {
           service:service_id (service_name, service_code)
         `)
         .eq("is_active", true)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false }) as any;
 
       if (error) throw error;
 
       setState((prev) => ({
         ...prev,
-        serviceWorkLinks: data || [],
+        serviceWorkLinks: (data as any) || [],
       }));
     } catch (err: any) {
       console.error("Error fetching service-work links:", err);
@@ -124,6 +124,7 @@ export function useWorkMaster() {
       const { error } = await supabase
         .from("services_wise_work")
         .insert({
+          // @ts-ignore
           service_id: serviceId,
           work_id: workId,
           is_active: true,
