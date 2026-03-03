@@ -184,8 +184,7 @@ export function useGRN(filters?: { status?: GRNStatus; poId?: string; supplierId
             po_number
           ),
           suppliers!supplier_id (
-            supplier_name,
-            supplier_code
+            supplier_name
           ),
           warehouses!warehouse_id (
             warehouse_name

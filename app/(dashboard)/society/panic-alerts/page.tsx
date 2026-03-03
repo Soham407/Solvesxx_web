@@ -128,12 +128,12 @@ export default function PanicAlertsPage() {
       />
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3 items-center">
+      <div className="flex flex-col sm:flex-row flex-wrap gap-3 items-stretch sm:items-center">
         <Select 
           value={filters.status || "all"} 
           onValueChange={(val) => setFilters({ ...filters, status: val as "active" | "resolved" | "all" })}
         >
-          <SelectTrigger className="w-[140px]">
+          <SelectTrigger className="w-full sm:w-[140px]">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
@@ -147,7 +147,7 @@ export default function PanicAlertsPage() {
           value={filters.type || "all"} 
           onValueChange={(val) => setFilters({ ...filters, type: val === "all" ? undefined : val as AlertType })}
         >
-          <SelectTrigger className="w-[160px]">
+          <SelectTrigger className="w-full sm:w-[160px]">
             <SelectValue placeholder="Alert Type" />
           </SelectTrigger>
           <SelectContent>
@@ -159,7 +159,7 @@ export default function PanicAlertsPage() {
           </SelectContent>
         </Select>
 
-        <Button variant="outline" size="sm" onClick={refresh} className="gap-2">
+        <Button variant="outline" size="sm" onClick={refresh} className="gap-2 w-full sm:w-auto">
           <RefreshCw className="h-4 w-4" /> Refresh
         </Button>
       </div>

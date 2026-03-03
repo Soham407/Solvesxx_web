@@ -248,12 +248,12 @@ export default function VisitorManagementPage() {
         title="Visitor Management"
         description="Monitor real-time visitor movement and guest credentials for the society."
         actions={
-          <div className="flex gap-2">
-            <Button variant="outline" className="gap-2" onClick={refresh}>
+          <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+            <Button variant="outline" className="flex-1 sm:flex-none gap-2" onClick={refresh}>
               <History className="h-4 w-4" /> Movement Logs
             </Button>
             <Button 
-                className="gap-2 shadow-lg shadow-primary/20"
+                className="flex-1 sm:flex-none gap-2 shadow-lg shadow-primary/20"
                 onClick={() => setIsRegistrationOpen(true)}
             >
               <UserPlus className="h-4 w-4" /> Quick Entry

@@ -117,12 +117,12 @@ export default function EmergencyDirectoryPage() {
         ))}
       </div>
 
-      <div className="flex items-center gap-4 py-2">
-          <div className="relative flex-1 max-w-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4 py-2">
+          <div className="relative flex-1 w-full sm:max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input placeholder="Search services..." className="pl-10 h-10 border-none shadow-premium ring-1 ring-border focus-visible:ring-primary/20" />
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
               <Badge variant="outline" className="px-3 py-1 cursor-pointer hover:bg-muted border-none bg-muted/50 font-bold">All</Badge>
               <Badge variant="outline" className="px-3 py-1 cursor-pointer hover:bg-muted border-none font-bold">Healthcare</Badge>
               <Badge variant="outline" className="px-3 py-1 cursor-pointer hover:bg-muted border-none font-bold">Government</Badge>

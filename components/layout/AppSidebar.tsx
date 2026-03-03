@@ -213,6 +213,11 @@ const navigation: NavGroup[] = [
           { title: "Resource Consumption", href: "/reports/inventory" },
         ],
       },
+    ],
+  },
+  {
+    title: "Support & Tickets",
+    items: [
       {
         title: "Quality Tickets",
         href: "/tickets",

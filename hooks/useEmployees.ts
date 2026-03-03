@@ -11,7 +11,6 @@ interface Employee {
   full_name: string | null;
   email: string | null;
   phone: string | null;
-  role: string | null;
   department: string | null;
   designation_id: string | null;
   is_active: boolean;
@@ -55,7 +54,6 @@ export function useEmployees(): UseEmployeesReturn {
           last_name,
           email,
           phone,
-          role,
           department,
           designation_id,
           is_active,

@@ -35,6 +35,12 @@ export const ROLE_ACCESS: Record<AppRole, string[]> = {
 
 export function hasAccess(role: AppRole, pathname: string): boolean {
   if (role === "admin") return true;
+
+  // Explicitly restrict guards from resident-specific portals
+  if ((role === "security_guard" || role === "security_supervisor") && pathname.startsWith("/society/my-flat")) {
+    return false;
+  }
+
   const prefixes = ROLE_ACCESS[role];
   if (!prefixes) return false;
   

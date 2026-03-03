@@ -24,7 +24,7 @@ export function PageHeader({
 
   return (
     <div className={cn("space-y-4 mb-8", className)}>
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           {backHref && (
             <Button
@@ -45,7 +45,7 @@ export function PageHeader({
             )}
           </div>
         </div>
-        {actions && <div className="flex items-center gap-3">{actions}</div>}
+        {actions && <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto max-w-full">{actions}</div>}
       </div>
       {children}
     </div>

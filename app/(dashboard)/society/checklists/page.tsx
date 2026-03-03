@@ -260,7 +260,7 @@ export default function ChecklistsPage() {
         title="Daily Operational Checklists"
         description="Monitor verification tasks, utility logs, and facility maintenance routines."
         actions={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button 
               variant="outline" 
               className="gap-2"
