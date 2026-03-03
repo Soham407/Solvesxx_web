@@ -21,7 +21,7 @@
 
 ### 1. Smart Attendance — `hrms/attendance/page.tsx`
 **PRD Requirement:** Selfie attendance with GPS geo-fencing, auto-punch out, real-time check-in.  
-**What's Wrong:**
+**What's Wrong:**V
 - Page uses **hardcoded static mock data** (`const data: AttendanceRecord[] = [...]`) with 4 fake employees.
 - The `useAttendance` hook (18KB) exists but is **never imported or used** in this page.
 - GPS coordinates on the LiveMap are `Math.random() * 100` — completely fabricated.

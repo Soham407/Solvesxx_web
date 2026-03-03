@@ -9,7 +9,7 @@ import { sanitizeLikeInput } from "@/lib/sanitize";
 /**
  * Visitor Management Hook
  * PRD Reference: Visitor Management System (I-IV)
- * 
+ *
  * Features:
  * - Guest Entry: Capture Name, Photo, Phone Number, Vehicle Number
  * - Daily Visitor Database (Maids, Drivers, Milkmen)
@@ -20,7 +20,12 @@ import { sanitizeLikeInput } from "@/lib/sanitize";
 export interface Visitor {
   id: string;
   visitor_name: string;
-  visitor_type: "guest" | "vendor" | "contractor" | "service_staff" | "daily_helper";
+  visitor_type:
+    | "guest"
+    | "vendor"
+    | "contractor"
+    | "service_staff"
+    | "daily_helper";
   phone: string | null;
   vehicle_number: string | null;
   photo_url: string | null;
@@ -104,7 +109,6 @@ export function useVisitors(initialFilters?: VisitorFilters) {
   });
   const [filters, setFilters] = useState<VisitorFilters>(initialFilters || {});
 
-  // Fetch all visitors with filters
   const fetchVisitors = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -112,18 +116,20 @@ export function useVisitors(initialFilters?: VisitorFilters) {
     try {
       let query = supabase
         .from("visitors")
-        .select(`
+        .select(
+          `
           *,
           flat:flats(
             flat_number,
             building:buildings(building_name)
           ),
           resident:residents(full_name, phone),
-          entry_guard:security_guards(
+          entry_guard:security_guards!visitors_entry_guard_id_fkey(
             guard_code,
             employee:employees(first_name, last_name)
           )
-        `)
+        `,
+        )
         .order("entry_time", { ascending: false });
 
       // Apply filters
@@ -146,7 +152,9 @@ export function useVisitors(initialFilters?: VisitorFilters) {
       }
 
       if (filters.searchTerm) {
-        query = query.or(`visitor_name.ilike.%${sanitizeLikeInput(filters.searchTerm)}%,phone.ilike.%${sanitizeLikeInput(filters.searchTerm)}%`);
+        query = query.or(
+          `visitor_name.ilike.%${sanitizeLikeInput(filters.searchTerm)}%,phone.ilike.%${sanitizeLikeInput(filters.searchTerm)}%`,
+        );
       }
 
       const { data, error: fetchError } = await query;
@@ -161,11 +169,13 @@ export function useVisitors(initialFilters?: VisitorFilters) {
       setActiveVisitors(active);
 
       // Separate daily helpers
-      const helpers = typedData.filter((v) => v.is_frequent_visitor || v.visitor_type === "daily_helper");
+      const helpers = typedData.filter(
+        (v) => v.is_frequent_visitor || v.visitor_type === "daily_helper",
+      );
       setDailyHelpers(helpers);
-
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to load visitors";
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to load visitors";
       console.error("Error fetching visitors:", err);
       setError(errorMessage);
       toast({
@@ -223,15 +233,26 @@ export function useVisitors(initialFilters?: VisitorFilters) {
   // Add new visitor (PRD: Guest Entry)
   const addVisitor = async (visitor: CreateVisitorDTO) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
       // Try to get guard_id if the user is a guard
       let guardId = visitor.entry_guard_id;
       if (!guardId && user) {
         const { data: guardData } = await supabase
           .from("security_guards")
           .select("id")
-          .eq("employee_id", (await supabase.from("employees").select("id").eq("auth_user_id", user.id).single()).data?.id)
+          .eq(
+            "employee_id",
+            (
+              await supabase
+                .from("employees")
+                .select("id")
+                .eq("auth_user_id", user.id)
+                .single()
+            ).data?.id,
+          )
           .single();
         guardId = guardData?.id;
       }
@@ -250,7 +271,10 @@ export function useVisitors(initialFilters?: VisitorFilters) {
           entry_guard_id: guardId,
           entry_location_id: visitor.entry_location_id,
           is_frequent_visitor: visitor.is_frequent_visitor || false,
-          approved_by_resident: (visitor.is_frequent_visitor && !visitor.approval_required) ? true : null, 
+          approved_by_resident:
+            visitor.is_frequent_visitor && !visitor.approval_required
+              ? true
+              : null,
           bypass_reason: visitor.bypass_reason || null,
           entry_time: new Date().toISOString(),
         })
@@ -261,7 +285,7 @@ export function useVisitors(initialFilters?: VisitorFilters) {
 
       toast({
         title: "Visitor Registered",
-        description: data.approved_by_resident 
+        description: data.approved_by_resident
           ? `${visitor.visitor_name} has been checked in (Pre-approved).`
           : `${visitor.visitor_name} has been checked in. Waiting for resident approval.`,
       });
@@ -280,20 +304,23 @@ export function useVisitors(initialFilters?: VisitorFilters) {
           .single();
 
         if (residentData?.auth_user_id) {
-          supabase.functions.invoke('send-notification', {
-            body: {
-              user_id: residentData.auth_user_id,
-              title: "Visitor at the Gate",
-              body: `${visitor.visitor_name} is requesting entry to ${residentData.flats?.[0]?.flat_number || 'your unit'}.`,
-              data: { visitor_id: data.id, type: 'VISITOR_RECEPTION' }
-            }
-          }).catch(err => console.error("Notification trigger failed:", err));
+          supabase.functions
+            .invoke("send-notification", {
+              body: {
+                user_id: residentData.auth_user_id,
+                title: "Visitor at the Gate",
+                body: `${visitor.visitor_name} is requesting entry to ${residentData.flats?.[0]?.flat_number || "your unit"}.`,
+                data: { visitor_id: data.id, type: "VISITOR_RECEPTION" },
+              },
+            })
+            .catch((err) => console.error("Notification trigger failed:", err));
         }
       }
 
       return { success: true, data };
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to add visitor";
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to add visitor";
       console.error("Error adding visitor:", err);
       toast({
         title: "Error",
@@ -307,12 +334,12 @@ export function useVisitors(initialFilters?: VisitorFilters) {
   // Upload visitor photo
   const uploadVisitorPhoto = async (file: File) => {
     try {
-      const fileExt = file.name.split('.').pop();
+      const fileExt = file.name.split(".").pop();
       const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
       const filePath = `entries/${fileName}`;
 
       const { error: uploadError, data } = await supabase.storage
-        .from('visitor-photos')
+        .from("visitor-photos")
         .upload(filePath, file);
 
       if (uploadError) throw uploadError;
@@ -327,16 +354,22 @@ export function useVisitors(initialFilters?: VisitorFilters) {
   // Check out visitor (PRD: Exit logging)
   const checkOutVisitor = async (visitorId: string, exitGuardId?: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
 
-      const { data: result, error: rpcError } = await supabase.rpc('checkout_visitor' as any, {
-        p_visitor_id: visitorId,
-        p_user_id: user.id,
-      });
+      const { data: result, error: rpcError } = await supabase.rpc(
+        "checkout_visitor" as any,
+        {
+          p_visitor_id: visitorId,
+          p_user_id: user.id,
+        },
+      );
       if (rpcError) throw rpcError;
       const rpcResult = result as any;
-      if (!rpcResult?.success) throw new Error(rpcResult?.error || 'Visitor checkout failed');
+      if (!rpcResult?.success)
+        throw new Error(rpcResult?.error || "Visitor checkout failed");
 
       toast({
         title: "Visitor Checked Out",
@@ -349,7 +382,8 @@ export function useVisitors(initialFilters?: VisitorFilters) {
 
       return { success: true };
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to check out visitor";
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to check out visitor";
       console.error("Error checking out visitor:", err);
       toast({
         title: "Error",
@@ -363,16 +397,22 @@ export function useVisitors(initialFilters?: VisitorFilters) {
   // Approve visitor entry (PRD: Notification System approval)
   const approveVisitor = async (visitorId: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
 
-      const { data: result, error: rpcError } = await supabase.rpc('approve_visitor' as any, {
-        p_visitor_id: visitorId,
-        p_user_id: user.id,
-      });
+      const { data: result, error: rpcError } = await supabase.rpc(
+        "approve_visitor" as any,
+        {
+          p_visitor_id: visitorId,
+          p_user_id: user.id,
+        },
+      );
       if (rpcError) throw rpcError;
       const rpcResult = result as any;
-      if (!rpcResult?.success) throw new Error(rpcResult?.error || 'Visitor approval failed');
+      if (!rpcResult?.success)
+        throw new Error(rpcResult?.error || "Visitor approval failed");
 
       toast({
         title: "Entry Approved",
@@ -382,7 +422,8 @@ export function useVisitors(initialFilters?: VisitorFilters) {
       fetchVisitors();
       return { success: true };
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to approve visitor";
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to approve visitor";
       toast({
         title: "Error",
         description: errorMessage,
@@ -395,28 +436,35 @@ export function useVisitors(initialFilters?: VisitorFilters) {
   // Deny visitor entry (PRD: Notification System rejection)
   const denyVisitor = async (visitorId: string, reason: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
 
-      const { data: result, error: rpcError } = await supabase.rpc('deny_visitor' as any, {
-        p_visitor_id: visitorId,
-        p_user_id: user.id,
-        p_reason: reason
-      });
+      const { data: result, error: rpcError } = await supabase.rpc(
+        "deny_visitor" as any,
+        {
+          p_visitor_id: visitorId,
+          p_user_id: user.id,
+          p_reason: reason,
+        },
+      );
       if (rpcError) throw rpcError;
       const rpcResult = result as any;
-      if (!rpcResult?.success) throw new Error(rpcResult?.error || 'Visitor denial failed');
+      if (!rpcResult?.success)
+        throw new Error(rpcResult?.error || "Visitor denial failed");
 
       toast({
         title: "Entry Denied",
         description: "Visitor entry has been denied",
-        variant: "destructive"
+        variant: "destructive",
       });
 
       fetchVisitors();
       return { success: true };
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to deny visitor";
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to deny visitor";
       toast({
         title: "Error",
         description: errorMessage,
@@ -445,7 +493,8 @@ export function useVisitors(initialFilters?: VisitorFilters) {
       fetchVisitors();
       return { success: true, passNumber };
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to issue pass";
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to issue pass";
       toast({
         title: "Error",
         description: errorMessage,
@@ -460,7 +509,9 @@ export function useVisitors(initialFilters?: VisitorFilters) {
     try {
       const { data, error } = await supabase
         .from("visitors")
-        .select("id, visitor_name, visitor_type, photo_url, is_frequent_visitor, approved_by_resident")
+        .select(
+          "id, visitor_name, visitor_type, photo_url, is_frequent_visitor, approved_by_resident",
+        )
         .eq("phone", phone)
         .eq("flat_id", flatId)
         .eq("is_frequent_visitor", true)
@@ -469,8 +520,8 @@ export function useVisitors(initialFilters?: VisitorFilters) {
         .limit(1)
         .single();
 
-      if (error && error.code !== 'PGRST116') throw error;
-      
+      if (error && error.code !== "PGRST116") throw error;
+
       return { success: true, data: data || null };
     } catch (err: unknown) {
       console.error("Error checking frequent visitor:", err);
@@ -489,16 +540,19 @@ export function useVisitors(initialFilters?: VisitorFilters) {
       if (updateError) throw updateError;
 
       toast({
-        title: isFrequent ? "Added to Daily Helpers" : "Removed from Daily Helpers",
-        description: isFrequent 
-          ? "Visitor will be faster to check in next time" 
+        title: isFrequent
+          ? "Added to Daily Helpers"
+          : "Removed from Daily Helpers",
+        description: isFrequent
+          ? "Visitor will be faster to check in next time"
           : "Visitor removed from frequent list",
       });
 
       fetchVisitors();
       return { success: true };
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to update visitor";
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to update visitor";
       toast({
         title: "Error",
         description: errorMessage,
@@ -513,12 +567,14 @@ export function useVisitors(initialFilters?: VisitorFilters) {
     try {
       const { data, error: searchError } = await supabase
         .from("flats")
-        .select(`
+        .select(
+          `
           id,
           flat_number,
           building:buildings(building_name),
           residents(id, full_name, phone, is_primary_contact)
-        `)
+        `,
+        )
         .or(`flat_number.ilike.%${sanitizeLikeInput(searchTerm)}%`)
         .limit(10);
 
@@ -546,7 +602,7 @@ export function useVisitors(initialFilters?: VisitorFilters) {
           // Refresh data when changes occur
           fetchVisitors();
           fetchStats();
-        }
+        },
       )
       .subscribe();
 
@@ -569,7 +625,7 @@ export function useVisitors(initialFilters?: VisitorFilters) {
     stats,
     isLoading,
     error,
-    
+
     // Actions
     addVisitor,
     checkOutVisitor,
@@ -580,11 +636,11 @@ export function useVisitors(initialFilters?: VisitorFilters) {
     uploadVisitorPhoto,
     markAsFrequent,
     searchFlats,
-    
+
     // Filters
     filters,
     setFilters,
-    
+
     // Refresh
     refresh: fetchVisitors,
   };
