@@ -45,14 +45,14 @@ export function useGuardChecklist(employeeId: string | null) {
 
   const fetchChecklist = useCallback(async () => {
     if (!employeeId) {
-      setData(prev => ({ ...prev, isLoading: false }));
+      setData((prev) => ({ ...prev, isLoading: false }));
       return;
     }
 
     try {
       // Get today's date for filtering responses
       const today = new Date();
-      const todayStr = today.toISOString().split('T')[0];
+      const todayStr = today.toISOString().split("T")[0];
 
       // Fetch the security department checklist
       const { data: checklist, error: checklistError } = await supabase
@@ -60,28 +60,34 @@ export function useGuardChecklist(employeeId: string | null) {
         .select("id, checklist_name, questions")
         .eq("department", "security")
         .eq("is_active", true)
-        .single();
+        .maybeSingle();
 
       if (checklistError) {
-        if (checklistError.code === "PGRST116") {
-          // No checklist defined yet
-          setData({
-            items: [],
-            totalItems: 0,
-            completedItems: 0,
-            checklistId: null,
-            checklistName: null,
-            isLoading: false,
-            error: null,
-          });
-          return;
-        }
         throw checklistError;
       }
 
+      if (!checklist) {
+        // No checklist defined yet
+        setData({
+          items: [],
+          totalItems: 0,
+          completedItems: 0,
+          checklistId: null,
+          checklistName: null,
+          isLoading: false,
+          error: null,
+        });
+        return;
+      }
+
       // Parse questions from JSONB
-      const questions = checklist.questions as { id: string; question: string; required?: boolean }[] || [];
-      
+      const questions =
+        (checklist.questions as {
+          id: string;
+          question: string;
+          required?: boolean;
+        }[]) || [];
+
       // Fetch today's response for this employee
       const { data: response, error: responseError } = await supabase
         .from("checklist_responses")
@@ -92,10 +98,18 @@ export function useGuardChecklist(employeeId: string | null) {
         .single();
 
       // Parse responses (might not exist yet)
-      const responses = (response?.responses as Record<string, { completed: boolean; completedAt?: string; photos?: { photo_path: string; timestamp: string }[] }>) || {};
+      const responses =
+        (response?.responses as Record<
+          string,
+          {
+            completed: boolean;
+            completedAt?: string;
+            photos?: { photo_path: string; timestamp: string }[];
+          }
+        >) || {};
 
       // Build items list
-      const items: ChecklistItem[] = questions.map(q => {
+      const items: ChecklistItem[] = questions.map((q) => {
         const responseData = responses[q.id];
         return {
           id: q.id,
@@ -107,7 +121,7 @@ export function useGuardChecklist(employeeId: string | null) {
         };
       });
 
-      const completedItems = items.filter(i => i.status === "done").length;
+      const completedItems = items.filter((i) => i.status === "done").length;
 
       setData({
         items,
@@ -120,7 +134,7 @@ export function useGuardChecklist(employeeId: string | null) {
       });
     } catch (err) {
       console.error("Error fetching checklist:", err);
-      setData(prev => ({
+      setData((prev) => ({
         ...prev,
         isLoading: false,
         error: err instanceof Error ? err.message : "Failed to load checklist",
@@ -129,53 +143,60 @@ export function useGuardChecklist(employeeId: string | null) {
   }, [employeeId]);
 
   // Mark a checklist item as complete
-  const completeItem = useCallback(async (itemId: string, coords?: { latitude: number; longitude: number }) => {
-    if (!employeeId || !data.checklistId) return { success: false, error: "Not ready" };
+  const completeItem = useCallback(
+    async (
+      itemId: string,
+      coords?: { latitude: number; longitude: number },
+    ) => {
+      if (!employeeId || !data.checklistId)
+        return { success: false, error: "Not ready" };
 
-    const item = data.items.find(i => i.id === itemId);
-    if (item?.required && (!item.photos || item.photos.length === 0)) {
-      return { success: false, error: "Photo evidence is required for this task" };
-    }
+      const item = data.items.find((i) => i.id === itemId);
+      if (item?.required && (!item.photos || item.photos.length === 0)) {
+        return {
+          success: false,
+          error: "Photo evidence is required for this task",
+        };
+      }
 
-    try {
-      const todayStr = new Date().toISOString().split('T')[0];
-      const now = new Date().toISOString();
+      try {
+        const todayStr = new Date().toISOString().split("T")[0];
+        const now = new Date().toISOString();
 
-      // Get existing response or create new
-      const { data: existing } = await supabase
-        .from("checklist_responses")
-        .select("id, responses")
-        .eq("checklist_id", data.checklistId)
-        .eq("employee_id", employeeId)
-        .eq("response_date", todayStr)
-        .single();
-
-      const existingResponses = (existing?.responses as Record<string, any>) || {};
-      const taskData = existingResponses[itemId] || { completed: false };
-      const updatedResponses = {
-        ...existingResponses,
-        [itemId]: { 
-          ...taskData, 
-          completed: true, 
-          completedAt: now,
-          latitude: coords?.latitude,
-          longitude: coords?.longitude
-        },
-      };
-
-      if (existing) {
-        // Update existing response
-        const { error } = await supabase
+        // Get existing response or create new
+        const { data: existing } = await supabase
           .from("checklist_responses")
-          .update({ responses: updatedResponses })
-          .eq("id", existing.id);
+          .select("id, responses")
+          .eq("checklist_id", data.checklistId)
+          .eq("employee_id", employeeId)
+          .eq("response_date", todayStr)
+          .single();
 
-        if (error) throw error;
-      } else {
-        // Create new response
-        const { error } = await supabase
-          .from("checklist_responses")
-          .insert({
+        const existingResponses =
+          (existing?.responses as Record<string, any>) || {};
+        const taskData = existingResponses[itemId] || { completed: false };
+        const updatedResponses = {
+          ...existingResponses,
+          [itemId]: {
+            ...taskData,
+            completed: true,
+            completedAt: now,
+            latitude: coords?.latitude,
+            longitude: coords?.longitude,
+          },
+        };
+
+        if (existing) {
+          // Update existing response
+          const { error } = await supabase
+            .from("checklist_responses")
+            .update({ responses: updatedResponses })
+            .eq("id", existing.id);
+
+          if (error) throw error;
+        } else {
+          // Create new response
+          const { error } = await supabase.from("checklist_responses").insert({
             checklist_id: data.checklistId,
             employee_id: employeeId,
             response_date: todayStr,
@@ -185,72 +206,84 @@ export function useGuardChecklist(employeeId: string | null) {
             is_complete: false,
           });
 
-        if (error) throw error;
-      }
+          if (error) throw error;
+        }
 
-      // Refresh data
-      await fetchChecklist();
-      return { success: true };
-    } catch (err) {
-      console.error("Error completing checklist item:", err);
-      return { success: false, error: err instanceof Error ? err.message : "Failed to save" };
-    }
-  }, [employeeId, data.checklistId, fetchChecklist]);
+        // Refresh data
+        await fetchChecklist();
+        return { success: true };
+      } catch (err) {
+        console.error("Error completing checklist item:", err);
+        return {
+          success: false,
+          error: err instanceof Error ? err.message : "Failed to save",
+        };
+      }
+    },
+    [employeeId, data.checklistId, fetchChecklist],
+  );
 
   // Add an evidence photo to a checklist item
-  const addEvidencePhoto = useCallback(async (itemId: string, photoPath: string) => {
-    if (!employeeId || !data.checklistId) return { success: false, error: "Not ready" };
+  const addEvidencePhoto = useCallback(
+    async (itemId: string, photoPath: string) => {
+      if (!employeeId || !data.checklistId)
+        return { success: false, error: "Not ready" };
 
-    try {
-      const todayStr = new Date().toISOString().split('T')[0];
-      const now = new Date().toISOString();
+      try {
+        const todayStr = new Date().toISOString().split("T")[0];
+        const now = new Date().toISOString();
 
-      // Get existing response
-      const { data: existing } = await supabase
-        .from("checklist_responses")
-        .select("id, responses")
-        .eq("checklist_id", data.checklistId)
-        .eq("employee_id", employeeId)
-        .eq("response_date", todayStr)
-        .single();
-
-      const existingResponses = (existing?.responses as Record<string, any>) || {};
-      const taskData = existingResponses[itemId] || { completed: false };
-      
-      const newPhoto = { photo_path: photoPath, timestamp: now };
-      const updatedPhotos = [...(taskData.photos || []), newPhoto];
-      
-      const updatedResponses = {
-        ...existingResponses,
-        [itemId]: { ...taskData, photos: updatedPhotos },
-      };
-
-      if (existing) {
-        const { error } = await supabase
+        // Get existing response
+        const { data: existing } = await supabase
           .from("checklist_responses")
-          .update({ responses: updatedResponses })
-          .eq("id", existing.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("checklist_responses")
-          .insert({
+          .select("id, responses")
+          .eq("checklist_id", data.checklistId)
+          .eq("employee_id", employeeId)
+          .eq("response_date", todayStr)
+          .single();
+
+        const existingResponses =
+          (existing?.responses as Record<string, any>) || {};
+        const taskData = existingResponses[itemId] || { completed: false };
+
+        const newPhoto = { photo_path: photoPath, timestamp: now };
+        const updatedPhotos = [...(taskData.photos || []), newPhoto];
+
+        const updatedResponses = {
+          ...existingResponses,
+          [itemId]: { ...taskData, photos: updatedPhotos },
+        };
+
+        if (existing) {
+          const { error } = await supabase
+            .from("checklist_responses")
+            .update({ responses: updatedResponses })
+            .eq("id", existing.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from("checklist_responses").insert({
             checklist_id: data.checklistId,
             employee_id: employeeId,
             response_date: todayStr,
             responses: updatedResponses,
             is_complete: false,
           });
-        if (error) throw error;
-      }
+          if (error) throw error;
+        }
 
-      await fetchChecklist();
-      return { success: true };
-    } catch (err) {
-      console.error("Error adding evidence:", err);
-      return { success: false, error: err instanceof Error ? err.message : "Failed to save photo record" };
-    }
-  }, [employeeId, data.checklistId, fetchChecklist]);
+        await fetchChecklist();
+        return { success: true };
+      } catch (err) {
+        console.error("Error adding evidence:", err);
+        return {
+          success: false,
+          error:
+            err instanceof Error ? err.message : "Failed to save photo record",
+        };
+      }
+    },
+    [employeeId, data.checklistId, fetchChecklist],
+  );
 
   useEffect(() => {
     fetchChecklist();
@@ -267,8 +300,12 @@ export function useGuardChecklist(employeeId: string | null) {
 /**
  * Hook to fetch guard's assigned shift information
  */
-export function useGuardShift(employeeId: string | null): ShiftInfo & { isLoading: boolean } {
-  const [shiftInfo, setShiftInfo] = useState<ShiftInfo & { isLoading: boolean }>({
+export function useGuardShift(
+  employeeId: string | null,
+): ShiftInfo & { isLoading: boolean } {
+  const [shiftInfo, setShiftInfo] = useState<
+    ShiftInfo & { isLoading: boolean }
+  >({
     shiftName: "Day Shift",
     startTime: "08:00",
     endTime: "20:00",
@@ -279,24 +316,26 @@ export function useGuardShift(employeeId: string | null): ShiftInfo & { isLoadin
   useEffect(() => {
     async function fetchShift() {
       if (!employeeId) {
-        setShiftInfo(prev => ({ ...prev, isLoading: false }));
+        setShiftInfo((prev) => ({ ...prev, isLoading: false }));
         return;
       }
 
       try {
-        const today = new Date().toISOString().split('T')[0];
+        const today = new Date().toISOString().split("T")[0];
 
         // Fetch current shift assignment for this employee
         const { data: assignment, error: assignmentError } = await supabase
           .from("employee_shift_assignments")
-          .select(`
+          .select(
+            `
             shift:shifts (
               shift_name,
               start_time,
               end_time,
               is_night_shift
             )
-          `)
+          `,
+          )
           .eq("employee_id", employeeId)
           .eq("is_active", true)
           .lte("assigned_from", today)
@@ -315,12 +354,14 @@ export function useGuardShift(employeeId: string | null): ShiftInfo & { isLoadin
           return;
         }
 
-        const shiftsArray = Array.isArray(assignment.shift) ? assignment.shift : [assignment.shift];
+        const shiftsArray = Array.isArray(assignment.shift)
+          ? assignment.shift
+          : [assignment.shift];
         const shift = shiftsArray[0] as any;
-        
+
         if (!shift) {
           // Fallback if somehow shift is missing
-          setShiftInfo(prev => ({ ...prev, isLoading: false }));
+          setShiftInfo((prev) => ({ ...prev, isLoading: false }));
           return;
         }
 

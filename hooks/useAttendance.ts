@@ -41,7 +41,7 @@ function haversineDistance(
   lat1: number,
   lon1: number,
   lat2: number,
-  lon2: number
+  lon2: number,
 ): number {
   const R = 6371000; // Earth's radius in meters
   const dLat = toRadians(lat2 - lat1);
@@ -76,7 +76,10 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
 
   const watchIdRef = useRef<number | null>(null);
   const gpsIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const latestPositionRef = useRef<{ latitude: number; longitude: number } | null>(null);
+  const latestPositionRef = useRef<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
 
   // Fetch gate location from company_locations
   const fetchGateLocation = useCallback(async () => {
@@ -119,10 +122,12 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
       const today = new Date().toISOString().split("T")[0];
       const { data, error } = await supabase
         .from("attendance_logs")
-        .select("check_in_time, check_out_time, check_in_selfie_url, check_in_latitude, check_in_longitude, check_out_latitude, check_out_longitude")
+        .select(
+          "check_in_time, check_out_time, check_in_selfie_url, check_in_latitude, check_in_longitude, check_out_latitude, check_out_longitude",
+        )
         .eq("employee_id", employeeId)
         .eq("log_date", today)
-        .single();
+        .maybeSingle();
 
       if (error && error.code !== "PGRST116") {
         // PGRST116 = no rows found
@@ -132,7 +137,8 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
       setState((prev) => ({
         ...prev,
         todayAttendance: data || null,
-        isClockedIn: data?.check_in_time && !data?.check_out_time ? true : false,
+        isClockedIn:
+          data?.check_in_time && !data?.check_out_time ? true : false,
       }));
     } catch (err: any) {
       console.error("Error fetching attendance:", err);
@@ -159,10 +165,10 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
     watchIdRef.current = navigator.geolocation.watchPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
-        
+
         // Update ref for GPS tracking to avoid stale closures
         latestPositionRef.current = { latitude, longitude };
-        
+
         setState((prev) => {
           if (!prev.gateLocation) {
             return {
@@ -176,7 +182,7 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
             latitude,
             longitude,
             prev.gateLocation.latitude,
-            prev.gateLocation.longitude
+            prev.gateLocation.longitude,
           );
 
           const isWithinRange = distance <= prev.gateLocation.geo_fence_radius;
@@ -210,25 +216,32 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
           isLoading: false,
         }));
       },
-      options
+      options,
     );
   }, []);
 
   // Clock In action with shift enforcement and selfie evidence
-  const clockIn = useCallback(async (selfieUrl?: string): Promise<{ success: boolean; error?: string }> => {
-    if (!employeeId || !state.isWithinRange || !state.gateLocation) {
-      return { success: false, error: "Location requirements not met" };
-    }
+  const clockIn = useCallback(
+    async (
+      selfieUrl?: string,
+    ): Promise<{ success: boolean; error?: string }> => {
+      if (!employeeId || !state.isWithinRange || !state.gateLocation) {
+        return { success: false, error: "Location requirements not met" };
+      }
 
-    if (!selfieUrl) {
-      return { success: false, error: "Selfie capture is mandatory for check-in" };
-    }
+      if (!selfieUrl) {
+        return {
+          success: false,
+          error: "Selfie capture is mandatory for check-in",
+        };
+      }
 
-    try {
-      // Step 1: Check if guard has an active shift assignment
-      const { data: assignmentData, error: assignmentError } = await supabase
-        .from("employee_shift_assignments")
-        .select(`
+      try {
+        // Step 1: Check if guard has an active shift assignment
+        const { data: assignmentData, error: assignmentError } = await supabase
+          .from("employee_shift_assignments")
+          .select(
+            `
           id,
           shift_id,
           shifts (
@@ -239,113 +252,125 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
             grace_time_minutes,
             is_night_shift
           )
-        `)
-        .eq("employee_id", employeeId)
-        .eq("is_active", true)
-        .single();
+        `,
+          )
+          .eq("employee_id", employeeId)
+          .eq("is_active", true)
+          .single();
 
-      if (assignmentError && assignmentError.code !== "PGRST116") {
-        throw assignmentError;
-      }
-
-      // Step 2: If no shift assigned, allow clock-in but log warning
-      let shiftValidation = { isValid: true, message: "" };
-
-      if (assignmentData && assignmentData.shifts) {
-        const shiftsArray = Array.isArray(assignmentData.shifts) ? assignmentData.shifts : [assignmentData.shifts];
-        const shift = shiftsArray[0] as any;
-        
-        if (!shift) return { success: true }; // Should not happen given the if check
-
-        const now = new Date();
-        const currentHours = now.getHours();
-        const currentMinutes = now.getMinutes();
-        const currentTotalMinutes = currentHours * 60 + currentMinutes;
-
-        // Parse shift times (format: "HH:MM:SS")
-        const [startH, startM] = shift.start_time.split(":").map(Number);
-        const [endH, endM] = shift.end_time.split(":").map(Number);
-        const startTotalMinutes = startH * 60 + startM;
-        const endTotalMinutes = endH * 60 + endM;
-        const graceMinutes = shift.grace_time_minutes || 15;
-
-        // Calculate allowed window (shift start - grace to shift end)
-        const earliestClockIn = startTotalMinutes - graceMinutes;
-        const latestClockIn = endTotalMinutes;
-
-        // Handle night shifts that cross midnight
-        const isNightShift = shift.is_night_shift || endTotalMinutes < startTotalMinutes;
-
-        let isWithinShiftWindow = false;
-
-        if (isNightShift) {
-          // Night shift: e.g., 20:00 to 06:00
-          // Valid if: currentTime >= (start - grace) OR currentTime <= end
-          isWithinShiftWindow =
-            currentTotalMinutes >= earliestClockIn ||
-            currentTotalMinutes <= latestClockIn;
-        } else {
-          // Day shift: e.g., 08:00 to 20:00
-          // Valid if: (start - grace) <= currentTime <= end
-          isWithinShiftWindow =
-            currentTotalMinutes >= earliestClockIn &&
-            currentTotalMinutes <= latestClockIn;
+        if (assignmentError && assignmentError.code !== "PGRST116") {
+          throw assignmentError;
         }
 
-        if (!isWithinShiftWindow) {
-          const shiftStartFormatted = `${String(startH).padStart(2, "0")}:${String(startM).padStart(2, "0")}`;
-          const shiftEndFormatted = `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
-          
-          return {
-            success: false,
-            error: `Cannot clock in outside shift hours. Your shift (${shift.shift_name}) is ${shiftStartFormatted} - ${shiftEndFormatted}. Grace period: ${graceMinutes} minutes before shift.`,
+        // Step 2: If no shift assigned, allow clock-in but log warning
+        let shiftValidation = { isValid: true, message: "" };
+
+        if (assignmentData && assignmentData.shifts) {
+          const shiftsArray = Array.isArray(assignmentData.shifts)
+            ? assignmentData.shifts
+            : [assignmentData.shifts];
+          const shift = shiftsArray[0] as any;
+
+          if (!shift) return { success: true }; // Should not happen given the if check
+
+          const now = new Date();
+          const currentHours = now.getHours();
+          const currentMinutes = now.getMinutes();
+          const currentTotalMinutes = currentHours * 60 + currentMinutes;
+
+          // Parse shift times (format: "HH:MM:SS")
+          const [startH, startM] = shift.start_time.split(":").map(Number);
+          const [endH, endM] = shift.end_time.split(":").map(Number);
+          const startTotalMinutes = startH * 60 + startM;
+          const endTotalMinutes = endH * 60 + endM;
+          const graceMinutes = shift.grace_time_minutes || 15;
+
+          // Calculate allowed window (shift start - grace to shift end)
+          const earliestClockIn = startTotalMinutes - graceMinutes;
+          const latestClockIn = endTotalMinutes;
+
+          // Handle night shifts that cross midnight
+          const isNightShift =
+            shift.is_night_shift || endTotalMinutes < startTotalMinutes;
+
+          let isWithinShiftWindow = false;
+
+          if (isNightShift) {
+            // Night shift: e.g., 20:00 to 06:00
+            // Valid if: currentTime >= (start - grace) OR currentTime <= end
+            isWithinShiftWindow =
+              currentTotalMinutes >= earliestClockIn ||
+              currentTotalMinutes <= latestClockIn;
+          } else {
+            // Day shift: e.g., 08:00 to 20:00
+            // Valid if: (start - grace) <= currentTime <= end
+            isWithinShiftWindow =
+              currentTotalMinutes >= earliestClockIn &&
+              currentTotalMinutes <= latestClockIn;
+          }
+
+          if (!isWithinShiftWindow) {
+            const shiftStartFormatted = `${String(startH).padStart(2, "0")}:${String(startM).padStart(2, "0")}`;
+            const shiftEndFormatted = `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
+
+            return {
+              success: false,
+              error: `Cannot clock in outside shift hours. Your shift (${shift.shift_name}) is ${shiftStartFormatted} - ${shiftEndFormatted}. Grace period: ${graceMinutes} minutes before shift.`,
+            };
+          }
+
+          shiftValidation = {
+            isValid: true,
+            message: `Clocking in for ${shift.shift_name}`,
           };
         }
 
-        shiftValidation = {
-          isValid: true,
-          message: `Clocking in for ${shift.shift_name}`,
-        };
-      }
+        // Step 3: Create attendance record
+        const now = new Date();
+        const today = now.toISOString().split("T")[0];
 
-      // Step 3: Create attendance record
-      const now = new Date();
-      const today = now.toISOString().split("T")[0];
-
-      const { error } = await supabase.from("attendance_logs").insert({
-        employee_id: employeeId,
-        log_date: today,
-        check_in_time: now.toISOString(),
-        check_in_location_id: state.gateLocation.id,
-        check_in_latitude: state.currentPosition?.latitude,
-        check_in_longitude: state.currentPosition?.longitude,
-        check_in_selfie_url: selfieUrl,
-        status: "present",
-      });
-
-      if (error) throw error;
-
-      setState((prev) => ({
-        ...prev,
-        isClockedIn: true,
-        todayAttendance: {
+        const { error } = await supabase.from("attendance_logs").insert({
+          employee_id: employeeId,
+          log_date: today,
           check_in_time: now.toISOString(),
-          check_out_time: null,
-          check_in_selfie_url: selfieUrl,
+          check_in_location_id: state.gateLocation.id,
           check_in_latitude: state.currentPosition?.latitude,
           check_in_longitude: state.currentPosition?.longitude,
-        },
-      }));
+          check_in_selfie_url: selfieUrl,
+          status: "present",
+        });
 
-      // GPS tracking will be started by the useEffect watching isClockedIn state
+        if (error) throw error;
 
-      return { success: true };
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to clock in";
-      console.error("Error clocking in:", err);
-      return { success: false, error: errorMessage };
-    }
-  }, [employeeId, state.isWithinRange, state.gateLocation, state.currentPosition]);
+        setState((prev) => ({
+          ...prev,
+          isClockedIn: true,
+          todayAttendance: {
+            check_in_time: now.toISOString(),
+            check_out_time: null,
+            check_in_selfie_url: selfieUrl,
+            check_in_latitude: state.currentPosition?.latitude,
+            check_in_longitude: state.currentPosition?.longitude,
+          },
+        }));
+
+        // GPS tracking will be started by the useEffect watching isClockedIn state
+
+        return { success: true };
+      } catch (err: unknown) {
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to clock in";
+        console.error("Error clocking in:", err);
+        return { success: false, error: errorMessage };
+      }
+    },
+    [
+      employeeId,
+      state.isWithinRange,
+      state.gateLocation,
+      state.currentPosition,
+    ],
+  );
 
   // Clock Out action
   const clockOut = useCallback(async (): Promise<boolean> => {
@@ -399,61 +424,74 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
       console.error("Error clocking out:", err);
       return false;
     }
-  }, [employeeId, state.gateLocation, state.todayAttendance, state.currentPosition]);
+  }, [
+    employeeId,
+    state.gateLocation,
+    state.todayAttendance,
+    state.currentPosition,
+  ]);
 
   // Auto Punch Out action (triggered by system due to geo-fence breach)
-  const autoClockOut = useCallback(async (reason: string): Promise<boolean> => {
-    if (!employeeId || !state.gateLocation) {
-      return false;
-    }
+  const autoClockOut = useCallback(
+    async (reason: string): Promise<boolean> => {
+      if (!employeeId || !state.gateLocation) {
+        return false;
+      }
 
-    try {
-      const now = new Date();
-      const today = now.toISOString().split("T")[0];
+      try {
+        const now = new Date();
+        const today = now.toISOString().split("T")[0];
 
-      // Calculate total hours
-      const checkInTime = state.todayAttendance?.check_in_time
-        ? new Date(state.todayAttendance.check_in_time)
-        : null;
-      const totalHours = checkInTime
-        ? (now.getTime() - checkInTime.getTime()) / (1000 * 60 * 60)
-        : null;
+        // Calculate total hours
+        const checkInTime = state.todayAttendance?.check_in_time
+          ? new Date(state.todayAttendance.check_in_time)
+          : null;
+        const totalHours = checkInTime
+          ? (now.getTime() - checkInTime.getTime()) / (1000 * 60 * 60)
+          : null;
 
-      const { error } = await supabase
-        .from("attendance_logs")
-        .update({
-          check_out_time: now.toISOString(),
-          check_out_location_id: state.gateLocation.id,
-          check_out_latitude: state.currentPosition?.latitude,
-          check_out_longitude: state.currentPosition?.longitude,
-          total_hours: totalHours ? parseFloat(totalHours.toFixed(2)) : null,
-          is_auto_punch_out: true,
-          status: "absent_breach", // Special status for auto-punch
-        })
-        .eq("employee_id", employeeId)
-        .eq("log_date", today);
+        const { error } = await supabase
+          .from("attendance_logs")
+          .update({
+            check_out_time: now.toISOString(),
+            check_out_location_id: state.gateLocation.id,
+            check_out_latitude: state.currentPosition?.latitude,
+            check_out_longitude: state.currentPosition?.longitude,
+            total_hours: totalHours ? parseFloat(totalHours.toFixed(2)) : null,
+            is_auto_punch_out: true,
+            status: "absent_breach", // Special status for auto-punch
+          })
+          .eq("employee_id", employeeId)
+          .eq("log_date", today);
 
-      if (error) throw error;
+        if (error) throw error;
 
-      setState((prev) => ({
-        ...prev,
-        isClockedIn: false,
-        todayAttendance: {
-          ...prev.todayAttendance,
-          check_in_time: prev.todayAttendance?.check_in_time || null,
-          check_out_time: now.toISOString(),
-          check_out_latitude: state.currentPosition?.latitude,
-          check_out_longitude: state.currentPosition?.longitude,
-        },
-      }));
+        setState((prev) => ({
+          ...prev,
+          isClockedIn: false,
+          todayAttendance: {
+            ...prev.todayAttendance,
+            check_in_time: prev.todayAttendance?.check_in_time || null,
+            check_out_time: now.toISOString(),
+            check_out_latitude: state.currentPosition?.latitude,
+            check_out_longitude: state.currentPosition?.longitude,
+          },
+        }));
 
-      stopGpsTracking();
-      return true;
-    } catch (err: any) {
-      console.error("Error in auto clock out:", err);
-      return false;
-    }
-  }, [employeeId, state.gateLocation, state.todayAttendance, state.currentPosition]);
+        stopGpsTracking();
+        return true;
+      } catch (err: any) {
+        console.error("Error in auto clock out:", err);
+        return false;
+      }
+    },
+    [
+      employeeId,
+      state.gateLocation,
+      state.todayAttendance,
+      state.currentPosition,
+    ],
+  );
 
   // Start GPS tracking (every 5 minutes)
   const startGpsTracking = useCallback(() => {
@@ -514,15 +552,15 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
         latitude,
         longitude,
         state.gateLocation.latitude,
-        state.gateLocation.longitude
+        state.gateLocation.longitude,
       );
-      
+
       const isWithinRange = distance <= state.gateLocation.geo_fence_radius;
-      
-      setState(prev => ({
+
+      setState((prev) => ({
         ...prev,
         distance: Math.round(distance),
-        isWithinRange
+        isWithinRange,
       }));
     }
   }, [state.gateLocation]);
@@ -535,7 +573,12 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
     return () => {
       stopGpsTracking();
     };
-  }, [state.isClockedIn, state.currentPosition, startGpsTracking, stopGpsTracking]);
+  }, [
+    state.isClockedIn,
+    state.currentPosition,
+    startGpsTracking,
+    stopGpsTracking,
+  ]);
 
   // Cleanup on unmount
   useEffect(() => {
