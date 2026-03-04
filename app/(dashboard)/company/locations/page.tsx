@@ -1,9 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTable } from "@/components/shared/DataTable";
 import { Button } from "@/components/ui/button";
-import { Plus, MapPin, Navigation, Map as MapIcon, MoreHorizontal, Radio } from "lucide-react";
+import { Plus, MapPin, Navigation, Map as MapIcon, MoreHorizontal, Radio, Loader2, AlertCircle } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -12,27 +13,52 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { supabase } from "@/src/lib/supabaseClient";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface LocationPoint {
   id: string;
-  siteName: string;
-  category: string;
-  trackingRadius: string;
-  gpsCoordinates: string;
-  activeGuards: number;
+  location_code: string;
+  location_name: string;
+  location_type: string;
+  geo_fence_radius: number;
+  latitude: number;
+  longitude: number;
+  is_active: boolean;
 }
 
-const data: LocationPoint[] = [
-  { id: "LOC-01", siteName: "Main Entrance Gate", category: "Entry/Exit", trackingRadius: "50 Meters", gpsCoordinates: "12.9716° N, 77.5946° E", activeGuards: 3 },
-  { id: "LOC-02", siteName: "Tower A Reception", category: "Lobby", trackingRadius: "30 Meters", gpsCoordinates: "12.9719° N, 77.5949° E", activeGuards: 1 },
-  { id: "LOC-03", siteName: "Basement Parking B2", category: "Security Zone", trackingRadius: "100 Meters", gpsCoordinates: "12.9712° N, 77.5941° E", activeGuards: 2 },
-  { id: "LOC-04", siteName: "Clubhouse Perimeter", category: "Amenity", trackingRadius: "150 Meters", gpsCoordinates: "12.9725° N, 77.5955° E", activeGuards: 1 },
-];
-
 export default function LocationsPage() {
+  const [locations, setLocations] = useState<LocationPoint[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchLocations();
+  }, []);
+
+  const fetchLocations = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const { data, error: fetchError } = await supabase
+        .from("company_locations")
+        .select("*")
+        .order("location_name");
+
+      if (fetchError) throw fetchError;
+      setLocations(data || []);
+    } catch (err: any) {
+      console.error("Error fetching locations:", err);
+      setError("Failed to load company locations");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const columns: ColumnDef<LocationPoint>[] = [
     {
-      accessorKey: "siteName",
+      accessorKey: "location_name",
       header: "Site / Point Name",
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
@@ -40,47 +66,54 @@ export default function LocationsPage() {
             <MapPin className="h-4 w-4 text-primary" />
           </div>
           <div className="flex flex-col text-left">
-            <span className="font-bold text-sm ">{row.original.siteName}</span>
-            <span className="text-[10px] text-muted-foreground uppercase font-bold ">{row.original.id}</span>
+            <span className="font-bold text-sm ">{row.original.location_name}</span>
+            <span className="text-[10px] text-muted-foreground uppercase font-bold ">{row.original.location_code}</span>
           </div>
         </div>
       ),
     },
     {
-      accessorKey: "category",
+      accessorKey: "location_type",
       header: "Category",
       cell: ({ row }) => (
         <Badge variant="outline" className="bg-muted/30 border-none font-medium">
-          {row.getValue("category")}
+          {row.getValue("location_type") || "Generic Space"}
         </Badge>
       ),
     },
     {
-      accessorKey: "trackingRadius",
+      accessorKey: "geo_fence_radius",
       header: "Geo-Fence Radius",
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
            <Radio className="h-3 w-3 text-warning animate-pulse" />
-           <span className="text-xs font-bold text-foreground/80">{row.getValue("trackingRadius")}</span>
+           <span className="text-xs font-bold text-foreground/80">{row.getValue("geo_fence_radius") || 0} Meters</span>
         </div>
       ),
     },
     {
-      accessorKey: "gpsCoordinates",
+      id: "coordinates",
       header: "GPS Mapping",
-      cell: ({ row }) => (
-        <code className="text-[10px] bg-muted px-2 py-1 rounded font-mono text-muted-foreground">
-          {row.getValue("gpsCoordinates")}
-        </code>
-      ),
+      cell: ({ row }) => {
+        const lat = row.original.latitude;
+        const lng = row.original.longitude;
+        if (lat && lng) {
+          return (
+            <code className="text-[10px] bg-muted px-2 py-1 rounded font-mono text-muted-foreground">
+              {lat.toFixed(4)}° N, {lng.toFixed(4)}° E
+            </code>
+          );
+        }
+        return <span className="text-[10px] text-muted-foreground italic">Not mapped</span>;
+      },
     },
     {
-      accessorKey: "activeGuards",
-      header: "Current Manning",
+      accessorKey: "is_active",
+      header: "Status",
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-            <Navigation className="h-3.5 w-3.5 text-success" />
-            <span className="text-sm font-bold">{row.getValue("activeGuards")} Personnel</span>
+           <div className={`w-1.5 h-1.5 rounded-full ${row.original.is_active ? 'bg-success' : 'bg-muted-foreground'}`} />
+           <span className="text-sm font-bold">{row.original.is_active ? 'Active' : 'Inactive'}</span>
         </div>
       ),
     },
@@ -104,7 +137,7 @@ export default function LocationsPage() {
   ];
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in space-y-6">
       <PageHeader
         title="Company Location Master"
         description="Catalog of physical sites and GPS-enabled geo-fencing points for staff tracking."
@@ -120,8 +153,21 @@ export default function LocationsPage() {
         }
       />
       
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
       <div className="grid gap-6">
-        <DataTable columns={columns} data={data} searchKey="siteName" />
+        {isLoading ? (
+          <div className="flex items-center justify-center h-64 border rounded-lg bg-muted/10">
+             <Loader2 className="h-8 w-8 text-muted-foreground animate-spin" />
+          </div>
+        ) : (
+          <DataTable columns={columns} data={locations} searchKey="location_name" />
+        )}
       </div>
     </div>
   );

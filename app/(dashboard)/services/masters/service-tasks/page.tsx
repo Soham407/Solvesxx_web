@@ -1,13 +1,16 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTable } from "@/components/shared/DataTable";
 import { Button } from "@/components/ui/button";
-import { Plus, LayoutTemplate, BriefcaseIcon, Link2, MoreHorizontal, Subtitles, ListTodo } from "lucide-react";
+import { Plus, LayoutTemplate, BriefcaseIcon, Link2, MoreHorizontal, Subtitles, ListTodo, Loader2, AlertCircle } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/src/lib/supabaseClient";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface ServiceMapping {
   id: string;
@@ -16,14 +19,55 @@ interface ServiceMapping {
   totalTasks: number;
 }
 
-const data: ServiceMapping[] = [
-  { id: "SM-101", serviceCategory: "Air Conditioner Services", mappedTasks: ["Filter Cleaning", "Gas Top-up", "Coil Wash", "Thermostat Reset"], totalTasks: 12 },
-  { id: "SM-102", serviceCategory: "Pest Control Services", mappedTasks: ["Fogging", "Gel Application", "Spray Treatment", "Rodent Bating"], totalTasks: 8 },
-  { id: "SM-103", serviceCategory: "Plantation Services", mappedTasks: ["Lawn Mowing", "Soil Turning", "Pruning", "De-weeding"], totalTasks: 15 },
-  { id: "SM-104", serviceCategory: "Cleaning Services", mappedTasks: ["Floor Scrubbing", "Glass Cleaning", "Deep Sanitation"], totalTasks: 6 },
-];
-
 export default function ServiceTaskMappingPage() {
+  const [serviceMappings, setServiceMappings] = useState<ServiceMapping[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchServiceMappings();
+  }, []);
+
+  const fetchServiceMappings = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const { data, error: fetchError } = await supabase
+        .from("service_tasks")
+        .select("*")
+        .order("service_type");
+
+      if (fetchError) throw fetchError;
+
+      // Group by service_type
+      const grouped = (data || []).reduce((acc: any, curr: any) => {
+        const type = curr.service_type || "General";
+        if (!acc[type]) {
+          acc[type] = {
+            id: `SM-${Object.keys(acc).length + 101}`,
+            serviceCategory: type,
+            mappedTasks: [],
+            totalTasks: 0
+          };
+        }
+        acc[type].mappedTasks.push(curr.task_name);
+        acc[type].totalTasks += 1;
+        return acc;
+      }, {});
+
+      // Convert to array
+      const formattedMappings: ServiceMapping[] = Object.values(grouped);
+
+      setServiceMappings(formattedMappings);
+    } catch (err: any) {
+      console.error("Error fetching service mappings:", err);
+      setError("Failed to load service mappings");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const columns: ColumnDef<ServiceMapping>[] = [
     {
       accessorKey: "serviceCategory",
@@ -43,18 +87,21 @@ export default function ServiceTaskMappingPage() {
     {
       accessorKey: "mappedTasks",
       header: "Core Task Mapping",
-      cell: ({ row }) => (
-        <div className="flex flex-wrap gap-1 max-w-[300px]">
-            {row.original.mappedTasks.map(task => (
-                <Badge key={task} variant="secondary" className="text-[10px] font-bold px-1.5 py-0 h-4 bg-muted/50 border-none">
-                    {task}
-                </Badge>
-            ))}
-            {row.original.totalTasks > row.original.mappedTasks.length && (
-                <span className="text-[10px] font-bold text-muted-foreground ml-1">+{row.original.totalTasks - row.original.mappedTasks.length} More</span>
-            )}
-        </div>
-      ),
+      cell: ({ row }) => {
+        const displayTasks = row.original.mappedTasks.slice(0, 4);
+        return (
+          <div className="flex flex-wrap gap-1 max-w-[300px]">
+              {displayTasks.map(task => (
+                  <Badge key={task} variant="secondary" className="text-[10px] font-bold px-1.5 py-0 h-4 bg-muted/50 border-none">
+                      {task}
+                  </Badge>
+              ))}
+              {row.original.totalTasks > displayTasks.length && (
+                  <span className="text-[10px] font-bold text-muted-foreground ml-1">+{row.original.totalTasks - displayTasks.length} More</span>
+              )}
+          </div>
+        );
+      },
     },
     {
       accessorKey: "totalTasks",
@@ -76,6 +123,8 @@ export default function ServiceTaskMappingPage() {
     },
   ];
 
+  const totalAssignments = serviceMappings.reduce((sum, mapping) => sum + mapping.totalTasks, 0);
+
   return (
     <div className="animate-fade-in space-y-6">
       <PageHeader
@@ -88,28 +137,43 @@ export default function ServiceTaskMappingPage() {
         }
       />
 
-      <div className="grid gap-6 md:grid-cols-3">
-        {[
-          { label: "Mapped Services", value: "18", icon: Subtitles, sub: "High-level clusters" },
-          { label: "Total Assignments", value: "142", icon: BriefcaseIcon, sub: "Linked work items" },
-          { label: "Uncategorized", value: "12", icon: ListTodo, sub: "Pending mapping" },
-        ].map((stat, i) => (
-            <Card key={i} className="border-none shadow-card ring-1 ring-border p-4">
-                <div className="flex items-center justify-between mb-2">
-                    <div className="h-8 w-8 rounded-lg bg-muted/50 flex items-center justify-center text-primary">
-                        <stat.icon className="h-4 w-4" />
-                    </div>
-                    <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">{stat.label}</span>
-                </div>
-                <div className="flex flex-col text-left">
-                    <span className="text-2xl font-bold ">{stat.value}</span>
-                    <span className="text-[10px] font-medium text-muted-foreground mt-0.5">{stat.sub}</span>
-                </div>
-            </Card>
-        ))}
-      </div>
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
-      <DataTable columns={columns} data={data} searchKey="serviceCategory" />
+      {!isLoading && !error && (
+        <div className="grid gap-6 md:grid-cols-3">
+          {[
+            { label: "Mapped Services", value: serviceMappings.length, icon: Subtitles, sub: "High-level clusters" },
+            { label: "Total Assignments", value: totalAssignments, icon: BriefcaseIcon, sub: "Linked work items" },
+            { label: "Uncategorized", value: "0", icon: ListTodo, sub: "Pending mapping" },
+          ].map((stat, i) => (
+              <Card key={i} className="border-none shadow-card ring-1 ring-border p-4">
+                  <div className="flex items-center justify-between mb-2">
+                      <div className="h-8 w-8 rounded-lg bg-muted/50 flex items-center justify-center text-primary">
+                          <stat.icon className="h-4 w-4" />
+                      </div>
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">{stat.label}</span>
+                  </div>
+                  <div className="flex flex-col text-left">
+                      <span className="text-2xl font-bold ">{stat.value}</span>
+                      <span className="text-[10px] font-medium text-muted-foreground mt-0.5">{stat.sub}</span>
+                  </div>
+              </Card>
+          ))}
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="flex items-center justify-center h-64 border rounded-lg bg-muted/10">
+           <Loader2 className="h-8 w-8 text-muted-foreground animate-spin" />
+        </div>
+      ) : (
+        <DataTable columns={columns} data={serviceMappings} searchKey="serviceCategory" />
+      )}
     </div>
   );
 }

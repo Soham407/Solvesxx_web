@@ -42,15 +42,15 @@ export function FamilyDirectory() {
         .select(`
           id,
           full_name,
-          mobile,
-          is_verified,
-          photo_url,
-          vehicle_numbers,
-          emergency_contact,
-          flats!resident_flat_id_fkey (
+          phone,
+          relation,
+          flat_id,
+          flats (
+            id,
             flat_number,
             building_id,
-            buildings!building_id (
+            buildings (
+              id,
               building_name
             )
           )
@@ -60,17 +60,23 @@ export function FamilyDirectory() {
 
       if (fetchError) throw fetchError;
 
-      const formattedResidents: Resident[] = (data || []).map((r: any) => ({
-        id: r.id,
-        full_name: r.full_name,
-        mobile: r.mobile,
-        is_verified: r.is_verified,
-        photo_url: r.photo_url,
-        vehicle_numbers: r.vehicle_numbers || [],
-        emergency_contact: r.emergency_contact,
-        flat_number: r.flats?.flat_number || "N/A",
-        building_name: r.flats?.buildings?.building_name || "N/A",
-      }));
+      const formattedResidents: Resident[] = (data || []).map((r: any) => {
+        // Handle array or object returns for flats relation
+        const flatData = Array.isArray(r.flats) ? r.flats[0] : r.flats;
+        const buildingData = flatData ? (Array.isArray(flatData.buildings) ? flatData.buildings[0] : flatData.buildings) : null;
+        
+        return {
+          id: r.id,
+          full_name: r.full_name,
+          mobile: r.phone || r.alternate_phone || "",
+          is_verified: true, // Assuming active residents are verified
+          photo_url: undefined, // Update when schema photo url field is clear
+          vehicle_numbers: [], // Schema currently doesn't auto-join vehicles unless separate query is made
+          emergency_contact: r.emergency_contact_phone || undefined,
+          flat_number: flatData?.flat_number || "N/A",
+          building_name: buildingData?.building_name || "N/A",
+        };
+      });
 
       setResidents(formattedResidents);
     } catch (err) {

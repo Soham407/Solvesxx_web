@@ -1,9 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTable } from "@/components/shared/DataTable";
 import { Button } from "@/components/ui/button";
-import { Plus, User, Key, Mail, ShieldCheck, MoreHorizontal } from "lucide-react";
+import { Plus, User, Key, Mail, ShieldCheck, MoreHorizontal, Loader2, AlertCircle } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -13,59 +14,114 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { supabase } from "@/src/lib/supabaseClient";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { format } from "date-fns";
 
 interface UserMaster {
   id: string;
-  name: string;
+  full_name: string;
   email: string;
-  role: string;
-  lastLogin: string;
+  role_name: string;
+  last_login: string | null;
   status: "Active" | "Locked" | "Pending";
 }
 
-const data: UserMaster[] = [
-  { id: "USR-001", name: "Vandanaa", email: "vandanaa@facilitypro.com", role: "Administrator", lastLogin: "2024-02-02 10:45 AM", status: "Active" },
-  { id: "USR-002", name: "Amit Sharma", email: "amit.s@facilitypro.com", role: "Operations Manager", lastLogin: "2024-02-01 04:12 PM", status: "Active" },
-  { id: "USR-003", name: "Priya Patel", email: "priya@society.com", role: "Society Manager", lastLogin: "2024-01-28 09:00 AM", status: "Locked" },
-  { id: "USR-004", name: "Sanjay Gupta", email: "sanjay@corp.com", role: "Accountant", lastLogin: "Never", status: "Pending" },
-];
-
 export default function UsersPage() {
+  const [users, setUsers] = useState<UserMaster[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const { data, error: fetchError } = await supabase
+        .from("users")
+        .select(`
+          id,
+          full_name,
+          email,
+          last_login,
+          is_active,
+          roles (
+            role_display_name
+          )
+        `)
+        .order("full_name");
+
+      if (fetchError) throw fetchError;
+
+      const formattedUsers: UserMaster[] = (data || []).map((u: any) => {
+        const roleData = Array.isArray(u.roles) ? u.roles[0] : u.roles;
+        
+        // Basic status logic based purely on is_active for now
+        let status: "Active" | "Locked" | "Pending" = u.is_active ? "Active" : "Locked";
+
+        return {
+          id: u.id,
+          full_name: u.full_name,
+          email: u.email,
+          role_name: roleData?.role_display_name || "Unknown Role",
+          last_login: u.last_login,
+          status,
+        };
+      });
+
+      setUsers(formattedUsers);
+    } catch (err: any) {
+      console.error("Error fetching users:", err);
+      setError("Failed to load users list");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const columns: ColumnDef<UserMaster>[] = [
     {
-      accessorKey: "name",
+      accessorKey: "full_name",
       header: "System User",
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
           <Avatar className="h-9 w-9 ring-2 ring-primary/5">
             <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">
-              {row.original.name.split(' ').map(n => n[0]).join('')}
+              {(row.original.full_name || "Un Known").split(' ').map(n => n[0]).join('').substring(0, 2)}
             </AvatarFallback>
           </Avatar>
           <div className="flex flex-col">
-            <span className="font-bold text-sm ">{row.original.name}</span>
+            <span className="font-bold text-sm ">{row.original.full_name}</span>
             <span className="text-[10px] text-muted-foreground flex items-center gap-1 font-bold"><Mail className="h-2.5 w-2.5" /> {row.original.email}</span>
           </div>
         </div>
       ),
     },
     {
-      accessorKey: "role",
+      accessorKey: "role_name",
       header: "Access Role",
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="bg-primary/5 border-primary/10 text-primary font-bold">
-            {row.getValue("role")}
+            {row.getValue("role_name")}
           </Badge>
         </div>
       ),
     },
     {
-      accessorKey: "lastLogin",
+      accessorKey: "last_login",
       header: "Last Activity",
-      cell: ({ row }) => (
-        <span className="text-xs font-medium text-muted-foreground">{row.getValue("lastLogin")}</span>
-      ),
+      cell: ({ row }) => {
+        const dateStr = row.getValue("last_login") as string | null;
+        return (
+          <span className="text-xs font-medium text-muted-foreground">
+            {dateStr ? format(new Date(dateStr), "PPp") : "Never"}
+          </span>
+        );
+      },
     },
     {
       accessorKey: "status",
@@ -78,7 +134,7 @@ export default function UsersPage() {
             Pending: "bg-warning/10 text-warning border-warning/20"
         };
         return (
-          <Badge variant="outline" className={variants[status] || ""}>
+          <Badge variant="outline" className={variants[status]} >
             {status}
           </Badge>
         );
@@ -110,7 +166,7 @@ export default function UsersPage() {
   ];
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in space-y-6">
       <PageHeader
         title="User Master"
         description="Provision system access and monitor secure identity portal accounts."
@@ -120,7 +176,21 @@ export default function UsersPage() {
           </Button>
         }
       />
-      <DataTable columns={columns} data={data} searchKey="name" />
+      
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {isLoading ? (
+        <div className="flex items-center justify-center h-64 border rounded-lg bg-muted/10">
+           <Loader2 className="h-8 w-8 text-muted-foreground animate-spin" />
+        </div>
+      ) : (
+        <DataTable columns={columns} data={users} searchKey="full_name" />
+      )}
     </div>
   );
 }

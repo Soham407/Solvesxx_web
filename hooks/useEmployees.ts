@@ -15,6 +15,9 @@ interface Employee {
   designation_id: string | null;
   is_active: boolean;
   created_at: string;
+  photo_url?: string | null;
+  date_of_joining?: string | null;
+  designation_name?: string | null;
 }
 
 interface UseEmployeesState {
@@ -57,7 +60,10 @@ export function useEmployees(): UseEmployeesReturn {
           department,
           designation_id,
           is_active,
-          created_at
+          created_at,
+          photo_url,
+          date_of_joining,
+          designations:designation_id(designation_name)
         `)
         .eq("is_active", true)
         .order("first_name");
@@ -65,10 +71,16 @@ export function useEmployees(): UseEmployeesReturn {
       if (error) throw error;
 
       // Transform data to include full_name
-      const employeesWithFullName: Employee[] = (data || []).map((emp: any) => ({
-        ...emp,
-        full_name: [emp.first_name, emp.last_name].filter(Boolean).join(" ").trim() || "Unknown",
-      }));
+      const employeesWithFullName: Employee[] = (data || []).map((emp: any) => {
+        // Handle relation returns
+        const desigInfo = Array.isArray(emp.designations) ? emp.designations[0] : emp.designations;
+        
+        return {
+          ...emp,
+          full_name: [emp.first_name, emp.last_name].filter(Boolean).join(" ").trim() || "Unknown",
+          designation_name: desigInfo?.designation_name || emp.department || "Employee",
+        };
+      });
 
       setState({
         employees: employeesWithFullName,

@@ -1,13 +1,16 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTable } from "@/components/shared/DataTable";
 import { Button } from "@/components/ui/button";
-import { Plus, ListTodo, Wrench, Clock, MoreHorizontal, Settings, Activity } from "lucide-react";
+import { Plus, ListTodo, Wrench, Clock, MoreHorizontal, Settings, Activity, Loader2, AlertCircle } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/src/lib/supabaseClient";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface JobTask {
   id: string;
@@ -18,15 +21,46 @@ interface JobTask {
   status: "Active" | "Archived";
 }
 
-const data: JobTask[] = [
-  { id: "JOB-001", taskTitle: "Filter Cleaning (Split AC)", category: "AC Maintenance", estimatedDuration: "45 Mins", priority: "Standard", status: "Active" },
-  { id: "JOB-002", taskTitle: "Gas Top-up (Window AC)", category: "AC Maintenance", estimatedDuration: "60 Mins", priority: "High", status: "Active" },
-  { id: "JOB-003", taskTitle: "Lawn Mowing (Clubhouse)", category: "Landscape", estimatedDuration: "120 Mins", priority: "Standard", status: "Active" },
-  { id: "JOB-004", taskTitle: "Chemical Spraying (Drains)", category: "Pest Control", estimatedDuration: "30 Mins", priority: "High", status: "Active" },
-  { id: "JOB-005", taskTitle: "Gel Application (Kitchen)", category: "Pest Control", estimatedDuration: "20 Mins", priority: "Standard", status: "Active" },
-];
-
 export default function WorkTasksPage() {
+  const [tasks, setTasks] = useState<JobTask[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchTasks();
+  }, []);
+
+  const fetchTasks = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const { data, error: fetchError } = await supabase
+        .from("service_tasks")
+        .select("*")
+        .order("task_name");
+
+      if (fetchError) throw fetchError;
+
+      const formattedTasks: JobTask[] = (data || []).map((t: any) => ({
+        id: t.id,
+        taskTitle: t.task_name,
+        category: t.service_type || "General",
+        // estimatedDuration and priority are not in standard schema; mocking for UI
+        estimatedDuration: t.description || "30 Mins",
+        priority: "Standard",
+        status: t.is_active ? "Active" : "Archived",
+      }));
+
+      setTasks(formattedTasks);
+    } catch (err: any) {
+      console.error("Error fetching tasks:", err);
+      setError("Failed to load work master tasks");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const columns: ColumnDef<JobTask>[] = [
     {
       accessorKey: "taskTitle",
@@ -38,7 +72,7 @@ export default function WorkTasksPage() {
           </div>
           <div className="flex flex-col text-left">
             <span className="font-bold text-sm ">{row.original.taskTitle}</span>
-            <span className="text-[10px] text-muted-foreground uppercase font-bold ">{row.original.id}</span>
+            <span className="text-[10px] text-muted-foreground uppercase font-bold ">{row.original.id.substring(0, 8)}</span>
           </div>
         </div>
       ),
@@ -89,6 +123,10 @@ export default function WorkTasksPage() {
     },
   ];
 
+  const activeCount = tasks.filter(t => t.status === "Active").length;
+  const archivedCount = tasks.filter(t => t.status === "Archived").length;
+  const highPriorityCount = tasks.filter(t => t.priority === "High").length;
+
   return (
     <div className="animate-fade-in space-y-6">
       <PageHeader
@@ -101,28 +139,43 @@ export default function WorkTasksPage() {
         }
       />
 
-      <div className="grid gap-6 md:grid-cols-3">
-        {[
-          { label: "Defined Jobs", value: "154", icon: ListTodo, sub: "Across all domains" },
-          { label: "High Priority", value: "12", icon: Activity, sub: "Urgent response tasks" },
-          { label: "Archived", value: "8", icon: Settings, sub: "Historical operations" },
-        ].map((stat, i) => (
-            <Card key={i} className="border-none shadow-card ring-1 ring-border p-4">
-                <div className="flex items-center justify-between mb-2">
-                    <div className="h-10 w-10 rounded-xl bg-muted/50 flex items-center justify-center text-primary">
-                        <stat.icon className="h-5 w-5" />
-                    </div>
-                    <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">{stat.label}</span>
-                </div>
-                <div className="flex flex-col text-left">
-                    <span className="text-2xl font-bold ">{stat.value}</span>
-                    <span className="text-[10px] font-medium text-muted-foreground mt-0.5">{stat.sub}</span>
-                </div>
-            </Card>
-        ))}
-      </div>
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
-      <DataTable columns={columns} data={data} searchKey="taskTitle" />
+      {!isLoading && !error && (
+        <div className="grid gap-6 md:grid-cols-3">
+          {[
+            { label: "Defined Jobs", value: activeCount + archivedCount, icon: ListTodo, sub: "Across all domains" },
+            { label: "High Priority", value: highPriorityCount, icon: Activity, sub: "Urgent response tasks" },
+            { label: "Archived", value: archivedCount, icon: Settings, sub: "Historical operations" },
+          ].map((stat, i) => (
+              <Card key={i} className="border-none shadow-card ring-1 ring-border p-4">
+                  <div className="flex items-center justify-between mb-2">
+                      <div className="h-10 w-10 rounded-xl bg-muted/50 flex items-center justify-center text-primary">
+                          <stat.icon className="h-5 w-5" />
+                      </div>
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">{stat.label}</span>
+                  </div>
+                  <div className="flex flex-col text-left">
+                      <span className="text-2xl font-bold ">{stat.value}</span>
+                      <span className="text-[10px] font-medium text-muted-foreground mt-0.5">{stat.sub}</span>
+                  </div>
+              </Card>
+          ))}
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="flex items-center justify-center h-64 border rounded-lg bg-muted/10">
+           <Loader2 className="h-8 w-8 text-muted-foreground animate-spin" />
+        </div>
+      ) : (
+        <DataTable columns={columns} data={tasks} searchKey="taskTitle" />
+      )}
     </div>
   );
 }

@@ -1,9 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTable } from "@/components/shared/DataTable";
 import { Button } from "@/components/ui/button";
-import { Plus, Briefcase, ChevronRight, MoreHorizontal } from "lucide-react";
+import { Plus, Briefcase, MoreHorizontal, Loader2, AlertCircle } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -12,27 +13,50 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { supabase } from "@/src/lib/supabaseClient";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface Designation {
   id: string;
-  title: string;
+  designation_code: string;
+  designation_name: string;
   department: string;
-  level: string;
-  employeeCount: number;
+  is_active: boolean;
+  description?: string;
 }
 
-const data: Designation[] = [
-  { id: "DES-001", title: "Chief Operations Officer", department: "Operations", level: "L10", employeeCount: 1 },
-  { id: "DES-002", title: "Human Resource Manager", department: "HR", level: "L7", employeeCount: 2 },
-  { id: "DES-003", title: "Security Supervisor", department: "Security", level: "L5", employeeCount: 8 },
-  { id: "DES-004", title: "Facility Engineer", department: "Maintenance", level: "L4", employeeCount: 12 },
-  { id: "DES-005", title: "Pantry Coordinator", department: "Soft Services", level: "L3", employeeCount: 4 },
-];
-
 export default function DesignationsPage() {
+  const [designations, setDesignations] = useState<Designation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchDesignations();
+  }, []);
+
+  const fetchDesignations = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const { data, error: fetchError } = await supabase
+        .from("designations")
+        .select("*")
+        .order("designation_name");
+
+      if (fetchError) throw fetchError;
+      setDesignations(data || []);
+    } catch (err: any) {
+      console.error("Error fetching designations:", err);
+      setError("Failed to load designations");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const columns: ColumnDef<Designation>[] = [
     {
-      accessorKey: "title",
+      accessorKey: "designation_name",
       header: "Designation Title",
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
@@ -40,8 +64,8 @@ export default function DesignationsPage() {
             <Briefcase className="h-4 w-4 text-primary" />
           </div>
           <div className="flex flex-col text-left">
-            <span className="font-bold text-sm ">{row.original.title}</span>
-            <span className="text-[10px] text-muted-foreground uppercase font-bold ">{row.original.id}</span>
+            <span className="font-bold text-sm ">{row.original.designation_name}</span>
+            <span className="text-[10px] text-muted-foreground uppercase font-bold ">{row.original.designation_code}</span>
           </div>
         </div>
       ),
@@ -51,24 +75,17 @@ export default function DesignationsPage() {
       header: "Department",
       cell: ({ row }) => (
         <Badge variant="outline" className="bg-muted/30 border-none font-medium">
-          {row.getValue("department")}
+          {row.getValue("department") || "N/A"}
         </Badge>
       ),
     },
     {
-      accessorKey: "level",
-      header: "Grading Level",
-      cell: ({ row }) => (
-        <span className="text-sm font-mono font-bold text-primary/70">{row.getValue("level")}</span>
-      ),
-    },
-    {
-      accessorKey: "employeeCount",
-      header: "Active Staff",
+      accessorKey: "is_active",
+      header: "Status",
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-          <div className="w-1.5 h-1.5 rounded-full bg-success" />
-          <span className="text-sm font-medium">{row.getValue("employeeCount")} members</span>
+          <div className={`w-1.5 h-1.5 rounded-full ${row.original.is_active ? 'bg-success' : 'bg-muted-foreground'}`} />
+          <span className="text-sm font-medium">{row.original.is_active ? 'Active' : 'Inactive'}</span>
         </div>
       ),
     },
@@ -91,7 +108,7 @@ export default function DesignationsPage() {
   ];
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in space-y-6">
       <PageHeader
         title="Designation Master"
         description="Official job titles and positions hierarchy within the organization."
@@ -101,7 +118,21 @@ export default function DesignationsPage() {
           </Button>
         }
       />
-      <DataTable columns={columns} data={data} searchKey="title" />
+      
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {isLoading ? (
+        <div className="flex items-center justify-center h-64 border rounded-lg bg-muted/10">
+           <Loader2 className="h-8 w-8 text-muted-foreground animate-spin" />
+        </div>
+      ) : (
+        <DataTable columns={columns} data={designations} searchKey="designation_name" />
+      )}
     </div>
   );
 }
