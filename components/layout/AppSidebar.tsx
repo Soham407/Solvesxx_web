@@ -129,6 +129,7 @@ const navigation: NavGroup[] = [
           { title: "Field Queue (Assigned)", href: "/service-boy" },
         ],
       },
+      /* Temporarily hidden
       {
         title: "Assets & Maintenance",
         href: "/assets",
@@ -140,16 +141,19 @@ const navigation: NavGroup[] = [
           { title: "QR Code Lab", href: "/assets/qr-codes" },
         ],
       },
+      */
       {
         title: "Supply Chain",
         href: "/inventory",
         icon: Package,
         children: [
           { title: "Product & Supplier Master", href: "/inventory/products" },
+          /* Temporarily hidden
           { title: "Stock & Warehouses", href: "/inventory/stock" },
           { title: "Purchase Orders", href: "/inventory/purchase-orders" },
           { title: "Requests & Approvals", href: "/inventory/indents/create" },
           { title: "Mapping & Rates", href: "/inventory/supplier-products" },
+          */
         ],
       },
       {
@@ -162,8 +166,10 @@ const navigation: NavGroup[] = [
           { title: "Service Mapping", href: "/services/masters/service-tasks" },
           { title: "Security Ops", href: "/services/security" },
           { title: "HVAC & AC", href: "/services/ac" },
+          /* Temporarily hidden
           { title: "Soft Services", href: "/services/housekeeping" },
           { title: "Printing & Ads", href: "/services/printing" },
+          */
         ],
       },
     ],
@@ -196,10 +202,14 @@ const navigation: NavGroup[] = [
         icon: Receipt,
         children: [
           { title: "Billing & Receipts", href: "/finance/buyer-billing" },
+          /* Temporarily hidden
           { title: "3-Way Reconciliation", href: "/finance/reconciliation" },
+          */
           { title: "Supplier Payouts", href: "/finance/supplier-bills" },
           { title: "Universal Ledger", href: "/finance/payments" },
+          /* Temporarily hidden
           { title: "Audit & Compliance", href: "/finance/compliance" },
+          */
         ],
       },
       {
@@ -224,8 +234,10 @@ const navigation: NavGroup[] = [
         icon: Ticket,
         children: [
           { title: "Behavioral Incident", href: "/tickets/behavior" },
+          /* Temporarily hidden
           { title: "Quality Assurance", href: "/tickets/quality" },
           { title: "Material Returns", href: "/tickets/returns" },
+          */
         ],
       },
     ],
