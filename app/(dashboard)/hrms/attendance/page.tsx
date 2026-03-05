@@ -397,10 +397,12 @@ export default function AttendancePage() {
         </Alert>
       )}
 
+      {/* Temporarily hidden
       <LiveMap 
         className="mb-8"
         markers={mapMarkers}
       />
+      */}
 
       <div className="grid gap-6 md:grid-cols-4">
         {isLoading ? (
