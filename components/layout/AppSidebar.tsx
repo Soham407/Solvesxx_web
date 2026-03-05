@@ -109,7 +109,7 @@ const navigation: NavGroup[] = [
           { title: "Leave Management", href: "/hrms/leave" },
           { title: "Payroll Ledger", href: "/hrms/payroll" },
           { title: "Compliance Vault", href: "/hrms/documents" },
-          { title: "Shift & Holiday Master", href: "/hrms/shifts" },
+          { title: "Shift Master", href: "/hrms/shifts" },
           { title: "Specialized Profiles", href: "/hrms/specialized-profiles" },
         ],
       },
@@ -188,7 +188,9 @@ const navigation: NavGroup[] = [
           { title: "Facility Checklists", href: "/society/checklists" },
           { title: "Emergency Directory", href: "/society/emergency" },
           { title: "Resident Portal", href: "/society/my-flat" },
+          /* Temporarily hidden
           { title: "Guest Invitation", href: "/society/my-flat?action=invite" },
+          */
         ],
       },
     ],

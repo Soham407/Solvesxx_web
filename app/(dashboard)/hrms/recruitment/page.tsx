@@ -435,7 +435,7 @@ export default function RecruitmentPortalPage() {
                   id="first_name"
                   value={formData.first_name}
                   onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
-                  placeholder="John"
+                  placeholder="Rahul"
                 />
               </div>
               <div className="space-y-2">
@@ -444,7 +444,7 @@ export default function RecruitmentPortalPage() {
                   id="last_name"
                   value={formData.last_name}
                   onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
-                  placeholder="Doe"
+                  placeholder="Sharma"
                 />
               </div>
             </div>
@@ -455,7 +455,7 @@ export default function RecruitmentPortalPage() {
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                placeholder="john.doe@email.com"
+                placeholder="rahul.sharma@email.com"
               />
             </div>
             <div className="space-y-2">

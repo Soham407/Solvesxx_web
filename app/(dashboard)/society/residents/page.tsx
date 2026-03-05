@@ -366,7 +366,7 @@ export default function ResidentsPage() {
                 id="name"
                 value={formData.full_name}
                 onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                placeholder="e.g. John Doe"
+                placeholder="e.g. Rahul Sharma"
               />
             </div>
             <div className="grid gap-2">

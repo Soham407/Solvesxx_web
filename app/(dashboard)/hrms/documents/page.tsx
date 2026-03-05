@@ -461,7 +461,7 @@ export default function DocumentGovernancePage() {
                 id="document_name"
                 value={uploadForm.document_name}
                 onChange={(e) => setUploadForm({ ...uploadForm, document_name: e.target.value })}
-                placeholder="e.g., Aadhar Card - John Doe"
+                placeholder="e.g., Aadhar Card - Rahul Sharma"
               />
             </div>
             <div className="space-y-2">

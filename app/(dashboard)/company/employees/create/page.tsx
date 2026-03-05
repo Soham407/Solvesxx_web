@@ -86,19 +86,19 @@ export default function CreateEmployeePage() {
           <CardContent className="p-6 grid gap-6 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="firstName">First Name</Label>
-              <Input id="firstName" {...register("firstName")} placeholder="e.g. John" className={errors.firstName ? "border-critical" : ""} />
+              <Input id="firstName" {...register("firstName")} placeholder="e.g. Rahul" className={errors.firstName ? "border-critical" : ""} />
               {errors.firstName && <p className="text-xs text-critical font-medium">{errors.firstName.message}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="lastName">Last Name</Label>
-              <Input id="lastName" {...register("lastName")} placeholder="e.g. Doe" className={errors.lastName ? "border-critical" : ""} />
+              <Input id="lastName" {...register("lastName")} placeholder="e.g. Sharma" className={errors.lastName ? "border-critical" : ""} />
               {errors.lastName && <p className="text-xs text-critical font-medium">{errors.lastName.message}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email Address</Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input id="email" {...register("email")} placeholder="john.doe@enterprise.com" className={cn("pl-10", errors.email ? "border-critical" : "")} />
+                <Input id="email" {...register("email")} placeholder="rahul.sharma@enterprise.com" className={cn("pl-10", errors.email ? "border-critical" : "")} />
               </div>
               {errors.email && <p className="text-xs text-critical font-medium">{errors.email.message}</p>}
             </div>
@@ -106,7 +106,7 @@ export default function CreateEmployeePage() {
               <Label htmlFor="phone">Phone Number</Label>
               <div className="relative">
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input id="phone" {...register("phone")} placeholder="+1 (555) 000-0000" className={cn("pl-10", errors.phone ? "border-critical" : "")} />
+                <Input id="phone" {...register("phone")} placeholder="+91 98765 43210" className={cn("pl-10", errors.phone ? "border-critical" : "")} />
               </div>
               {errors.phone && <p className="text-xs text-critical font-medium">{errors.phone.message}</p>}
             </div>
@@ -167,7 +167,7 @@ export default function CreateEmployeePage() {
                     <SelectValue placeholder="Select Location" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="hq">Headquarters (New York)</SelectItem>
+                    <SelectItem value="hq">Headquarters (Mumbai)</SelectItem>
                     <SelectItem value="tp">TechPark Complex</SelectItem>
                     <SelectItem value="gv">Green Valley Site</SelectItem>
                   </SelectContent>
