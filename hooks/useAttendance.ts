@@ -1,4 +1,3 @@
-// @ts-nocheck
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -104,7 +103,7 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
           },
         }));
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching gate location:", err);
       setState((prev) => ({
         ...prev,
@@ -122,9 +121,7 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
       const today = new Date().toISOString().split("T")[0];
       const { data, error } = await supabase
         .from("attendance_logs")
-        .select(
-          "check_in_time, check_out_time, check_in_selfie_url, check_in_latitude, check_in_longitude, check_out_latitude, check_out_longitude",
-        )
+        .select("*")
         .eq("employee_id", employeeId)
         .eq("log_date", today)
         .maybeSingle();
@@ -136,11 +133,21 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
 
       setState((prev) => ({
         ...prev,
-        todayAttendance: data || null,
+        todayAttendance: data
+          ? {
+              check_in_time: data.check_in_time || null,
+              check_out_time: data.check_out_time || null,
+              check_in_selfie_url: data.check_in_selfie_url ?? null,
+              check_in_latitude: data.check_in_latitude ?? null,
+              check_in_longitude: data.check_in_longitude ?? null,
+              check_out_latitude: data.check_out_latitude ?? null,
+              check_out_longitude: data.check_out_longitude ?? null,
+            }
+          : null,
         isClockedIn:
           data?.check_in_time && !data?.check_out_time ? true : false,
       }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching attendance:", err);
     }
   }, [employeeId]);
@@ -269,7 +276,14 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
           const shiftsArray = Array.isArray(assignmentData.shifts)
             ? assignmentData.shifts
             : [assignmentData.shifts];
-          const shift = shiftsArray[0] as any;
+          const shift = shiftsArray[0] as {
+            id: string;
+            shift_name: string;
+            start_time: string;
+            end_time: string;
+            grace_time_minutes: number | null;
+            is_night_shift: boolean | null;
+          };
 
           if (!shift) return { success: true }; // Should not happen given the if check
 
@@ -329,16 +343,18 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
         const now = new Date();
         const today = now.toISOString().split("T")[0];
 
-        const { error } = await supabase.from("attendance_logs").insert({
-          employee_id: employeeId,
-          log_date: today,
-          check_in_time: now.toISOString(),
-          check_in_location_id: state.gateLocation.id,
-          check_in_latitude: state.currentPosition?.latitude,
-          check_in_longitude: state.currentPosition?.longitude,
-          check_in_selfie_url: selfieUrl,
-          status: "present",
-        });
+        const { error } = await supabase
+          .from("attendance_logs")
+          .insert({
+            employee_id: employeeId,
+            log_date: today,
+            check_in_time: now.toISOString(),
+            check_in_location_id: state.gateLocation.id,
+            check_in_latitude: state.currentPosition?.latitude ?? null,
+            check_in_longitude: state.currentPosition?.longitude ?? null,
+            check_in_selfie_url: selfieUrl,
+            status: "present",
+          });
 
         if (error) throw error;
 
@@ -395,8 +411,8 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
         .update({
           check_out_time: now.toISOString(),
           check_out_location_id: state.gateLocation.id,
-          check_out_latitude: state.currentPosition?.latitude,
-          check_out_longitude: state.currentPosition?.longitude,
+          check_out_latitude: state.currentPosition?.latitude ?? null,
+          check_out_longitude: state.currentPosition?.longitude ?? null,
           total_hours: totalHours ? parseFloat(totalHours.toFixed(2)) : null,
         })
         .eq("employee_id", employeeId)
@@ -420,7 +436,7 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
       stopGpsTracking();
 
       return true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error clocking out:", err);
       return false;
     }
@@ -455,11 +471,11 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
           .update({
             check_out_time: now.toISOString(),
             check_out_location_id: state.gateLocation.id,
-            check_out_latitude: state.currentPosition?.latitude,
-            check_out_longitude: state.currentPosition?.longitude,
+            check_out_latitude: state.currentPosition?.latitude ?? null,
+            check_out_longitude: state.currentPosition?.longitude ?? null,
             total_hours: totalHours ? parseFloat(totalHours.toFixed(2)) : null,
             is_auto_punch_out: true,
-            status: "absent_breach", // Special status for auto-punch
+            status: "absent_breach",
           })
           .eq("employee_id", employeeId)
           .eq("log_date", today);
@@ -480,7 +496,7 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
 
         stopGpsTracking();
         return true;
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Error in auto clock out:", err);
         return false;
       }

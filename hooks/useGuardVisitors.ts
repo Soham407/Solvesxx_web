@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
+import { sendVisitorArrivalNotification } from "@/src/lib/notifications";
+
 
 interface ExpectedVisitor {
   id: string;
@@ -91,17 +93,22 @@ export function useGuardVisitors() {
       if (error) throw error;
 
       // Transform the data to match our interface
-      const visitors: ExpectedVisitor[] = (data || []).map((v: Record<string, unknown>) => ({
-        id: v.id as string,
-        visitor_name: v.visitor_name as string,
-        visitor_type: v.visitor_type as string | null,
-        phone: v.phone as string | null,
-        vehicle_number: v.vehicle_number as string | null,
-        purpose: v.purpose as string | null,
-        approved_by_resident: v.approved_by_resident as boolean,
-        flat: v.flats as ExpectedVisitor["flat"],
-        resident: v.residents as ExpectedVisitor["resident"],
-      }));
+      // PostgREST returns FK joins using table names (flats, residents, buildings)
+      // Map them to our cleaner interface names (flat, resident, building)
+      const visitors: ExpectedVisitor[] = (data || []).map((v) => {
+        const rawFlat = v.flats as { flat_number: string; buildings: { building_name: string } | null } | null;
+        return {
+          id: v.id,
+          visitor_name: v.visitor_name,
+          visitor_type: v.visitor_type,
+          phone: v.phone,
+          vehicle_number: v.vehicle_number,
+          purpose: v.purpose,
+          approved_by_resident: v.approved_by_resident ?? false,
+          flat: rawFlat ? { flat_number: rawFlat.flat_number, building: rawFlat.buildings } : null,
+          resident: v.residents as ExpectedVisitor["resident"],
+        };
+      });
 
       setState((prev) => ({
         ...prev,
@@ -109,8 +116,8 @@ export function useGuardVisitors() {
         isLoading: false,
         error: null,
       }));
-    } catch (err: any) {
-      const message = err?.message || "Failed to load expected visitors";
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to load expected visitors";
       console.error("Error fetching expected visitors:", message);
       setState((prev) => ({
         ...prev,
@@ -153,24 +160,27 @@ export function useGuardVisitors() {
 
       if (error) throw error;
 
-      const visitors: ActiveVisitor[] = (data || []).map((v: Record<string, unknown>) => ({
-        id: v.id as string,
-        visitor_name: v.visitor_name as string,
-        visitor_type: v.visitor_type as string | null,
-        phone: v.phone as string | null,
-        vehicle_number: v.vehicle_number as string | null,
-        purpose: v.purpose as string | null,
-        photo_url: v.photo_url as string | null,
-        entry_time: v.entry_time as string,
-        flat: v.flats as ActiveVisitor["flat"],
-      }));
+      const visitors: ActiveVisitor[] = (data || []).map((v) => {
+        const rawFlat = v.flats as { flat_number: string; buildings: { building_name: string } | null } | null;
+        return {
+          id: v.id,
+          visitor_name: v.visitor_name,
+          visitor_type: v.visitor_type,
+          phone: v.phone,
+          vehicle_number: v.vehicle_number,
+          purpose: v.purpose,
+          photo_url: v.photo_url,
+          entry_time: v.entry_time!,
+          flat: rawFlat ? { flat_number: rawFlat.flat_number, building: rawFlat.buildings } : null,
+        };
+      });
 
       setState((prev) => ({
         ...prev,
         activeVisitors: visitors,
       }));
-    } catch (err: any) {
-      console.error("Error fetching active visitors:", err?.message || err);
+    } catch (err: unknown) {
+      console.error("Error fetching active visitors:", err instanceof Error ? err.message : err);
     }
   }, []);
 
@@ -186,19 +196,44 @@ export function useGuardVisitors() {
       setState((prev) => ({ ...prev, isCheckingIn: visitorId }));
 
       try {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from("visitors")
           .update({
             entry_time: new Date().toISOString(),
             entry_guard_id: guardId || null,
             entry_location_id: locationId || null,
           })
-          .eq("id", visitorId);
+          .eq("id", visitorId)
+          .select(`
+            visitor_name,
+            flats ( flat_number ),
+            residents ( auth_user_id )
+          `)
+          .single();
 
         if (error) throw error;
 
         // Refresh both lists
         await Promise.all([fetchExpectedVisitors(), fetchActiveVisitors()]);
+        
+        // Notify resident
+        try {
+          // Supabase returns FK joins — single FK returns object, multi FK returns array
+          // visitors.resident_id → residents.id is a single FK, so it returns an object
+          const residentData = data.residents as { auth_user_id: string | null } | null;
+          const flatData = data.flats as { flat_number: string } | null;
+
+          const residentAuthUserId = residentData?.auth_user_id;
+          const flatNumber = flatData?.flat_number;
+          const visitorName = data.visitor_name;
+          
+          if (residentAuthUserId && flatNumber && visitorName) {
+            await sendVisitorArrivalNotification(residentAuthUserId, visitorName, flatNumber);
+          }
+        } catch (notifErr) {
+          console.error("Failed to send arrival notification", notifErr);
+          // Non-blocking error
+        }
 
         setState((prev) => ({ ...prev, isCheckingIn: null }));
         return { success: true };
@@ -256,11 +291,12 @@ export function useGuardVisitors() {
     setState((prev) => ({ ...prev, isLoading: true }));
     try {
       await Promise.all([fetchExpectedVisitors(), fetchActiveVisitors()]);
-    } catch (error: any) {
-      console.error("Error refreshing visitor data:", error?.message || error);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to refresh visitor data";
+      console.error("Error refreshing visitor data:", message);
       setState((prev) => ({
         ...prev,
-        error: error?.message || "Failed to refresh visitor data",
+        error: message,
       }));
     } finally {
       setState((prev) => ({ ...prev, isLoading: false }));

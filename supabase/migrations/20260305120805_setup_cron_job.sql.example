@@ -1,0 +1,33 @@
+-- Enable the pg_cron extension if not already enabled
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+
+-- Enable pg_net for making HTTP calls
+CREATE EXTENSION IF NOT EXISTS pg_net;
+
+-- This cron job needs to be executed using a service role key.
+-- IMPORTANT: Replace <YOUR_PROJECT_REF> with your actual Supabase project reference
+-- IMPORTANT: Replace <YOUR_SERVICE_ROLE_KEY> with your actual Supabase service role key
+
+-- Schedule the checklist-reminders edge function to run every day at 07:00, 14:00, and 20:00
+SELECT cron.schedule(
+  'checklist-reminders',
+  '0 7,14,20 * * *',
+  $$
+  SELECT net.http_post(
+      url:='https://<YOUR_PROJECT_REF>.supabase.co/functions/v1/checklist-reminders',
+      headers:='{"Content-Type": "application/json", "Authorization": "Bearer <YOUR_SERVICE_ROLE_KEY>"}'::jsonb,
+      body:='{}'::jsonb
+  )
+  $$
+);
+
+/*
+-- To unschedule the job if needed:
+SELECT cron.unschedule('checklist-reminders');
+
+-- To view all scheduled jobs:
+SELECT * FROM cron.job;
+
+-- To view the run history of cron jobs:
+SELECT * FROM cron.job_run_details ORDER BY start_time DESC LIMIT 10;
+*/

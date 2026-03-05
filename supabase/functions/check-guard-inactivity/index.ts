@@ -99,16 +99,14 @@ Deno.serve(async (req) => {
     // Trigger Notifications for created alerts
     if (alertsCreated.length > 0) {
       // Fetch Supervisors or Admin to notify
-      // Since we don't know exactly who to notify per guard yet (no hierarchy in this context),
-      // we'll fetch 'facility_manager' or 'admin' users.
-      // Optimally, we'd look up the guard's supervisor.
-      
+      // Schema: users.role_id FK → roles.id, roles.role_name is a user_role enum
       const { data: supervisors } = await supabase
-        .from('user_roles')
-        .select('user_id')
-        .in('role', ['admin', 'security_supervisor', 'facility_manager']);
+        .from('users')
+        .select('id, roles!inner(role_name)')
+        .in('roles.role_name', ['admin', 'security_supervisor', 'society_manager'])
+        .eq('is_active', true);
 
-      const supervisorIds = supervisors?.map(s => s.user_id) || [];
+      const supervisorIds = supervisors?.map((s: { id: string }) => s.id) || [];
       const distinctSupervisorIds = [...new Set(supervisorIds)];
 
       if (distinctSupervisorIds.length > 0) {

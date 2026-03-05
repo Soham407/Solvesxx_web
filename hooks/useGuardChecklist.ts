@@ -95,7 +95,7 @@ export function useGuardChecklist(employeeId: string | null) {
         .eq("checklist_id", checklist.id)
         .eq("employee_id", employeeId)
         .eq("response_date", todayStr)
-        .single();
+        .maybeSingle();
 
       // Parse responses (might not exist yet)
       const responses =
@@ -170,7 +170,7 @@ export function useGuardChecklist(employeeId: string | null) {
           .eq("checklist_id", data.checklistId)
           .eq("employee_id", employeeId)
           .eq("response_date", todayStr)
-          .single();
+          .maybeSingle();
 
         const existingResponses =
           (existing?.responses as Record<string, any>) || {};
@@ -240,7 +240,7 @@ export function useGuardChecklist(employeeId: string | null) {
           .eq("checklist_id", data.checklistId)
           .eq("employee_id", employeeId)
           .eq("response_date", todayStr)
-          .single();
+          .maybeSingle();
 
         const existingResponses =
           (existing?.responses as Record<string, any>) || {};
@@ -357,7 +357,12 @@ export function useGuardShift(
         const shiftsArray = Array.isArray(assignment.shift)
           ? assignment.shift
           : [assignment.shift];
-        const shift = shiftsArray[0] as any;
+        const shift = shiftsArray[0] as {
+          shift_name: string | null;
+          start_time: string | null;
+          end_time: string | null;
+          is_night_shift: boolean | null;
+        } | undefined;
 
         if (!shift) {
           // Fallback if somehow shift is missing

@@ -16,7 +16,6 @@ interface PanicAlertState {
 }
 
 interface TriggerPanicParams {
-  employeeId: string; // Employee ID - we'll lookup guard_id from security_guards
   latitude?: number;
   longitude?: number;
   locationId?: string;
@@ -47,7 +46,7 @@ export function usePanicAlert() {
   /**
    * Trigger a panic alert - inserts into panic_alerts table
    * 
-   * ✅ This function now uses server-side authentication to derive guard identity.
+   * ✅ This function uses server-side authentication to derive guard identity.
    * The guard_id is looked up using the authenticated user's ID (auth.uid()),
    * preventing any impersonation attacks.
    * 
@@ -62,7 +61,7 @@ export function usePanicAlert() {
    */
   const triggerPanic = useCallback(
     async (
-      params: Omit<TriggerPanicParams, 'employeeId'> & { employeeId?: string },
+      params: TriggerPanicParams,
     ): Promise<{ success: boolean; alertId?: string; error?: string }> => {
       setState((prev) => ({ ...prev, isTriggering: true, error: null }));
 
@@ -115,10 +114,11 @@ export function usePanicAlert() {
         if (error) throw error;
 
         // Get supervisor IDs to notify
+        // employees.designation_id is FK → designations.id — use .or() for reliable joined-column filtering
         const { data: supervisors } = await supabase
           .from('employees')
-          .select('auth_user_id')
-          .in('designation', ['Security Supervisor', 'Society Manager', 'Admin'])
+          .select('auth_user_id, designations!inner(designation_name)')
+          .or('designation_name.eq.Security Supervisor,designation_name.eq.Society Manager,designation_name.eq.Admin', { referencedTable: 'designations' })
           .eq('is_active', true);
 
         const supervisorIds = (supervisors || [])

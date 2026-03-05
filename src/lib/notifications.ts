@@ -118,3 +118,23 @@ export async function sendServiceCompletionNotification(
     },
   });
 }
+
+/**
+ * Send visitor arrival notification to resident
+ */
+export async function sendVisitorArrivalNotification(
+  residentUserId: string,
+  visitorName: string,
+  flatNumber: string
+): Promise<void> {
+  await sendNotification({
+    user_id: residentUserId,
+    title: 'New Visitor at Gate',
+    body: `Dear Resident, ${visitorName} is at the gate for Flat ${flatNumber}.`,
+    channel: 'both',
+    data: {
+      type: 'visitor_arrival',
+      flat_number: flatNumber,
+    },
+  });
+}

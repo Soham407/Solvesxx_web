@@ -152,34 +152,36 @@ export function useEmployeeProfile() {
         return;
       }
 
-      // Step 3: Get employee details
-      const { data: employeeData, error: employeeError } = await supabase
-        .from("employees")
-        .select("id, employee_code, first_name, last_name")
-        .eq("id", userData.employee_id)
-        .single();
+      // Step 3 & 4: Get employee details AND check if guard — in PARALLEL
+      // L4 FIX: These queries are independent, so run them concurrently
+      const [employeeResult, guardResult] = await Promise.all([
+        supabase
+          .from("employees")
+          .select("id, employee_code, first_name, last_name")
+          .eq("id", userData.employee_id)
+          .single(),
+        supabase
+          .from("security_guards")
+          .select("id, guard_code")
+          .eq("employee_id", userData.employee_id)
+          .single(),
+      ]);
 
+      const { data: employeeData, error: employeeError } = employeeResult;
       if (employeeError) throw employeeError;
-
-      // Step 4: Check if employee is a security guard
-      const { data: guardData, error: guardError } = await supabase
-        .from("security_guards")
-        .select("id, guard_code")
-        .eq("employee_id", userData.employee_id)
-        .single();
 
       // Handle guard query errors explicitly
       let guardInfo: { id: string; guard_code: string } | null = null;
-      if (guardError) {
-        if (guardError.code === "PGRST116") {
+      if (guardResult.error) {
+        if (guardResult.error.code === "PGRST116") {
           // No rows found - user is not a guard, this is okay
           guardInfo = null;
         } else {
           // Unexpected error - propagate it
-          throw guardError;
+          throw guardResult.error;
         }
       } else {
-        guardInfo = guardData;
+        guardInfo = guardResult.data;
       }
 
       // Safely construct fullName, handling null values

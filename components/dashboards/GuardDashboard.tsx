@@ -294,9 +294,10 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
     cancelHold: cancelPanicHold,
   } = usePanicAlert();
 
-  // Stability refs for useEffect
+  // Stability refs for useEffect — prevent stale closures in timeouts
   const toastRef = useRef(toast);
   const triggerPanicRef = useRef(triggerPanic);
+  const autoClockOutRef = useRef(autoClockOut);
 
   useEffect(() => {
     toastRef.current = toast;
@@ -305,6 +306,10 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
   useEffect(() => {
     triggerPanicRef.current = triggerPanic;
   }, [triggerPanic]);
+
+  useEffect(() => {
+    autoClockOutRef.current = autoClockOut;
+  }, [autoClockOut]);
 
   // Sidebar/Checklist Visibility
   const [showAllChecklist, setShowAllChecklist] = useState(false);
@@ -409,8 +414,8 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
             variant: "destructive",
           });
 
-          // Auto Punch-Out for persistent breach
-          await autoClockOut("Persistent geo-fence breach (5+ minutes)");
+          // Auto Punch-Out for persistent breach (M8 FIX: use ref to avoid stale closure)
+          await autoClockOutRef.current("Persistent geo-fence breach (5+ minutes)");
           toastRef.current({
             title: "Shift Auto-Terminated",
             description: "You have been automatically clocked out due to geo-fence breach.",
@@ -423,7 +428,7 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
             variant: "destructive",
           });
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         toastRef.current({
           title: "🚨 Alert Error",
           description: "System error while sending breach alert.",
@@ -475,8 +480,8 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
           visitorsToday: visitorsToday || 0,
           pendingCheckouts: pendingCheckouts || 0,
         });
-      } catch (err: any) {
-        console.error("Error fetching visitor stats:", err?.message || err);
+      } catch (err: unknown) {
+        console.error("Error fetching visitor stats:", err instanceof Error ? err.message : err);
       } finally {
         setIsLoadingStats(false);
       }
@@ -500,8 +505,8 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
         if (data?.phone) {
           setSupervisorPhone(data.phone);
         }
-      } catch (err: any) {
-        console.error("Error fetching supervisor phone:", err?.message || err);
+      } catch (err: unknown) {
+        console.error("Error fetching supervisor phone:", err instanceof Error ? err.message : err);
       }
     }
     fetchSupervisorInfo();
@@ -635,7 +640,31 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
 
     setIsUploadingSelfie(true);
     try {
-      const fileExt = selfieFile.name.split('.').pop() || 'jpg';
+      // M4 FIX: Validate selfie file before uploading
+      const MAX_SELFIE_BYTES = 10 * 1024 * 1024; // 10MB
+      const ALLOWED_SELFIE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+      const ALLOWED_SELFIE_EXTS = ['jpg', 'jpeg', 'png', 'webp'];
+
+      if (selfieFile.size > MAX_SELFIE_BYTES) {
+        throw new Error(`Selfie is too large (${(selfieFile.size / 1024 / 1024).toFixed(1)}MB). Max limit is 10MB.`);
+      }
+
+      if (!ALLOWED_SELFIE_TYPES.includes(selfieFile.type)) {
+        throw new Error(`Invalid file type. Allowed: ${ALLOWED_SELFIE_EXTS.join(', ')}`);
+      }
+
+      // Extract safe file extension
+      let fileExt = 'jpg'; // safe default
+      const mimeExt = selfieFile.type.split('/')[1]?.toLowerCase();
+      if (mimeExt && ALLOWED_SELFIE_EXTS.includes(mimeExt)) {
+        fileExt = mimeExt;
+      } else {
+        const nameExt = selfieFile.name.split('.').pop()?.toLowerCase();
+        if (nameExt && ALLOWED_SELFIE_EXTS.includes(nameExt)) {
+          fileExt = nameExt;
+        }
+      }
+
       const fileName = `${employeeId}-${Date.now()}.${fileExt}`;
       const filePath = `selfies/${fileName}`;
 
@@ -645,16 +674,13 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
 
       if (uploadError) throw uploadError;
 
-      // Get signed URL for the selfie (private bucket)
-      const { data: signedUrlData, error: urlError } = await supabase.storage
-        .from('attendance-selfies')
-        .createSignedUrl(filePath, 60 * 60 * 24 * 365); // 1 year expiry
-
-      if (urlError) throw urlError;
-
-      await handleClockIn(signedUrlData.signedUrl);
-    } catch (err: any) {
-      toast({ title: "Upload Failed", description: err.message, variant: "destructive" });
+      // M5 FIX: Store the storage path instead of a 1-year signed URL.
+      // Signed URLs expire and break if bucket policy changes.
+      // The attendance display layer should generate signed URLs on-demand.
+      await handleClockIn(filePath);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Upload failed";
+      toast({ title: "Upload Failed", description: message, variant: "destructive" });
     } finally {
       setIsUploadingSelfie(false);
     }

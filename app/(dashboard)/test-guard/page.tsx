@@ -2,6 +2,8 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useResidentLookup } from "@/hooks/useResidentLookup";
+import { VisitorRegistrationDialog } from "@/components/society/VisitorRegistrationDialog";
+
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 export default function GuardTruthEnginePage() {
   const [query, setQuery] = useState("");
   const { searchResidents, results, isLoading, error } = useResidentLookup();
+  const [isRegistrationOpen, setIsRegistrationOpen] = useState(false);
 
   // Manual debounce implementation since I'm not sure if useDebounce exists
   const [debouncedQuery, setDebouncedQuery] = useState(query);
@@ -143,6 +146,9 @@ export default function GuardTruthEnginePage() {
                 <Button
                   className="w-full mt-2 font-bold uppercase tracking-widest text-xs"
                   variant="outline"
+                  onClick={() => {
+                    setIsRegistrationOpen(true);
+                  }}
                 >
                   Log Entry
                 </Button>
@@ -151,6 +157,11 @@ export default function GuardTruthEnginePage() {
           </Card>
         ))}
       </div>
+
+      <VisitorRegistrationDialog 
+        open={isRegistrationOpen} 
+        onOpenChange={setIsRegistrationOpen}
+      />
     </div>
   );
 }

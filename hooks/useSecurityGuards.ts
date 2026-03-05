@@ -122,7 +122,23 @@ export function useSecurityGuards(initialFilters?: GuardFilters) {
 
       if (fetchError) throw fetchError;
 
-      const typedData = (data || []) as unknown as SecurityGuard[];
+      // Map Supabase response to SecurityGuard interface
+      // PostgREST returns joined data for employee and assigned_location as nested objects
+      const typedData: SecurityGuard[] = (data || []).map((row) => ({
+        id: row.id,
+        employee_id: row.employee_id,
+        guard_code: row.guard_code,
+        grade: row.grade as SecurityGuard["grade"],
+        is_armed: row.is_armed,
+        license_number: row.license_number,
+        license_expiry: row.license_expiry,
+        assigned_location_id: row.assigned_location_id,
+        shift_timing: row.shift_timing,
+        is_active: row.is_active,
+        created_at: row.created_at,
+        employee: row.employee as SecurityGuard["employee"],
+        assigned_location: row.assigned_location as SecurityGuard["assigned_location"],
+      }));
       setGuards(typedData);
 
       // Fetch today's attendance for each guard

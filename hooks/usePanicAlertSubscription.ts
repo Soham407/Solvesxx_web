@@ -80,14 +80,14 @@ export function usePanicAlertSubscription() {
           resolved_at,
           resolved_by,
           resolution_notes,
-          security_guards (
+          guard:security_guards (
             guard_code,
-            employees (
+            employee:employees (
               first_name,
               last_name
             )
           ),
-          company_locations (
+          location:company_locations (
             location_name
           )
         `)
@@ -96,22 +96,22 @@ export function usePanicAlertSubscription() {
 
       if (error) throw error;
 
-      // Transform data to match interface
-      const alerts: PanicAlert[] = (data || []).map((a: Record<string, unknown>) => ({
-        id: a.id as string,
-        guard_id: a.guard_id as string,
-        alert_type: a.alert_type as string,
-        location_id: a.location_id as string | null,
-        latitude: a.latitude as number | null,
-        longitude: a.longitude as number | null,
-        alert_time: a.alert_time as string,
-        description: a.description as string | null,
-        is_resolved: a.is_resolved as boolean,
-        resolved_at: a.resolved_at as string | null,
-        resolved_by: a.resolved_by as string | null,
-        resolution_notes: a.resolution_notes as string | null,
-        guard: (Array.isArray(a.security_guards) ? a.security_guards[0] : a.security_guards) as PanicAlert["guard"],
-        location: (Array.isArray(a.company_locations) ? a.company_locations[0] : a.company_locations) as PanicAlert["location"],
+      // Transform data — PostgREST returns typed data with aliases
+      const alerts: PanicAlert[] = (data || []).map((a) => ({
+        id: a.id,
+        guard_id: a.guard_id,
+        alert_type: a.alert_type,
+        location_id: a.location_id,
+        latitude: a.latitude,
+        longitude: a.longitude,
+        alert_time: a.alert_time,
+        description: a.description,
+        is_resolved: a.is_resolved,
+        resolved_at: a.resolved_at,
+        resolved_by: a.resolved_by,
+        resolution_notes: a.resolution_notes,
+        guard: a.guard as PanicAlert["guard"],
+        location: a.location as PanicAlert["location"],
       }));
 
       setState((prev) => ({
@@ -153,7 +153,7 @@ export function usePanicAlertSubscription() {
           // A new panic alert was inserted
           const newAlert = payload.new as Partial<PanicAlert>;
 
-          // Fetch full alert data with relations
+          // Fetch full alert data with relations using aliased joins
           const { data, error } = await supabase
             .from("panic_alerts")
             .select(`
@@ -169,14 +169,14 @@ export function usePanicAlertSubscription() {
               resolved_at,
               resolved_by,
               resolution_notes,
-              security_guards (
+              guard:security_guards (
                 guard_code,
-                employees (
+                employee:employees (
                   first_name,
                   last_name
                 )
               ),
-              company_locations (
+              location:company_locations (
                 location_name
               )
             `)
@@ -185,20 +185,20 @@ export function usePanicAlertSubscription() {
 
           if (!error && data) {
             const fullAlert: PanicAlert = {
-              id: data.id as string,
-              guard_id: data.guard_id as string,
-              alert_type: data.alert_type as string,
-              location_id: data.location_id as string | null,
-              latitude: data.latitude as number | null,
-              longitude: data.longitude as number | null,
-              alert_time: data.alert_time as string,
-              description: data.description as string | null,
-              is_resolved: data.is_resolved as boolean,
+              id: data.id,
+              guard_id: data.guard_id,
+              alert_type: data.alert_type,
+              location_id: data.location_id,
+              latitude: data.latitude,
+              longitude: data.longitude,
+              alert_time: data.alert_time,
+              description: data.description,
+              is_resolved: data.is_resolved,
               resolved_at: data.resolved_at,
               resolved_by: data.resolved_by,
               resolution_notes: data.resolution_notes,
-              guard: (Array.isArray(data.security_guards) ? data.security_guards[0] : data.security_guards) as PanicAlert["guard"],
-              location: (Array.isArray(data.company_locations) ? data.company_locations[0] : data.company_locations) as PanicAlert["location"],
+              guard: data.guard as PanicAlert["guard"],
+              location: data.location as PanicAlert["location"],
             };
 
             setState((prev) => ({

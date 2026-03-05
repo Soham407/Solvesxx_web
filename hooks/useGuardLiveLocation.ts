@@ -26,7 +26,7 @@ export function useGuardLiveLocation() {
           .select(`
             employee_id,
             status,
-            security_guards:employees (
+            employee:employees (
               first_name,
               last_name
             )
@@ -59,7 +59,7 @@ export function useGuardLiveLocation() {
         
         activeLogs.forEach(log => {
           const empId = log.employee_id;
-          const emp = log.security_guards as any;
+          const emp = log.employee as { first_name: string | null; last_name: string | null } | null;
           const fullName = emp ? `${emp.first_name || ""} ${emp.last_name || ""}`.trim() : "Unknown Guard";
           
           // Find latest GPS record for this employee

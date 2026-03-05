@@ -1,4 +1,3 @@
-// @ts-nocheck
 "use client";
 
 import { useEffect, useRef } from "react";
@@ -48,11 +47,17 @@ export function useInactivityMonitor(employeeId: string | null, isClockedIn: boo
   async function triggerInactivityAlert(empId: string, lat: number, lng: number) {
     try {
       // Get guard details
-      const { data: guard } = await supabase
+      const { data: guard, error: guardError } = await supabase
         .from("security_guards")
-        .select("assigned_location_id, employee_id")
+        .select("id, assigned_location_id, employee_id")
         .eq("employee_id", empId)
         .single();
+
+      // H2 FIX: guard_id FK points to security_guards.id — cannot use empId as fallback
+      if (guardError || !guard?.id) {
+        console.error("Cannot create inactivity alert: no guard record found for employee", empId);
+        return;
+      }
 
       // Get guard name
       const { data: empData } = await supabase
@@ -69,27 +74,28 @@ export function useInactivityMonitor(employeeId: string | null, isClockedIn: boo
       const { data: alert } = await supabase
         .from("panic_alerts")
         .insert({
-          guard_id: guard?.id || empId,
+          guard_id: guard.id,
           alert_type: "inactivity",
           description: "Static inactivity detected for 30+ minutes. No GPS movement recorded.",
           latitude: lat,
           longitude: lng,
-          location_id: guard?.assigned_location_id,
+          location_id: guard.assigned_location_id,
           is_resolved: false
         })
         .select()
         .single();
 
       // Send notifications to supervisors
+      // H3 FIX: Use .or() instead of .in() on joined column for reliable PostgREST filtering
       const { data: supervisors } = await supabase
         .from('employees')
-        .select('auth_user_id')
-        .in('designation', ['Security Supervisor', 'Society Manager', 'Admin'])
-        .eq('is_active', true);
+        .select('auth_user_id, designations!inner(designation_name)')
+        .eq('is_active', true)
+        .or('designation_name.eq.Security Supervisor,designation_name.eq.Society Manager,designation_name.eq.Admin', { referencedTable: 'designations' });
 
       const supervisorIds = (supervisors || [])
-        .map((s: any) => s.auth_user_id)
-        .filter(Boolean);
+        .map((s: { auth_user_id: string | null }) => s.auth_user_id)
+        .filter((id): id is string => Boolean(id));
 
       if (supervisorIds.length > 0) {
         await sendPanicAlertNotification(

@@ -124,7 +124,25 @@ export function usePanicAlertHistory(initialFilters?: AlertFilters) {
 
       if (fetchError) throw fetchError;
 
-      const typedData = (data || []) as unknown as PanicAlert[];
+      // Map Supabase response to PanicAlert interface with proper typing
+      const typedData: PanicAlert[] = (data || []).map((row) => ({
+        id: row.id,
+        guard_id: row.guard_id,
+        alert_type: row.alert_type as AlertType,
+        location_id: row.location_id,
+        latitude: row.latitude,
+        longitude: row.longitude,
+        alert_time: row.alert_time,
+        description: row.description,
+        is_resolved: row.is_resolved,
+        resolved_at: row.resolved_at,
+        resolved_by: row.resolved_by,
+        resolution_notes: row.resolution_notes,
+        created_at: row.created_at,
+        guard: row.guard as PanicAlert["guard"],
+        location: row.location as PanicAlert["location"],
+        resolver: row.resolver as PanicAlert["resolver"],
+      }));
       setAlerts(typedData);
 
       // Separate active alerts (unresolved)
