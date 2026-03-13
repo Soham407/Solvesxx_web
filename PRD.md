@@ -334,6 +334,27 @@ o For Staffing , the Buyer selects the "Designation" (Pantry, Housekeeping, etc.
  Requirement Specification: The Buyer defines the quantity (headcount), the shift timings, and the
 duration of the deployment.
 ```
+
+##  Buyer Dashboard (Portal)
+
+```
+I. Overview Metrics
+ Active Subscriptions: Total number of ongoing service deployments (e.g., Security Guards, Housekeeping).
+ Pending Requests: Count of service requests awaiting Admin approval or Vendor assignment.
+ Expiring Soon: Alerts for services nearing the end of their deployment duration, prompting for quick renewal.
+
+II. Active Services Overview
+ A consolidated list view of ongoing services detailing:
+  o Service Category & Role (e.g., Security Services - Grade A).
+  o Headcount and Shift Timings.
+  o Start Date and End Date.
+  o Assigned Personnel Summary (derived from Delivery Notes).
+
+III. Billing & Quick Actions
+ Pending Bills: Direct access to unpaid "Sale Bills" needing Buyer payment.
+ Request Modifications: Quick actions to "Renew Service", "Cancel Service", or "Raise Ticket" for an active deployment.
+ Service History: Log of past completed services with their corresponding feedback ratings.
+```
 ##  Company Admin
 
 ```

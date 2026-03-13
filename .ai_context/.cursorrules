@@ -1,0 +1,76 @@
+# FacilityPro — Cursor Rules
+# Auto-injected into every Cursor prompt.
+
+## Project
+- Next.js 16 App Router + Supabase + TailwindCSS 3.4 + shadcn/ui
+- TypeScript (strict OFF) — don't add strict null checks
+- Read CONTEXT.md for full architecture + 82 hooks list, PHASES.md for module status
+
+## Before Coding
+- Check PHASES.md for module status: ✅ FULL / 🟡 PARTIAL / 🔵 UI-ONLY / 🔴 NOT BUILT
+- Check the 82 hooks list in CONTEXT.md before creating a new hook
+- Check "Known Mock Data" in PHASES.md for hardcoded areas
+- Check "Not Yet Built" in PHASES.md for PRD gaps
+
+## Must Follow
+- One hook per entity in /hooks/use[Entity].ts — pages never query Supabase directly
+- Use @/ path alias (maps to project root)
+- Use shadcn/ui components from @/components/ui/
+- Use HSL CSS variable tokens for colors (primary, muted, accent, success, warning, critical, info)
+- Use PageHeader from @/components/shared/PageHeader for page headers
+- Use DataTable from @/components/shared/DataTable for all tables
+- Forms: React Hook Form + Zod
+- Tables: TanStack React Table via shared DataTable component
+- Dark mode: next-themes (class-based)
+- Currency: formatCurrency() from @/src/lib/utils/currency
+- Service lookup: use service_code (e.g., "PST-CON") not hardcoded UUIDs
+
+## Never Do
+- Edit auto-generated files: supabase-types.ts, src/types/supabase.ts
+- Hardcode UUIDs — use service_code or dynamic lookups
+- Use mock/hardcoded data in any page (replace existing mocks, don't add new ones)
+- Create inline Supabase queries in page components
+- Remove ignoreBuildErrors from next.config.ts
+- Modify RLS policies without understanding existing role structure
+- Create a new hook without checking if one of the 82 existing hooks covers the use case
+
+## Known Mock Areas (Fix When Touching)
+- /buyer page: "Ending Soon" metric, service headcount/shift/endDate, fallback values
+- /tickets/returns: Entire page is hardcoded — needs useRTVTickets hook + DB table
+- /services/plantation: "Soil Health 98%", "Seasonal Planner" hardcoded
+- /dashboard Admin: Revenue chart is ComingSoonChart placeholder
+- /test-resident: Uses MOCK_RESIDENT_ID instead of logged-in user
+
+## Supabase
+- Browser client (most hooks): import { supabase } from "@/src/lib/supabaseClient"
+- Newer hooks alternative: import { createClient } from "@/src/lib/supabase/client"
+- Server client: import { createClient } from "@/src/lib/supabase/server" (async!)
+- Edge Functions: Deno runtime (jsr:@supabase/functions-js/edge-runtime.d.ts)
+- 100+ tables, auto-generated types in supabase-types.ts (606KB)
+- Realtime: panic_alerts, service_requests, sale_product_rates, supplier_rates, job_sessions
+
+## Roles (13 total, see src/lib/auth/roles.ts)
+admin, company_md, company_hod, account, delivery_boy, buyer, supplier, vendor, security_guard, security_supervisor, society_manager, service_boy, resident
+
+## Adding New Pages
+1. Create page: app/(dashboard)/[module]/[feature]/page.tsx
+2. Add sidebar entry: navigation array in components/layout/AppSidebar.tsx
+3. Add role access: ROLE_ACCESS in src/lib/auth/roles.ts
+4. If experimental: add feature flag to src/lib/featureFlags.ts
+
+## Feature Flags (src/lib/featureFlags.ts)
+- NEXT_PUBLIC_FEATURE_FUTURE_PHASE=true enables ALL features
+- NEXT_PUBLIC_FF_<NAME>=true enables individual features
+- Currently gated: Kanban, Reports, GPS Center, Maintenance, QR Batch, Service Boy, Warehouses, etc.
+
+## Types & Migrations
+- Manual types: src/types/phaseB.ts (assets, jobs), src/types/phaseD.ts (suppliers, rates)
+- Constants/enums: src/lib/constants.ts (_STATUS, _STATUS_LABELS, _STATUS_COLORS, _STATUS_BADGE_CLASSES)
+- Migrations: supabase/migrations/YYYYMMDD_description.sql
+
+## Hidden Sidebar Items (Temporarily Commented Out)
+- Assets & Maintenance, Stock & Warehouses, Purchase Orders, Requests & Approvals
+- Mapping & Rates, Printing & Ads, Quality Assurance tickets, Material Returns tickets
+- 3-Way Reconciliation, Audit & Compliance
+- Unhide by removing /* Temporarily hidden */ comments in AppSidebar.tsx
+
