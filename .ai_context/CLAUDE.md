@@ -146,7 +146,7 @@ const pestService = services.find(s => s.service_code === "PST-CON" ||
 3. **Feature flags** in `src/lib/featureFlags.ts` can gate features — check before assuming something is broken.
 4. **Supabase Realtime** requires the table to have Realtime enabled in the Supabase dashboard.
 5. **Edge functions** need secrets set via `supabase secrets set` — they don't read `.env.local`.
-6. **The `/tickets/returns` page is fully mocked** — if working on RTV, you need to create the DB table + hook first.
+6. **`/tickets/returns` is now live** — connected to `rtv_tickets` table via `useRTVTickets` hook with Realtime subscription.
 7. **Buyer dashboard** has several mocked metrics — see PHASES.md "Known Mock Data" for exact line numbers.
 8. **`formatCurrency()`** handles paise-to-rupee conversion — always use it for monetary values.
 9. **When filtering services by type**, use `service_code` lookup (e.g., `PST-CON`, `PRN-ADV`) instead of hardcoded UUIDs.

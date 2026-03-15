@@ -1,6 +1,6 @@
 # FacilityPro — Project Context
 
-> **Last Updated:** 2026-03-13
+> **Last Updated:** 2026-03-15
 > Paste this at the start of every AI session for instant context.
 
 ---
@@ -224,9 +224,9 @@ return () => { supabase.removeChannel(channel); };
 ## Database
 
 - **100+ tables** across public schema on Supabase Postgres
-- **Key tables**: `employees`, `visitors`, `daily_checklists`, `panic_alerts`, `purchase_orders`, `indents`, `products`, `suppliers`, `service_requests`, `attendance_records`, `leave_applications`, `payroll_cycles`, `company_locations`, `residents`, `flats`, `buildings`, `stock_levels`, `supplier_bills`, `sale_bills`, `behavior_tickets`, `grn_items`, `security_guards`, `job_sessions`
+- **Key tables**: `employees`, `visitors`, `daily_checklists`, `panic_alerts`, `purchase_orders`, `indents`, `products`, `suppliers`, `service_requests`, `attendance_records`, `leave_applications`, `payroll_cycles`, `company_locations`, `residents`, `flats`, `buildings`, `stock_levels`, `supplier_bills`, `sale_bills`, `behavior_tickets`, `grn_items`, `security_guards`, `job_sessions`, `rtv_tickets`
 - **RLS**: Enabled with role-based policies
-- **Realtime**: Used for panic alerts, service request updates, sale rate changes, supplier rate changes, job session tracking
+- **Realtime**: Used for panic alerts, service request updates, sale rate changes, supplier rate changes, job session tracking, RTV ticket changes
 - **Storage**: Employee documents, visitor photos, job evidence photos
 - **SQL Functions**: payroll_calculation, po_status_transition, reconciliation_matching, visitor_approval, log_material_arrival
 - **Reference schema**: `docs/reference_schema.sql` (134KB)
@@ -290,7 +290,7 @@ Below is a categorized list of all hooks. **Always check if a hook already exist
 `useServiceRequests`, `useServiceRequestSubscription`, `useServices`, `useTechnicians`, `useVendorWiseServices`, `useWorkMaster`, `useJobSessions`, `useJobSessionSubscription`, `useJobMaterials`, `useJobPhotos`, `useMaintenanceSchedules`, `usePestControlInventory`, `usePlantationOps`, `usePrintingMaster`
 
 ### Tickets
-`useBehaviorTickets`
+`useBehaviorTickets`, `useRTVTickets`
 
 ### Assets & Delivery
 `useAssets`, `useAssetCategories`, `useQrCodes`, `useDeliveryLogs`

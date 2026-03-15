@@ -1,6 +1,6 @@
 # FacilityPro — Implementation Phases & Module Status
 
-> **Last Updated:** 2026-03-13
+> **Last Updated:** 2026-03-15
 > **Purpose:** This file is the single source of truth for what is built, what's partially built, and what's missing.
 > Paste the relevant section when starting a new AI session.
 
@@ -68,6 +68,7 @@ All master data tables, auth, and app shell are complete.
 | Supplier Bills | `/supplier/bills` | ✅ FULL | Submit/track bills |
 | Supplier Service Orders | `/supplier/service-orders` | ✅ FULL | `useServicePurchaseOrders` hook |
 | Warehouses | `/inventory/warehouses` | ✅ FULL | `useWarehouses` hook |
+| Return To Vendor (RTV) | `/tickets/returns` | ✅ FULL | `useRTVTickets` hook, full lifecycle |
 
 ---
 
@@ -190,7 +191,7 @@ All located in `components/dashboards/`. Accessible via `/dashboard` with admin 
 |--------|-------|--------|-------|
 | Behavior Tickets | `/tickets/behavior` | ✅ FULL | `useBehaviorTickets` + `useEmployees` hooks, create/resolve dialogs, CRUD |
 | Quality Tickets | `/tickets/quality` | ✅ FULL | Derived from `useGRN` — scans GRN items for quality issues, real data |
-| Return to Vendor (RTV) | `/tickets/returns` | 🔵 UI-ONLY | **Fully hardcoded mock data** — 3 static RTV entries, stats are hardcoded strings ("3", "2", "₹18,450", "12"). **No hook exists.** Needs: `useRTVTickets` hook + Supabase table |
+| Return to Vendor (RTV) | `/tickets/returns` | ✅ FULL | `useRTVTickets` hook, `rtv_tickets` Supabase table, Realtime subscription, CRUD (create + status update), stats computed from live data |
 
 ---
 
@@ -226,7 +227,7 @@ These are specific places where data is still mocked despite the page being conn
 2. **`/buyer` page (line ~59)**: `activeServicesCount || 3` — fallback mock value when no data
 3. **`/buyer` page (lines ~84-93)**: Active services list mocks `headcount`, `shift`, `startDate`, `endDate` per request
 4. **`/buyer` page (lines ~331-336)**: "Raise a Ticket" and "Cancel a Service" buttons are non-functional
-5. **`/tickets/returns` (entire page)**: Completely hardcoded mock data, no Supabase connection
+5. ~~`/tickets/returns`~~ — **RESOLVED** (2026-03-15): Now connected to `rtv_tickets` table via `useRTVTickets` hook with Realtime
 6. **`/services/plantation` (line ~89)**: `"98%"` hardcoded for Soil Health, `"Greenery density 84%"` hardcoded
 7. **`/services/plantation` (lines ~153-174)**: Seasonal Planner is entirely hardcoded (Feb/Mar entries)
 8. **`/dashboard` Admin view (line ~268)**: Revenue Analytics chart uses `ComingSoonChart` placeholder
@@ -252,7 +253,7 @@ These features are described in the PRD but have **no page or code** yet:
 | 4 | **Shift-Based Attendance Validation** | Smart Attendance (HRMS) | Clock-in must validate against assigned shift timings (8AM-8PM, 8PM-8AM). Hook `useShifts` exists but attendance check-in doesn't cross-validate shift assignment |
 | 5 | **Auto-Punch-Out** | Smart Attendance (HRMS) | If guard leaves geo-fence for too long → auto clock-out + flag. Needs: edge function or pg_cron job |
 | 6 | **Check Feedback (Buyer Rating)** | Financial Closure | After bill paid, Buyer rates service quality. Field exists in PRD but no dedicated feedback form/flow |
-| 7 | **RTV (Return to Vendor) Backend** | Ticket Generation System | `/tickets/returns` page exists (UI-only). Needs: `rtv_tickets` table, `useRTVTickets` hook, CRUD operations |
+| 7 | ~~**RTV (Return to Vendor) Backend**~~ | Ticket Generation System | ✅ **COMPLETED** (2026-03-15): `rtv_tickets` table migrated, `useRTVTickets` hook created, Realtime enabled, page connected |
 
 ### Medium Priority
 | # | Feature | PRD Section | What's Needed |
@@ -284,6 +285,12 @@ These features are described in the PRD but have **no page or code** yet:
 ---
 
 ## Recent Session Handoffs
+
+### Session: 2026-03-15 — RTV Backend Implementation
+- **What was done**: Applied `rtv_tickets` migration to Supabase, regenerated TypeScript types, created `useRTVTickets` hook with CRUD + Realtime, rewired `/tickets/returns` page from mocked data to live Supabase data.
+- **Key decisions**: RTV number generated client-side with random suffix (server-side generation ideal for production). Realtime enabled on `rtv_tickets` for live dashboard updates.
+- **Files modified**: `supabase/migrations/20260315120000_add_rtv_tickets.sql`, `hooks/useRTVTickets.ts`, `app/(dashboard)/tickets/returns/page.tsx`, `src/types/phaseB.ts`, `src/types/supabase.ts` (regenerated), `src/lib/constants.ts`
+- **Status**: RTV fully connected. No mock data remaining on this page.
 
 ### Session: 2026-03-13 — AI Context Files + Buyer Dashboard
 - **What was done**: Created `.ai_context/` directory with CONTEXT.md, PHASES.md, CLAUDE.md, .cursorrules. Implemented Buyer Dashboard page.

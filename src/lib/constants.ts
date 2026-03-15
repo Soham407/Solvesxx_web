@@ -295,3 +295,37 @@ export const INDIAN_STATES = [
   'Andaman and Nicobar Islands', 'Chandigarh', 'Dadra and Nagar Haveli and Daman and Diu',
   'Delhi', 'Jammu and Kashmir', 'Ladakh', 'Lakshadweep', 'Puducherry',
 ] as const;
+
+// ===== RTV STATUS =====
+export const RTV_STATUS = {
+  PENDING_DISPATCH: 'pending_dispatch',
+  IN_TRANSIT: 'in_transit',
+  ACCEPTED_BY_VENDOR: 'accepted_by_vendor',
+  CREDIT_NOTE_ISSUED: 'credit_note_issued',
+  REJECTED_BY_VENDOR: 'rejected_by_vendor',
+} as const;
+
+export const RTV_STATUS_LABELS: Record<string, string> = {
+  pending_dispatch: 'Pending Dispatch',
+  in_transit: 'In Transit',
+  accepted_by_vendor: 'Accepted by Vendor',
+  credit_note_issued: 'Credit Note Issued',
+  rejected_by_vendor: 'Rejected by Vendor',
+};
+
+export const RTV_STATUS_COLORS: Record<string, string> = {
+  pending_dispatch: 'text-warning',
+  in_transit: 'text-info',
+  accepted_by_vendor: 'text-success',
+  credit_note_issued: 'text-primary',
+  rejected_by_vendor: 'text-critical',
+};
+
+export const RTV_RETURN_REASONS = [
+  'Broken/Damaged',
+  'Wrong Specification',
+  'Shortage',
+  'Expired',
+  'Quality Mismatch',
+  'Wrong Item',
+] as const;

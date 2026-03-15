@@ -254,3 +254,29 @@ export interface InventoryDashboardStats {
   totalWarehouses: number;
   pendingReorders: number;
 }
+
+// ===== RTV (RETURN TO VENDOR) INTERFACES =====
+
+export type RTVTicket = Database['public']['Tables']['rtv_tickets']['Row'];
+export type RTVTicketInsert = Database['public']['Tables']['rtv_tickets']['Insert'];
+export type RTVTicketUpdate = Database['public']['Tables']['rtv_tickets']['Update'];
+
+export interface RTVTicketDisplay extends RTVTicket {
+  supplier?: {
+    supplier_name: string;
+  };
+  product?: {
+    product_name: string;
+  };
+  purchase_order?: {
+    po_number: string;
+  };
+}
+
+export interface RTVDashboardStats {
+  pendingPickup: number;
+  inTransit: number;
+  creditPendingValue: number;
+  monthlyReturnsCount: number;
+}
+

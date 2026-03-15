@@ -5582,6 +5582,142 @@ export type Database = {
         }
         Relationships: []
       }
+      rtv_tickets: {
+        Row: {
+          accepted_at: string | null
+          created_at: string | null
+          credit_issued_at: string | null
+          credit_note_amount: number | null
+          credit_note_number: string | null
+          dispatched_at: string | null
+          estimated_value: number | null
+          id: string
+          notes: string | null
+          photo_urls: Json | null
+          po_id: string | null
+          product_id: string
+          quantity: number
+          raised_by: string | null
+          receipt_id: string | null
+          return_reason: string
+          rtv_number: string
+          status: string | null
+          supplier_id: string
+          unit_of_measurement: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string | null
+          credit_issued_at?: string | null
+          credit_note_amount?: number | null
+          credit_note_number?: string | null
+          dispatched_at?: string | null
+          estimated_value?: number | null
+          id?: string
+          notes?: string | null
+          photo_urls?: Json | null
+          po_id?: string | null
+          product_id: string
+          quantity: number
+          raised_by?: string | null
+          receipt_id?: string | null
+          return_reason: string
+          rtv_number?: string
+          status?: string | null
+          supplier_id: string
+          unit_of_measurement?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string | null
+          credit_issued_at?: string | null
+          credit_note_amount?: number | null
+          credit_note_number?: string | null
+          dispatched_at?: string | null
+          estimated_value?: number | null
+          id?: string
+          notes?: string | null
+          photo_urls?: Json | null
+          po_id?: string | null
+          product_id?: string
+          quantity?: number
+          raised_by?: string | null
+          receipt_id?: string | null
+          return_reason?: string
+          rtv_number?: string
+          status?: string | null
+          supplier_id?: string
+          unit_of_measurement?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rtv_tickets_po_id_fkey"
+            columns: ["po_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rtv_tickets_po_id_fkey"
+            columns: ["po_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_orders_with_details"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rtv_tickets_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rtv_tickets_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "stock_levels"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "rtv_tickets_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "view_inventory_velocity"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "rtv_tickets_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "material_receipts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rtv_tickets_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "material_receipts_with_details"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rtv_tickets_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rtv_tickets_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_scorecards"
+            referencedColumns: ["supplier_id"]
+          },
+        ]
+      }
       safety_equipment: {
         Row: {
           created_at: string | null

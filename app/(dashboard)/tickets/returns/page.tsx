@@ -4,66 +4,66 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTable } from "@/components/shared/DataTable";
 import { Button } from "@/components/ui/button";
 import { 
-  Plus, 
+  History,
   RotateCcw, 
   Truck, 
-  FileWarning, 
   MoreHorizontal, 
-  ArrowRightLeft, 
   PackageX,
-  ShieldAlert,
-  History,
   CheckCircle2
 } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-
-interface RTVTicket {
-  id: string;
-  vendor: string;
-  poRef: string;
-  item: string;
-  returnReason: "Broken/Damaged" | "Wrong Specification" | "Shortage" | "Expired";
-  qty: string;
-  status: "Pending Dispatch" | "In Transit" | "Accepted by Vendor" | "Credit Note Issued";
-}
-
-const data: RTVTicket[] = [
-  { id: "RTV-01", vendor: "Global Security Supplies", poRef: "PO-2024-001", item: "Safety Vests (L)", returnReason: "Broken/Damaged", qty: "5", status: "In Transit" },
-  { id: "RTV-05", vendor: "QuickPrint Media", poRef: "PO-2024-004", item: "Staff ID Cards", returnReason: "Wrong Specification", qty: "1", status: "Accepted by Vendor" },
-  { id: "RTV-08", vendor: "CleanPro Industrial", poRef: "PO-2024-003", item: "Floor Scrubbing Machine", returnReason: "Expired", qty: "2", status: "Pending Dispatch" },
-];
+import { useRTVTickets } from "@/hooks/useRTVTickets";
+import { RTVTicketDisplay } from "@/src/types/phaseB";
+import { RTV_STATUS_LABELS, RTV_STATUS_COLORS } from "@/src/lib/constants";
 
 export default function RTVManagementPage() {
-  const columns: ColumnDef<RTVTicket>[] = [
+  const { tickets, isLoading, stats } = useRTVTickets();
+
+  const columns: ColumnDef<RTVTicketDisplay>[] = [
     {
       accessorKey: "item",
       header: "Material Detail",
-      cell: ({ row }) => (
-        <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-lg bg-critical/5 flex items-center justify-center">
-            <PackageX className="h-4 w-4 text-critical" />
+      cell: ({ row }) => {
+        const product = row.original.product?.product_name || 'Unknown Product';
+        const poRef = row.original.purchase_order?.po_number || 'No PO';
+        const rtvNumber = row.original.rtv_number;
+        return (
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-8 rounded-lg bg-critical/5 flex items-center justify-center">
+              <PackageX className="h-4 w-4 text-critical" />
+            </div>
+            <div className="flex flex-col text-left">
+              <span className="font-bold text-sm">{product}</span>
+              <span className="text-[10px] text-muted-foreground uppercase font-bold">
+                REF: {rtvNumber} • {poRef}
+              </span>
+            </div>
           </div>
-          <div className="flex flex-col text-left">
-            <span className="font-bold text-sm ">{row.original.item}</span>
-            <span className="text-[10px] text-muted-foreground uppercase font-bold ">REF: {row.original.id} • {row.original.poRef}</span>
-          </div>
-        </div>
-      ),
+        );
+      },
+      filterFn: (row, id, value) => {
+        const productName = row.original.product?.product_name || '';
+        return productName.toLowerCase().includes(value.toLowerCase());
+      }
     },
     {
       accessorKey: "vendor",
       header: "Origin Vendor",
-      cell: ({ row }) => <span className="text-sm font-medium text-foreground">{row.getValue("vendor")}</span>,
+      cell: ({ row }) => (
+        <span className="text-sm font-medium text-foreground">
+          {row.original.supplier?.supplier_name || 'Unknown Vendor'}
+        </span>
+      ),
     },
     {
       accessorKey: "returnReason",
       header: "Defect Reason",
       cell: ({ row }) => (
         <Badge variant="outline" className="bg-critical/5 text-critical border-critical/10 font-bold text-[10px] uppercase">
-            {row.getValue("returnReason")}
+            {row.original.return_reason}
         </Badge>
       ),
     },
@@ -71,16 +71,20 @@ export default function RTVManagementPage() {
       accessorKey: "status",
       header: "Workflow Stage",
       cell: ({ row }) => {
-          const val = row.getValue("status") as string;
-          const variants: Record<string, string> = {
-              "Accepted by Vendor": "bg-success/10 text-success border-success/20",
-              "Credit Note Issued": "bg-primary/10 text-primary border-primary/20",
-              "Pending Dispatch": "bg-warning/10 text-warning border-warning/20",
-              "In Transit": "bg-info/10 text-info border-info/20 animate-pulse-soft"
-          };
+          const val = row.original.status || 'pending_dispatch';
+          const label = RTV_STATUS_LABELS[val] || val;
+          const colorClass = RTV_STATUS_COLORS[val] || '';
+          
+          let bgClass = "bg-muted text-muted-foreground";
+          if (colorClass === 'text-success') bgClass = "bg-success/10 text-success border-success/20";
+          if (colorClass === 'text-primary') bgClass = "bg-primary/10 text-primary border-primary/20";
+          if (colorClass === 'text-warning') bgClass = "bg-warning/10 text-warning border-warning/20";
+          if (colorClass === 'text-critical') bgClass = "bg-critical/10 text-critical border-critical/20";
+          if (colorClass === 'text-info') bgClass = "bg-info/10 text-info border-info/20 animate-pulse-soft";
+          
           return (
-            <Badge variant="outline" className={cn("font-bold text-[10px] uppercase h-5", variants[val] || "")}>
-                {val}
+            <Badge variant="outline" className={cn("font-bold text-[10px] uppercase h-5", bgClass)}>
+                {label}
             </Badge>
           );
       },
@@ -99,6 +103,10 @@ export default function RTVManagementPage() {
       ),
     },
   ];
+
+  const formatCurrency = (val: number) => {
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val);
+  };
 
   return (
     <div className="animate-fade-in space-y-8 pb-20">
@@ -119,10 +127,10 @@ export default function RTVManagementPage() {
 
       <div className="grid gap-6 md:grid-cols-4">
         {[
-          { label: "Pending Pickup", value: "3", icon: PackageX, color: "text-critical" },
-          { label: "In Transit (RTV)", value: "2", icon: Truck, color: "text-info" },
-          { label: "Credit Pending", value: "₹18,450", icon: CheckCircle2, color: "text-warning" },
-          { label: "Monthly Returns", value: "12", icon: History, color: "text-primary" },
+          { label: "Pending Pickup", value: stats.pendingPickup.toString(), icon: PackageX, color: "text-critical" },
+          { label: "In Transit (RTV)", value: stats.inTransit.toString(), icon: Truck, color: "text-info" },
+          { label: "Credit Pending", value: formatCurrency(stats.creditPendingValue), icon: CheckCircle2, color: "text-warning" },
+          { label: "Monthly Returns", value: stats.monthlyReturnsCount.toString(), icon: History, color: "text-primary" },
         ].map((stat, i) => (
           <Card key={i} className="border-none shadow-card ring-1 ring-border p-4">
             <div className="flex items-center gap-4 text-left">
@@ -130,7 +138,7 @@ export default function RTVManagementPage() {
                 <stat.icon className="h-5 w-5" />
               </div>
               <div className="flex flex-col">
-                <span className="text-2xl font-bold ">{stat.value}</span>
+                <span className="text-2xl font-bold">{stat.value}</span>
                 <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">{stat.label}</span>
               </div>
             </div>
@@ -138,7 +146,12 @@ export default function RTVManagementPage() {
         ))}
       </div>
 
-      <DataTable columns={columns} data={data} searchKey="item" />
+      <DataTable 
+        columns={columns} 
+        data={tickets} 
+        searchKey="item" 
+        isLoading={isLoading}
+      />
     </div>
   );
 }
