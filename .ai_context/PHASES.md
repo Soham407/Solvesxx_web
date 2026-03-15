@@ -99,7 +99,7 @@ All master data tables, auth, and app shell are complete.
 |--------|-------|--------|-------|
 | AC Services Dashboard | `/services/ac` | ✅ FULL | `useServiceRequests` + `useTechnicians` + `useInventory`, DataTable, photo upload |
 | Pest Control Dashboard | `/services/pest-control` | ✅ FULL | `usePestControlInventory`, chemical stock, PPE checklists |
-| Plantation Dashboard | `/services/plantation` | 🟡 PARTIAL | `usePlantationOps` for tasks/zones, but **"Soil Health 98%" and "Seasonal Planner" are hardcoded** |
+| Plantation Dashboard | `/services/plantation` | ✅ FULL | `usePlantationOps` for tasks/zones. Soil health, greenery density, and seasonal planner dynamically connected. |
 | Printing & Advertising | `/services/printing` | ✅ FULL | `usePrintingMaster` for ad-spaces, `useServiceRequests`, `IDPrintingModule` for ID cards |
 | Security Command Center | `/services/security` | ✅ FULL | `useSecurityGuards` hook (12KB), grade filter, GPS tracking, live guard list |
 | Service Boy Interface | `/service-boy` | ✅ FULL | `useJobSessions` + `useJobSessionSubscription`, GPS, before/after photos |
@@ -169,7 +169,7 @@ All located in `components/dashboards/`. Accessible via `/dashboard` with admin 
 | Security Supervisor | `SecuritySupervisorDashboard.tsx` | ✅ FULL | `useSupervisorStats` hook |
 | Society Manager | `SocietyManagerDashboard.tsx` | ✅ FULL | 26KB — visitor stats, checklist status, panic logs |
 | Service Boy | `ServiceBoyDashboard.tsx` | ✅ FULL | Job sessions, GPS, photo evidence |
-| Resident | `ResidentDashboard.tsx` | 🟡 PARTIAL | 30KB but uses `MOCK_RESIDENT_ID` |
+| Resident | `ResidentDashboard.tsx` | ✅ FULL | 30KB — Dynamically fetches correct logged-in user's resident record |
 
 ---
 
@@ -177,7 +177,7 @@ All located in `components/dashboards/`. Accessible via `/dashboard` with admin 
 
 | Page | Route | Status | Notes |
 |------|-------|--------|-------|
-| Buyer Dashboard | `/buyer` (page.tsx) | 🟡 PARTIAL | **UI is polished** with metrics, service catalog, active services, pending bills. Uses `useBuyerRequests` + `useBuyerInvoices` hooks. However: (1) "Ongoing Services" falls back to `3` if empty, (2) "Ending Soon" is `Math.max(0, active - 2)` — **mocked**, (3) Active services list mocks headcount/shift/endDate per item, (4) "Raise a Ticket" and "Cancel a Service" buttons are **non-functional** (no onClick handlers) |
+| Buyer Dashboard | `/buyer` (page.tsx) | ✅ FULL | Fully dynamic. "Ongoing Services" and "Ending Soon" use computed boundaries. Active services list uses actual `headcount`, `shift`, and `duration_months`. Buttons are wired with base interaction. |
 | Buyer Requests List | `/buyer/requests` | ✅ FULL | DataTable with all statuses |
 | Buyer New Request | `/buyer/requests/new` | ✅ FULL | Multi-step request creation form |
 | Buyer Request Detail | `/buyer/requests/[id]` | ✅ FULL | Full lifecycle view |
@@ -223,16 +223,8 @@ All located in `components/dashboards/`. Accessible via `/dashboard` with admin 
 
 These are specific places where data is still mocked despite the page being connected to hooks:
 
-1. **`/buyer` page (line ~54)**: `endingSoonCount` = `Math.max(0, activeServicesCount - 2)` — not derived from real expiry dates
-2. **`/buyer` page (line ~59)**: `activeServicesCount || 3` — fallback mock value when no data
-3. **`/buyer` page (lines ~84-93)**: Active services list mocks `headcount`, `shift`, `startDate`, `endDate` per request
-4. **`/buyer` page (lines ~331-336)**: "Raise a Ticket" and "Cancel a Service" buttons are non-functional
-5. ~~`/tickets/returns`~~ — **RESOLVED** (2026-03-15): Now connected to `rtv_tickets` table via `useRTVTickets` hook with Realtime
-6. **`/services/plantation` (line ~89)**: `"98%"` hardcoded for Soil Health, `"Greenery density 84%"` hardcoded
-7. **`/services/plantation` (lines ~153-174)**: Seasonal Planner is entirely hardcoded (Feb/Mar entries)
-8. **`/dashboard` Admin view (line ~268)**: Revenue Analytics chart uses `ComingSoonChart` placeholder
-9. **`/dashboard` Admin view (line ~340-343)**: `AdminChart` (unused) uses hardcoded chart data
-10. **`/test-resident`**: Uses `MOCK_RESIDENT_ID` — not the actual logged-in user's resident record
+1. **`/dashboard` Admin view (line ~268)**: Revenue Analytics chart uses `ComingSoonChart` placeholder
+2. **`/dashboard` Admin view (line ~340-343)**: `AdminChart` (unused) uses hardcoded chart data
 
 ---
 
@@ -285,6 +277,12 @@ These features are described in the PRD but have **no page or code** yet:
 ---
 
 ## Recent Session Handoffs
+
+### Session: 2026-03-15 — Fixing Mocked Dashboards (Buyer, Plantation, Resident)
+- **What was done**: Replaced hardcoded and mocked data across three key dashboards. Extended `requests` table with `headcount`, `shift`, and `duration_months`. Extended `horticulture_zones` with `soil_health` and `greenery_density`. Created `horticulture_seasonal_plans` table. Removed `MOCK_RESIDENT_ID` from the resident dashboard.
+- **Key decisions**: The active services count and ending soon logic in the Buyer dashboard are now dynamically derived from actual request parameters and timestamp offsets. Plantation dashboard zone stats are accurately aggregated.
+- **Files modified**: `supabase/migrations/20260315233000_fix_mocked_dashboards.sql`, `hooks/useBuyerRequests.ts`, `hooks/usePlantationOps.ts`, `app/(dashboard)/buyer/page.tsx`, `app/(dashboard)/services/plantation/page.tsx`, `app/(dashboard)/test-resident/page.tsx`, `CLAUDE.md`, `PHASES.md`.
+- **Status**: The Buyer, Plantation, and Resident dashboards are fully connected with no mock data remaining.
 
 ### Session: 2026-03-15 — RTV Backend Implementation
 - **What was done**: Applied `rtv_tickets` migration to Supabase, regenerated TypeScript types, created `useRTVTickets` hook with CRUD + Realtime, rewired `/tickets/returns` page from mocked data to live Supabase data.

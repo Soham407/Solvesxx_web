@@ -15,9 +15,6 @@ function TestResidentPageContent() {
             <li>✓ Recent Activity should show visitors for this flat only</li>
             <li>✓ Check Supabase visitors table for new entries</li>
           </ul>
-          <p className="mt-3 text-xs">
-            <strong>Note:</strong> This uses MOCK_RESIDENT_ID. Verify in useResident hook.
-          </p>
         </div>
       </div>
       <ResidentDashboard />

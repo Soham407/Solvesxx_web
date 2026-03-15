@@ -1,4 +1,3 @@
-// @ts-nocheck
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -39,6 +38,10 @@ export interface BuyerRequest {
   rejection_reason: string | null;
   created_at: string;
   updated_at: string;
+  // Newly added
+  headcount?: number;
+  shift?: string | null;
+  duration_months?: number;
   // Joined data
   category_name?: string;
   location_name?: string;
@@ -61,6 +64,9 @@ export interface CreateBuyerRequestInput {
   category_id?: string;
   location_id?: string;
   preferred_delivery_date?: string;
+  headcount?: number;
+  shift?: string;
+  duration_months?: number;
   items: {
     product_id: string;
     quantity: number;
@@ -164,6 +170,9 @@ export function useBuyerRequests() {
           category_id: input.category_id,
           location_id: input.location_id,
           preferred_delivery_date: input.preferred_delivery_date,
+          headcount: input.headcount || 0,
+          shift: input.shift || null,
+          duration_months: input.duration_months || 1,
           buyer_id: (await supabase.auth.getUser()).data.user?.id,
           status: 'pending'
         })

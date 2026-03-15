@@ -737,6 +737,9 @@ order_type     ENUM('material','service')
 status         ENUM('pending','accepted','rejected','indent_generated',
                     'po_issued','dispatched','delivered','billed','paid','end')
 notes          TEXT
+headcount      INT
+shift          VARCHAR(50)
+duration_months INT
 created_at     TIMESTAMP
 updated_at     TIMESTAMP
 ```
@@ -885,6 +888,16 @@ started_at      TIMESTAMP
 completed_at    TIMESTAMP
 created_by      UUID → users.id
 created_at      TIMESTAMP
+```
+
+### 14.20a horticulture_seasonal_plans
+```sql
+id              UUID PRIMARY KEY
+month           VARCHAR(20)
+title           VARCHAR(200)
+description     TEXT
+created_at      TIMESTAMP
+updated_at      TIMESTAMP
 ```
 
 ### 14.20 behaviour_tickets

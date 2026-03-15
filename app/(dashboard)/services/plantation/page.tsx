@@ -27,7 +27,14 @@ import { PlantationInventory } from "@/components/plantation/PlantationInventory
 
 
 export default function PlantationPage() {
-  const { tasks, zones, isLoading } = usePlantationOps();
+  const { tasks, zones, seasonalPlans, isLoading } = usePlantationOps();
+
+  const avgSoilHealth = zones.length > 0 
+    ? Math.round(zones.reduce((acc, z) => acc + (z.soil_health || 98), 0) / zones.length) 
+    : 98;
+  const avgGreeneryDensity = zones.length > 0 
+    ? Math.round(zones.reduce((acc, z) => acc + (z.greenery_density || 84), 0) / zones.length) 
+    : 84;
 
   const columns: ColumnDef<HorticultureTask>[] = [
     {
@@ -86,8 +93,8 @@ export default function PlantationPage() {
   const stats = [
     { label: "Active Cycles", value: tasks.filter(t => t.status !== 'Completed').length.toString(), sub: "Watering & Pruning", icon: Droplet, color: "text-info" },
     { label: "Gardeners", value: Array.from(new Set(tasks.map(t => t.assigned_to).filter(Boolean))).length.toString(), sub: "On-site today", icon: UserCheck, color: "text-primary" },
-    { label: "Soil Health", value: "98%", sub: "PH Verified", icon: Leaf, color: "text-success" },
-    { label: "Zone Stats", value: zones.length.toString(), icon: CloudSun, color: "text-warning", sub: "Greenery density 84%" },
+    { label: "Soil Health", value: `${avgSoilHealth}%`, sub: "PH Verified", icon: Leaf, color: "text-success" },
+    { label: "Zone Stats", value: zones.length.toString(), icon: CloudSun, color: "text-warning", sub: `Greenery density ${avgGreeneryDensity}%` },
   ];
 
   return (
@@ -156,20 +163,21 @@ export default function PlantationPage() {
                       <CardDescription className="text-xs italic">Next 30 days forecast.</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                      <div className="flex items-center gap-3">
-                          <div className="h-8 w-8 rounded-full bg-success/10 text-success flex items-center justify-center font-bold text-xs">Feb</div>
-                          <div className="flex flex-col">
-                              <span className="text-xs font-bold">Monsoon Prep Phase 1</span>
-                              <span className="text-[10px] text-muted-foreground">Cleaning of all perimeter planters.</span>
+                      {seasonalPlans?.length > 0 ? (
+                        seasonalPlans.map((plan) => (
+                          <div key={plan.id} className="flex items-center gap-3">
+                              <div className="h-8 w-8 rounded-full bg-success/10 text-success flex items-center justify-center font-bold text-xs">
+                                {plan.month}
+                              </div>
+                              <div className="flex flex-col">
+                                  <span className="text-xs font-bold">{plan.title}</span>
+                                  <span className="text-[10px] text-muted-foreground">{plan.description}</span>
+                              </div>
                           </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                          <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center font-bold text-xs">Mar</div>
-                          <div className="flex flex-col">
-                              <span className="text-xs font-bold">Summer Flower Sowing</span>
-                              <span className="text-[10px] text-muted-foreground">Transition to heat-resistant crops.</span>
-                          </div>
-                      </div>
+                        ))
+                      ) : (
+                        <div className="text-xs text-muted-foreground italic">No seasonal plans found.</div>
+                      )}
                   </CardContent>
               </Card>
           </div>

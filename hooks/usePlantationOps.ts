@@ -18,6 +18,15 @@ export interface HorticultureZone {
   last_maintained_at: string | null;
   created_at: string;
   updated_at: string;
+  soil_health?: number;
+  greenery_density?: number;
+}
+
+export interface SeasonalPlan {
+  id: string;
+  month: string;
+  title: string;
+  description: string;
 }
 
 export interface HorticultureTask {
@@ -42,6 +51,7 @@ export interface HorticultureTask {
 interface UsePlantationOpsState {
   zones: HorticultureZone[];
   tasks: HorticultureTask[];
+  seasonalPlans: SeasonalPlan[];
   isLoading: boolean;
   error: string | null;
 }
@@ -54,6 +64,7 @@ export function usePlantationOps() {
   const [state, setState] = useState<UsePlantationOpsState>({
     zones: [],
     tasks: [],
+    seasonalPlans: [],
     isLoading: true,
     error: null,
   });
@@ -82,6 +93,14 @@ export function usePlantationOps() {
 
       if (tasksError) throw tasksError;
 
+      // Fetch Seasonal Plans
+      const { data: seasonalData, error: seasonalError } = await supabase
+        .from("horticulture_seasonal_plans")
+        .select("*")
+        .order("created_at", { ascending: true });
+
+      if (seasonalError) console.warn("Failed to fetch seasonal plans", seasonalError);
+
       const formattedTasks: HorticultureTask[] = (tasksData || []).map((task: any) => ({
         ...task,
         zone_name: task.horticulture_zones?.zone_name || "Unknown Zone",
@@ -93,6 +112,7 @@ export function usePlantationOps() {
       setState({
         zones: zonesData || [],
         tasks: formattedTasks,
+        seasonalPlans: seasonalData || [],
         isLoading: false,
         error: null,
       });

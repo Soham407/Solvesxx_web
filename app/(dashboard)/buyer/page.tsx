@@ -48,15 +48,22 @@ export default function BuyerDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
 
   // Metrics
-  // MOCK: We consider accepted/po_dispatched/completed as conceptually "ongoing" for the purpose of the dashboard Demo
-  const activeServicesCount = requests.filter(r => ['accepted', 'po_issued', 'po_dispatched', 'material_received', 'completed'].includes(r.status)).length;
+  // Conceptual ongoing services
+  const activeServices = requests.filter(r => ['accepted', 'po_issued', 'po_dispatched', 'material_received', 'completed'].includes(r.status));
+  const activeServicesCount = activeServices.length;
   const pendingRequestsCount = requests.filter(r => ['pending', 'indent_generated', 'indent_forwarded'].includes(r.status)).length;
-  const endingSoonCount = Math.max(0, activeServicesCount - 2); // Mocked metric for "Expiring Soon"
+  
+  // Dynamic metric for expiring soon (within 30 days)
+  const endingSoonCount = activeServices.filter(r => {
+    const endDate = addDays(new Date(r.created_at), (r.duration_months || 1) * 30);
+    const daysUntilEnd = (endDate.getTime() - new Date().getTime()) / (1000 * 3600 * 24);
+    return daysUntilEnd > 0 && daysUntilEnd <= 30;
+  }).length;
 
   const stats = [
     {
       title: "Ongoing Services",
-      value: activeServicesCount || 3, // fallback if empty for display
+      value: activeServicesCount,
       icon: Activity,
       color: "text-blue-500",
       bgColor: "bg-blue-500/10"
@@ -70,25 +77,23 @@ export default function BuyerDashboard() {
     },
     {
       title: "Ending Soon",
-      value: endingSoonCount || 1, // fallback
+      value: endingSoonCount,
       icon: AlertCircle,
       color: "text-rose-500",
       bgColor: "bg-rose-500/10"
     }
   ];
 
-  // Derived Active Services (Mocking some shifts and dates for UI demonstration as per PRD)
-  const activeServicesList = requests
-    .filter(r => ['accepted', 'completed', 'po_dispatched'].includes(r.status))
+  const activeServicesList = activeServices
     .slice(0, 4)
     .map((r, i) => ({
       id: r.id,
-      category: r.category_name || "Security Services",
-      role: r.title || "Grade A Guards",
-      headcount: (i + 1) * 2,
-      shift: i % 2 === 0 ? "Morning (8AM - 8PM)" : "Night (8PM - 8AM)",
+      category: r.category_name || "General Service",
+      role: r.title || "Personnel",
+      headcount: r.headcount || 1,
+      shift: r.shift || "Standard (9AM - 5PM)",
       startDate: new Date(r.created_at),
-      endDate: addDays(new Date(r.created_at), 30 * (i + 1)), // Mocking 1-3 months duration
+      endDate: addDays(new Date(r.created_at), (r.duration_months || 1) * 30),
       status: "Active"
     }));
 
@@ -328,10 +333,10 @@ export default function BuyerDashboard() {
               <CardDescription className="text-slate-300">Quick actions for your services</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2 mt-2">
-              <Button variant="secondary" className="w-full justify-start font-medium h-10 bg-white/10 hover:bg-white/20 text-white border-none">
+              <Button variant="secondary" className="w-full justify-start font-medium h-10 bg-white/10 hover:bg-white/20 text-white border-none" onClick={() => alert("Ticket creation modal would open here.")}>
                 <MessageSquare className="mr-2 h-4 w-4" /> Raise a Ticket
               </Button>
-              <Button variant="secondary" className="w-full justify-start font-medium h-10 bg-white/10 hover:bg-white/20 text-white border-none">
+              <Button variant="secondary" className="w-full justify-start font-medium h-10 bg-white/10 hover:bg-white/20 text-white border-none" onClick={() => alert("Service cancellation flow would start here.")}>
                 <XCircle className="mr-2 h-4 w-4" /> Cancel a Service
               </Button>
             </CardContent>
