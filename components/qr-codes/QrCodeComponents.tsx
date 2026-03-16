@@ -20,7 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useQrCodes } from "@/hooks/useQrCodes";
-import type { AssetWithDetails } from "@/src/types/phaseB";
+import type { AssetWithDetails } from "@/src/types/operations";
 import { QR_CODE_CONFIG } from "@/src/lib/constants";
 import { QRCodeSVG } from "qrcode.react";
 

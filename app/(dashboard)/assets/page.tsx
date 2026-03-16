@@ -7,8 +7,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { AssetList, AssetForm } from "@/components/phaseB";
-import type { AssetWithDetails } from "@/src/types/phaseB";
+import { AssetList, AssetForm } from "@/components/assets";
+import type { AssetWithDetails } from "@/src/types/operations";
 
 export default function AssetsPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);

@@ -55,7 +55,7 @@ import { useSupplierProducts } from "@/hooks/useSupplierProducts";
 import { 
   SupplierRateDisplay,
   CreateSupplierRateForm,
-} from "@/src/types/phaseD";
+} from "@/src/types/supply-chain";
 import { RATE_DEFAULTS } from "@/src/lib/constants";
 
 export default function SupplierRatesPage() {

@@ -13,7 +13,7 @@ import {
   SupplierStatus,
   MutationResult,
   canTransitionSupplierStatus,
-} from "@/src/types/phaseD";
+} from "@/src/types/supply-chain";
 import { sanitizeLikeInput } from "@/lib/sanitize";
 
 /**

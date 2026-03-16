@@ -29,9 +29,10 @@ import { cn } from "@/lib/utils";
 import { useEmployeeProfile } from "@/hooks/useEmployeeProfile";
 import { useServiceRequests } from "@/hooks/useServiceRequests";
 import { useJobSessions } from "@/hooks/useJobSessions";
-import { JobSessionPanel, QrScanner, QrScanResult } from "@/components/phaseB";
-import { PriorityBadge, RequestStatusBadge } from "@/components/phaseB/AssetStatusBadge";
-import type { ServiceRequestWithDetails, QrScanResult as QrScanResultType } from "@/src/types/phaseB";
+import { JobSessionPanel } from "@/components/jobs";
+import { QrScanner, QrScanResult } from "@/components/qr-codes";
+import { PriorityBadge, RequestStatusBadge } from "@/components/assets/AssetStatusBadge";
+import type { ServiceRequestWithDetails, QrScanResult as QrScanResultType } from "@/src/types/operations";
 
 export default function ServiceBoyPage() {
   const [showScanner, setShowScanner] = useState(false);

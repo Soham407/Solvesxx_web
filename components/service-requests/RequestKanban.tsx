@@ -25,7 +25,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/components/ui/use-toast";
 import { RequestKanbanCard } from "./RequestKanbanCard";
 import { RequestKanbanColumn } from "./RequestKanbanColumn";
-import { ServiceRequest } from "@/src/types/phaseB";
+import { ServiceRequest } from "@/src/types/operations";
 import {
   Clock,
   AlertCircle,

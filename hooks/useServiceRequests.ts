@@ -10,7 +10,7 @@ import type {
   ServiceRequestWithDetails,
   ServiceRequestFilters,
   ServiceDashboardStats,
-} from "@/src/types/phaseB";
+} from "@/src/types/operations";
 import { PAGINATION } from "@/src/lib/constants";
 import { sanitizeLikeInput } from "@/lib/sanitize";
 

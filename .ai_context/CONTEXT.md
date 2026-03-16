@@ -70,19 +70,26 @@ enterprise-canvas-main/
 │   ├── visitors/            # FamilyDirectory, visitor components
 │   ├── printing/            # IDPrintingModule
 │   ├── plantation/          # PlantationInventory
-│   ├── phaseA/              # Phase A components
-│   ├── phaseB/              # PhotoUploadDialog, PPEChecklistDialog
+│   ├── emergency/           # Emergency contact components (AddEmergencyContactDialog, EmergencyContactList)
+│   ├── assets/              # Asset management (AssetList, AssetForm, AssetStatusBadge, AssetCategoryManager)
+│   ├── service-requests/    # Service request UI (ServiceRequestList, ServiceRequestForm, RequestKanban)
+│   ├── jobs/                # Job execution (JobSessionPanel)
+│   ├── maintenance/         # Maintenance scheduling (MaintenanceScheduleList)
+│   ├── qr-codes/            # QR code generation & scanning (QrCodeComponents, QrBatchGenerator)
+│   ├── inventory-ops/       # Inventory ops (InventoryTable, StockForm)
 │   └── society/             # VisitorRegistrationDialog, society-specific components
 ├── hooks/                   # 91 custom hooks (one per domain entity)
 ├── lib/                     # Firebase config, notification service, utils
 ├── src/
 │   ├── lib/                 # Supabase clients, constants, feature flags, auth, utils/currency
-│   └── types/               # TypeScript types (supabase.ts, phaseB.ts, phaseD.ts)
+│   └── types/               # TypeScript types (supabase.ts, operations.ts, supply-chain.ts)
 ├── supabase/
 │   ├── migrations/          # SQL migration files (18 total as of 2026-03-16)
 │   ├── functions/           # Edge Functions (8 deployed)
-│   ├── PhaseA-E/            # Phase-specific SQL scripts
-│   └── seed_*.sql           # Seed data files
+│   ├── archive/             # Historical phase schema SQL (PhaseA–E)
+│   ├── scripts/             # One-off diagnostic/hotfix SQL scripts
+│   └── seeds/               # Seed data files
+├── scripts/                 # Utility/test scripts (proxy.ts, verify_schema.ts, etc.)
 ├── public/
 │   └── manifest.json        # PWA manifest (start_url: /test-guard, display: standalone)
 └── docs/                    # Audit reports, reference schema
@@ -194,9 +201,9 @@ return () => { supabase.removeChannel(channel); };
 **Type files:**
 - `supabase-types.ts` (root) — 606KB auto-generated, **don't edit**
 - `src/types/supabase.ts` — 294KB auto-generated, **don't edit**
-- `src/types/phaseB.ts` — Manual types for assets, service requests, jobs, inventory
-- `src/types/phaseD.ts` — Manual types for suppliers, rates, etc.
-- When adding new features, add types to existing phase files OR create a new `src/types/phase[X].ts`
+- `src/types/operations.ts` — Manual types for assets, service requests, jobs, inventory, RTV
+- `src/types/supply-chain.ts` — Manual types for suppliers, supplier products, rates
+- When adding new features, add types to the relevant domain file OR create a new `src/types/[domain].ts`
 
 **Constants:**
 - `src/lib/constants.ts` — Status enums, labels, colors, badge classes for all entities
@@ -204,7 +211,7 @@ return () => { supabase.removeChannel(channel); };
 
 **Migration naming:** `YYYYMMDD_description_snake_case.sql` (e.g., `20260209_link_resident_auth.sql`)
 - Stored in: `supabase/migrations/`
-- Phase-specific SQL scripts in: `supabase/PhaseA/`, `supabase/PhaseB/`, etc.
+- Historical phase SQL scripts archived in: `supabase/archive/PhaseA/` through `supabase/archive/PhaseE/`
 
 ---
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
-import type { Service, ServiceInsert, ServiceUpdate } from "@/src/types/phaseB";
+import type { Service, ServiceInsert, ServiceUpdate } from "@/src/types/operations";
 
 interface UseServicesState {
   services: Service[];

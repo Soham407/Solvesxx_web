@@ -31,7 +31,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useServiceRequests } from "@/hooks/useServiceRequests";
-import type { ServiceRequestWithDetails } from "@/src/types/phaseB";
+import type { ServiceRequestWithDetails } from "@/src/types/operations";
 import { supabase } from "@/src/lib/supabaseClient";
 import { toast } from "sonner";
 

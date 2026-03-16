@@ -167,7 +167,7 @@ Follow these steps in order when implementing a new module/page:
 - [ ] Enable Realtime on the table if live updates are needed
 
 ### Step 2: Types
-- [ ] Add TypeScript types to `src/types/phaseB.ts` or `src/types/phaseD.ts` (or create new phase file)
+- [ ] Add TypeScript types to `src/types/operations.ts` (assets, service requests, jobs, inventory, RTV) or `src/types/supply-chain.ts` (suppliers, rates) — or create a new domain type file (e.g., `src/types/security.ts`)
 - [ ] Add status enums/labels/colors to `src/lib/constants.ts`
 
 ### Step 3: Hook

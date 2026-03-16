@@ -49,7 +49,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useInventory } from "@/hooks/useInventory";
 import { useWarehouses } from "@/hooks/useWarehouses";
-import type { StockLevel, InventoryFilters } from "@/src/types/phaseB";
+import type { StockLevel, InventoryFilters } from "@/src/types/operations";
 
 interface InventoryTableProps {
   onAddStock?: (productId: string, warehouseId: string) => void;

@@ -46,8 +46,8 @@ import { cn } from "@/lib/utils";
 import { useServiceRequests } from "@/hooks/useServiceRequests";
 import { useJobSessions } from "@/hooks/useJobSessions";
 import { useEmployeeProfile } from "@/hooks/useEmployeeProfile";
-import { JobSessionPanel } from "@/components/phaseB";
-import type { ServiceRequestWithDetails, JobSessionWithPhotos } from "@/src/types/phaseB";
+import { JobSessionPanel } from "@/components/jobs";
+import type { ServiceRequestWithDetails, JobSessionWithPhotos } from "@/src/types/operations";
 import {
   SERVICE_REQUEST_STATUS_LABELS,
   SERVICE_REQUEST_STATUS_COLORS,

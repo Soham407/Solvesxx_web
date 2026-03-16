@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
-import type { JobMaterialUsed, JobMaterialUsedInsert, AddMaterialUsedForm } from "@/src/types/phaseB";
+import type { JobMaterialUsed, JobMaterialUsedInsert, AddMaterialUsedForm } from "@/src/types/operations";
 
 interface UseJobMaterialsState {
   materials: JobMaterialUsed[];

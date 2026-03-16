@@ -22,10 +22,10 @@ import { cn } from "@/lib/utils";
 import { useServiceRequests } from "@/hooks/useServiceRequests";
 import { useTechnicians } from "@/hooks/useTechnicians";
 import { useInventory } from "@/hooks/useInventory";
-import { ServiceRequestWithDetails } from "@/src/types/phaseB";
+import { ServiceRequestWithDetails } from "@/src/types/operations";
 import { useMemo, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PhotoUploadDialog } from "@/components/phaseB/PhotoUploadDialog";
+import { PhotoUploadDialog } from "@/components/dialogs/PhotoUploadDialog";
 import { ScheduleVisitDialog } from "@/components/dialogs/ScheduleVisitDialog";
 import { NewJobOrderDialog } from "@/components/dialogs/NewJobOrderDialog";
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
-import type { SaleProductRateDisplay } from "@/src/types/phaseD";
+import type { SaleProductRateDisplay } from "@/src/types/supply-chain";
 
 /**
  * Sale Rate Change Notification Interface

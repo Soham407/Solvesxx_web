@@ -11,7 +11,7 @@ import {
   UpdateSaleProductRateForm,
   MutationResult,
   CurrentSaleRate,
-} from "@/src/types/phaseD";
+} from "@/src/types/supply-chain";
 
 /**
  * Sale Product Rates Hook

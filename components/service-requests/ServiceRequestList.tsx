@@ -41,7 +41,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useServiceRequests } from "@/hooks/useServiceRequests";
-import type { ServiceRequestWithDetails, ServiceRequestFilters } from "@/src/types/phaseB";
+import type { ServiceRequestWithDetails, ServiceRequestFilters } from "@/src/types/operations";
 import {
   SERVICE_REQUEST_STATUS_LABELS,
   SERVICE_REQUEST_STATUS_COLORS,

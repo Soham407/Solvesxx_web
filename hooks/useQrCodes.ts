@@ -8,7 +8,7 @@ import type {
   QrScanInsert,
   QrScanResult,
   AssetWithDetails,
-} from "@/src/types/phaseB";
+} from "@/src/types/operations";
 import { QR_CODE_CONFIG } from "@/src/lib/constants";
 
 interface UseQrCodesState {

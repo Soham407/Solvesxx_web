@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useMaintenanceSchedules } from "@/hooks/useMaintenanceSchedules";
-import type { DueMaintenanceSchedule } from "@/src/types/phaseB";
+import type { DueMaintenanceSchedule } from "@/src/types/operations";
 import { MAINTENANCE_FREQUENCY_LABELS } from "@/src/lib/constants";
 
 interface MaintenanceScheduleListProps {

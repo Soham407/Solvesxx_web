@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useRTVTickets } from "@/hooks/useRTVTickets";
-import { RTVTicketDisplay } from "@/src/types/phaseB";
+import { RTVTicketDisplay } from "@/src/types/operations";
 import { RTV_STATUS_LABELS, RTV_STATUS_COLORS } from "@/src/lib/constants";
 
 export default function RTVManagementPage() {

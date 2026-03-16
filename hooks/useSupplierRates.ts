@@ -11,7 +11,7 @@ import {
   UpdateSupplierRateForm,
   MutationResult,
   CurrentSupplierRate,
-} from "@/src/types/phaseD";
+} from "@/src/types/supply-chain";
 
 /**
  * Supplier Rates Hook

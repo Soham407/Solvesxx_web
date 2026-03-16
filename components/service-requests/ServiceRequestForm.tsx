@@ -32,7 +32,7 @@ import {
 import { useServiceRequests } from "@/hooks/useServiceRequests";
 import { useServices } from "@/hooks/useServices";
 import { useAssets } from "@/hooks/useAssets";
-import type { AssetWithDetails, CreateServiceRequestForm } from "@/src/types/phaseB";
+import type { AssetWithDetails, CreateServiceRequestForm } from "@/src/types/operations";
 import { SERVICE_PRIORITY, SERVICE_PRIORITY_LABELS } from "@/src/lib/constants";
 import { supabase } from "@/src/lib/supabaseClient";
 import { toast } from "sonner";

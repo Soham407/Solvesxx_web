@@ -1,6 +1,6 @@
 "use client";
 
-import { RequestKanban } from "@/components/phaseB/RequestKanban";
+import { RequestKanban } from "@/components/service-requests/RequestKanban";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";

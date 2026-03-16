@@ -43,7 +43,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAssets } from "@/hooks/useAssets";
 import { useAssetCategories } from "@/hooks/useAssetCategories";
-import type { AssetWithDetails, AssetFilters } from "@/src/types/phaseB";
+import type { AssetWithDetails, AssetFilters } from "@/src/types/operations";
 import {
   ASSET_STATUS_LABELS,
   ASSET_STATUS_COLORS,

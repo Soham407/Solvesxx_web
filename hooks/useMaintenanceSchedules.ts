@@ -7,7 +7,7 @@ import type {
   MaintenanceScheduleInsert,
   MaintenanceScheduleUpdate,
   DueMaintenanceSchedule,
-} from "@/src/types/phaseB";
+} from "@/src/types/operations";
 import { MAINTENANCE_FREQUENCY_DAYS } from "@/src/lib/constants";
 
 interface UseMaintenanceSchedulesState {

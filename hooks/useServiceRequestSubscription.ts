@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
-import type { ServiceRequest } from "@/src/types/phaseB";
+import type { ServiceRequest } from "@/src/types/operations";
 
 interface ServiceRequestNotification {
   id: string;

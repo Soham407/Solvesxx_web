@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
-import type { StockLevel } from "@/src/types/phaseB";
+import type { StockLevel } from "@/src/types/operations";
 
 interface ReorderAlert {
   id: string;

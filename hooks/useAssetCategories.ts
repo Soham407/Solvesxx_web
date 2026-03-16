@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
-import type { AssetCategory, AssetCategoryInsert, AssetCategoryUpdate } from "@/src/types/phaseB";
+import type { AssetCategory, AssetCategoryInsert, AssetCategoryUpdate } from "@/src/types/operations";
 
 interface UseAssetCategoriesState {
   categories: AssetCategory[];

@@ -10,7 +10,7 @@ import type {
   JobSessionWithPhotos,
   StartJobSessionForm,
   CompleteJobSessionForm,
-} from "@/src/types/phaseB";
+} from "@/src/types/operations";
 
 interface UseJobSessionsState {
   sessions: JobSessionWithPhotos[];

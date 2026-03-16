@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
-import type { Warehouse, WarehouseInsert, WarehouseUpdate } from "@/src/types/phaseB";
+import type { Warehouse, WarehouseInsert, WarehouseUpdate } from "@/src/types/operations";
 
 interface UseWarehousesState {
   warehouses: Warehouse[];

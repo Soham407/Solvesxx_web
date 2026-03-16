@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
 import { useToast } from "@/components/ui/use-toast";
-import { RTVTicketDisplay, RTVDashboardStats } from "@/src/types/phaseB";
+import { RTVTicketDisplay, RTVDashboardStats } from "@/src/types/operations";
 
 export interface CreateRTVTicketDTO {
   po_id?: string;

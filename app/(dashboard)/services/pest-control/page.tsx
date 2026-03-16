@@ -28,7 +28,7 @@ import { useServiceRequests } from "@/hooks/useServiceRequests";
 import { usePestControlInventory } from "@/hooks/usePestControlInventory";
 import { useServices } from "@/hooks/useServices";
 import { Progress } from "@/components/ui/progress";
-import { PPEChecklistDialog } from "@/components/phaseB/PPEChecklistDialog";
+import { PPEChecklistDialog } from "@/components/dialogs/PPEChecklistDialog";
 import { useSpillKits, SPILL_KIT_STATUS_CONFIG } from "@/hooks/useSpillKits";
 import { useMemo } from "react";
 

@@ -57,7 +57,7 @@ import { useSocieties } from "@/hooks/useSocieties";
 import { 
   SaleProductRateDisplay,
   CreateSaleProductRateForm,
-} from "@/src/types/phaseD";
+} from "@/src/types/supply-chain";
 import { RATE_DEFAULTS } from "@/src/lib/constants";
 
 export default function SalesRatesPage() {

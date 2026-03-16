@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/select";
 import { useInventory } from "@/hooks/useInventory";
 import { useWarehouses } from "@/hooks/useWarehouses";
-import type { StockBatchInsert } from "@/src/types/phaseB";
+import type { StockBatchInsert } from "@/src/types/operations";
 import { supabase } from "@/src/lib/supabaseClient";
 
 interface StockFormProps {

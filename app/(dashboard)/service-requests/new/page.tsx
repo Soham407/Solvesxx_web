@@ -1,6 +1,6 @@
 "use client";
 
-import { ServiceRequestForm } from "@/components/phaseB/ServiceRequestForm";
+import { ServiceRequestForm } from "@/components/service-requests/ServiceRequestForm";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/use-toast";

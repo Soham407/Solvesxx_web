@@ -1,6 +1,6 @@
 "use client";
 
-import { MaintenanceScheduleList } from "@/components/phaseB/MaintenanceScheduleList";
+import { MaintenanceScheduleList } from "@/components/maintenance/MaintenanceScheduleList";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";

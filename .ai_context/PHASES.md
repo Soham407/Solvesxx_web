@@ -319,6 +319,20 @@ All items from `previousplan.md` Sprints 1–5 completed:
 
 ## Recent Session Handoffs
 
+### Session: 2026-03-16 — Code Structure Refactor
+- **What was done**: Cleaned up all phase-based naming across the entire codebase. Moved misplaced files at root level into proper folders. Renamed all phase-coded component/type paths to domain-based names.
+- **Key structural changes**:
+  - Root SQL files → `supabase/scripts/`; root TS scripts → `scripts/`; planning docs → `docs/`
+  - `supabase/PhaseA–E/` → `supabase/archive/`; seed files → `supabase/seeds/`
+  - `components/phaseA/` → `components/emergency/`
+  - `components/phaseB/` split into: `components/assets/`, `components/service-requests/`, `components/jobs/`, `components/maintenance/`, `components/qr-codes/`, `components/inventory-ops/` (PPE/Photo dialogs → `components/dialogs/`)
+  - `src/types/phaseB.ts` → `src/types/operations.ts`
+  - `src/types/phaseD.ts` → `src/types/supply-chain.ts`
+- **Import paths updated**: 43 files across `hooks/`, `app/`, `components/` — all now use domain-based paths
+- **Verified**: Zero broken references (grep scan confirmed). All 14 affected pages and all hooks resolve correctly.
+- **Files modified**: 14 pages in `app/(dashboard)/`, 31 hooks in `hooks/`, 12 moved components, `CLAUDE.md`, `.ai_context/*`
+- **Status**: Complete. No functional changes — purely structural.
+
 ### Session: 2026-03-16 — Sprint 1–5 Full Implementation (previousplan.md)
 - **What was done**: Implemented all 20 features from the gap analysis plan. New roles (storekeeper, site_supervisor), 8 new hooks, 3 new dialogs, 11 new migrations. All dashboard ComingSoon placeholders replaced with real data in AccountsDashboard and MDDashboard. Visitor category tabs, BGV tracking, chemical expiry alerts, spill kits, ad bookings, shortage notes, personnel dispatches, notification bell component.
 - **Key gap remaining**: `NotificationBell` component exists at `components/layout/NotificationBell.tsx` but has NOT been wired into `TopNav.tsx` or the dashboard layout.
@@ -340,7 +354,7 @@ All items from `previousplan.md` Sprints 1–5 completed:
 ### Session: 2026-03-15 — RTV Backend Implementation
 - **What was done**: Applied `rtv_tickets` migration to Supabase, regenerated TypeScript types, created `useRTVTickets` hook with CRUD + Realtime, rewired `/tickets/returns` page from mocked data to live Supabase data.
 - **Key decisions**: RTV number generated client-side with random suffix (server-side generation ideal for production). Realtime enabled on `rtv_tickets` for live dashboard updates.
-- **Files modified**: `supabase/migrations/20260315120000_add_rtv_tickets.sql`, `hooks/useRTVTickets.ts`, `app/(dashboard)/tickets/returns/page.tsx`, `src/types/phaseB.ts`, `src/types/supabase.ts` (regenerated), `src/lib/constants.ts`
+- **Files modified**: `supabase/migrations/20260315120000_add_rtv_tickets.sql`, `hooks/useRTVTickets.ts`, `app/(dashboard)/tickets/returns/page.tsx`, `src/types/operations.ts`, `src/types/supabase.ts` (regenerated), `src/lib/constants.ts`
 - **Status**: RTV fully connected. No mock data remaining on this page.
 
 ### Session: 2026-03-13 — AI Context Files + Buyer Dashboard

@@ -63,7 +63,7 @@ import {
   SupplierStatus, 
   SupplierType,
   canTransitionSupplierStatus 
-} from "@/src/types/phaseD";
+} from "@/src/types/supply-chain";
 import {
   SUPPLIER_STATUS,
   SUPPLIER_STATUS_LABELS,

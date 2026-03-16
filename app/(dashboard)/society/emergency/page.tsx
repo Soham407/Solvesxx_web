@@ -1,7 +1,7 @@
 "use client";
 
 import { useEmergencyContacts, EmergencyContact } from "@/hooks/useEmergencyContacts";
-import { AddEmergencyContactDialog } from "@/components/phaseA/AddEmergencyContactDialog";
+import { AddEmergencyContactDialog } from "@/components/emergency/AddEmergencyContactDialog";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTable } from "@/components/shared/DataTable";
 import { Button } from "@/components/ui/button";

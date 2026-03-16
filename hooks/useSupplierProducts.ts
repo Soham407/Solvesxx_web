@@ -11,7 +11,7 @@ import {
   UpdateSupplierProductForm,
   MutationResult,
   SupplierForProduct,
-} from "@/src/types/phaseD";
+} from "@/src/types/supply-chain";
 import { sanitizeLikeInput } from "@/lib/sanitize";
 
 /**

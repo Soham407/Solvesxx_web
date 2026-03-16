@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/select";
 import { useAssets } from "@/hooks/useAssets";
 import { useAssetCategories } from "@/hooks/useAssetCategories";
-import type { AssetWithDetails, CreateAssetForm, AssetStatus } from "@/src/types/phaseB";
+import type { AssetWithDetails, CreateAssetForm, AssetStatus } from "@/src/types/operations";
 import { ASSET_STATUS, ASSET_STATUS_LABELS } from "@/src/lib/constants";
 import { supabase } from "@/src/lib/supabaseClient";
 import { toast } from "sonner";

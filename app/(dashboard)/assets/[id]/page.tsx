@@ -42,8 +42,10 @@ import { cn } from "@/lib/utils";
 import { useAssets } from "@/hooks/useAssets";
 import { useMaintenanceSchedules } from "@/hooks/useMaintenanceSchedules";
 import { useServiceRequests } from "@/hooks/useServiceRequests";
-import { AssetForm, QrCodeDisplay, ServiceRequestForm } from "@/components/phaseB";
-import type { AssetWithDetails, ServiceRequestWithDetails, AssetStatus } from "@/src/types/phaseB";
+import { AssetForm } from "@/components/assets";
+import { QrCodeDisplay } from "@/components/qr-codes";
+import { ServiceRequestForm } from "@/components/service-requests";
+import type { AssetWithDetails, ServiceRequestWithDetails, AssetStatus } from "@/src/types/operations";
 import {
   ASSET_STATUS_LABELS,
   ASSET_STATUS_COLORS,

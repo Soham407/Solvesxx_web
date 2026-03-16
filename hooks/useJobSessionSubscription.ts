@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
-import type { JobSession, JobPhoto } from "@/src/types/phaseB";
+import type { JobSession, JobPhoto } from "@/src/types/operations";
 
 type JobSessionStatus = "started" | "paused" | "completed" | "cancelled";
 

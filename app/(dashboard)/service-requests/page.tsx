@@ -7,8 +7,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ServiceRequestList, ServiceRequestForm, JobSessionPanel } from "@/components/phaseB";
-import type { ServiceRequestWithDetails } from "@/src/types/phaseB";
+import { ServiceRequestList, ServiceRequestForm } from "@/components/service-requests";
+import { JobSessionPanel } from "@/components/jobs";
+import type { ServiceRequestWithDetails } from "@/src/types/operations";
 import { useEmployeeProfile } from "@/hooks/useEmployeeProfile";
 
 export default function ServiceRequestsPage() {

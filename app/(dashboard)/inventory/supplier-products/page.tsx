@@ -56,7 +56,7 @@ import { useProducts } from "@/hooks/useProducts";
 import { 
   SupplierProductDisplay,
   CreateSupplierProductForm,
-} from "@/src/types/phaseD";
+} from "@/src/types/supply-chain";
 
 export default function SupplierProductsPage() {
   const {

@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
-import type { JobPhoto, JobPhotoInsert, AddJobPhotoForm } from "@/src/types/phaseB";
+import type { JobPhoto, JobPhotoInsert, AddJobPhotoForm } from "@/src/types/operations";
 
 interface UseJobPhotosState {
   photos: JobPhoto[];

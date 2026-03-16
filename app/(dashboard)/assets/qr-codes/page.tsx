@@ -1,6 +1,6 @@
 "use client";
 
-import { QrBatchGenerator } from "@/components/phaseB/QrBatchGenerator";
+import { QrBatchGenerator } from "@/components/qr-codes/QrBatchGenerator";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { useAuth } from "@/hooks/useAuth";
 

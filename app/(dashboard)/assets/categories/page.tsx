@@ -1,6 +1,6 @@
 "use client";
 
-import { AssetCategoryManager } from "@/components/phaseB/AssetCategoryManager";
+import { AssetCategoryManager } from "@/components/assets/AssetCategoryManager";
 import { PageHeader } from "@/components/shared/PageHeader";
 
 export default function AssetCategoriesPage() {
