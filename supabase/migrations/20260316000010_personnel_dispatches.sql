@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS personnel_dispatches (
   personnel_json JSONB NOT NULL DEFAULT '[]'::JSONB,
   -- Array of: [{name, id_proof_type, id_proof_number, qualification, contact}]
   dispatch_date DATE NOT NULL DEFAULT CURRENT_DATE,
-  deployment_site_id UUID REFERENCES locations(id),
+  deployment_site_id UUID REFERENCES company_locations(id),
   status VARCHAR(20) NOT NULL DEFAULT 'dispatched',
   -- dispatched | confirmed | active | withdrawn
   confirmed_by UUID REFERENCES employees(id),

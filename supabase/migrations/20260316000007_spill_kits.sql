@@ -4,7 +4,7 @@
 CREATE TABLE IF NOT EXISTS pest_control_spill_kits (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   kit_code VARCHAR(50) UNIQUE NOT NULL,
-  location_id UUID REFERENCES locations(id),
+  location_id UUID REFERENCES company_locations(id),
   items_json JSONB NOT NULL DEFAULT '[]'::JSONB,
   -- Array of: [{item_name, quantity, unit, is_present}]
   last_inspected_at TIMESTAMPTZ,
