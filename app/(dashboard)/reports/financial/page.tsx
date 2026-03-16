@@ -3,13 +3,14 @@
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTable } from "@/components/shared/DataTable";
 import { Button } from "@/components/ui/button";
-import { 
+import {
   BarChart4,
-  TrendingDown, 
-  TrendingUp, 
-  Download, 
+  TrendingDown,
+  TrendingUp,
+  Download,
   Wallet,
-  PieChart as PieChartIcon
+  PieChart as PieChartIcon,
+  Percent,
 } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
@@ -70,7 +71,7 @@ export default function FinancialAnalyticsPage() {
         }
       />
 
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-4">
         <Card className="border-none shadow-card ring-1 ring-border p-6 bg-linear-to-br from-indigo-500/5 to-transparent">
              <div className="flex items-center justify-between mb-4">
                  <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
@@ -105,6 +106,22 @@ export default function FinancialAnalyticsPage() {
              <div className="flex flex-col text-left">
                 <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Profit Retention</span>
                 <span className="text-2xl font-bold  text-success mt-1">{profitRetention}%</span>
+             </div>
+        </Card>
+        <Card className="border-none shadow-card ring-1 ring-border p-6 bg-linear-to-br from-info/5 to-transparent">
+             <div className="flex items-center justify-between mb-4">
+                 <div className="h-10 w-10 rounded-xl bg-info/10 text-info flex items-center justify-center">
+                    <Percent className="h-5 w-5" />
+                 </div>
+                 <Badge variant="outline" className="text-info border-info/20 bg-info/5 font-bold">Net</Badge>
+             </div>
+             <div className="flex flex-col text-left">
+                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Net Margin</span>
+                <span className="text-2xl font-bold text-info mt-1">
+                  {totalCollection > 0
+                    ? `${(((totalCollection - totalExpense) / totalCollection) * 100).toFixed(1)}%`
+                    : "—"}
+                </span>
              </div>
         </Card>
       </div>

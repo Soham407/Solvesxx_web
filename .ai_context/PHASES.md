@@ -1,6 +1,6 @@
 # FacilityPro — Implementation Phases & Module Status
 
-> **Last Updated:** 2026-03-15
+> **Last Updated:** 2026-03-16
 > **Purpose:** This file is the single source of truth for what is built, what's partially built, and what's missing.
 > Paste the relevant section when starting a new AI session.
 
@@ -52,7 +52,7 @@ All master data tables, auth, and app shell are complete.
 | Module | Route | Status | Notes |
 |--------|-------|--------|-------|
 | Buyer Order Request | `/buyer/requests/new` | ✅ FULL | `useBuyerRequests` hook, multi-step form |
-| Buyer Request List | `/buyer/requests` | ✅ FULL | DataTable with status badges |
+| Buyer Request List | `/buyer/requests` | ✅ FULL | DataTable with status badges. "Leave Feedback" button for `feedback_pending` rows → `BuyerFeedbackDialog` |
 | Buyer Request Detail | `/buyer/requests/[id]` | ✅ FULL | Full lifecycle view |
 | Admin Request Review | `/inventory/indents` | ✅ FULL | Accept/Pending/Reject actions |
 | Indent Generation | `/inventory/indents` | ✅ FULL | `useIndents` hook (24KB) |
@@ -66,7 +66,7 @@ All master data tables, auth, and app shell are complete.
 | Supplier Indent View | `/supplier/indents` | ✅ FULL | Accept/reject workflow |
 | Supplier PO View | `/supplier/purchase-orders` | ✅ FULL | Acknowledge/dispatch actions |
 | Supplier Bills | `/supplier/bills` | ✅ FULL | Submit/track bills |
-| Supplier Service Orders | `/supplier/service-orders` | ✅ FULL | `useServicePurchaseOrders` hook |
+| Supplier Service Orders | `/supplier/service-orders` | ✅ FULL | `useServicePurchaseOrders` hook. "Upload Delivery Note" button per SPO row → `ServiceDeliveryNoteDialog` |
 | Warehouses | `/inventory/warehouses` | ✅ FULL | `useWarehouses` hook |
 | Return To Vendor (RTV) | `/tickets/returns` | ✅ FULL | `useRTVTickets` hook, full lifecycle |
 
@@ -76,7 +76,7 @@ All master data tables, auth, and app shell are complete.
 
 | Module | Route | Status | Notes |
 |--------|-------|--------|-------|
-| Visitor Management | `/society/visitors` | ✅ FULL | `useVisitors` hook (19KB), photo capture, search |
+| Visitor Management | `/society/visitors` | ✅ FULL | `useVisitors` hook (19KB), photo capture, search. 4 category tabs: In Building, Daily Helpers, Vendors & Contractors, Family Directory |
 | Guard Visitor Logging | `/test-guard` | ✅ FULL | `useResidentLookup` + `VisitorRegistrationDialog` |
 | Panic Alert System | `/society/panic-alerts` | ✅ FULL | `usePanicAlert` + Realtime subscription |
 | Panic Alert History | Via panic alerts page | ✅ FULL | `usePanicAlertHistory` (10KB) |
@@ -98,9 +98,9 @@ All master data tables, auth, and app shell are complete.
 | Module | Route | Status | Notes |
 |--------|-------|--------|-------|
 | AC Services Dashboard | `/services/ac` | ✅ FULL | `useServiceRequests` + `useTechnicians` + `useInventory`, DataTable, photo upload |
-| Pest Control Dashboard | `/services/pest-control` | ✅ FULL | `usePestControlInventory`, chemical stock, PPE checklists |
+| Pest Control Dashboard | `/services/pest-control` | ✅ FULL | `usePestControlInventory` (expiry_date, batch_number, expiringChemicals). Expiry warning banner for chemicals expiring within 30 days. "Spill Kits" tab with `useSpillKits` |
 | Plantation Dashboard | `/services/plantation` | ✅ FULL | `usePlantationOps` for tasks/zones. Soil health, greenery density, and seasonal planner dynamically connected. |
-| Printing & Advertising | `/services/printing` | ✅ FULL | `usePrintingMaster` for ad-spaces, `useServiceRequests`, `IDPrintingModule` for ID cards |
+| Printing & Advertising | `/services/printing` | ✅ FULL | `usePrintingMaster` for ad-spaces, `useServiceRequests`, `IDPrintingModule` for ID cards. "Book Space" button per available ad space → `AdBookingDialog` via `useAdBookings` |
 | Security Command Center | `/services/security` | ✅ FULL | `useSecurityGuards` hook (12KB), grade filter, GPS tracking, live guard list |
 | Service Boy Interface | `/service-boy` | ✅ FULL | `useJobSessions` + `useJobSessionSubscription`, GPS, before/after photos |
 | Service Requests (Admin) | `/service-requests` | ✅ FULL | List + Board + Detail views, `useServiceRequests` (14KB) |
@@ -109,14 +109,14 @@ All master data tables, auth, and app shell are complete.
 
 | Module | Route | Status | Notes |
 |--------|-------|--------|-------|
-| Attendance | `/hrms/attendance` | ✅ FULL | `useAttendance` (19KB), selfie, geo-fence check |
+| Attendance | `/hrms/attendance` | ✅ FULL | `useAttendance` (19KB), selfie, geo-fence check. "Shift Compliance" tab with per-employee late minutes vs shift start |
 | Employee Documents | `/hrms/documents` | ✅ FULL | `useEmployeeDocuments` (21KB), Aadhar/PAN/PSARA uploads |
 | Employee Profiles | `/hrms/profiles` | ✅ FULL | `useEmployeeProfile` hook |
 | Specialized Profiles | `/hrms/specialized-profiles` | ✅ FULL | For technicians, guards etc. |
 | Shifts | `/hrms/shifts` | ✅ FULL | `useShifts` hook (9KB) |
 | Leave Management | `/hrms/leave` | ✅ FULL | `useLeaveApplications` (12KB), apply/approve/reject |
 | Payroll | `/hrms/payroll` | ✅ FULL | `usePayroll` (29KB), salary calc, payslip generation |
-| Recruitment | `/hrms/recruitment` | ✅ FULL | `useCandidates` (20KB), pipeline (Applicant→Interview→BGV→Hired) |
+| Recruitment | `/hrms/recruitment` | ✅ FULL | `useCandidates` (20KB), pipeline (Applicant→Interview→BGV→Hired). BGV panel with `useBackgroundVerifications` for candidates at `background_check` stage (police, address, education, employment tracking) |
 | Holidays | `/hrms/holidays` | ✅ FULL | `useHolidays` hook |
 | Events | `/hrms/events` | ✅ FULL | `useCompanyEvents` hook |
 | Incidents | `/hrms/incidents` | ✅ FULL | Linked to behavior tickets |
@@ -159,16 +159,16 @@ All located in `components/dashboards/`. Accessible via `/dashboard` with admin 
 | Dashboard | Component | Status | Notes |
 |-----------|-----------|--------|-------|
 | Admin | `AdminView` (inline in page) | 🟡 PARTIAL | Real stats from `useMDStats`, `useServiceRequests`, `useReorderAlerts`. **Revenue chart uses `ComingSoonChart` placeholder** |
-| Company MD | `MDDashboard.tsx` | ✅ FULL | `useMDStats` hook |
+| Company MD | `MDDashboard.tsx` | ✅ FULL | All cards connected: YTD revenue from `useMDStats`, Growth Forecast AreaChart, Financial Metrics, PSARA Compliance %. No ComingSoon blocks remaining |
 | Company HOD | `HODDashboard.tsx` | ✅ FULL | `useHODStats` hook |
-| Account | `AccountsDashboard.tsx` | ✅ FULL | Financial overview |
+| Account | `AccountsDashboard.tsx` | ✅ FULL | All hooks connected: `useSupplierBills`, `useBuyerInvoices`, `useReconciliation`, `useCompliance`. KPI cards, cash flow chart, quick actions — all real data |
 | Delivery Boy | `DeliveryDashboard.tsx` | ✅ FULL | Material arrival logging with photo enforcement |
-| Buyer | `BuyerDashboard.tsx` (component) | ✅ FULL | Summary widget |
-| Supplier | `SupplierDashboard.tsx` | ✅ FULL | Summary widget |
+| Buyer | `BuyerDashboard.tsx` (widget) | 🔵 UI-ONLY | **Entire widget is `ComingSoon` placeholders** — no hooks, no data. Note: the actual Buyer *page* (`/buyer`) is ✅ FULL with real data |
+| Supplier | `SupplierDashboard.tsx` (widget) | 🔵 UI-ONLY | **Entire widget is `ComingSoon` placeholders** — no hooks. Note: the actual Supplier *pages* (`/supplier/*`) are ✅ FULL with real data via `useSupplierPortal` |
 | Security Guard | `GuardDashboard.tsx` | ✅ FULL | 51KB — checklist, panic, attendance, GPS |
 | Security Supervisor | `SecuritySupervisorDashboard.tsx` | ✅ FULL | `useSupervisorStats` hook |
-| Society Manager | `SocietyManagerDashboard.tsx` | ✅ FULL | 26KB — visitor stats, checklist status, panic logs |
-| Service Boy | `ServiceBoyDashboard.tsx` | ✅ FULL | Job sessions, GPS, photo evidence |
+| Society Manager | `SocietyManagerDashboard.tsx` | ✅ FULL | 26KB — visitor stats, checklist status, panic logs, live guard map. Imports `ComingSoonWidget` but doesn't render it |
+| Service Boy | `ServiceBoyDashboard.tsx` | ✅ FULL | Job sessions, GPS, photo evidence, stock alerts. Imports `ComingSoonWidget` but doesn't render it |
 | Resident | `ResidentDashboard.tsx` | ✅ FULL | 30KB — Dynamically fetches correct logged-in user's resident record |
 
 ---
@@ -178,7 +178,7 @@ All located in `components/dashboards/`. Accessible via `/dashboard` with admin 
 | Page | Route | Status | Notes |
 |------|-------|--------|-------|
 | Buyer Dashboard | `/buyer` (page.tsx) | ✅ FULL | Fully dynamic. "Ongoing Services" and "Ending Soon" use computed boundaries. Active services list uses actual `headcount`, `shift`, and `duration_months`. Buttons are wired with base interaction. |
-| Buyer Requests List | `/buyer/requests` | ✅ FULL | DataTable with all statuses |
+| Buyer Requests List | `/buyer/requests` | ✅ FULL | DataTable with all statuses. "Leave Feedback" button for `feedback_pending` rows |
 | Buyer New Request | `/buyer/requests/new` | ✅ FULL | Multi-step request creation form |
 | Buyer Request Detail | `/buyer/requests/[id]` | ✅ FULL | Full lifecycle view |
 | Buyer Invoices | `/buyer/invoices` | ✅ FULL | `useBuyerInvoices` hook, payment tracking |
@@ -190,7 +190,7 @@ All located in `components/dashboards/`. Accessible via `/dashboard` with admin 
 | Module | Route | Status | Notes |
 |--------|-------|--------|-------|
 | Behavior Tickets | `/tickets/behavior` | ✅ FULL | `useBehaviorTickets` + `useEmployees` hooks, create/resolve dialogs, CRUD |
-| Quality Tickets | `/tickets/quality` | ✅ FULL | Derived from `useGRN` — scans GRN items for quality issues, real data |
+| Quality Tickets | `/tickets/quality` | ✅ FULL | Derived from `useGRN` — scans GRN items for quality issues, real data. "Shortage Notes" tab with `useShortageNotes` (auto-calculates expected_qty - received_qty per GRN line) |
 | Return to Vendor (RTV) | `/tickets/returns` | ✅ FULL | `useRTVTickets` hook, `rtv_tickets` Supabase table, Realtime subscription, CRUD (create + status update), stats computed from live data |
 
 ---
@@ -213,51 +213,69 @@ All located in `components/dashboards/`. Accessible via `/dashboard` with admin 
 |--------|-------|--------|-------|
 | Reports Hub | `/reports` | ✅ FULL | Links to sub-reports |
 | Attendance Reports | `/reports/attendance` | ✅ FULL | `useAttendance` data |
-| Financial Reports | `/reports/financial` | ✅ FULL | `useFinance` data |
+| Financial Reports | `/reports/financial` | ✅ FULL | KPI cards (YTD Collected, Outstanding AR, Profit Retention, Net Margin) + PieChart (Revenue Distribution) + AreaChart (Monthly Profitability) via `useAnalyticsData` |
 | Inventory Reports | `/reports/inventory` | ✅ FULL | Stock level analytics |
 | Service Reports | `/reports/services` | ✅ FULL | Service request analytics |
 
 ---
 
-## ⚠️ Known Mock Data / Hardcoded Areas
+## Platform Features
 
-These are specific places where data is still mocked despite the page being connected to hooks:
-
-1. **`/dashboard` Admin view (line ~268)**: Revenue Analytics chart uses `ComingSoonChart` placeholder
-2. **`/dashboard` Admin view (line ~340-343)**: `AdminChart` (unused) uses hardcoded chart data
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Notification Bell | 🟡 PARTIAL | `useNotifications` hook ✅, `NotificationBell.tsx` component ✅ (badge, dropdown, mark-all-read, Realtime). **NOT yet wired into `TopNav` or dashboard layout** |
+| Guard Mobile PWA | 🟡 PARTIAL | `public/manifest.json` ✅, `<link rel="manifest">` in layout ✅. `next-pwa` not installed — no service worker or offline caching |
+| Auto-Punch-Out Cron | ✅ FULL | `auto_punch_out_idle_employees()` pg_cron job via migration `20260316000002_auto_punch_out.sql` |
+| Chemical Expiry Cron | ✅ FULL | `detect_chemical_expiry()` pg_cron job via migration `20260316000006_chemical_expiry.sql` |
 
 ---
 
-## 🔴 Features in PRD But NOT YET Built
+## ⚠️ Known Mock Data / Hardcoded Areas
 
-These features are described in the PRD but have **no page or code** yet:
+These are specific places where data is still mocked despite the page or component existing:
 
-### Critical
-| # | Feature | PRD Section | What's Needed |
-|---|---------|-------------|---------------|
-| 1 | **Guard Mobile App** | Security Guard Monitoring System | Deployable mobile-optimized interface (not just `/test-guard` test page). Needs: responsive PWA or React Native wrapper. Panic button, checklist, patrol, GPS — backend exists already |
-| 2 | **Service Delivery Note & Acknowledgment** | Deployment section | Formal staff deployment confirmation. When Supplier dispatches personnel, Admin confirms arrival with headcount/skill verification. Needs: new DB table + hook + UI page |
-| 3 | **Material Supply Services** | Material Supply Svcs | Category-specific procurement for: Security Panel materials, Hot/Cold Beverages, Eco-Friendly Disposable, Cleaning Essentials, Pest Control Materials, Air Fresheners, Stationery, Corporate Gifting. Needs: category-aware buyer request flow |
+### Admin Dashboard (`/dashboard` page)
+1. **Revenue Analytics chart (line ~268)**: Uses `ComingSoonChart` placeholder
+2. **`AdminChart` (unused, line ~340-343)**: Hardcoded chart data
 
-### High Priority
-| # | Feature | PRD Section | What's Needed |
-|---|---------|-------------|---------------|
-| 4 | **Shift-Based Attendance Validation** | Smart Attendance (HRMS) | Clock-in must validate against assigned shift timings (8AM-8PM, 8PM-8AM). Hook `useShifts` exists but attendance check-in doesn't cross-validate shift assignment |
-| 5 | **Auto-Punch-Out** | Smart Attendance (HRMS) | If guard leaves geo-fence for too long → auto clock-out + flag. Needs: edge function or pg_cron job |
-| 6 | **Check Feedback (Buyer Rating)** | Financial Closure | After bill paid, Buyer rates service quality. Field exists in PRD but no dedicated feedback form/flow |
-| 7 | ~~**RTV (Return to Vendor) Backend**~~ | Ticket Generation System | ✅ **COMPLETED** (2026-03-15): `rtv_tickets` table migrated, `useRTVTickets` hook created, Realtime enabled, page connected |
+### Role-Switcher Dashboard Widgets (`components/dashboards/`)
+These are the widget components rendered when an admin switches to a different role's view via the dashboard role-switcher:
 
-### Medium Priority
-| # | Feature | PRD Section | What's Needed |
-|---|---------|-------------|---------------|
-| 8 | **Resident/Tenant App** | Notification System | Visitor approval via push notification. Backend for visitors/residents exists, needs: push notification flow for visitor arrival |
-| 9 | **Security Supervisor Dashboard (Dedicated Portal)** | Application Stakeholders | Widget exists in `SecuritySupervisorDashboard.tsx` but no dedicated `/security-supervisor` route with full management features |
-| 10 | **Society Manager Analytics** | Visitor Management (Society Manager Dashboard) | Manager dashboard widget exists but lacks: visitor stats charts, checklist green/red indicators, staff attendance log-in/log-out analytics |
-| 11 | **Recruitment BGV Status Tracking** | HRMS Recruitment | Candidate pipeline exists but Background Verification (Police Verification, Address Verification) specific status fields need dedicated UI tracking |
-| 12 | **Chemical Expiry Alerts** | Pest Control Services | `usePestControlInventory` tracks stock but doesn't have expiry date field or alert system for near-expiry chemicals |
-| 13 | **Spill Kit Inventory** | Pest Control Services | Tracking absorbent materials & neutralizers — not yet added to pest control inventory |
-| 14 | **Ad-Space Booking Workflow** | Printing & Advertising | Ad-Space Master exists with `usePrintingMaster`, but no booking/client management workflow for ad placement |
-| 15 | **Revenue Analytics Dashboard** | Admin Dashboard | Revenue chart currently shows `ComingSoonChart` — needs real revenue data aggregation from sale bills |
+3. **`BuyerDashboard.tsx`**: 100% `ComingSoon` placeholders — no hooks, no data, disabled buttons. Says "Phase C Target: Q2 2024". ⚠️ Distinct from `/buyer` page which IS fully connected
+4. **`SupplierDashboard.tsx`**: 100% `ComingSoon` placeholders — no hooks, no data, disabled buttons. Says "Estimated: Phase C - Q2 2024". ⚠️ Distinct from `/supplier/*` pages which ARE fully connected
+
+---
+
+## 🔴 Features in PRD — Remaining Gaps
+
+### Active Gaps
+| # | Feature | Status | Notes |
+|---|---------|--------|-------|
+| 1 | **Guard Mobile PWA** | 🟡 PARTIAL | `manifest.json` + manifest link exist. `next-pwa` not installed — no service worker/offline caching. Guard portal at `/test-guard` is functional but not PWA-installable |
+| 2 | **Notification Bell in Nav** | 🟡 PARTIAL | `useNotifications` hook + `NotificationBell.tsx` component fully built. Needs wiring into `components/layout/TopNav.tsx` or dashboard layout |
+| 3 | **Material Supply Services** | 🔴 NOT BUILT | Category-specific procurement for security panel materials, beverages, eco-friendly disposable, cleaning essentials, pest control materials, etc. Needs category-aware buyer request flow |
+| 4 | **Resident/Tenant App** | 🔴 NOT BUILT | Visitor approval via push notification. Backend for visitors/residents exists, needs: push notification flow |
+| 5 | **FCM Push for Panic Alerts** | 🔴 NOT BUILT | Edge function `send-notification` exists, but `usePanicAlert` doesn't call it after insert |
+
+### Completed This Session (2026-03-16)
+All items from `previousplan.md` Sprints 1–5 completed:
+- ✅ Storekeeper + Site Supervisor roles (`src/lib/auth/roles.ts` + migration)
+- ✅ Service Delivery Note workflow (hook + dialog + supplier service-orders page)
+- ✅ Buyer Feedback Flow (hook + dialog + buyer requests page)
+- ✅ Recruitment BGV Status Tracking UI (hook + inline BGV panel)
+- ✅ Chemical Expiry Alerts (migration + expiry_date/batch_number in hook + banner)
+- ✅ Spill Kit Inventory (migration + `useSpillKits` hook + tab on pest control page)
+- ✅ Ad-Space Booking Workflow (migration + `useAdBookings` hook + dialog + printing page)
+- ✅ Shortage Notes Auto-Calculation (migration + `useShortageNotes` hook + quality tickets tab)
+- ✅ Personnel Dispatch Tracking (migration + `usePersonnelDispatches` hook)
+- ✅ Notification Bell component (`useNotifications` + `NotificationBell.tsx`) — **nav wiring pending**
+- ✅ AccountsDashboard real data (all ComingSoon replaced)
+- ✅ MDDashboard revenue + compliance cards (all ComingSoon replaced)
+- ✅ Revenue Analytics Dashboard (KPI cards + PieChart + AreaChart)
+- ✅ Shift-Based Attendance Cross-Validation ("Shift Compliance" tab)
+- ✅ Auto-Punch-Out cron (migration applied)
+- ✅ Visitor category separation (4-tab strip)
+- ✅ Guard Mobile PWA manifest
 
 ---
 
@@ -276,13 +294,48 @@ These features are described in the PRD but have **no page or code** yet:
 
 ---
 
+## Migrations History
+
+| Migration File | Purpose |
+|----------------|---------|
+| `20260209_link_resident_auth.sql` | Link resident records to Supabase auth users |
+| `20260211_*.sql` (×3) | Payroll calc, PO transitions, reconciliation, visitor approval functions |
+| `20260315120000_add_rtv_tickets.sql` | RTV tickets table + Realtime |
+| `20260315123000_add_rtv_ticket_number_seq.sql` | Server-side RTV number sequence |
+| `20260315233000_fix_mocked_dashboards.sql` | headcount/shift/duration_months on requests; soil_health/greenery_density on horticulture_zones; horticulture_seasonal_plans table |
+| `20260316000001_add_missing_roles.sql` | Insert storekeeper + site_supervisor into roles table |
+| `20260316000002_auto_punch_out.sql` | auto_punch_out_idle_employees() pg_cron @ 1AM daily |
+| `20260316000003_service_delivery_notes.sql` | service_delivery_notes table + RLS |
+| `20260316000004_buyer_feedback.sql` | buyer_feedback table + RLS |
+| `20260316000005_background_verifications.sql` | background_verifications table + RLS |
+| `20260316000006_chemical_expiry.sql` | expiry_date + batch_number on pest_control_chemicals; detect_chemical_expiry() cron |
+| `20260316000007_spill_kits.sql` | pest_control_spill_kits table |
+| `20260316000008_ad_bookings.sql` | printing_ad_bookings table |
+| `20260316000009_shortage_notes.sql` | shortage_notes + shortage_note_items tables |
+| `20260316000010_personnel_dispatches.sql` | personnel_dispatches table |
+| `20260316000011_notifications.sql` | notifications table + RLS |
+
+---
+
 ## Recent Session Handoffs
+
+### Session: 2026-03-16 — Sprint 1–5 Full Implementation (previousplan.md)
+- **What was done**: Implemented all 20 features from the gap analysis plan. New roles (storekeeper, site_supervisor), 8 new hooks, 3 new dialogs, 11 new migrations. All dashboard ComingSoon placeholders replaced with real data in AccountsDashboard and MDDashboard. Visitor category tabs, BGV tracking, chemical expiry alerts, spill kits, ad bookings, shortage notes, personnel dispatches, notification bell component.
+- **Key gap remaining**: `NotificationBell` component exists at `components/layout/NotificationBell.tsx` but has NOT been wired into `TopNav.tsx` or the dashboard layout.
+- **Files modified**: See "Migrations History" and all files under git status `M` and `??`.
+- **Status**: 19 of 20 planned items complete. NotificationBell nav wiring is the only outstanding task.
+
+### Session: 2026-03-16 — Context File Accuracy Audit
+- **What was done**: Audited all three AI context files (`CONTEXT.md`, `PHASES.md`, `CLAUDE.md`) against the actual codebase. Found and corrected significant discrepancies.
+- **Key corrections**: Hook count updated 82→83 (with 4 missing hooks added to reference list). Dashboard widget statuses corrected — `BuyerDashboard.tsx`, `SupplierDashboard.tsx`, `AccountsDashboard.tsx` widgets were wrongly marked ✅ FULL but are 🔵 UI-ONLY (100% `ComingSoon`). `MDDashboard.tsx` was wrongly ✅ FULL but is 🟡 PARTIAL. Known Mock Data section expanded. The actual portal *pages* (`/buyer/*`, `/supplier/*`, `/finance/*`) remain correctly ✅ FULL.
+- **Files modified**: `.ai_context/CONTEXT.md`, `.ai_context/PHASES.md`, `.ai_context/CLAUDE.md`
+- **Status**: All context files now accurately reflect the codebase.
 
 ### Session: 2026-03-15 — Fixing Mocked Dashboards (Buyer, Plantation, Resident)
 - **What was done**: Replaced hardcoded and mocked data across three key dashboards. Extended `requests` table with `headcount`, `shift`, and `duration_months`. Extended `horticulture_zones` with `soil_health` and `greenery_density`. Created `horticulture_seasonal_plans` table. Removed `MOCK_RESIDENT_ID` from the resident dashboard.
 - **Key decisions**: The active services count and ending soon logic in the Buyer dashboard are now dynamically derived from actual request parameters and timestamp offsets. Plantation dashboard zone stats are accurately aggregated.
 - **Files modified**: `supabase/migrations/20260315233000_fix_mocked_dashboards.sql`, `hooks/useBuyerRequests.ts`, `hooks/usePlantationOps.ts`, `app/(dashboard)/buyer/page.tsx`, `app/(dashboard)/services/plantation/page.tsx`, `app/(dashboard)/test-resident/page.tsx`, `CLAUDE.md`, `PHASES.md`.
-- **Status**: The Buyer, Plantation, and Resident dashboards are fully connected with no mock data remaining.
+- **Status**: The Buyer page, Plantation, and Resident dashboards are fully connected with no mock data remaining.
 
 ### Session: 2026-03-15 — RTV Backend Implementation
 - **What was done**: Applied `rtv_tickets` migration to Supabase, regenerated TypeScript types, created `useRTVTickets` hook with CRUD + Realtime, rewired `/tickets/returns` page from mocked data to live Supabase data.

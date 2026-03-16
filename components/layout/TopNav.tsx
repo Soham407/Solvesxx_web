@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
-  Bell,
   Search,
   Menu,
   ChevronDown,
@@ -18,10 +17,10 @@ import {
   Users,
   Moon,
   Sun,
-  LayoutGrid,
   Loader2,
 } from "lucide-react";
 import { CommandMenu } from "./CommandMenu";
+import { NotificationBell } from "./NotificationBell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -55,18 +54,12 @@ const companies = [
   { id: "1", name: "Shri Radhamadhav Enterprise", logo: "SR", color: "bg-primary" },
 ];
 
-// TODO: Replace with real notifications from API/hook when notification system is implemented
-// For now, show empty state to avoid misleading users with fake data
-const notifications: Array<{ id: number; title: string; message: string; time: string; unread: boolean; type: string }> = [];
-
 export function TopNav({ onToggleSidebar, sidebarCollapsed }: TopNavProps) {
   const router = useRouter();
   const [selectedCompany, setSelectedCompany] = useState(companies[0]);
   const { theme, setTheme } = useTheme();
   const { signOut, user, role } = useAuth();
   const [isSigningOut, setIsSigningOut] = useState(false);
-
-  const unreadCount = notifications.filter((n) => n.unread).length;
 
   const handleSignOut = async () => {
     setIsSigningOut(true);
@@ -199,58 +192,7 @@ export function TopNav({ onToggleSidebar, sidebarCollapsed }: TopNavProps) {
         </Button>
 
         {/* Notifications */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative group" aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}>
-              <Bell className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
-              {unreadCount > 0 && (
-                <span className="absolute top-2 right-2 flex h-2 w-2 items-center justify-center">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-critical opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-critical"></span>
-                </span>
-              )}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-80 p-0 animate-in fade-in slide-in-from-top-2">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="text-sm font-semibold">Notifications</h3>
-              {unreadCount > 0 && (
-                <Badge variant="secondary" className="bg-primary text-white hover:bg-primary/90 transition-colors px-2 font-semibold text-[10px] tracking-wider">
-                  {unreadCount} NEW
-                </Badge>
-              )}
-            </div>
-            <div className="max-h-[400px] overflow-y-auto">
-              {notifications.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-center px-4">
-                  <Bell className="h-8 w-8 text-muted-foreground/30 mb-3" />
-                  <p className="text-sm font-medium text-muted-foreground">No notifications</p>
-                  <p className="text-xs text-muted-foreground/70 mt-1">You're all caught up!</p>
-                </div>
-              ) : (
-                notifications.map((notification) => (
-                  <div key={notification.id} className={cn(
-                    "flex flex-col gap-1 p-4 cursor-pointer transition-colors border-b last:border-0",
-                    notification.unread ? "bg-primary/2" : "hover:bg-muted/30"
-                  )}>
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-xs ">{notification.title}</span>
-                      <span className="text-[10px] text-muted-foreground ml-auto">{notification.time}</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{notification.message}</p>
-                  </div>
-                ))
-              )}
-            </div>
-            {notifications.length > 0 && (
-              <div className="p-2 border-t text-center">
-                <Button variant="ghost" size="sm" className="w-full text-xs font-medium text-primary hover:text-primary hover:bg-primary/5">
-                  View all activities
-                </Button>
-              </div>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <NotificationBell />
 
         <div className="h-8 w-px bg-border mx-1 hidden sm:block" />
 

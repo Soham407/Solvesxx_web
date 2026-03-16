@@ -33,6 +33,7 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "FacilityPro | Enterprise Cloud ERP",
   description: "Next-generation facility management and ERP solution for modern enterprises.",
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({

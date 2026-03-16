@@ -22,10 +22,13 @@ import {
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useGRN, GRN_STATUS_CONFIG, QualityStatus } from "@/hooks/useGRN";
 import { supabase } from "@/src/lib/supabaseClient";
 import { useEffect, useState } from "react";
+import { useShortageNotes, SHORTAGE_STATUS_CONFIG } from "@/hooks/useShortageNotes";
+import { formatCurrency } from "@/src/lib/utils/currency";
 
 interface QualityTicket {
   id: string;
@@ -59,6 +62,7 @@ export default function QualityTicketsPage() {
   const [error, setError] = useState<string | null>(null);
 
   const { materialReceipts, isLoading: grnLoading, error: grnError, fetchGRNItems } = useGRN();
+  const { notes: shortageNotes, isLoading: shortageLoading, stats: shortageStats } = useShortageNotes();
 
   const fetchQualityData = async () => {
     try {
@@ -280,14 +284,83 @@ export default function QualityTicketsPage() {
         )}
       </div>
 
-      {displayLoading ? (
-        <div className="space-y-4">
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-32 w-full" />
-        </div>
-      ) : (
-        <DataTable columns={columns} data={tickets} searchKey="item" />
-      )}
+      <Tabs defaultValue="discrepancies" className="w-full">
+        <TabsList className="bg-transparent border-b rounded-none w-full justify-start h-auto p-0 gap-8">
+          <TabsTrigger value="discrepancies" className="px-0 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none font-bold text-xs uppercase tracking-widest">
+            Discrepancy Log
+          </TabsTrigger>
+          <TabsTrigger value="shortage-notes" className="px-0 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none font-bold text-xs uppercase tracking-widest">
+            Shortage Notes
+            {shortageStats.open > 0 && (
+              <span className="ml-1.5 h-4 min-w-[16px] rounded-full bg-warning text-white text-[9px] px-1 flex items-center justify-center font-bold">
+                {shortageStats.open}
+              </span>
+            )}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="discrepancies" className="pt-6">
+          {displayLoading ? (
+            <div className="space-y-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-32 w-full" />
+            </div>
+          ) : (
+            <DataTable columns={columns} data={tickets} searchKey="item" />
+          )}
+        </TabsContent>
+
+        <TabsContent value="shortage-notes" className="pt-6">
+          {shortageLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <Layers className="h-8 w-8 animate-pulse text-primary" />
+            </div>
+          ) : shortageNotes.length === 0 ? (
+            <div className="text-center py-20 text-muted-foreground">
+              <FileWarning className="h-10 w-10 mx-auto mb-3 opacity-30" />
+              <p className="text-sm">No shortage notes raised yet.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {shortageNotes.map((note) => {
+                const statusCfg = SHORTAGE_STATUS_CONFIG[note.status];
+                return (
+                  <Card key={note.id} className="border-none shadow-card ring-1 ring-border p-4">
+                    <CardContent className="p-0">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="font-mono font-bold text-sm">{note.note_number}</p>
+                          <p className="text-xs text-muted-foreground">{note.supplier_name} — PO: {note.po_number}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold text-critical">
+                            {formatCurrency(note.total_shortage_value * 100)}
+                          </span>
+                          <Badge variant="outline" className={`text-[10px] uppercase font-bold ${statusCfg.className}`}>
+                            {statusCfg.label}
+                          </Badge>
+                        </div>
+                      </div>
+                      {note.items && note.items.length > 0 && (
+                        <div className="mt-3 space-y-1">
+                          {note.items.map((item) => (
+                            <div key={item.id} className="flex items-center justify-between text-xs bg-muted/30 px-3 py-1.5 rounded">
+                              <span className="font-medium">{item.product_name}</span>
+                              <span className="text-critical font-bold">
+                                Short: {item.shortage_quantity} {item.unit}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

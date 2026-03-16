@@ -12,6 +12,12 @@ import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useCandidates, CandidateStatus, Candidate } from "@/hooks/useCandidates";
 import {
+  useBackgroundVerifications,
+  BGV_TYPE_CONFIG,
+  BGV_STATUS_CONFIG,
+  BGVType,
+} from "@/hooks/useBackgroundVerifications";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -62,6 +68,64 @@ const INITIAL_FORM_STATE = {
   notes: "",
 };
 
+// BGV Panel: shown inline for background_check candidates
+function BGVPanel({ candidateId }: { candidateId: string }) {
+  const { verifications, isLoading, initiateVerification, allVerified } =
+    useBackgroundVerifications(candidateId);
+
+  const BGV_TYPES: BGVType[] = ["police", "address", "education", "employment"];
+
+  const getVerification = (type: BGVType) =>
+    verifications.find((v) => v.verification_type === type);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2 p-3 text-xs text-muted-foreground">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading BGV status...
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 rounded-xl border bg-primary/3 space-y-3 mt-2">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-bold uppercase text-primary">Background Verification Checklist</p>
+        {allVerified && (
+          <Badge className="bg-success/10 text-success border-success/20 text-[10px] uppercase font-bold">
+            <ShieldCheck className="h-3 w-3 mr-1" /> All Clear — Ready to Offer
+          </Badge>
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {BGV_TYPES.map((type) => {
+          const v = getVerification(type);
+          const cfg = BGV_TYPE_CONFIG[type];
+          const statusCfg = v ? BGV_STATUS_CONFIG[v.status] : BGV_STATUS_CONFIG["pending"];
+          return (
+            <div key={type} className="p-3 rounded-lg border bg-card space-y-1.5">
+              <p className="text-xs font-bold">{cfg.label}</p>
+              <p className="text-[10px] text-muted-foreground">{cfg.description}</p>
+              <Badge variant="outline" className={`text-[10px] font-bold uppercase ${statusCfg.className}`}>
+                {statusCfg.label}
+              </Badge>
+              {!v && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-6 text-[10px] w-full mt-1"
+                  onClick={() => initiateVerification(candidateId, type)}
+                >
+                  Initiate
+                </Button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function RecruitmentPortalPage() {
   const {
     candidates,
@@ -88,6 +152,9 @@ export default function RecruitmentPortalPage() {
   const [statusNotes, setStatusNotes] = useState("");
   const [bgvFile, setBgvFile] = useState<File | null>(null);
   const bgvInputRef = useState<any>(null); // For resetting input
+
+  // BGV panel
+  const [bgvCandidateId, setBgvCandidateId] = useState<string | null>(null);
 
   // Convert dialog
   const [convertDialogOpen, setConvertDialogOpen] = useState(false);
@@ -270,6 +337,16 @@ export default function RecruitmentPortalPage() {
         const candidate = row.original;
         return (
           <div className="flex items-center gap-1">
+            {candidate.status === "background_check" && (
+              <Button
+                variant={bgvCandidateId === candidate.id ? "default" : "outline"}
+                size="sm"
+                className="h-7 gap-1 text-xs"
+                onClick={() => setBgvCandidateId(bgvCandidateId === candidate.id ? null : candidate.id)}
+              >
+                <ShieldCheck className="h-3 w-3" /> BGV
+              </Button>
+            )}
             <Button variant="ghost" size="icon" className="h-8 w-8 text-primary">
               <FileSearch className="h-4 w-4" />
             </Button>
@@ -417,6 +494,11 @@ export default function RecruitmentPortalPage() {
       </div>
 
       <DataTable columns={columns} data={candidates} searchKey="full_name" />
+
+      {/* BGV Panel */}
+      {bgvCandidateId && (
+        <BGVPanel candidateId={bgvCandidateId} />
+      )}
 
       {/* Add Candidate Dialog */}
       <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>

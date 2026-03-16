@@ -8,21 +8,23 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { 
-  Briefcase, 
-  Building2, 
-  Calendar, 
+import {
+  Briefcase,
+  Building2,
+  Calendar,
   AlertCircle,
   Loader2,
   RefreshCw,
   Plus,
-  FileText
+  FileText,
+  Upload,
 } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { formatCurrency } from "@/src/lib/utils/currency";
 import { supabase } from "@/src/lib/supabaseClient";
 import { cn } from "@/lib/utils";
+import { ServiceDeliveryNoteDialog } from "@/components/dialogs/ServiceDeliveryNoteDialog";
 
 interface ServiceOrder {
   id: string;
@@ -40,6 +42,7 @@ export default function SupplierServiceOrdersPage() {
   const [serviceOrders, setServiceOrders] = useState<ServiceOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deliveryNoteOrder, setDeliveryNoteOrder] = useState<ServiceOrder | null>(null);
 
   const fetchServiceOrders = async () => {
     try {
@@ -205,10 +208,22 @@ export default function SupplierServiceOrdersPage() {
     },
     {
       id: "actions",
-      cell: () => (
-        <Button variant="ghost" size="sm" className="gap-1">
-          <FileText className="h-3 w-3" /> View
-        </Button>
+      cell: ({ row }) => (
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" className="gap-1">
+            <FileText className="h-3 w-3" /> View
+          </Button>
+          {(row.original.status === "active" || row.original.status === "pending") && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1 h-7 text-xs text-primary border-primary/20 hover:bg-primary/5"
+              onClick={() => setDeliveryNoteOrder(row.original)}
+            >
+              <Upload className="h-3 w-3" /> Delivery Note
+            </Button>
+          )}
+        </div>
       ),
     },
   ];
@@ -325,6 +340,16 @@ export default function SupplierServiceOrdersPage() {
           )}
         </CardContent>
       </Card>
+
+      {deliveryNoteOrder && (
+        <ServiceDeliveryNoteDialog
+          open={!!deliveryNoteOrder}
+          onOpenChange={(open) => { if (!open) setDeliveryNoteOrder(null); }}
+          poId={deliveryNoteOrder.id}
+          poNumber={deliveryNoteOrder.po_number}
+          onSuccess={fetchServiceOrders}
+        />
+      )}
     </div>
   );
 }

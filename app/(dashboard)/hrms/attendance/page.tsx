@@ -32,6 +32,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ManualAdjustmentDialog } from "@/components/dialogs/ManualAdjustmentDialog";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
 
 // Site location for geo-fencing (Bangalore example - replace with actual company coordinates)
 const SITE_LOCATION = { lat: 12.9716, lng: 77.5946 };
@@ -439,14 +441,96 @@ export default function AttendancePage() {
         )}
       </div>
 
-      {isLoading ? (
-        <div className="space-y-4">
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-32 w-full" />
-        </div>
-      ) : (
-        <DataTable columns={columns} data={data} searchKey="employee" />
-      )}
+      <Tabs defaultValue="log" className="w-full">
+        <TabsList className="bg-transparent border-b rounded-none w-full justify-start h-auto p-0 gap-8">
+          <TabsTrigger value="log" className="px-0 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none font-bold text-xs uppercase tracking-widest">
+            Attendance Log
+          </TabsTrigger>
+          <TabsTrigger value="shift-compliance" className="px-0 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none font-bold text-xs uppercase tracking-widest">
+            Shift Compliance
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="log" className="pt-6">
+          {isLoading ? (
+            <div className="space-y-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-32 w-full" />
+            </div>
+          ) : (
+            <DataTable columns={columns} data={data} searchKey="employee" />
+          )}
+        </TabsContent>
+
+        <TabsContent value="shift-compliance" className="pt-6">
+          {isLoading ? (
+            <div className="space-y-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-32 w-full" />
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {data.length === 0 ? (
+                <div className="text-center py-20 text-muted-foreground text-sm">No attendance data for shift compliance analysis.</div>
+              ) : (
+                data.map((record: any) => {
+                  const shiftStart = "09:00"; // Default shift start — replace with employee shift data when available
+                  const punchIn = record.punch_in || record.checkIn || null;
+                  let lateMinutes = 0;
+                  let onTime = true;
+
+                  if (punchIn) {
+                    const [sh, sm] = shiftStart.split(":").map(Number);
+                    const punchDate = new Date(punchIn);
+                    const punchHour = punchDate.getHours();
+                    const punchMin = punchDate.getMinutes();
+                    lateMinutes = Math.max(0, (punchHour * 60 + punchMin) - (sh * 60 + sm));
+                    onTime = lateMinutes <= 15; // 15-min grace period
+                  }
+
+                  const compliancePct = record.status === "Absent" ? 0 : onTime ? 100 : Math.max(0, 100 - lateMinutes);
+
+                  return (
+                    <Card key={record.id} className="border-none shadow-card ring-1 ring-border p-4">
+                      <CardContent className="p-0">
+                        <div className="flex items-center justify-between mb-2">
+                          <div>
+                            <p className="font-bold text-sm">{record.employee}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {punchIn
+                                ? `Punch-in: ${new Date(punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                                : "Not checked in"}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {lateMinutes > 0 && (
+                              <Badge variant="outline" className="text-[10px] uppercase font-bold bg-warning/10 text-warning border-warning/20">
+                                {lateMinutes}m late
+                              </Badge>
+                            )}
+                            <Badge variant="outline" className={cn(
+                              "text-[10px] uppercase font-bold",
+                              record.status === "Absent" ? "bg-critical/10 text-critical border-critical/20" :
+                              onTime ? "bg-success/10 text-success border-success/20" :
+                              "bg-warning/10 text-warning border-warning/20"
+                            )}>
+                              {record.status === "Absent" ? "Absent" : onTime ? "On Time" : "Late"}
+                            </Badge>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <Progress value={compliancePct} className="flex-1 h-1.5" />
+                          <span className="text-[10px] font-bold text-muted-foreground w-8 text-right">{compliancePct}%</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })
+              )}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

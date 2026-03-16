@@ -1,25 +1,27 @@
 "use client";
 
 import { useBuyerRequests, REQUEST_STATUS_CONFIG } from "@/hooks/useBuyerRequests";
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Plus, ExternalLink, Filter } from "lucide-react";
+import { Search, Plus, ExternalLink, Filter, Star } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { useState } from "react";
+import { BuyerFeedbackDialog } from "@/components/dialogs/BuyerFeedbackDialog";
 
 export default function BuyerRequestsPage() {
-  const { requests, isLoading } = useBuyerRequests();
+  const { requests, isLoading, refresh } = useBuyerRequests();
   const [search, setSearch] = useState("");
+  const [feedbackRequest, setFeedbackRequest] = useState<{ id: string; request_number: string } | null>(null);
 
   const filteredRequests = requests.filter(req => 
     req.request_number.toLowerCase().includes(search.toLowerCase()) ||
@@ -94,11 +96,23 @@ export default function BuyerRequestsPage() {
                     {format(new Date(req.created_at), 'MMM d, yyyy')}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Link href={`/buyer/requests/${req.id}`}>
-                      <Button variant="ghost" size="sm" className="gap-1">
-                        View <ExternalLink className="h-3 w-3" />
-                      </Button>
-                    </Link>
+                    <div className="flex items-center justify-end gap-1">
+                      {req.status === "feedback_pending" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1 h-7 text-xs text-warning border-warning/20 hover:bg-warning/5"
+                          onClick={() => setFeedbackRequest({ id: req.id, request_number: req.request_number })}
+                        >
+                          <Star className="h-3 w-3" /> Feedback
+                        </Button>
+                      )}
+                      <Link href={`/buyer/requests/${req.id}`}>
+                        <Button variant="ghost" size="sm" className="gap-1">
+                          View <ExternalLink className="h-3 w-3" />
+                        </Button>
+                      </Link>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -112,6 +126,16 @@ export default function BuyerRequestsPage() {
           </TableBody>
         </Table>
       </div>
+
+      {feedbackRequest && (
+        <BuyerFeedbackDialog
+          open={!!feedbackRequest}
+          onOpenChange={(open) => { if (!open) setFeedbackRequest(null); }}
+          requestId={feedbackRequest.id}
+          requestNumber={feedbackRequest.request_number}
+          onSuccess={refresh}
+        />
+      )}
     </div>
   );
 }

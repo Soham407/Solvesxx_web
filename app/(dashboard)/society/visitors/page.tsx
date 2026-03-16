@@ -41,6 +41,7 @@ import { FamilyDirectory } from "@/components/visitors/FamilyDirectory";
 
 export default function VisitorManagementPage() {
   const {
+    visitors,
     activeVisitors,
     dailyHelpers,
     stats,
@@ -52,7 +53,11 @@ export default function VisitorManagementPage() {
     markAsFrequent,
     setFilters,
     refresh,
-  } = useVisitors({ status: "active" });
+  } = useVisitors({ status: "all" });
+
+  const vendorVisitors = visitors.filter(
+    (v) => v.visitor_type === "vendor" || v.visitor_type === "contractor",
+  );
 
   const [searchTerm, setSearchTerm] = useState("");
   const [isRegistrationOpen, setIsRegistrationOpen] = useState(false);
@@ -314,6 +319,12 @@ export default function VisitorManagementPage() {
             Daily Helpers ({dailyHelpers.length})
           </TabsTrigger>
           <TabsTrigger
+            value="vendors"
+            className="px-0 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none font-bold text-xs uppercase tracking-widest"
+          >
+            Vendors & Contractors ({vendorVisitors.length})
+          </TabsTrigger>
+          <TabsTrigger
             value="residents"
             className="px-0 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none font-bold text-xs uppercase tracking-widest"
           >
@@ -338,6 +349,16 @@ export default function VisitorManagementPage() {
             </div>
           ) : (
             <DataTable columns={columns} data={dailyHelpers} searchKey="visitor_name" />
+          )}
+        </TabsContent>
+
+        <TabsContent value="vendors" className="pt-6">
+          {vendorVisitors.length === 0 ? (
+            <div className="p-20 text-center border-2 border-dashed rounded-2xl bg-muted/20">
+              <CardDescription>No vendor or contractor visits logged yet. Log a visitor with type "Vendor" or "Contractor" to see them here.</CardDescription>
+            </div>
+          ) : (
+            <DataTable columns={columns} data={vendorVisitors} searchKey="visitor_name" />
           )}
         </TabsContent>
 

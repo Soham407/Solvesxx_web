@@ -16,9 +16,11 @@ export interface PestControlChemical {
   reorder_level: number;
   last_restocked_at: string | null;
   is_active: boolean;
+  expiry_date: string | null;
+  batch_number: string | null;
   created_at: string;
   updated_at: string;
-  
+
   // Joined Data
   product_name?: string;
   product_code?: string;
@@ -196,8 +198,18 @@ export function usePestControlInventory() {
     fetchPPEVerifications();
   }, [fetchChemicals, fetchPPEVerifications]);
 
+  // Chemicals expiring within 30 days
+  const thirtyDaysFromNow = new Date();
+  thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+  const expiringChemicals = state.chemicals.filter((c) => {
+    if (!c.expiry_date) return false;
+    const exp = new Date(c.expiry_date);
+    return exp <= thirtyDaysFromNow;
+  });
+
   return {
     ...state,
+    expiringChemicals,
     fetchChemicals,
     fetchPPEVerifications,
     submitPPEVerification,

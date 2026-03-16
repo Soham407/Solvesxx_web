@@ -1,0 +1,26 @@
+{
+  "name": "FacilityPro Guard Portal",
+  "short_name": "FacilityPro",
+  "description": "FacilityPro Guard & Security Portal — visitor management, panic alerts, and checklist compliance.",
+  "start_url": "/test-guard",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#6366f1",
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable any"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "scope": "/"
+}

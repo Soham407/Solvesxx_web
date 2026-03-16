@@ -1,6 +1,6 @@
 # FacilityPro — Project Context
 
-> **Last Updated:** 2026-03-15
+> **Last Updated:** 2026-03-16
 > Paste this at the start of every AI session for instant context.
 
 ---
@@ -18,7 +18,7 @@
 | **Framework** | Next.js 16 (App Router) |
 | **Language** | TypeScript (strict OFF, strictNullChecks OFF) |
 | **UI** | TailwindCSS 3.4 + Radix UI + shadcn/ui + Framer Motion |
-| **State** | React hooks (custom hooks per domain — 82 hooks in `/hooks/`) |
+| **State** | React hooks (custom hooks per domain — 91 hooks in `/hooks/`) |
 | **Backend** | Supabase (Postgres + Auth + Realtime + Storage + Edge Functions) |
 | **Push Notifications** | Firebase Cloud Messaging (FCM) |
 | **SMS** | MSG91 via Supabase Edge Function (`send-notification`) |
@@ -58,12 +58,12 @@ enterprise-canvas-main/
 │   │   └── tickets/         # Behavior tickets, quality tickets, RTV returns
 │   ├── api/                 # Next.js API routes (assets proxy)
 │   ├── login/               # Auth pages
-│   └── layout.tsx           # Root layout (fonts, theme provider)
+│   └── layout.tsx           # Root layout (fonts, theme provider, manifest link)
 ├── components/
 │   ├── ui/                  # shadcn/ui primitives (Button, Dialog, Card, etc.)
-│   ├── layout/              # AppSidebar, navigation, header
+│   ├── layout/              # AppSidebar, TopNav, NotificationBell
 │   ├── forms/               # Reusable form components
-│   ├── dialogs/             # Feature-specific dialogs (ScheduleVisit, NewJobOrder, SummaryReports, etc.)
+│   ├── dialogs/             # Feature-specific dialogs (ServiceDeliveryNoteDialog, BuyerFeedbackDialog, AdBookingDialog, ScheduleVisit, NewJobOrder, SummaryReports, etc.)
 │   ├── shared/              # DataTable, StatusBadge, PageHeader, ComingSoon
 │   ├── dashboards/          # 12 role-specific dashboard widgets
 │   ├── buyer/               # Buyer-specific components
@@ -73,16 +73,18 @@ enterprise-canvas-main/
 │   ├── phaseA/              # Phase A components
 │   ├── phaseB/              # PhotoUploadDialog, PPEChecklistDialog
 │   └── society/             # VisitorRegistrationDialog, society-specific components
-├── hooks/                   # 82 custom hooks (one per domain entity)
+├── hooks/                   # 91 custom hooks (one per domain entity)
 ├── lib/                     # Firebase config, notification service, utils
 ├── src/
 │   ├── lib/                 # Supabase clients, constants, feature flags, auth, utils/currency
 │   └── types/               # TypeScript types (supabase.ts, phaseB.ts, phaseD.ts)
 ├── supabase/
-│   ├── migrations/          # SQL migration files
+│   ├── migrations/          # SQL migration files (18 total as of 2026-03-16)
 │   ├── functions/           # Edge Functions (8 deployed)
 │   ├── PhaseA-E/            # Phase-specific SQL scripts
 │   └── seed_*.sql           # Seed data files
+├── public/
+│   └── manifest.json        # PWA manifest (start_url: /test-guard, display: standalone)
 └── docs/                    # Audit reports, reference schema
 ```
 
@@ -130,7 +132,7 @@ File: `src/lib/featureFlags.ts`
 
 File: `src/lib/auth/roles.ts`
 
-**AppRole type:** `admin` | `company_md` | `company_hod` | `account` | `delivery_boy` | `buyer` | `supplier` | `vendor` | `security_guard` | `security_supervisor` | `society_manager` | `service_boy` | `resident`
+**AppRole type:** `admin` | `company_md` | `company_hod` | `account` | `delivery_boy` | `buyer` | `supplier` | `vendor` | `security_guard` | `security_supervisor` | `society_manager` | `service_boy` | `resident` | `storekeeper` | `site_supervisor`
 
 **Access matrix (route prefixes each role can access):**
 
@@ -149,6 +151,8 @@ File: `src/lib/auth/roles.ts`
 | `society_manager` | `/dashboard`, `/society`, `/test-resident`, `/tickets`, `/finance/compliance` |
 | `service_boy` | `/dashboard`, `/service-boy`, `/service-requests` |
 | `resident` | `/test-resident`, `/society/my-flat` |
+| `storekeeper` | `/dashboard`, `/inventory`, `/tickets` |
+| `site_supervisor` | `/dashboard`, `/society`, `/tickets`, `/hrms/attendance` |
 
 **To add a new role or route:** Edit `ROLE_ACCESS` in `src/lib/auth/roles.ts`.
 
@@ -212,7 +216,7 @@ return () => { supabase.removeChannel(channel); };
 4. **Types**: Auto-generated from Supabase schema in `supabase-types.ts` (606KB, 100+ tables). Phase-specific types in `src/types/`.
 5. **Feature flags**: Managed in `src/lib/featureFlags.ts`.
 6. **Build note**: `ignoreBuildErrors: true` in next.config.ts because the massive type file causes TS2589 deep instantiation errors. IDE type-checking still works.
-7. **Auth**: Supabase Auth with role-based access. 13 roles defined in `src/lib/auth/roles.ts`. See "Role-Based Access Control" section above.
+7. **Auth**: Supabase Auth with role-based access. 15 roles defined in `src/lib/auth/roles.ts`. See "Role-Based Access Control" section above.
 8. **Edge Functions**: 8 Deno-based functions for cron jobs and notifications (check-checklist, check-document-expiry, check-guard-inactivity, check-inactivity, check-incomplete-checklists, checklist-reminders, inactivity-monitor, send-notification).
 9. **Styling**: HSL CSS variables for theming (dark mode supported via `next-themes`). Custom shadow system, keyframe animations, and glassmorphism tokens defined in `tailwind.config.js` and `globals.css`.
 10. **Currency formatting**: Use `formatCurrency()` from `@/src/lib/utils/currency` for all monetary values — handles paise-to-rupee conversion.
@@ -224,11 +228,11 @@ return () => { supabase.removeChannel(channel); };
 ## Database
 
 - **100+ tables** across public schema on Supabase Postgres
-- **Key tables**: `employees`, `visitors`, `daily_checklists`, `panic_alerts`, `purchase_orders`, `indents`, `products`, `suppliers`, `service_requests`, `attendance_records`, `leave_applications`, `payroll_cycles`, `company_locations`, `residents`, `flats`, `buildings`, `stock_levels`, `supplier_bills`, `sale_bills`, `behavior_tickets`, `grn_items`, `security_guards`, `job_sessions`, `rtv_tickets`
+- **Key tables**: `employees`, `visitors`, `daily_checklists`, `panic_alerts`, `purchase_orders`, `indents`, `products`, `suppliers`, `service_requests`, `attendance_records`, `leave_applications`, `payroll_cycles`, `company_locations`, `residents`, `flats`, `buildings`, `stock_levels`, `supplier_bills`, `sale_bills`, `behavior_tickets`, `grn_items`, `security_guards`, `job_sessions`, `rtv_tickets`, `service_delivery_notes`, `buyer_feedback`, `background_verifications`, `pest_control_spill_kits`, `printing_ad_bookings`, `shortage_notes`, `shortage_note_items`, `personnel_dispatches`, `notifications`
 - **RLS**: Enabled with role-based policies
-- **Realtime**: Used for panic alerts, service request updates, sale rate changes, supplier rate changes, job session tracking, RTV ticket changes
+- **Realtime**: Used for panic alerts, service request updates, sale rate changes, supplier rate changes, job session tracking, RTV ticket changes, service delivery notes, personnel dispatches, notifications
 - **Storage**: Employee documents, visitor photos, job evidence photos
-- **SQL Functions**: payroll_calculation, po_status_transition, reconciliation_matching, visitor_approval, log_material_arrival
+- **SQL Functions**: payroll_calculation, po_status_transition, reconciliation_matching, visitor_approval, log_material_arrival, auto_punch_out_idle_employees, detect_chemical_expiry
 - **Reference schema**: `docs/reference_schema.sql` (134KB)
 
 ---
@@ -255,7 +259,7 @@ return () => { supabase.removeChannel(channel); };
 
 ---
 
-## Existing Hooks Reference (82 hooks)
+## Existing Hooks Reference (91 hooks)
 
 Below is a categorized list of all hooks. **Always check if a hook already exists before creating a new one.**
 
@@ -266,7 +270,7 @@ Below is a categorized list of all hooks. **Always check if a hook already exist
 `useRoles`, `useEmployees`, `useEmployeeProfile`, `useEmployeeDocuments`
 
 ### Inventory & Supply
-`useProducts`, `useInventory`, `useWarehouses`, `useSuppliers`, `useSupplierProducts`, `useSupplierRates`, `useSupplierRateSubscription`, `useSaleProductRates`, `useSaleRateSubscription`, `useReorderAlerts`
+`useProducts`, `useInventory`, `useWarehouses`, `useSuppliers`, `useSupplierProducts`, `useSupplierRates`, `useSupplierRateSubscription`, `useSaleProductRates`, `useSaleRateSubscription`, `useReorderAlerts`, `useServices`
 
 ### Procurement
 `useIndents`, `usePurchaseOrders`, `usePurchaseOrderList`, `usePurchaseOrderDetails`, `useGRN`
@@ -275,25 +279,28 @@ Below is a categorized list of all hooks. **Always check if a hook already exist
 `useFinance`, `useFinancialClosure`, `useSupplierBills`, `useBuyerInvoices`, `useReconciliation`, `useReconMatch`, `useReconAudit`, `useBudgets`, `useCompliance`, `usePerformanceAudit`
 
 ### Buyer Portal
-`useBuyerRequests`, `useBuyerInvoices`
+`useBuyerRequests`, `useBuyerInvoices`, `useBuyerFeedback`
 
 ### Supplier Portal
-`useSupplierPortal`, `useServicePurchaseOrders`
+`useSupplierPortal`, `useServicePurchaseOrders`, `useServiceDeliveryNotes`, `usePersonnelDispatches`
 
 ### HRMS
-`useAttendance`, `useShifts`, `usePayroll`, `useLeaveApplications`, `useHolidays`, `useCompanyEvents`, `useCandidates`
+`useAttendance`, `useShifts`, `usePayroll`, `useLeaveApplications`, `useHolidays`, `useCompanyEvents`, `useCandidates`, `useBackgroundVerifications`
 
 ### Society & Security
-`useVisitors`, `useGuardVisitors`, `useGuardChecklist`, `usePanicAlert`, `usePanicAlertHistory`, `usePanicAlertSubscription`, `useInactivityMonitor`, `useGuardLiveLocation`, `usePatrolLogs`, `useSecurityGuards`, `useResident`, `useResidentLookup`, `useResidentProfile`, `useSocieties`, `useSocietyStats`, `useSocietyAudit`, `useEmergencyContacts`, `useSupervisorStats`
+`useVisitors`, `useGuardVisitors`, `useGuardChecklist`, `usePanicAlert`, `usePanicAlertHistory`, `usePanicAlertSubscription`, `useInactivityMonitor`, `useGuardLiveLocation`, `usePatrolLogs`, `useSecurityGuards`, `useResident`, `useResidentLookup`, `useResidentProfile`, `useSocieties`, `useSocietyStats`, `useSocietyAudit`, `useEmergencyContacts`, `useSupervisorStats`, `useReorderAlerts`
 
 ### Services
-`useServiceRequests`, `useServiceRequestSubscription`, `useServices`, `useTechnicians`, `useVendorWiseServices`, `useWorkMaster`, `useJobSessions`, `useJobSessionSubscription`, `useJobMaterials`, `useJobPhotos`, `useMaintenanceSchedules`, `usePestControlInventory`, `usePlantationOps`, `usePrintingMaster`
+`useServiceRequests`, `useServiceRequestSubscription`, `useTechnicians`, `useVendorWiseServices`, `useWorkMaster`, `useJobSessions`, `useJobSessionSubscription`, `useJobMaterials`, `useJobPhotos`, `useMaintenanceSchedules`, `usePestControlInventory`, `usePlantationOps`, `usePrintingMaster`, `useSpillKits`, `useAdBookings`
 
 ### Tickets
-`useBehaviorTickets`, `useRTVTickets`
+`useBehaviorTickets`, `useRTVTickets`, `useShortageNotes`
 
 ### Assets & Delivery
 `useAssets`, `useAssetCategories`, `useQrCodes`, `useDeliveryLogs`
 
 ### MDash & Analytics
 `useMDStats`, `useHODStats`, `useAnalyticsData`, `usePushNotifications`
+
+### Platform
+`useNotifications`

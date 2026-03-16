@@ -1,4 +1,4 @@
-export type AppRole = 
+export type AppRole =
   | "admin"
   | "company_md"
   | "company_hod"
@@ -11,7 +11,9 @@ export type AppRole =
   | "security_supervisor"
   | "society_manager"
   | "service_boy"
-  | "resident";
+  | "resident"
+  | "storekeeper"
+  | "site_supervisor";
 
 /**
  * Role-based access mapping
@@ -21,7 +23,7 @@ export const ROLE_ACCESS: Record<AppRole, string[]> = {
   admin: ["/"], // Admin can access everything
   company_md: ["/dashboard", "/reports", "/finance"],
   company_hod: ["/dashboard", "/hrms", "/service-requests", "/tickets", "/services", "/company"],
-  account: ["/dashboard", "/finance"],
+  account: ["/dashboard", "/finance", "/reports"],
   delivery_boy: ["/dashboard", "/logistics"],
   buyer: ["/dashboard", "/buyer"],
   supplier: ["/dashboard", "/supplier"],
@@ -31,6 +33,8 @@ export const ROLE_ACCESS: Record<AppRole, string[]> = {
   society_manager: ["/dashboard", "/society", "/test-resident", "/tickets", "/finance/compliance"],
   service_boy: ["/dashboard", "/service-boy", "/service-requests"],
   resident: ["/test-resident", "/society/my-flat"],
+  storekeeper: ["/dashboard", "/inventory", "/tickets"],
+  site_supervisor: ["/dashboard", "/society", "/tickets", "/hrms/attendance"],
 };
 
 export function hasAccess(role: AppRole, pathname: string): boolean {

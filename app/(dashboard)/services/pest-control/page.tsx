@@ -29,6 +29,7 @@ import { usePestControlInventory } from "@/hooks/usePestControlInventory";
 import { useServices } from "@/hooks/useServices";
 import { Progress } from "@/components/ui/progress";
 import { PPEChecklistDialog } from "@/components/phaseB/PPEChecklistDialog";
+import { useSpillKits, SPILL_KIT_STATUS_CONFIG } from "@/hooks/useSpillKits";
 import { useMemo } from "react";
 
 export default function PestControlPage() {
@@ -44,13 +45,15 @@ export default function PestControlPage() {
     serviceId: pestControlService?.id
   });
 
-  const { 
-    chemicals, 
-    verifications, 
-    isLoading: isInventoryLoading, 
-    updateStock 
+  const {
+    chemicals,
+    verifications,
+    expiringChemicals,
+    isLoading: isInventoryLoading,
+    updateStock
   } = usePestControlInventory();
 
+  const { kits, isLoading: isKitsLoading, stats: kitStats } = useSpillKits();
   const totalChemicalStock = chemicals.reduce((acc, curr) => acc + Number(curr.current_stock), 0);
   const isLoading = isRequestsLoading || isInventoryLoading;
 
@@ -157,6 +160,29 @@ export default function PestControlPage() {
         </div>
       )}
 
+      {expiringChemicals && expiringChemicals.length > 0 && (
+        <div className="flex items-start gap-3 p-4 rounded-xl bg-warning/10 border border-warning/20">
+          <AlertTriangle className="h-5 w-5 text-warning mt-0.5 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-bold text-warning">
+              {expiringChemicals.length} Chemical{expiringChemicals.length > 1 ? "s" : ""} Expiring Within 30 Days
+            </p>
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {expiringChemicals.map((c) => (
+                <span
+                  key={c.id}
+                  className="text-[10px] font-bold uppercase bg-warning/20 text-warning px-2 py-0.5 rounded-full"
+                >
+                  {c.product_name || c.product_code}
+                  {c.expiry_date && ` — expires ${new Date(c.expiry_date).toLocaleDateString()}`}
+                  {c.batch_number && ` (Batch: ${c.batch_number})`}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid gap-6 md:grid-cols-4">
         <Card className="border-none shadow-card ring-1 ring-border p-4">
              <div className="flex items-center gap-4">
@@ -209,6 +235,12 @@ export default function PestControlPage() {
                 <TabsTrigger value="services" className="px-0 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none font-bold text-xs uppercase tracking-widest">Service Log</TabsTrigger>
                 <TabsTrigger value="chemicals" className="px-0 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none font-bold text-xs uppercase tracking-widest">Chemical Stock</TabsTrigger>
                 <TabsTrigger value="ppe" className="px-0 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none font-bold text-xs uppercase tracking-widest">PPE Checklists</TabsTrigger>
+                <TabsTrigger value="spill-kits" className="px-0 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none font-bold text-xs uppercase tracking-widest">
+                  Spill Kits
+                  {kitStats.needsAttention > 0 && (
+                    <span className="ml-1.5 h-4 w-4 rounded-full bg-critical text-white text-[9px] flex items-center justify-center font-bold">{kitStats.needsAttention}</span>
+                  )}
+                </TabsTrigger>
             </TabsList>
             
             <TabsContent value="services" className="pt-6">
@@ -335,6 +367,44 @@ export default function PestControlPage() {
                         </CardContent>
                     </Card>
                 </div>
+            </TabsContent>
+            <TabsContent value="spill-kits" className="pt-6">
+              {isKitsLoading ? (
+                <div className="flex items-center justify-center py-20">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : kits.length === 0 ? (
+                <div className="text-center py-20 text-muted-foreground text-sm">
+                  No spill kits registered. Add kits using the database.
+                </div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-3">
+                  {kits.map((kit) => {
+                    const statusCfg = SPILL_KIT_STATUS_CONFIG[kit.status];
+                    return (
+                      <Card key={kit.id} className="border-none shadow-card ring-1 ring-border p-4">
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <p className="font-mono font-bold text-sm">{kit.kit_code}</p>
+                            <p className="text-xs text-muted-foreground">{kit.location_name}</p>
+                          </div>
+                          <Badge variant="outline" className={`text-[10px] uppercase font-bold ${statusCfg.className}`}>
+                            {statusCfg.label}
+                          </Badge>
+                        </div>
+                        <div className="text-xs text-muted-foreground space-y-1">
+                          <p>{kit.items_json.length} item types tracked</p>
+                          {kit.last_inspected_at && (
+                            <p>Last inspected: {new Date(kit.last_inspected_at).toLocaleDateString()}</p>
+                          )}
+                          {kit.inspector_name && <p>By: {kit.inspector_name}</p>}
+                          {kit.notes && <p className="italic">{kit.notes}</p>}
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
             </TabsContent>
       </Tabs>
     </div>

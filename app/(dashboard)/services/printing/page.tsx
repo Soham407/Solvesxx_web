@@ -27,8 +27,9 @@ import { useServiceRequests } from "@/hooks/useServiceRequests";
 import { usePrintingMaster } from "@/hooks/usePrintingMaster";
 import { useServices } from "@/hooks/useServices";
 import { formatCurrency } from "@/src/lib/utils/currency";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { IDPrintingModule } from "@/components/printing/IDPrintingModule";
+import { AdBookingDialog } from "@/components/dialogs/AdBookingDialog";
 
 export default function PrintingAdvertisingPage() {
   // Fetch service dynamically by code instead of hardcoded UUID
@@ -44,6 +45,7 @@ export default function PrintingAdvertisingPage() {
   });
 
   const { adSpaces, isLoading: isMasterLoading } = usePrintingMaster();
+  const [bookingSpace, setBookingSpace] = useState<{ id: string; name: string } | null>(null);
 
   const totalRevenue = adSpaces
     .filter(s => s.status === 'occupied')
@@ -236,9 +238,19 @@ export default function PrintingAdvertisingPage() {
                                             <span className="text-muted-foreground">Linked to: <strong>{space.asset_name}</strong></span>
                                         </div>
                                     )}
-                                    <Button variant="outline" size="sm" className="w-full text-[10px] h-8 font-bold border-dashed">
+                                    {space.status === "available" ? (
+                                      <Button
+                                        size="sm"
+                                        className="w-full text-[10px] h-8 font-bold gap-1"
+                                        onClick={() => setBookingSpace({ id: space.id, name: space.space_name })}
+                                      >
+                                        <Calendar className="h-3 w-3" /> Book Space
+                                      </Button>
+                                    ) : (
+                                      <Button variant="outline" size="sm" className="w-full text-[10px] h-8 font-bold border-dashed">
                                         Manage Inventory
-                                    </Button>
+                                      </Button>
+                                    )}
                                 </CardContent>
                             </Card>
                         ))
@@ -255,6 +267,15 @@ export default function PrintingAdvertisingPage() {
                 <IDPrintingModule />
             </TabsContent>
       </Tabs>
+
+      {bookingSpace && (
+        <AdBookingDialog
+          open={!!bookingSpace}
+          onOpenChange={(open) => { if (!open) setBookingSpace(null); }}
+          adSpaceId={bookingSpace.id}
+          adSpaceName={bookingSpace.name}
+        />
+      )}
     </div>
   );
 }
