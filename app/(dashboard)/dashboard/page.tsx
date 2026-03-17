@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Users, Building2, Package, Ticket, TrendingUp, AlertCircle, Clock, 
@@ -90,7 +91,15 @@ export default function DashboardPage() {
 
 function DashboardPageContent() {
   const { role } = useAuth();
+  const router = useRouter();
   const [selectedRole, setSelectedRole] = useState("admin");
+
+  // Redirect portal roles to their dedicated pages — avoids duplicate dashboard
+  useEffect(() => {
+    if (role === "buyer") router.replace("/buyer");
+    else if (role === "supplier" || role === "vendor") router.replace("/supplier");
+    else if (role === "resident") router.replace("/test-resident");
+  }, [role, router]);
 
   // Automatically set the selected role to the user's actual role on load
   useEffect(() => {
