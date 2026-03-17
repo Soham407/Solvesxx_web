@@ -2,29 +2,31 @@
 
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
-import { 
-  ShieldAlert, 
-  Target, 
-  Eye, 
-  UserCheck, 
-  Clock, 
-  Calendar, 
-  CheckCircle2, 
-  MoreHorizontal,
-  Wrench,
-  Camera,
-  MapPin,
-  Fingerprint,
+import {
+  ShieldAlert,
   Award,
-  BookOpen
+  BookOpen,
+  Fingerprint,
+  UserX,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useTechnicians } from "@/hooks/useTechnicians";
+
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
 
 export default function SpecializedProfilesPage() {
+  const { technicians, isLoading } = useTechnicians();
+
   return (
     <div className="animate-fade-in space-y-8 pb-10">
       <PageHeader
@@ -37,121 +39,142 @@ export default function SpecializedProfilesPage() {
         }
       />
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {/* Specialized Profile 1: Gunman */}
-        <Card className="border-none shadow-card ring-1 ring-border group hover:ring-critical/20 transition-all">
-             <CardHeader className="p-6 pb-2">
-                 <div className="flex items-center justify-between mb-4">
-                     <Badge variant="outline" className="bg-critical/5 text-critical border-critical/20 font-bold text-[10px] uppercase">Gunman - Level 3</Badge>
-                     <div className="h-2 w-2 rounded-full bg-success animate-pulse" />
-                 </div>
-                 <div className="flex items-center gap-4">
-                    <Avatar className="h-16 w-16 border-2 border-background ring-2 ring-primary/5 shadow-xl">
-                        <AvatarFallback className="bg-muted text-lg font-bold">VS</AvatarFallback>
-                    </Avatar>
-                    <div className="flex flex-col text-left">
-                        <CardTitle className="text-xl font-bold ">Vikram Singh</CardTitle>
-                        <CardDescription className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Arms License: UP-1024-XB</CardDescription>
+      {isLoading ? (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map((i) => (
+            <Card key={i} className="border-none shadow-card ring-1 ring-border">
+              <CardHeader className="p-6 pb-2">
+                <Skeleton className="h-5 w-24 mb-4" />
+                <div className="flex items-center gap-4">
+                  <Skeleton className="h-16 w-16 rounded-full" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-5 w-32" />
+                    <Skeleton className="h-3 w-24" />
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-6 pt-6 border-t border-dashed mt-4 space-y-4">
+                <div className="grid grid-cols-2 gap-2">
+                  <Skeleton className="h-10 rounded-lg" />
+                  <Skeleton className="h-10 rounded-lg" />
+                </div>
+                <Skeleton className="h-8 w-full" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : technicians.length === 0 ? (
+        <div className="p-12 text-center border-2 border-dashed rounded-3xl bg-muted/20">
+          <UserX className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
+          <h3 className="text-lg font-bold">No Specialized Profiles Found</h3>
+          <p className="text-xs text-muted-foreground max-w-md mx-auto mt-2">
+            No active technician profiles exist yet. Add technicians via the Employee module and assign them a technician profile to see them here.
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {technicians.map((tech) => (
+            <Card
+              key={tech.id}
+              className="border-none shadow-card ring-1 ring-border group hover:ring-primary/20 transition-all"
+            >
+              <CardHeader className="p-6 pb-2">
+                <div className="flex items-center justify-between mb-4">
+                  <Badge
+                    variant="outline"
+                    className="bg-primary/5 text-primary border-primary/20 font-bold text-[10px] uppercase truncate max-w-[160px]"
+                  >
+                    {tech.designation ?? "Specialist"}
+                  </Badge>
+                  <div
+                    className={`h-2 w-2 rounded-full animate-pulse ${
+                      tech.is_active ? "bg-success" : "bg-muted-foreground"
+                    }`}
+                  />
+                </div>
+                <div className="flex items-center gap-4">
+                  <Avatar className="h-16 w-16 border-2 border-background ring-2 ring-primary/5 shadow-xl">
+                    {tech.photo_url && <AvatarImage src={tech.photo_url} alt={tech.full_name} />}
+                    <AvatarFallback className="bg-muted text-lg font-bold">
+                      {getInitials(tech.full_name ?? "?")}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-col text-left min-w-0">
+                    <CardTitle className="text-xl font-bold truncate">{tech.full_name}</CardTitle>
+                    <CardDescription className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                      ID: {tech.employee_code ?? "—"}
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-6 pt-6 border-t border-dashed mt-4 space-y-4">
+                {/* Skills */}
+                <div>
+                  <p className="text-[10px] font-bold uppercase text-muted-foreground mb-2">Skills</p>
+                  {tech.skills && tech.skills.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {tech.skills.map((skill, i) => (
+                        <Badge key={i} variant="secondary" className="text-[10px] font-semibold">
+                          {skill}
+                        </Badge>
+                      ))}
                     </div>
-                 </div>
-             </CardHeader>
-             <CardContent className="p-6 pt-6 border-t border-dashed mt-4 space-y-4">
-                 <div className="grid grid-cols-3 gap-2">
-                    {[
-                        { label: "Vetting", icon: UserCheck, val: "Pass" },
-                        { label: "Firearm", icon: Target, val: ".32 Revolver" },
-                        { label: "Exp", icon: Calendar, val: "8Y" },
-                    ].map((item, i) => (
-                        <div key={i} className="flex flex-col items-center p-2 rounded-lg bg-muted/30">
-                            <item.icon className="h-3.5 w-3.5 text-muted-foreground mb-1" />
-                            <span className="text-[10px] font-bold uppercase text-foreground">{item.val}</span>
-                            <span className="text-[8px] font-bold text-muted-foreground uppercase">{item.label}</span>
-                        </div>
-                    ))}
-                 </div>
-                 <Button className="w-full bg-critical hover:bg-critical/90 shadow-lg shadow-critical/20">View Detailed Dossier</Button>
-             </CardContent>
-        </Card>
+                  ) : (
+                    <p className="text-[11px] text-muted-foreground italic">No skills recorded</p>
+                  )}
+                </div>
 
-        {/* Specialized Profile 2: CCTV Analyst */}
-        <Card className="border-none shadow-card ring-1 ring-border group hover:ring-info/20 transition-all">
-             <CardHeader className="p-6 pb-2">
-                 <div className="flex items-center justify-between mb-4">
-                     <Badge variant="outline" className="bg-info/5 text-info border-info/20 font-bold text-[10px] uppercase">Surveillance Expert</Badge>
-                     <div className="h-2 w-2 rounded-full bg-success animate-pulse" />
-                 </div>
-                 <div className="flex items-center gap-4">
-                    <Avatar className="h-16 w-16 border-2 border-background ring-2 ring-primary/5 shadow-xl">
-                        <AvatarFallback className="bg-muted text-lg font-bold">AM</AvatarFallback>
-                    </Avatar>
-                    <div className="flex flex-col text-left">
-                        <CardTitle className="text-xl font-bold ">Anjali Mehta</CardTitle>
-                        <CardDescription className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Cert: VMS-Expert-24</CardDescription>
+                {/* Certifications */}
+                <div>
+                  <p className="text-[10px] font-bold uppercase text-muted-foreground mb-2">Certifications</p>
+                  {tech.certifications && tech.certifications.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {tech.certifications.map((cert, i) => (
+                        <Badge
+                          key={i}
+                          variant="outline"
+                          className="text-[10px] font-semibold bg-success/5 text-success border-success/20"
+                        >
+                          {cert}
+                        </Badge>
+                      ))}
                     </div>
-                 </div>
-             </CardHeader>
-             <CardContent className="p-6 pt-6 border-t border-dashed mt-4 space-y-4">
-                 <div className="grid grid-cols-3 gap-2">
-                    {[
-                        { label: "Visual Vetting", icon: Eye, val: "100%" },
-                        { label: "VMS Skill", icon: Camera, val: "Milestone" },
-                        { label: "Exp", icon: Calendar, val: "4Y" },
-                    ].map((item, i) => (
-                        <div key={i} className="flex flex-col items-center p-2 rounded-lg bg-muted/30">
-                            <item.icon className="h-3.5 w-3.5 text-muted-foreground mb-1" />
-                            <span className="text-[10px] font-bold uppercase text-foreground">{item.val}</span>
-                            <span className="text-[8px] font-bold text-muted-foreground uppercase">{item.label}</span>
-                        </div>
-                    ))}
-                 </div>
-                 <Button className="w-full bg-info hover:bg-info/90 shadow-lg shadow-info/20">View System Access Log</Button>
-             </CardContent>
-        </Card>
+                  ) : (
+                    <p className="text-[11px] text-muted-foreground italic">No certifications recorded</p>
+                  )}
+                </div>
 
-        {/* Specialized Profile 3: Bouncer / Close Protection */}
-        <Card className="border-none shadow-card ring-1 ring-border group hover:ring-primary/20 transition-all border-l-4 border-l-primary/10">
-             <CardHeader className="p-6 pb-2">
-                 <div className="flex items-center justify-between mb-4">
-                     <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 font-bold text-[10px] uppercase">Tactical Support</Badge>
-                     <div className="h-2 w-2 rounded-full bg-warning animate-pulse" />
-                 </div>
-                 <div className="flex items-center gap-4">
-                    <Avatar className="h-16 w-16 border-2 border-background ring-2 ring-primary/5 shadow-xl">
-                        <AvatarFallback className="bg-muted text-lg font-bold">MK</AvatarFallback>
-                    </Avatar>
-                    <div className="flex flex-col text-left">
-                        <CardTitle className="text-xl font-bold ">Manoj Kumar</CardTitle>
-                        <CardDescription className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Code: ALPHA-GARD</CardDescription>
-                    </div>
-                 </div>
-             </CardHeader>
-             <CardContent className="p-6 pt-6 border-t border-dashed mt-4 space-y-4">
-                 <div className="grid grid-cols-3 gap-2">
-                    {[
-                        { label: "Combat", icon: ShieldAlert, val: "L3" },
-                        { label: "Vetting", icon: UserCheck, val: "A+" },
-                        { label: "Exp", icon: Calendar, val: "12Y" },
-                    ].map((item, i) => (
-                        <div key={i} className="flex flex-col items-center p-2 rounded-lg bg-muted/30">
-                            <item.icon className="h-3.5 w-3.5 text-muted-foreground mb-1" />
-                            <span className="text-[10px] font-bold uppercase text-foreground">{item.val}</span>
-                            <span className="text-[8px] font-bold text-muted-foreground uppercase">{item.label}</span>
-                        </div>
-                    ))}
-                 </div>
-                 <Button className="w-full shadow-lg">Request Deployment</Button>
-             </CardContent>
-        </Card>
-      </div>
+                <Badge
+                  variant="outline"
+                  className={`w-full justify-center py-1 text-[10px] font-bold uppercase ${
+                    tech.is_active
+                      ? "bg-success/5 text-success border-success/20"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {tech.is_active ? "Active" : "Inactive"}
+                </Badge>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       <div className="p-8 text-center border-2 border-dashed rounded-3xl bg-muted/20">
-            <ShieldAlert className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
-            <h3 className="text-lg font-bold">Certification Compliance Vault</h3>
-            <p className="text-xs text-muted-foreground max-w-md mx-auto mt-2">All specialized personnel must undergo annual arms license verification and psychological vetting. Documents are encrypted and stored in the HR Governance portal.</p>
-            <div className="flex justify-center gap-4 mt-6">
-                <Badge variant="secondary" className="gap-2 px-3 py-1 font-bold"> <Fingerprint className="h-3.5 w-3.5 text-primary" /> biometric Verified</Badge>
-                <Badge variant="secondary" className="gap-2 px-3 py-1 font-bold"> <BookOpen className="h-3.5 w-3.5 text-info" /> background Clear</Badge>
-            </div>
+        <ShieldAlert className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
+        <h3 className="text-lg font-bold">Certification Compliance Vault</h3>
+        <p className="text-xs text-muted-foreground max-w-md mx-auto mt-2">
+          All specialized personnel must undergo annual arms license verification and psychological vetting.
+          Documents are encrypted and stored in the HR Governance portal.
+        </p>
+        <div className="flex justify-center gap-4 mt-6">
+          <Badge variant="secondary" className="gap-2 px-3 py-1 font-bold">
+            <Fingerprint className="h-3.5 w-3.5 text-primary" /> Biometric Verified
+          </Badge>
+          <Badge variant="secondary" className="gap-2 px-3 py-1 font-bold">
+            <BookOpen className="h-3.5 w-3.5 text-info" /> Background Clear
+          </Badge>
+        </div>
       </div>
     </div>
   );

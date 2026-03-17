@@ -209,6 +209,19 @@ export function useBuyerRequests() {
 
   const updateRequestStatus = async (requestId: string, status: RequestStatus, reason?: string) => {
     try {
+      // Guard: cannot set to 'completed' without a feedback record
+      if (status === "completed") {
+        const { data: feedback } = await supabase
+          .from("buyer_feedback")
+          .select("id")
+          .eq("request_id", requestId)
+          .maybeSingle();
+        if (!feedback) {
+          setError("Feedback must be submitted before marking as completed.");
+          return false;
+        }
+      }
+
       const updates: any = { status, updated_at: new Date().toISOString() };
       if (reason) {
         updates.rejection_reason = reason;

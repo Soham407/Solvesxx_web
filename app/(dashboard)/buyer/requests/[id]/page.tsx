@@ -4,41 +4,46 @@ import { useBuyerRequests, REQUEST_STATUS_CONFIG, RequestStatus } from "@/hooks/
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
 } from "@/components/ui/table";
-import { 
-  Clock, 
-  Package, 
-  ArrowLeft, 
-  CheckCircle2, 
-  XCircle, 
+import {
+  Clock,
+  Package,
+  ArrowLeft,
+  CheckCircle2,
+  XCircle,
   History,
   Truck,
   FileCheck,
-  PackageCheck
+  PackageCheck,
+  Star,
+  AlertCircle
 } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/ui/use-toast";
+import { BuyerFeedbackDialog } from "@/components/dialogs/BuyerFeedbackDialog";
 
 export default function BuyerRequestDetailsPage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
   const requestId = params.id as string;
-  const { requests, fetchRequestItems, updateRequestStatus, isLoading } = useBuyerRequests();
+  const { requests, fetchRequestItems, updateRequestStatus, isLoading, refresh } = useBuyerRequests();
   
   const [request, setRequest] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
   const [isLoadingDetails, setIsLoadingDetails] = useState(true);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   useEffect(() => {
     const req = requests.find(r => r.id === requestId);
@@ -99,6 +104,25 @@ export default function BuyerRequestDetailsPage() {
           <p className="text-muted-foreground">Submitted on {format(new Date(request.created_at), 'MMMM d, yyyy')}</p>
         </div>
       </div>
+
+      {/* Feedback Required Banner */}
+      {request.status === 'feedback_pending' && (
+        <Alert className="border-warning/40 bg-warning/5">
+          <Star className="h-4 w-4 text-warning" />
+          <AlertDescription className="flex items-center justify-between gap-4">
+            <span className="text-sm font-medium text-warning">
+              Feedback required — please rate this service to complete the transaction.
+            </span>
+            <Button
+              size="sm"
+              className="shrink-0 gap-1.5 bg-warning text-warning-foreground hover:bg-warning/90"
+              onClick={() => setFeedbackOpen(true)}
+            >
+              <Star className="h-3.5 w-3.5" /> Leave Feedback
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="grid gap-6 md:grid-cols-3">
         <div className="md:col-span-2 space-y-6">
@@ -250,6 +274,19 @@ export default function BuyerRequestDetailsPage() {
           )}
         </div>
       </div>
+      {/* Feedback Dialog */}
+      <BuyerFeedbackDialog
+        open={feedbackOpen}
+        onOpenChange={setFeedbackOpen}
+        requestId={request.id}
+        requestNumber={request.request_number}
+        onSuccess={async () => {
+          setFeedbackOpen(false);
+          await refresh();
+          const req = requests.find(r => r.id === requestId);
+          if (req) setRequest({ ...req });
+        }}
+      />
     </div>
   );
 }
@@ -274,4 +311,3 @@ function TimelineItem({ label, date, active, done, icon: Icon }: { label: string
   );
 }
 
-import { AlertCircle } from "lucide-react";

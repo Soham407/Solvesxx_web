@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -17,7 +17,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { CheckCircle2, Loader2, AlertTriangle, Users } from "lucide-react";
 import { supabase } from "@/src/lib/supabaseClient";
 import { useToast } from "@/components/ui/use-toast";
 import { ServicePurchaseOrder } from "@/hooks/useServicePurchaseOrders";
@@ -44,6 +45,8 @@ export function ServiceAcknowledgmentDialog({
   onConfirm,
 }: ServiceAcknowledgmentDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [expectedHeadcount, setExpectedHeadcount] = useState<number | null>(null);
+  const [isLoadingItems, setIsLoadingItems] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<FormValues>({
@@ -55,6 +58,40 @@ export function ServiceAcknowledgmentDialog({
     },
   });
 
+  const headcountReceived = form.watch("headcount_received");
+  const hasMismatch =
+    expectedHeadcount !== null &&
+    Number(headcountReceived) !== expectedHeadcount;
+
+  // Fetch SPO items to calculate expected headcount
+  useEffect(() => {
+    if (!open || !spo?.id) return;
+
+    setIsLoadingItems(true);
+    setExpectedHeadcount(null);
+
+    supabase
+      .from("service_purchase_order_items")
+      .select("quantity")
+      .eq("spo_id", spo.id)
+      .then(({ data, error }) => {
+        if (!error && data && data.length > 0) {
+          const total = data.reduce((sum, item) => sum + (item.quantity ?? 0), 0);
+          setExpectedHeadcount(total);
+          form.setValue("headcount_received", total);
+        }
+        setIsLoadingItems(false);
+      });
+  }, [open, spo?.id]);
+
+  // Reset form when dialog closes
+  useEffect(() => {
+    if (!open) {
+      form.reset();
+      setExpectedHeadcount(null);
+    }
+  }, [open]);
+
   const handleSubmit = async (values: FormValues) => {
     setIsSubmitting(true);
     try {
@@ -65,7 +102,7 @@ export function ServiceAcknowledgmentDialog({
         .insert({
           spo_id: spo.id,
           acknowledged_by: user?.id ?? null,
-          headcount_expected: null,
+          headcount_expected: expectedHeadcount,
           headcount_received: values.headcount_received,
           grade_verified: values.grade_verified,
           notes: values.notes || null,
@@ -108,6 +145,23 @@ export function ServiceAcknowledgmentDialog({
 
         <form onSubmit={form.handleSubmit(handleSubmit)}>
           <div className="space-y-4 py-2">
+            {/* Expected headcount (read-only, from SPO items) */}
+            <div className="flex items-center gap-3 p-3 rounded-xl border bg-muted/20">
+              <Users className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div className="flex flex-col flex-1">
+                <span className="text-xs font-bold uppercase text-muted-foreground">Expected Headcount (from SPO)</span>
+                <span className="text-sm font-bold">
+                  {isLoadingItems ? (
+                    <span className="text-muted-foreground">Loading…</span>
+                  ) : expectedHeadcount !== null ? (
+                    expectedHeadcount
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </span>
+              </div>
+            </div>
+
             <div className="space-y-1.5">
               <Label className="text-xs font-bold uppercase">Headcount Received</Label>
               <Input
@@ -120,6 +174,17 @@ export function ServiceAcknowledgmentDialog({
                 <p className="text-xs text-destructive">{form.formState.errors.headcount_received.message}</p>
               )}
             </div>
+
+            {/* Mismatch warning */}
+            {hasMismatch && (
+              <Alert variant="destructive" className="py-2.5">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription className="text-xs">
+                  Headcount mismatch: expected <strong>{expectedHeadcount}</strong>, receiving{" "}
+                  <strong>{headcountReceived}</strong>. Please add a note explaining the discrepancy.
+                </AlertDescription>
+              </Alert>
+            )}
 
             <Separator />
 
@@ -142,7 +207,7 @@ export function ServiceAcknowledgmentDialog({
             <div className="space-y-1.5">
               <Label className="text-xs font-bold uppercase">Acknowledgment Notes</Label>
               <Textarea
-                placeholder="Any observations or remarks about this deployment..."
+                placeholder={hasMismatch ? "Required: explain the headcount discrepancy..." : "Any observations or remarks about this deployment..."}
                 rows={3}
                 {...form.register("notes")}
               />
@@ -153,7 +218,7 @@ export function ServiceAcknowledgmentDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting} className="gap-2">
+            <Button type="submit" disabled={isSubmitting || isLoadingItems} className="gap-2">
               {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
               Confirm Deployment
             </Button>

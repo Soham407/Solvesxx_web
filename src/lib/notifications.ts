@@ -120,12 +120,38 @@ export async function sendServiceCompletionNotification(
 }
 
 /**
+ * Send reorder alert notification to managers/admins
+ */
+export async function sendReorderAlertNotification(
+  managerIds: string[],
+  productName: string,
+  alertType: 'low_stock' | 'out_of_stock'
+): Promise<void> {
+  const isOutOfStock = alertType === 'out_of_stock';
+  for (const userId of managerIds) {
+    await sendNotification({
+      user_id: userId,
+      title: isOutOfStock ? 'Stock Out' : 'Low Stock Alert',
+      body: `${productName} is ${isOutOfStock ? 'out of stock' : 'below reorder level'}. Raise a Purchase Order.`,
+      channel: 'fcm',
+      data: {
+        type: 'reorder_alert',
+        alert_type: alertType,
+        product_name: productName,
+      },
+    });
+  }
+}
+
+/**
  * Send visitor arrival notification to resident
+ * Includes visitor photo URL in the FCM data payload so the resident app can display the photo.
  */
 export async function sendVisitorArrivalNotification(
   residentUserId: string,
   visitorName: string,
-  flatNumber: string
+  flatNumber: string,
+  photoUrl?: string
 ): Promise<void> {
   await sendNotification({
     user_id: residentUserId,
@@ -135,6 +161,7 @@ export async function sendVisitorArrivalNotification(
     data: {
       type: 'visitor_arrival',
       flat_number: flatNumber,
+      ...(photoUrl ? { photo_url: photoUrl } : {}),
     },
   });
 }

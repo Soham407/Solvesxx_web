@@ -206,6 +206,7 @@ export function useGuardVisitors() {
           .eq("id", visitorId)
           .select(`
             visitor_name,
+            photo_url,
             flats ( flat_number ),
             residents ( auth_user_id )
           `)
@@ -226,9 +227,10 @@ export function useGuardVisitors() {
           const residentAuthUserId = residentData?.auth_user_id;
           const flatNumber = flatData?.flat_number;
           const visitorName = data.visitor_name;
-          
+          const visitorPhotoUrl = (data as any).photo_url as string | null;
+
           if (residentAuthUserId && flatNumber && visitorName) {
-            await sendVisitorArrivalNotification(residentAuthUserId, visitorName, flatNumber);
+            await sendVisitorArrivalNotification(residentAuthUserId, visitorName, flatNumber, visitorPhotoUrl ?? undefined);
           }
         } catch (notifErr) {
           console.error("Failed to send arrival notification", notifErr);
