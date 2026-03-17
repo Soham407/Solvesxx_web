@@ -101,12 +101,12 @@ export default function AttendancePage() {
           check_in_latitude,
           check_in_longitude,
           check_in_selfie_url,
+          check_in_location_id,
           status,
           employees:employee_id (
             first_name,
             last_name,
-            employee_code,
-            location_id
+            employee_code
           )
         `)
         .eq("log_date", today)
@@ -170,7 +170,7 @@ export default function AttendancePage() {
         else if (log.status === "on_leave") status = "On Leave";
 
         // Per-employee geofence using their assigned location
-        const siteCoords = emp.location_id ? locationsMap[emp.location_id] : null;
+        const siteCoords = log.check_in_location_id ? locationsMap[log.check_in_location_id] : null;
 
         let location = "Manual Entry";
         let verification: AttendanceRecord["verification"] = "Pending";
