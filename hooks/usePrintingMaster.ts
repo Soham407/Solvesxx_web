@@ -53,8 +53,8 @@ export function usePrintingMaster() {
         .select(`
           *,
           assets!asset_id (
-            asset_name,
-            asset_tag
+            name,
+            asset_code
           )
         `)
         .order("space_name", { ascending: true });
@@ -63,8 +63,8 @@ export function usePrintingMaster() {
 
       const adSpacesWithDetails: AdSpace[] = (data || []).map((item: any) => ({
         ...item,
-        asset_name: item.assets?.asset_name || null,
-        asset_tag: item.assets?.asset_tag || null,
+        asset_name: item.assets?.name || null,
+        asset_tag: item.assets?.asset_code || null,
       }));
 
       setState((prev) => ({

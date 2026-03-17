@@ -112,7 +112,7 @@ export function useLeaveApplications(employeeId?: string) {
         .from('leave_applications')
         .select(`
           *,
-          employee:employees(first_name, last_name, photo_url, employee_code),
+          employee:employees!employee_id(first_name, last_name, photo_url, employee_code),
           leave_type:leave_types(leave_name, leave_type, yearly_quota)
         `)
         .order('created_at', { ascending: false });
@@ -206,7 +206,7 @@ export function useLeaveApplications(employeeId?: string) {
           const { data: emp } = await supabase
             .from('employees')
             .select('id')
-            .eq('user_id', String(user.id))
+            .eq('auth_user_id', String(user.id))
             .single();
           if (emp) empId = emp.id;
         }
@@ -261,7 +261,7 @@ export function useLeaveApplications(employeeId?: string) {
         const { data: emp } = await supabase
           .from('employees')
           .select('id')
-          .eq('user_id', String(user.id))
+          .eq('auth_user_id', String(user.id))
           .single();
         if (emp) approverId = emp.id;
       }
