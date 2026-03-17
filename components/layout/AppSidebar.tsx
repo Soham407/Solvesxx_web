@@ -240,7 +240,6 @@ const navigation: NavGroup[] = [
         href: "/buyer",
         icon: ShoppingCart,
         children: [
-          { title: "Overview",             href: "/buyer" },
           { title: "All Requests",         href: "/buyer/requests" },
           { title: "New Request",          href: "/buyer/requests/new" },
           { title: "Invoices & Payments",  href: "/buyer/invoices" },
@@ -256,7 +255,6 @@ const navigation: NavGroup[] = [
         href: "/supplier",
         icon: Truck,
         children: [
-          { title: "Overview",          href: "/supplier" },
           { title: "Pending Indents",   href: "/supplier/indents" },
           { title: "Purchase Orders",   href: "/supplier/purchase-orders" },
           { title: "Service Orders",    href: "/supplier/service-orders" },
@@ -335,7 +333,13 @@ export function AppSidebar({ collapsed, onToggle, className, isMobile }: AppSide
   };
 
   const isActive = (href: string) => {
-    if (href === "/dashboard") return pathname === "/dashboard";
+    if (href === "/dashboard") {
+      // Portal roles redirect /dashboard → their portal page, so keep Main Dashboard active there
+      if (role === "buyer" && pathname?.startsWith("/buyer")) return true;
+      if ((role === "supplier" || role === "vendor") && pathname?.startsWith("/supplier")) return true;
+      if (role === "resident" && pathname?.startsWith("/test-resident")) return true;
+      return pathname === "/dashboard";
+    }
     return pathname?.startsWith(href);
   };
 
