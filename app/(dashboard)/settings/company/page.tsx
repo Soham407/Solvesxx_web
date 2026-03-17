@@ -11,7 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Shield, Save, AlertCircle, Loader2 } from "lucide-react";
 import { supabase } from "@/src/lib/supabaseClient";
 import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 
 export default function CompanySettingsPage() {
   const { role } = useAuth();

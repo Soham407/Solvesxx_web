@@ -19,7 +19,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { supabase } from "@/src/lib/supabaseClient";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import { ServicePurchaseOrder } from "@/hooks/useServicePurchaseOrders";
 
 const formSchema = z.object({
