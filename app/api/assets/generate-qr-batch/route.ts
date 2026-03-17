@@ -1,5 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { z } from "zod";
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const PREFIX_REGEX = /^[A-Z0-9-]{1,20}$/;
+
+const GenerateBatchSchema = z.object({
+  count: z.number().int().min(1).max(1000),
+  societyId: z.string().regex(UUID_REGEX, "societyId must be a valid UUID"),
+  warehouseId: z.string().regex(UUID_REGEX, "warehouseId must be a valid UUID").optional().nullable(),
+  prefix: z
+    .string()
+    .regex(PREFIX_REGEX, "prefix must be 1-20 uppercase alphanumeric characters or hyphens")
+    .optional(),
+});
 
 // Create Supabase admin client lazily to avoid build-time errors
 function getSupabaseAdmin() {
@@ -104,25 +118,19 @@ export async function POST(request: NextRequest) {
 
     const supabase = getSupabaseAdmin();
     const body = await request.json();
-    const { count, societyId, warehouseId, prefix } = body;
 
-    // Validate inputs
-    if (!count || count < 1 || count > 1000) {
+    // Validate and parse inputs
+    const parseResult = GenerateBatchSchema.safeParse(body);
+    if (!parseResult.success) {
       return NextResponse.json(
-        { error: "Count must be between 1 and 1000" },
+        { error: parseResult.error.issues.map((i) => i.message).join(", ") },
         { status: 400 }
       );
     }
+    const { count, societyId, warehouseId, prefix } = parseResult.data;
 
-    if (!societyId) {
-      return NextResponse.json(
-        { error: "Society ID is required" },
-        { status: 400 }
-      );
-    }
-
-    // Generate batch ID
-    const batchId = `batch-${Date.now()}`;
+    // Generate unpredictable batch ID
+    const batchId = `batch-${crypto.randomUUID()}`;
     const timestamp = Date.now();
 
     // Build all QR code records in memory

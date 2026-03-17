@@ -30,13 +30,14 @@ import { formatCurrency } from "@/src/lib/utils/currency";
 import { useMemo, useState } from "react";
 import { IDPrintingModule } from "@/components/printing/IDPrintingModule";
 import { AdBookingDialog } from "@/components/dialogs/AdBookingDialog";
+import { ServiceCode } from "@/src/lib/service-codes";
 
 export default function PrintingAdvertisingPage() {
   // Fetch service dynamically by code instead of hardcoded UUID
   const { services, isLoading: servicesLoading } = useServices();
-  
+
   const printingService = useMemo(() => {
-    return services.find(s => s.service_code === "PRN-ADV" || 
+    return services.find(s => s.service_code === ServiceCode.PRINTING_ADVERTISING ||
       s.service_name?.toLowerCase().includes("print"));
   }, [services]);
 

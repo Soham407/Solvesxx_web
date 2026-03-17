@@ -7,8 +7,13 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import admin from "npm:firebase-admin@11.11.1";
 
+// Restrict CORS to the known frontend origin only.
+// Set ALLOWED_ORIGIN in Supabase Function Secrets (e.g. https://app.facilitypro.in).
+// Falls back to '*' only if not configured — must be set in production.
+const ALLOWED_ORIGIN = Deno.env.get('ALLOWED_ORIGIN') ?? '*';
+
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -40,7 +45,11 @@ interface NotificationRequest {
 }
 
 /**
- * Validate the caller is authenticated.
+ * Validate the caller is authenticated via a valid Supabase JWT.
+ * Internal service-to-service calls must also use a valid user JWT or
+ * be invoked server-side with the service role client directly.
+ * Never compare the service role key as a Bearer token — if it leaked,
+ * anyone could impersonate the service role indefinitely.
  */
 async function validateAuth(req: Request): Promise<{ authorized: boolean; userId?: string }> {
   const authHeader = req.headers.get('Authorization');
@@ -48,15 +57,7 @@ async function validateAuth(req: Request): Promise<{ authorized: boolean; userId
     return { authorized: false };
   }
 
-  // Check if it's the service role key (internal calls)
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  // Handle "Bearer <key>" format
-  const token = authHeader.replace('Bearer ', '');
-  if (serviceRoleKey && token === serviceRoleKey) {
-    return { authorized: true, userId: 'service-role' };
-  }
-
-  // Validate as a user JWT
+  // Validate strictly as a Supabase user JWT — no service key shortcut
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL') ?? '',
     Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -93,10 +94,18 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { user_id, title, body, data, channel = 'fcm', mobile }: NotificationRequest = await req.json();
+    const payload: NotificationRequest = await req.json();
+    const { user_id, data, channel = 'fcm', mobile } = payload;
+    const title = typeof payload.title === 'string' ? payload.title.slice(0, 200) : payload.title;
+    const body = typeof payload.body === 'string' ? payload.body.slice(0, 1000) : payload.body;
 
     if ((!user_id && !mobile) || !title || !body) {
       throw new Error('Missing required fields: user_id (or mobile), title, body');
+    }
+
+    // Basic phone number format guard (digits only, 7-15 chars per E.164)
+    if (mobile && !/^\d{7,15}$/.test(mobile.replace(/\D/g, ''))) {
+      throw new Error('Invalid mobile number format');
     }
 
     const logs: any[] = [];

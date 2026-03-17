@@ -31,13 +31,14 @@ import { Progress } from "@/components/ui/progress";
 import { PPEChecklistDialog } from "@/components/dialogs/PPEChecklistDialog";
 import { useSpillKits, SPILL_KIT_STATUS_CONFIG } from "@/hooks/useSpillKits";
 import { useMemo } from "react";
+import { ServiceCode } from "@/src/lib/service-codes";
 
 export default function PestControlPage() {
   // Fetch service dynamically by code instead of hardcoded UUID
   const { services, isLoading: servicesLoading } = useServices();
-  
+
   const pestControlService = useMemo(() => {
-    return services.find(s => s.service_code === "PST-CON" || 
+    return services.find(s => s.service_code === ServiceCode.PEST_CONTROL ||
       s.service_name?.toLowerCase().includes("pest"));
   }, [services]);
 

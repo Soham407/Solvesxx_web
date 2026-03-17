@@ -67,11 +67,11 @@ export default function LoginPage() {
 
   const getIp = async () => {
     try {
-      const res = await fetch("https://api.ipify.org?format=json");
+      const res = await fetch("/api/auth/client-ip");
       const data = await res.json();
-      return data.ip;
+      return data.ip ?? "127.0.0.1";
     } catch {
-      return "0.0.0.0"; // Fallback if ipify is down
+      return "127.0.0.1";
     }
   };
 

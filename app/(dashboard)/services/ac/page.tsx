@@ -29,13 +29,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PhotoUploadDialog } from "@/components/dialogs/PhotoUploadDialog";
 import { ScheduleVisitDialog } from "@/components/dialogs/ScheduleVisitDialog";
 import { NewJobOrderDialog } from "@/components/dialogs/NewJobOrderDialog";
+import { ServiceCode } from "@/src/lib/service-codes";
 
 export default function ACServicePage() {
   // Fetch AC service dynamically by code
   const { services, isLoading: servicesLoading } = useServices();
 
   const acService = useMemo(() => {
-    const found = services.find(s => s.service_code === "AC-REP" ||
+    const found = services.find(s => s.service_code === ServiceCode.AC_REPAIR ||
       s.service_name?.toLowerCase().includes("air condition"));
     if (!found && !servicesLoading) {
       console.log("[ACServicePage] Available services:", services);
