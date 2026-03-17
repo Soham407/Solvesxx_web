@@ -175,6 +175,7 @@ const navigation: NavGroup[] = [
         href: "/society",
         icon: Home,
         children: [
+          { title: "Guard Station",      href: "/test-guard" },
           { title: "Resident Directory", href: "/society/residents" },
           { title: "Visitor Management", href: "/society/visitors" },
           { title: "Incident Alerts", href: "/society/panic-alerts" },
@@ -232,6 +233,39 @@ const navigation: NavGroup[] = [
     ],
   },
   {
+    title: "Buyer Portal",
+    items: [
+      {
+        title: "My Services",
+        href: "/buyer",
+        icon: ShoppingCart,
+        children: [
+          { title: "Overview",             href: "/buyer" },
+          { title: "All Requests",         href: "/buyer/requests" },
+          { title: "New Request",          href: "/buyer/requests/new" },
+          { title: "Invoices & Payments",  href: "/buyer/invoices" },
+        ],
+      },
+    ],
+  },
+  {
+    title: "Supplier Portal",
+    items: [
+      {
+        title: "Order Management",
+        href: "/supplier",
+        icon: Truck,
+        children: [
+          { title: "Overview",          href: "/supplier" },
+          { title: "Pending Indents",   href: "/supplier/indents" },
+          { title: "Purchase Orders",   href: "/supplier/purchase-orders" },
+          { title: "Service Orders",    href: "/supplier/service-orders" },
+          { title: "My Bills",          href: "/supplier/bills" },
+        ],
+      },
+    ],
+  },
+  {
     title: "Portals",
     items: [
       {
@@ -239,7 +273,7 @@ const navigation: NavGroup[] = [
         href: "/portals",
         icon: LayoutGrid,
         children: [
-          { title: "Buyer Interface", href: "/buyer" },
+          { title: "Buyer Interface",    href: "/buyer" },
           { title: "Supplier Interface", href: "/supplier" },
         ],
       },
@@ -333,7 +367,13 @@ export function AppSidebar({ collapsed, onToggle, className, isMobile }: AppSide
       filtered = filtered.map(group => ({
         ...group,
         items: group.items
-          .filter(item => hasAccess(role!, item.href))
+          .filter(item => {
+            // For items with children, show if any child is accessible
+            if (item.children && item.children.length > 0) {
+              return item.children.some(child => hasAccess(role!, child.href));
+            }
+            return hasAccess(role!, item.href);
+          })
           .map(item => ({
             ...item,
             children: item.children?.filter(

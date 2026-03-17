@@ -80,8 +80,24 @@ export default function LoginPage() {
       }
 
       if (data.user) {
+        // Fetch role to determine the appropriate landing page
+        const { data: userData } = await supabase
+          .from("users")
+          .select("roles(role_name)")
+          .eq("id", data.user.id)
+          .single();
+
+        const userRole = (userData as any)?.roles?.role_name;
+
+        const roleRedirects: Record<string, string> = {
+          buyer:    "/buyer",
+          supplier: "/supplier",
+          vendor:   "/supplier",
+          resident: "/test-resident",
+        };
+
         toast.success("Welcome back!");
-        router.push("/dashboard");
+        router.push(roleRedirects[userRole] ?? "/dashboard");
       }
     } catch (err: any) {
       toast.error(err.message || "An unexpected error occurred.");
