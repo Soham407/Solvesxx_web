@@ -74,6 +74,7 @@ interface NavItem {
 interface NavGroup {
   title: string;
   items: NavItem[];
+  adminOnly?: boolean;
 }
 
 const navigation: NavGroup[] = [
@@ -265,6 +266,7 @@ const navigation: NavGroup[] = [
   },
   {
     title: "Portals",
+    adminOnly: true,
     items: [
       {
         title: "Partners & Portals",
@@ -309,14 +311,11 @@ export function AppSidebar({ collapsed, onToggle, className, isMobile }: AppSide
   const [openGroups, setOpenGroups] = useState<string[]>([]);
 
   useEffect(() => {
-    // Auto-open groups containing the current path
+    // Auto-open groups only when a child's href matches — never expand based on parent href
     const groupsToOpen: string[] = [];
     navigation.forEach((group) => {
       group.items.forEach((item) => {
-        if (
-          item.children?.some((child) => pathname?.startsWith(child.href)) ||
-          pathname?.startsWith(item.href)
-        ) {
+        if (item.children?.some((child) => pathname?.startsWith(child.href))) {
           groupsToOpen.push(item.title);
         }
       });
@@ -364,6 +363,11 @@ export function AppSidebar({ collapsed, onToggle, className, isMobile }: AppSide
           }))
           .filter(item => !item.children || item.children.length > 0),
       })).filter(group => group.items.length > 0);
+    }
+
+    // Remove adminOnly groups for non-admin roles
+    if (role !== "admin" && role !== "super_admin") {
+      filtered = filtered.filter(group => !group.adminOnly);
     }
 
     // Then apply Role-based access filtering
