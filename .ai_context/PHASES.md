@@ -1,6 +1,6 @@
 # FacilityPro — Implementation Phases & Module Status
 
-> **Last Updated:** 2026-03-16
+> **Last Updated:** 2026-03-16 (Context audit — synced all migrations, tables, and component references)
 > **Purpose:** This file is the single source of truth for what is built, what's partially built, and what's missing.
 > Paste the relevant section when starting a new AI session.
 
@@ -85,7 +85,7 @@ All master data tables, auth, and app shell are complete.
 | Inactivity Alerts | Edge functions | ✅ FULL | `check-guard-inactivity` + `inactivity-monitor` edge functions |
 | Emergency Contacts | `/society/emergency` | ✅ FULL | `useEmergencyContacts` hook |
 | Family/Resident Directory | `/society/residents` | ✅ FULL | `useResident` hook (9KB), flat/building lookup |
-| Resident Dashboard | `/test-resident` | 🟡 PARTIAL | Uses `MOCK_RESIDENT_ID` — not dynamically fetching logged-in resident |
+| Resident Dashboard | `/test-resident` | ✅ FULL | Dynamically fetches logged-in user's resident record via `useResidentProfile` — `MOCK_RESIDENT_ID` removed |
 | Guard Dashboard Widget | `/dashboard` (guard role) | ✅ FULL | `GuardDashboard` component (51KB) |
 | Society Manager Dashboard | `/dashboard` (manager role) | ✅ FULL | `SocietyManagerDashboard` component (26KB) |
 
@@ -163,8 +163,8 @@ All located in `components/dashboards/`. Accessible via `/dashboard` with admin 
 | Company HOD | `HODDashboard.tsx` | ✅ FULL | `useHODStats` hook |
 | Account | `AccountsDashboard.tsx` | ✅ FULL | All hooks connected: `useSupplierBills`, `useBuyerInvoices`, `useReconciliation`, `useCompliance`. KPI cards, cash flow chart, quick actions — all real data |
 | Delivery Boy | `DeliveryDashboard.tsx` | ✅ FULL | Material arrival logging with photo enforcement |
-| Buyer | `BuyerDashboard.tsx` (widget) | 🔵 UI-ONLY | **Entire widget is `ComingSoon` placeholders** — no hooks, no data. Note: the actual Buyer *page* (`/buyer`) is ✅ FULL with real data |
-| Supplier | `SupplierDashboard.tsx` (widget) | 🔵 UI-ONLY | **Entire widget is `ComingSoon` placeholders** — no hooks. Note: the actual Supplier *pages* (`/supplier/*`) are ✅ FULL with real data via `useSupplierPortal` |
+| Buyer | `BuyerDashboard.tsx` (widget) | ✅ FULL | KPI cards (Total/Pending/Active/Completed), Invoice Summary, Recent Requests — `useBuyerRequests` + `useBuyerInvoices`. Note: also the actual Buyer *page* (`/buyer`) is ✅ FULL |
+| Supplier | `SupplierDashboard.tsx` (widget) | ✅ FULL | KPI cards (Open Indents/Active POs/Total Billed), Recent POs, Billing Summary — `useSupplierPortal`. Note: also the actual Supplier *pages* (`/supplier/*`) are ✅ FULL |
 | Security Guard | `GuardDashboard.tsx` | ✅ FULL | 51KB — checklist, panic, attendance, GPS |
 | Security Supervisor | `SecuritySupervisorDashboard.tsx` | ✅ FULL | `useSupervisorStats` hook |
 | Society Manager | `SocietyManagerDashboard.tsx` | ✅ FULL | 26KB — visitor stats, checklist status, panic logs, live guard map. Imports `ComingSoonWidget` but doesn't render it |
@@ -223,8 +223,8 @@ All located in `components/dashboards/`. Accessible via `/dashboard` with admin 
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Notification Bell | 🟡 PARTIAL | `useNotifications` hook ✅, `NotificationBell.tsx` component ✅ (badge, dropdown, mark-all-read, Realtime). **NOT yet wired into `TopNav` or dashboard layout** |
-| Guard Mobile PWA | 🟡 PARTIAL | `public/manifest.json` ✅, `<link rel="manifest">` in layout ✅. `next-pwa` not installed — no service worker or offline caching |
+| Notification Bell | ✅ FULL | `useNotifications` hook ✅, `NotificationBell.tsx` component ✅ (badge, dropdown, mark-all-read, Realtime). Wired into `TopNav.tsx` line 195 |
+| Guard Mobile PWA | ✅ FULL | `public/manifest.json` ✅, `<link rel="manifest">` in layout ✅. `next-pwa` installed, `withPWA` in `next.config.ts`, service worker generated on prod build |
 | Auto-Punch-Out Cron | ✅ FULL | `auto_punch_out_idle_employees()` pg_cron job via migration `20260316000002_auto_punch_out.sql` |
 | Chemical Expiry Cron | ✅ FULL | `detect_chemical_expiry()` pg_cron job via migration `20260316000006_chemical_expiry.sql` |
 
@@ -232,17 +232,7 @@ All located in `components/dashboards/`. Accessible via `/dashboard` with admin 
 
 ## ⚠️ Known Mock Data / Hardcoded Areas
 
-These are specific places where data is still mocked despite the page or component existing:
-
-### Admin Dashboard (`/dashboard` page)
-1. **Revenue Analytics chart (line ~268)**: Uses `ComingSoonChart` placeholder
-2. **`AdminChart` (unused, line ~340-343)**: Hardcoded chart data
-
-### Role-Switcher Dashboard Widgets (`components/dashboards/`)
-These are the widget components rendered when an admin switches to a different role's view via the dashboard role-switcher:
-
-3. **`BuyerDashboard.tsx`**: 100% `ComingSoon` placeholders — no hooks, no data, disabled buttons. Says "Phase C Target: Q2 2024". ⚠️ Distinct from `/buyer` page which IS fully connected
-4. **`SupplierDashboard.tsx`**: 100% `ComingSoon` placeholders — no hooks, no data, disabled buttons. Says "Estimated: Phase C - Q2 2024". ⚠️ Distinct from `/supplier/*` pages which ARE fully connected
+No known mocked data areas remain. All dashboards, pages, and widgets use live Supabase data.
 
 ---
 
@@ -251,11 +241,11 @@ These are the widget components rendered when an admin switches to a different r
 ### Active Gaps
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
-| 1 | **Guard Mobile PWA** | 🟡 PARTIAL | `manifest.json` + manifest link exist. `next-pwa` not installed — no service worker/offline caching. Guard portal at `/test-guard` is functional but not PWA-installable |
-| 2 | **Notification Bell in Nav** | 🟡 PARTIAL | `useNotifications` hook + `NotificationBell.tsx` component fully built. Needs wiring into `components/layout/TopNav.tsx` or dashboard layout |
-| 3 | **Material Supply Services** | 🔴 NOT BUILT | Category-specific procurement for security panel materials, beverages, eco-friendly disposable, cleaning essentials, pest control materials, etc. Needs category-aware buyer request flow |
-| 4 | **Resident/Tenant App** | 🔴 NOT BUILT | Visitor approval via push notification. Backend for visitors/residents exists, needs: push notification flow |
-| 5 | **FCM Push for Panic Alerts** | 🔴 NOT BUILT | Edge function `send-notification` exists, but `usePanicAlert` doesn't call it after insert |
+| 1 | **Guard Mobile PWA** | ✅ FULL | `next-pwa` installed, `next.config.ts` wraps config with `withPWA` (disabled in dev, enabled in prod). Service worker auto-generated to `public/sw.js` on build. Supabase API routes use NetworkFirst caching |
+| 2 | **Notification Bell in Nav** | ✅ FULL | `useNotifications` hook + `NotificationBell.tsx` component wired into `components/layout/TopNav.tsx` (line 195) |
+| 3 | **Material Supply Services** | ✅ FULL | "Materials & Supplies" section added to buyer service catalog. `/buyer/requests/new?category=<slug>` auto-selects product category and pre-fills title. Products filtered by `product_categories` via `useProducts` join |
+| 4 | **Resident/Tenant Push Notifications** | ✅ FULL | `sendVisitorArrivalNotification()` called in `useGuardVisitors.ts:231` on check-in. Resident approval via `approve_visitor` RPC in `useResident.ts` and `useVisitors.ts` |
+| 5 | **FCM Push for Panic Alerts** | ✅ FULL | `usePanicAlert.ts` calls `sendPanicAlertNotification()` after insert, notifying all supervisors via both FCM + SMS |
 
 ### Completed This Session (2026-03-16)
 All items from `previousplan.md` Sprints 1–5 completed:
@@ -268,7 +258,7 @@ All items from `previousplan.md` Sprints 1–5 completed:
 - ✅ Ad-Space Booking Workflow (migration + `useAdBookings` hook + dialog + printing page)
 - ✅ Shortage Notes Auto-Calculation (migration + `useShortageNotes` hook + quality tickets tab)
 - ✅ Personnel Dispatch Tracking (migration + `usePersonnelDispatches` hook)
-- ✅ Notification Bell component (`useNotifications` + `NotificationBell.tsx`) — **nav wiring pending**
+- ✅ Notification Bell component (`useNotifications` + `NotificationBell.tsx`) + wired into `TopNav.tsx` (line 195)
 - ✅ AccountsDashboard real data (all ComingSoon replaced)
 - ✅ MDDashboard revenue + compliance cards (all ComingSoon replaced)
 - ✅ Revenue Analytics Dashboard (KPI cards + PieChart + AreaChart)
@@ -313,11 +303,33 @@ All items from `previousplan.md` Sprints 1–5 completed:
 | `20260316000008_ad_bookings.sql` | printing_ad_bookings table |
 | `20260316000009_shortage_notes.sql` | shortage_notes + shortage_note_items tables |
 | `20260316000010_personnel_dispatches.sql` | personnel_dispatches table |
+| `20260316000010_service_acknowledgments.sql` | service_acknowledgments table (SPO headcount/grade verification) + RLS |
 | `20260316000011_notifications.sql` | notifications table + RLS |
+| `20260316000011_system_config.sql` | system_config key-value table (guard_inactivity_threshold_minutes default 30) |
 
 ---
 
 ## Recent Session Handoffs
+
+### Session: 2026-03-16 — Full Context Sync
+- **What was done**: Comprehensive audit and sync of all 4 AI context files. Cross-referenced every hook (91), migration (21), edge function (8), page (99), dashboard (12), and dialog (10) against what was documented.
+- **Key corrections**:
+  1. Added 2 missing migrations: `service_acknowledgments` (SPO headcount/grade verification) and `system_config` (configurable guard inactivity threshold).
+  2. Added `ServiceAcknowledgmentDialog` to CONTEXT.md dialogs list and SCOPE.md schema.
+  3. Added `CommandMenu.tsx` to layout components reference.
+  4. Updated migration count from 18 → 21 across all files.
+  5. Added `service_acknowledgments` and `system_config` to key tables list.
+  6. Cleaned up stale "Known Mock Data" section (all entries were already resolved).
+- **Files modified**: `.ai_context/PHASES.md`, `.ai_context/CONTEXT.md`, `.ai_context/SCOPE.md`, `.ai_context/CLAUDE.md`
+- **Status**: All 4 context files verified accurate against codebase.
+
+### Session: 2026-03-16 — Final Gap Closure + Context Audit
+- **What was done**: Audited all 5 "Active Gaps" from PHASES.md against real code. Found 3 were already fully implemented (Notification Bell in TopNav, FCM Push for Panic Alerts via `usePanicAlert.ts`, Resident Push via `useGuardVisitors.ts`). Implemented the 2 remaining real gaps:
+  1. **Guard Mobile PWA** — installed `next-pwa`, rewrote `next.config.ts` with `withPWA` wrapper, NetworkFirst caching for Supabase API routes, disabled in dev.
+  2. **Material Supply Services** — rewrote `app/(dashboard)/buyer/requests/new/page.tsx` to support `?category=<slug>` URL param: derives product categories from `useProducts` join, auto-selects category, auto-fills title via `CATEGORY_TITLE_MAP`, filters product dropdown. Added "Materials & Supplies" section to `app/(dashboard)/buyer/page.tsx` service catalog with 5 procurement links.
+- **Context fixes**: Corrected stale Sprint 1-5 handoff note (NotificationBell was already wired). Updated all 5 Active Gaps to ✅ FULL in this file. Updated `CLAUDE.md` Gotcha #7.
+- **Files modified**: `next.config.ts`, `app/(dashboard)/buyer/page.tsx`, `app/(dashboard)/buyer/requests/new/page.tsx`, `.ai_context/PHASES.md`, `.ai_context/CLAUDE.md`
+- **Status**: Zero remaining gaps. All PRD features are ✅ FULL.
 
 ### Session: 2026-03-16 — Code Structure Refactor
 - **What was done**: Cleaned up all phase-based naming across the entire codebase. Moved misplaced files at root level into proper folders. Renamed all phase-coded component/type paths to domain-based names.
@@ -334,10 +346,9 @@ All items from `previousplan.md` Sprints 1–5 completed:
 - **Status**: Complete. No functional changes — purely structural.
 
 ### Session: 2026-03-16 — Sprint 1–5 Full Implementation (previousplan.md)
-- **What was done**: Implemented all 20 features from the gap analysis plan. New roles (storekeeper, site_supervisor), 8 new hooks, 3 new dialogs, 11 new migrations. All dashboard ComingSoon placeholders replaced with real data in AccountsDashboard and MDDashboard. Visitor category tabs, BGV tracking, chemical expiry alerts, spill kits, ad bookings, shortage notes, personnel dispatches, notification bell component.
-- **Key gap remaining**: `NotificationBell` component exists at `components/layout/NotificationBell.tsx` but has NOT been wired into `TopNav.tsx` or the dashboard layout.
+- **What was done**: Implemented all 20 features from the gap analysis plan. New roles (storekeeper, site_supervisor), 8 new hooks, 3 new dialogs, 11 new migrations. All dashboard ComingSoon placeholders replaced with real data in AccountsDashboard and MDDashboard. Visitor category tabs, BGV tracking, chemical expiry alerts, spill kits, ad bookings, shortage notes, personnel dispatches, notification bell component + nav wiring.
 - **Files modified**: See "Migrations History" and all files under git status `M` and `??`.
-- **Status**: 19 of 20 planned items complete. NotificationBell nav wiring is the only outstanding task.
+- **Status**: 20 of 20 planned items complete. All gaps closed.
 
 ### Session: 2026-03-16 — Context File Accuracy Audit
 - **What was done**: Audited all three AI context files (`CONTEXT.md`, `PHASES.md`, `CLAUDE.md`) against the actual codebase. Found and corrected significant discrepancies.

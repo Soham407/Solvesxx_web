@@ -25,16 +25,26 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useServicePurchaseOrders, SPO_STATUS_CONFIG } from "@/hooks/useServicePurchaseOrders";
+import { useServicePurchaseOrders, SPO_STATUS_CONFIG, ServicePurchaseOrder } from "@/hooks/useServicePurchaseOrders";
 import { formatCurrency } from "@/src/lib/utils/currency";
+import { ServiceAcknowledgmentDialog } from "@/components/dialogs/ServiceAcknowledgmentDialog";
+import { useAuth } from "@/hooks/useAuth";
+import { useState } from "react";
 
 export default function ServicePurchaseOrdersPage() {
-  const { 
-    orders, 
-    isLoading, 
-    error, 
-    refresh 
+  const {
+    orders,
+    isLoading,
+    error,
+    refresh,
   } = useServicePurchaseOrders();
+  const { role } = useAuth();
+  const [ackDialog, setAckDialog] = useState<{ open: boolean; spo: ServicePurchaseOrder | null }>({
+    open: false,
+    spo: null,
+  });
+
+  const canAcknowledge = role === "admin" || role === "super_admin" || role === "site_supervisor";
 
   const stats = {
     total: orders.length,
@@ -100,6 +110,16 @@ export default function ServicePurchaseOrdersPage() {
       id: "actions",
       cell: ({ row }) => (
         <div className="flex items-center gap-1">
+          {canAcknowledge && row.original.status === "delivery_note_uploaded" && (
+            <Button
+              size="sm"
+              className="h-7 gap-1 text-xs"
+              onClick={() => setAckDialog({ open: true, spo: row.original })}
+            >
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              Acknowledge Deployment
+            </Button>
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -109,7 +129,7 @@ export default function ServicePurchaseOrdersPage() {
             <DropdownMenuContent align="end">
               <DropdownMenuItem>View Details</DropdownMenuItem>
               <DropdownMenuItem>Edit SPO</DropdownMenuItem>
-              {row.original.status === 'draft' && (
+              {row.original.status === "draft" && (
                 <DropdownMenuItem>Send to Vendor</DropdownMenuItem>
               )}
             </DropdownMenuContent>
@@ -231,6 +251,18 @@ export default function ServicePurchaseOrdersPage() {
           )}
         </CardContent>
       </Card>
+
+      {ackDialog.spo && (
+        <ServiceAcknowledgmentDialog
+          open={ackDialog.open}
+          onOpenChange={(open) => setAckDialog((prev) => ({ ...prev, open }))}
+          spo={ackDialog.spo}
+          onConfirm={() => {
+            setAckDialog({ open: false, spo: null });
+            refresh();
+          }}
+        />
+      )}
     </div>
   );
 }

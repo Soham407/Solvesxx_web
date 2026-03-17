@@ -1,4 +1,22 @@
 import type { NextConfig } from "next";
+const withPWA = require("next-pwa")({
+  dest: "public",
+  register: true,
+  skipWaiting: true,
+  // Only enable service worker in production to avoid dev-mode caching issues
+  disable: process.env.NODE_ENV === "development",
+  // Cache static assets, API routes are network-first by default
+  runtimeCaching: [
+    {
+      urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
+      handler: "NetworkFirst",
+      options: {
+        cacheName: "supabase-cache",
+        expiration: { maxEntries: 50, maxAgeSeconds: 60 },
+      },
+    },
+  ],
+});
 
 const nextConfig: NextConfig = {
   typescript: {
@@ -9,4 +27,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+module.exports = withPWA(nextConfig);

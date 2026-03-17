@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { useServiceRequests } from "@/hooks/useServiceRequests";
 import { useTechnicians } from "@/hooks/useTechnicians";
 import { useInventory } from "@/hooks/useInventory";
+import { useServices } from "@/hooks/useServices";
 import { ServiceRequestWithDetails } from "@/src/types/operations";
 import { useMemo, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -30,11 +31,23 @@ import { ScheduleVisitDialog } from "@/components/dialogs/ScheduleVisitDialog";
 import { NewJobOrderDialog } from "@/components/dialogs/NewJobOrderDialog";
 
 export default function ACServicePage() {
+  // Fetch AC service dynamically by code
+  const { services, isLoading: servicesLoading } = useServices();
+
+  const acService = useMemo(() => {
+    const found = services.find(s => s.service_code === "AC-REP" ||
+      s.service_name?.toLowerCase().includes("air condition"));
+    if (!found && !servicesLoading) {
+      console.log("[ACServicePage] Available services:", services);
+    }
+    return found;
+  }, [services, servicesLoading]);
+
   // Real Hooks
-  const { 
-    requests, 
-    isLoading: requestsLoading, 
-  } = useServiceRequests();
+  const {
+    requests,
+    isLoading: requestsLoading,
+  } = useServiceRequests(acService?.id ? { serviceId: acService.id } : undefined);
 
   const {
     technicians,
@@ -46,14 +59,8 @@ export default function ACServicePage() {
     isLoading: inventoryLoading,
   } = useInventory();
 
-  // Filter requests for AC Services
-  const acRequests = useMemo(() => {
-    return requests.filter(r => 
-      r.service_name?.toLowerCase().includes("ac") || 
-      r.title?.toLowerCase().includes("ac") ||
-      r.description?.toLowerCase().includes("ac")
-    );
-  }, [requests]);
+  // Requests are already filtered by acService.id via useServiceRequests
+  const acRequests = requests;
 
   // Filter inventory for AC related items
   const acStock = useMemo(() => {
@@ -146,6 +153,19 @@ export default function ACServicePage() {
       ),
     },
   ];
+
+  if (!servicesLoading && !acService) {
+    return (
+      <div className="animate-fade-in space-y-8 pb-10">
+        <PageHeader title="Air Conditioner Services" description="AC service management." />
+        <div className="p-10 text-center border-2 border-dashed rounded-2xl bg-muted/20">
+          <Wind className="h-10 w-10 mx-auto text-muted-foreground mb-4" />
+          <p className="font-bold text-muted-foreground">AC service not found in database.</p>
+          <p className="text-xs text-muted-foreground mt-1">Ensure a service with code <code>AC-REP</code> exists in the Services master data.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="animate-fade-in space-y-8 pb-10">

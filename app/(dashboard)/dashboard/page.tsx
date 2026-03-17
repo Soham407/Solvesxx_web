@@ -39,7 +39,6 @@ import { useMDStats } from "@/hooks/useMDStats";
 import { useServiceRequests } from "@/hooks/useServiceRequests";
 import { useReorderAlerts } from "@/hooks/useReorderAlerts";
 import { useAuth } from "@/hooks/useAuth";
-import { ComingSoonChart, ComingSoonWidget } from "@/components/shared/ComingSoon";
 
 // Import all role dashboards
 import { GuardDashboard } from "@/components/dashboards/GuardDashboard";
@@ -67,6 +66,9 @@ const roles = [
   { id: "society_manager", label: "Society Manager", icon: Building2 },
   { id: "service_boy", label: "Service Boy", icon: Wrench },
   { id: "resident", label: "Resident", icon: Home },
+  { id: "super_admin", label: "Super Admin", icon: Shield },
+  { id: "ac_technician", label: "AC Technician", icon: Wrench },
+  { id: "pest_control_technician", label: "Pest Control Technician", icon: Shovel },
 ];
 
 export default function DashboardPage() {
@@ -106,6 +108,9 @@ function DashboardPageContent() {
       case "society_manager": return <SocietyManagerDashboard />;
       case "service_boy": return <ServiceBoyDashboard />;
       case "resident": return <ResidentDashboard />;
+      case "super_admin": return <AdminView />;
+      case "ac_technician": return <ServiceBoyDashboard />;
+      case "pest_control_technician": return <ServiceBoyDashboard />;
       default: return <AdminView />;
     }
   };
@@ -178,6 +183,8 @@ function AdminView() {
   const { stats: mdStats, isLoading: isLoadingStats } = useMDStats();
   const { requests, isLoading: isLoadingRequests } = useServiceRequests({ status: ["open", "assigned"] });
   const { alerts, isLoading: isLoadingAlerts } = useReorderAlerts();
+  const [chartMounted, setChartMounted] = useState(false);
+  useEffect(() => { setChartMounted(true); }, []);
 
   const isLoading = isLoadingStats || isLoadingRequests || isLoadingAlerts;
 
@@ -265,7 +272,32 @@ function AdminView() {
                   <Button variant="ghost" size="sm" className="text-[10px] font-bold">Details</Button>
               </CardHeader>
               <CardContent className="pt-6">
-                 <ComingSoonChart height={300} />
+                {!chartMounted || isLoadingStats ? (
+                  <div className="h-[300px] w-full bg-muted/5 animate-pulse rounded-xl" />
+                ) : (
+                  <div className="h-[300px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={mdStats.monthlyTrends || []}>
+                        <defs>
+                          <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.15}/>
+                            <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                          </linearGradient>
+                          <linearGradient id="colorExpenses" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="hsl(var(--destructive))" stopOpacity={0.1}/>
+                            <stop offset="95%" stopColor="hsl(var(--destructive))" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                        <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700}} />
+                        <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700}} tickFormatter={(v) => `₹${(v/100000).toFixed(0)}k`} />
+                        <RechartsTooltip formatter={(value: number, name: string) => [`₹${(value/100).toLocaleString('en-IN')}`, name === 'revenue' ? 'Revenue' : 'Expenses']} />
+                        <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={2.5} fillOpacity={1} fill="url(#colorRevenue)" />
+                        <Area type="monotone" dataKey="expenses" stroke="hsl(var(--destructive))" strokeWidth={2} fillOpacity={1} fill="url(#colorExpenses)" strokeDasharray="4 2" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -333,34 +365,3 @@ function AdminView() {
   );
 }
 
-function AdminChart() {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
-
-  const data = [
-    { name: "Jan", value: 4000 }, { name: "Feb", value: 3000 }, { name: "Mar", value: 5000 }, 
-    { name: "Apr", value: 4500 }, { name: "May", value: 6000 }, { name: "Jun", value: 5500 },
-  ];
-
-  if (!mounted) return <div className="h-[300px] w-full bg-muted/5 animate-pulse rounded-xl" />;
-
-  return (
-    <div className="h-[300px] w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data}>
-          <defs>
-            <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.1}/>
-              <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
-            </linearGradient>
-          </defs>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700}} />
-          <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700}} tickFormatter={(v) => `₹${v/1000}k`} />
-          <RechartsTooltip />
-          <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={3} fillOpacity={1} fill="url(#colorValue)" />
-        </AreaChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}

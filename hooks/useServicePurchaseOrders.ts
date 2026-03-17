@@ -8,6 +8,8 @@ export type SPOStatus =
   | "sent_to_vendor"
   | "acknowledged"
   | "in_progress"
+  | "delivery_note_uploaded"
+  | "deployment_confirmed"
   | "completed"
   | "cancelled";
 
@@ -55,6 +57,8 @@ export const SPO_STATUS_CONFIG: Record<SPOStatus, { label: string; className: st
   sent_to_vendor: { label: "Sent to Vendor", className: "bg-info/10 text-info border-info/20" },
   acknowledged: { label: "Acknowledged", className: "bg-primary/10 text-primary border-primary/20" },
   in_progress: { label: "In Progress", className: "bg-warning/10 text-warning border-warning/20" },
+  delivery_note_uploaded: { label: "Delivery Note Uploaded", className: "bg-info/10 text-info border-info/20" },
+  deployment_confirmed: { label: "Deployment Confirmed", className: "bg-green-100 text-green-800 border-green-200" },
   completed: { label: "Completed", className: "bg-success/10 text-success border-success/20" },
   cancelled: { label: "Cancelled", className: "bg-critical/10 text-critical border-critical/20" },
 };

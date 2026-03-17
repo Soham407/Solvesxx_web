@@ -35,10 +35,6 @@ import { ManualAdjustmentDialog } from "@/components/dialogs/ManualAdjustmentDia
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 
-// Site location for geo-fencing (Bangalore example - replace with actual company coordinates)
-const SITE_LOCATION = { lat: 12.9716, lng: 77.5946 };
-const MAX_DISTANCE_METERS = 500; // 500m radius
-
 // Haversine formula to calculate distance between two coordinates
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371e3; // Earth's radius in meters
@@ -63,7 +59,7 @@ interface AttendanceRecord {
   checkIn: string;
   checkOut?: string;
   location: string;
-  verification: "Selfie + GPS" | "GPS Only" | "Remote" | "Remote + Selfie" | "Manual" | "Failed" | "Pending";
+  verification: "Selfie + GPS" | "GPS Only" | "Remote" | "Remote + Selfie" | "Manual" | "Failed" | "Pending" | "Location Not Configured";
   status: "Present" | "Late" | "On Leave" | "Absent";
   latitude?: number;
   longitude?: number;
@@ -109,7 +105,8 @@ export default function AttendancePage() {
           employees:employee_id (
             first_name,
             last_name,
-            employee_code
+            employee_code,
+            location_id
           )
         `)
         .eq("log_date", today)
@@ -145,40 +142,52 @@ export default function AttendancePage() {
         }
       }
 
-      // Fetch site location
-      const { data: locationData } = await supabase
+      // Fetch all active site locations for per-employee geofencing
+      const { data: allLocations } = await supabase
         .from('company_locations')
-        .select('latitude, longitude')
-        .eq('is_active', true)
-        .limit(1)
-        .single();
-      
-      const currentSiteLat = locationData?.latitude ? Number(locationData.latitude) : SITE_LOCATION.lat;
-      const currentSiteLng = locationData?.longitude ? Number(locationData.longitude) : SITE_LOCATION.lng;
+        .select('id, latitude, longitude, geo_fence_radius')
+        .eq('is_active', true);
+
+      const locationsMap: Record<string, { lat: number; lng: number; radiusMeters: number }> = {};
+      (allLocations || []).forEach((loc: any) => {
+        if (loc.latitude && loc.longitude) {
+          locationsMap[loc.id] = {
+            lat: Number(loc.latitude),
+            lng: Number(loc.longitude),
+            radiusMeters: Number(loc.geo_fence_radius) || 50,
+          };
+        }
+      });
 
       // Transform data
       const records: AttendanceRecord[] = (attendanceData || []).map((log: any) => {
         const emp = log.employees || {};
         const fullName = `${emp.first_name || ""} ${emp.last_name || ""}`.trim() || "Unknown";
-        
+
         let status: AttendanceRecord["status"] = "Present";
         if (log.status === "absent") status = "Absent";
         else if (log.status === "late") status = "Late";
         else if (log.status === "on_leave") status = "On Leave";
 
-        // Calculate distance from site for geo-fencing
+        // Per-employee geofence using their assigned location
+        const siteCoords = emp.location_id ? locationsMap[emp.location_id] : null;
+
         let location = "Manual Entry";
         let verification: AttendanceRecord["verification"] = "Pending";
-        
-        if (log.check_in_latitude && log.check_in_longitude) {
+
+        if (!siteCoords && (log.check_in_latitude || log.check_in_longitude)) {
+          // Employee has GPS data but no configured site location
+          location = "GPS Captured";
+          verification = "Location Not Configured";
+        } else if (log.check_in_latitude && log.check_in_longitude && siteCoords) {
           const distance = haversineDistance(
             log.check_in_latitude,
             log.check_in_longitude,
-            currentSiteLat,
-            currentSiteLng
+            siteCoords.lat,
+            siteCoords.lng
           );
-          
-          if (distance > MAX_DISTANCE_METERS) {
+
+          if (distance > siteCoords.radiusMeters) {
             location = `Off-Site (${Math.round(distance)}m away)`;
             verification = log.check_in_selfie_url ? "Remote + Selfie" : "Remote";
           } else {
@@ -295,7 +304,11 @@ export default function AttendancePage() {
       header: "Verification",
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-          {row.original.verification === "Selfie + GPS" ? (
+          {row.original.verification === "Location Not Configured" ? (
+            <Badge variant="outline" className="text-[10px] uppercase font-bold bg-warning/10 text-warning border-warning/20">
+              Location Not Configured
+            </Badge>
+          ) : row.original.verification === "Selfie + GPS" ? (
             <>
               <div className="flex -space-x-1">
                 <div className="h-5 w-5 rounded-full bg-success/10 border border-success/20 flex items-center justify-center">

@@ -5,12 +5,12 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTable } from "@/components/shared/DataTable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { 
-  UserPlus, 
-  History, 
-  Car, 
-  MoreHorizontal, 
-  DoorOpen, 
+import {
+  UserPlus,
+  History,
+  Car,
+  MoreHorizontal,
+  DoorOpen,
   Clock,
   CheckCircle2,
   XCircle,
@@ -21,6 +21,7 @@ import {
   AlertCircle,
   Users,
   User,
+  Printer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ColumnDef } from "@tanstack/react-table";
@@ -61,6 +62,7 @@ export default function VisitorManagementPage() {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [isRegistrationOpen, setIsRegistrationOpen] = useState(false);
+  const [printVisitor, setPrintVisitor] = useState<Visitor | null>(null);
 
   // Handle search
   const handleSearch = (e: React.FormEvent) => {
@@ -215,6 +217,9 @@ export default function VisitorManagementPage() {
                   <Users className="h-4 w-4 mr-2" />
                   {row.original.is_frequent_visitor ? "Remove from Daily Helpers" : "Add to Daily Helpers"}
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setPrintVisitor(row.original)}>
+                  <Printer className="h-4 w-4 mr-2" /> Print Pass
+                </DropdownMenuItem>
                 <DropdownMenuItem>
                    <User className="h-4 w-4 mr-2" /> View Details
                 </DropdownMenuItem>
@@ -367,11 +372,52 @@ export default function VisitorManagementPage() {
         </TabsContent>
       </Tabs>
 
-      <VisitorRegistrationDialog 
-        open={isRegistrationOpen} 
+      <VisitorRegistrationDialog
+        open={isRegistrationOpen}
         onOpenChange={setIsRegistrationOpen}
         onSuccess={refresh}
       />
+
+      {/* Print Pass overlay — only rendered during window.print() */}
+      {printVisitor && (
+        <>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 print:hidden">
+            <div className="bg-background rounded-2xl shadow-2xl p-6 max-w-sm w-full space-y-4">
+              <h2 className="font-bold text-sm uppercase tracking-widest flex items-center gap-2">
+                <Printer className="h-4 w-4 text-primary" /> Visitor Pass Preview
+              </h2>
+              <div id="visitor-pass-print-area" className="border rounded-xl p-4 bg-white text-black space-y-2">
+                <div className="text-center font-bold text-base">{printVisitor.visitor_name}</div>
+                <div className="text-center text-xs text-gray-600">{printVisitor.visitor_type?.toUpperCase()}</div>
+                <hr />
+                <div className="text-xs space-y-1">
+                  <div><span className="font-bold">Flat:</span> {printVisitor.flat?.building?.building_name || "—"} - {printVisitor.flat?.flat_number || "N/A"}</div>
+                  <div><span className="font-bold">Purpose:</span> {printVisitor.purpose || "Visit"}</div>
+                  <div><span className="font-bold">Entry:</span> {new Date(printVisitor.entry_time).toLocaleString("en-IN")}</div>
+                  {printVisitor.visitor_pass_number && (
+                    <div><span className="font-bold">Pass #:</span> {printVisitor.visitor_pass_number}</div>
+                  )}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button className="flex-1 gap-2" onClick={() => {
+                  const el = document.getElementById("visitor-pass-print-area");
+                  if (!el) return;
+                  const win = window.open("", "_blank");
+                  if (!win) return;
+                  win.document.write(`<html><head><title>Visitor Pass</title><style>body{font-family:sans-serif;padding:20px;max-width:300px}</style></head><body>${el.innerHTML}</body></html>`);
+                  win.document.close();
+                  win.print();
+                  win.close();
+                }}>
+                  <Printer className="h-4 w-4" /> Print
+                </Button>
+                <Button variant="outline" onClick={() => setPrintVisitor(null)}>Close</Button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

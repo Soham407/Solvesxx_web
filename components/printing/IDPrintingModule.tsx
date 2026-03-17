@@ -17,6 +17,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Printer, Download, QrCode, CreditCard, User, Building2, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useReactToPrint } from "react-to-print";
+import jsPDF from "jspdf";
 
 interface IDCardData {
   type: "visitor" | "staff" | "contractor";
@@ -48,6 +49,31 @@ export function IDPrintingModule() {
     content: () => printRef.current,
     documentTitle: `ID-Card-${cardData.id || "preview"}`,
   });
+
+  const handleDownloadPDF = () => {
+    const doc = new jsPDF({ unit: "mm", format: [85, 54] }); // Credit card size
+    doc.setFillColor(99, 102, 241);
+    doc.rect(0, 0, 85, 14, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text("Facility Platform", 42, 9, { align: "center" });
+    doc.setTextColor(30, 30, 30);
+    doc.setFontSize(12);
+    doc.text(cardData.name || "Name", 42, 25, { align: "center" });
+    doc.setFontSize(8);
+    doc.text(cardData.role || "Role", 42, 31, { align: "center" });
+    doc.text(cardData.department || "", 42, 36, { align: "center" });
+    doc.setFontSize(7);
+    doc.text(`ID: ${cardData.id || "---"}`, 42, 42, { align: "center" });
+    doc.text(`Valid: ${cardData.validFrom} – ${cardData.validUntil || "---"}`, 42, 47, { align: "center" });
+    doc.setFillColor(240, 240, 240);
+    doc.rect(0, 50, 85, 4, "F");
+    doc.setFontSize(6);
+    doc.setTextColor(100, 100, 100);
+    doc.text("If found, please return to security desk", 42, 53, { align: "center" });
+    doc.save(`ID-Card-${cardData.id || "preview"}.pdf`);
+  };
 
   const generateQR = () => {
     const data = JSON.stringify({
@@ -257,7 +283,7 @@ export function IDPrintingModule() {
           </div>
 
           <div className="mt-4 flex justify-center gap-2">
-            <Button variant="outline" size="sm" disabled={!cardData.qrData}>
+            <Button variant="outline" size="sm" disabled={!cardData.qrData} onClick={handleDownloadPDF}>
               <Download className="mr-2 h-4 w-4" />
               Download PDF
             </Button>

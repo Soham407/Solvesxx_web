@@ -147,12 +147,14 @@ const pestService = services.find(s => s.service_code === "PST-CON" ||
 4. **Supabase Realtime** requires the table to have Realtime enabled in the Supabase dashboard.
 5. **Edge functions** need secrets set via `supabase secrets set` — they don't read `.env.local`.
 6. **`/tickets/returns` is now live** — connected to `rtv_tickets` table via `useRTVTickets` hook with Realtime subscription.
-7. **Dashboard widget status**: `AccountsDashboard.tsx` and `MDDashboard.tsx` are now ✅ FULL (all real data). `BuyerDashboard.tsx` and `SupplierDashboard.tsx` widgets are still 🔵 UI-ONLY (`ComingSoon` placeholders) — don't confuse with the actual `/buyer/*` and `/supplier/*` pages which are ✅ FULL. `NotificationBell.tsx` is built but NOT yet wired into `TopNav.tsx`.
+7. **Dashboard widget status**: All 12 dashboard widgets are ✅ FULL — `BuyerDashboard.tsx` uses `useBuyerRequests`/`useBuyerInvoices`, `SupplierDashboard.tsx` uses `useSupplierPortal`, `AccountsDashboard.tsx` and `MDDashboard.tsx` are fully connected. `NotificationBell.tsx` is built and wired into `TopNav.tsx` (line 195). `ServiceAcknowledgmentDialog` exists in `components/dialogs/` for SPO headcount/grade verification.
 8. **`formatCurrency()`** handles paise-to-rupee conversion — always use it for monetary values.
 9. **When filtering services by type**, use `service_code` lookup (e.g., `PST-CON`, `PRN-ADV`) instead of hardcoded UUIDs.
 10. **`ComingSoonChart` / `ComingSoonWidget`** in `@/components/shared/ComingSoon` are used as placeholders — replace them when real data aggregation is available.
 11. **Sidebar has hidden items** — Some nav items are `/* Temporarily hidden */` via comments in `AppSidebar.tsx`. Unhide them when the feature is ready.
 12. **Two Supabase client imports coexist** — Older hooks use `import { supabase } from "@/src/lib/supabaseClient"` (singleton), newer hooks use `import { createClient } from "@/src/lib/supabase/client"`. Both work. Be consistent within a file.
+13. **`service_acknowledgments` table** exists for SPO headcount/grade verification (used by `ServiceAcknowledgmentDialog`). **`system_config`** table is a key-value store for runtime settings (e.g., `guard_inactivity_threshold_minutes`).
+14. **`CommandMenu.tsx`** in `components/layout/` provides a keyboard-shortcut command palette (Ctrl+K). It's wired into the layout.
 
 ---
 

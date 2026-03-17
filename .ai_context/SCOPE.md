@@ -934,6 +934,28 @@ comments    TEXT
 created_at  TIMESTAMP
 ```
 
+### 14.23 service_acknowledgments
+```sql
+id                  UUID PRIMARY KEY
+spo_id              UUID → service_purchase_orders.id
+acknowledged_by     UUID → users.id
+headcount_expected  INT
+headcount_received  INT
+grade_verified      BOOLEAN DEFAULT FALSE
+notes               TEXT
+acknowledged_at     TIMESTAMP
+created_at          TIMESTAMP
+```
+
+### 14.24 system_config
+```sql
+key          VARCHAR(100) PRIMARY KEY   -- e.g. 'guard_inactivity_threshold_minutes'
+value        TEXT NOT NULL
+description  TEXT
+updated_by   UUID → users.id
+updated_at   TIMESTAMP
+```
+
 ---
 
 ## 15. Module-to-Role Access Matrix

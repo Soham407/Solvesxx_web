@@ -50,7 +50,7 @@ export default function FinancialAnalyticsPage() {
   ];
 
   const totalCollection = summary?.total_collected_ytd || 0;
-  const outstanding = summary?.total_outstanding || 412000; // Fallback to mock if null
+  const outstanding = summary?.total_outstanding || 0;
   const totalExpense = trends.reduce((acc, curr) => acc + Number(curr.expense || 0), 0);
   const profitRetention = totalCollection > 0 ? (((totalCollection - totalExpense) / totalCollection) * 100).toFixed(1) : "0.0";
 

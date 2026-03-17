@@ -13,7 +13,10 @@ export type AppRole =
   | "service_boy"
   | "resident"
   | "storekeeper"
-  | "site_supervisor";
+  | "site_supervisor"
+  | "super_admin"
+  | "ac_technician"
+  | "pest_control_technician";
 
 /**
  * Role-based access mapping
@@ -35,10 +38,13 @@ export const ROLE_ACCESS: Record<AppRole, string[]> = {
   resident: ["/test-resident", "/society/my-flat"],
   storekeeper: ["/dashboard", "/inventory", "/tickets"],
   site_supervisor: ["/dashboard", "/society", "/tickets", "/hrms/attendance"],
+  super_admin: ["/"],
+  ac_technician: ["/dashboard", "/service-requests", "/services/ac", "/inventory", "/hrms/attendance", "/hrms/leave"],
+  pest_control_technician: ["/dashboard", "/service-requests", "/services/pest-control", "/inventory", "/hrms/attendance", "/hrms/leave"],
 };
 
 export function hasAccess(role: AppRole, pathname: string): boolean {
-  if (role === "admin") return true;
+  if (role === "admin" || role === "super_admin") return true;
 
   // Explicitly restrict guards from resident-specific portals
   if ((role === "security_guard" || role === "security_supervisor") && pathname.startsWith("/society/my-flat")) {

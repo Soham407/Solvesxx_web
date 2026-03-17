@@ -15,7 +15,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Plus, Clock, AlertCircle, Activity, ShieldCheck, RefreshCw, XCircle, MessageSquare, Wallet, Paintbrush, Wind, Bug, Printer, LayoutGrid, Search, ChevronRight } from "lucide-react";
+import { Plus, Clock, AlertCircle, Activity, ShieldCheck, RefreshCw, XCircle, MessageSquare, Wallet, Paintbrush, Wind, Bug, Printer, LayoutGrid, Search, ChevronRight, Package } from "lucide-react";
 import Link from "next/link";
 import { format, addDays } from "date-fns";
 import { formatCurrency } from "@/src/lib/utils/currency";
@@ -39,6 +39,13 @@ const allServicesCatalog = [
       { name: "Stationery Supplies", icon: LayoutGrid, href: "/buyer/requests/new?category=stationery" },
       { name: "Corporate Gifting", icon: LayoutGrid, href: "/buyer/requests/new?category=gifting" },
       { name: "Pantry & Beverages", icon: LayoutGrid, href: "/buyer/requests/new?category=pantry" },
+  ]},
+  { category: "Materials & Supplies", items: [
+      { name: "Cleaning Essentials", icon: Paintbrush, href: "/buyer/requests/new?category=cleaning" },
+      { name: "Security Panel Materials", icon: ShieldCheck, href: "/buyer/requests/new?category=security_materials" },
+      { name: "Pest Control Supplies", icon: Bug, href: "/buyer/requests/new?category=pest_supplies" },
+      { name: "Eco-Friendly Disposables", icon: Package, href: "/buyer/requests/new?category=eco_disposable" },
+      { name: "Pantry Stock Replenishment", icon: Package, href: "/buyer/requests/new?category=pantry" },
   ]},
 ];
 

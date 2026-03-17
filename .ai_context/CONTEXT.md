@@ -1,6 +1,6 @@
 # FacilityPro — Project Context
 
-> **Last Updated:** 2026-03-16
+> **Last Updated:** 2026-03-16 (Context audit — synced migrations, tables, components)
 > Paste this at the start of every AI session for instant context.
 
 ---
@@ -61,9 +61,9 @@ enterprise-canvas-main/
 │   └── layout.tsx           # Root layout (fonts, theme provider, manifest link)
 ├── components/
 │   ├── ui/                  # shadcn/ui primitives (Button, Dialog, Card, etc.)
-│   ├── layout/              # AppSidebar, TopNav, NotificationBell
+│   ├── layout/              # AppSidebar, TopNav, NotificationBell, CommandMenu
 │   ├── forms/               # Reusable form components
-│   ├── dialogs/             # Feature-specific dialogs (ServiceDeliveryNoteDialog, BuyerFeedbackDialog, AdBookingDialog, ScheduleVisit, NewJobOrder, SummaryReports, etc.)
+│   ├── dialogs/             # Feature-specific dialogs (ServiceDeliveryNoteDialog, BuyerFeedbackDialog, AdBookingDialog, ServiceAcknowledgmentDialog, ManualAdjustmentDialog, ScheduleVisit, NewJobOrder, SummaryReports, etc.)
 │   ├── shared/              # DataTable, StatusBadge, PageHeader, ComingSoon
 │   ├── dashboards/          # 12 role-specific dashboard widgets
 │   ├── buyer/               # Buyer-specific components
@@ -84,7 +84,7 @@ enterprise-canvas-main/
 │   ├── lib/                 # Supabase clients, constants, feature flags, auth, utils/currency
 │   └── types/               # TypeScript types (supabase.ts, operations.ts, supply-chain.ts)
 ├── supabase/
-│   ├── migrations/          # SQL migration files (18 total as of 2026-03-16)
+│   ├── migrations/          # SQL migration files (21 total as of 2026-03-16)
 │   ├── functions/           # Edge Functions (8 deployed)
 │   ├── archive/             # Historical phase schema SQL (PhaseA–E)
 │   ├── scripts/             # One-off diagnostic/hotfix SQL scripts
@@ -139,13 +139,14 @@ File: `src/lib/featureFlags.ts`
 
 File: `src/lib/auth/roles.ts`
 
-**AppRole type:** `admin` | `company_md` | `company_hod` | `account` | `delivery_boy` | `buyer` | `supplier` | `vendor` | `security_guard` | `security_supervisor` | `society_manager` | `service_boy` | `resident` | `storekeeper` | `site_supervisor`
+**AppRole type:** `admin` | `company_md` | `company_hod` | `account` | `delivery_boy` | `buyer` | `supplier` | `vendor` | `security_guard` | `security_supervisor` | `society_manager` | `service_boy` | `resident` | `storekeeper` | `site_supervisor` | `super_admin` | `ac_technician` | `pest_control_technician`
 
 **Access matrix (route prefixes each role can access):**
 
 | Role | Allowed Routes |
 |------|---------------|
 | `admin` | Everything (`/`) |
+| `super_admin` | Everything (`/`) |
 | `company_md` | `/dashboard`, `/reports`, `/finance` |
 | `company_hod` | `/dashboard`, `/hrms`, `/service-requests`, `/tickets`, `/services`, `/company` |
 | `account` | `/dashboard`, `/finance` |
@@ -160,6 +161,8 @@ File: `src/lib/auth/roles.ts`
 | `resident` | `/test-resident`, `/society/my-flat` |
 | `storekeeper` | `/dashboard`, `/inventory`, `/tickets` |
 | `site_supervisor` | `/dashboard`, `/society`, `/tickets`, `/hrms/attendance` |
+| `ac_technician` | `/dashboard`, `/service-requests`, `/services/ac`, `/inventory`, `/hrms/attendance`, `/hrms/leave` |
+| `pest_control_technician` | `/dashboard`, `/service-requests`, `/services/pest-control`, `/inventory`, `/hrms/attendance`, `/hrms/leave` |
 
 **To add a new role or route:** Edit `ROLE_ACCESS` in `src/lib/auth/roles.ts`.
 
@@ -223,7 +226,7 @@ return () => { supabase.removeChannel(channel); };
 4. **Types**: Auto-generated from Supabase schema in `supabase-types.ts` (606KB, 100+ tables). Phase-specific types in `src/types/`.
 5. **Feature flags**: Managed in `src/lib/featureFlags.ts`.
 6. **Build note**: `ignoreBuildErrors: true` in next.config.ts because the massive type file causes TS2589 deep instantiation errors. IDE type-checking still works.
-7. **Auth**: Supabase Auth with role-based access. 15 roles defined in `src/lib/auth/roles.ts`. See "Role-Based Access Control" section above.
+7. **Auth**: Supabase Auth with role-based access. 18 roles defined in `src/lib/auth/roles.ts`. See "Role-Based Access Control" section above.
 8. **Edge Functions**: 8 Deno-based functions for cron jobs and notifications (check-checklist, check-document-expiry, check-guard-inactivity, check-inactivity, check-incomplete-checklists, checklist-reminders, inactivity-monitor, send-notification).
 9. **Styling**: HSL CSS variables for theming (dark mode supported via `next-themes`). Custom shadow system, keyframe animations, and glassmorphism tokens defined in `tailwind.config.js` and `globals.css`.
 10. **Currency formatting**: Use `formatCurrency()` from `@/src/lib/utils/currency` for all monetary values — handles paise-to-rupee conversion.
@@ -235,7 +238,7 @@ return () => { supabase.removeChannel(channel); };
 ## Database
 
 - **100+ tables** across public schema on Supabase Postgres
-- **Key tables**: `employees`, `visitors`, `daily_checklists`, `panic_alerts`, `purchase_orders`, `indents`, `products`, `suppliers`, `service_requests`, `attendance_records`, `leave_applications`, `payroll_cycles`, `company_locations`, `residents`, `flats`, `buildings`, `stock_levels`, `supplier_bills`, `sale_bills`, `behavior_tickets`, `grn_items`, `security_guards`, `job_sessions`, `rtv_tickets`, `service_delivery_notes`, `buyer_feedback`, `background_verifications`, `pest_control_spill_kits`, `printing_ad_bookings`, `shortage_notes`, `shortage_note_items`, `personnel_dispatches`, `notifications`
+- **Key tables**: `employees`, `visitors`, `daily_checklists`, `panic_alerts`, `purchase_orders`, `indents`, `products`, `suppliers`, `service_requests`, `attendance_records`, `leave_applications`, `payroll_cycles`, `company_locations`, `residents`, `flats`, `buildings`, `stock_levels`, `supplier_bills`, `sale_bills`, `behavior_tickets`, `grn_items`, `security_guards`, `job_sessions`, `rtv_tickets`, `service_delivery_notes`, `buyer_feedback`, `background_verifications`, `pest_control_spill_kits`, `printing_ad_bookings`, `shortage_notes`, `shortage_note_items`, `personnel_dispatches`, `notifications`, `service_acknowledgments`, `system_config`
 - **RLS**: Enabled with role-based policies
 - **Realtime**: Used for panic alerts, service request updates, sale rate changes, supplier rate changes, job session tracking, RTV ticket changes, service delivery notes, personnel dispatches, notifications
 - **Storage**: Employee documents, visitor photos, job evidence photos
