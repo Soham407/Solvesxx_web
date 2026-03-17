@@ -52,6 +52,8 @@ import { SecuritySupervisorDashboard } from "@/components/dashboards/SecuritySup
 import { HODDashboard } from "@/components/dashboards/HODDashboard";
 import { MDDashboard } from "@/components/dashboards/MDDashboard";
 import { ResidentDashboard } from "@/components/dashboards/ResidentDashboard";
+import { StorekeeperDashboard } from "@/components/dashboards/StorekeeperDashboard";
+import { SiteSupervisorDashboard } from "@/components/dashboards/SiteSupervisorDashboard";
 
 const roles = [
   { id: "admin", label: "Admin", icon: Shield },
@@ -61,8 +63,11 @@ const roles = [
   { id: "delivery_boy", label: "Delivery Boy", icon: Truck },
   { id: "buyer", label: "Buyer", icon: ShoppingCart },
   { id: "supplier", label: "Supplier / Vendor", icon: Package },
+  { id: "storekeeper", label: "Storekeeper", icon: Package },
+  { id: "site_supervisor", label: "Site Supervisor", icon: Building2 },
   { id: "security_guard", label: "Security Guard", icon: Shield },
   { id: "security_supervisor", label: "Security Supervisor", icon: UserCircle },
+
   { id: "society_manager", label: "Society Manager", icon: Building2 },
   { id: "service_boy", label: "Service Boy", icon: Wrench },
   { id: "resident", label: "Resident", icon: Home },
@@ -105,6 +110,8 @@ function DashboardPageContent() {
       case "vendor": return <SupplierDashboard />;
       case "security_guard": return <GuardDashboard />;
       case "security_supervisor": return <SecuritySupervisorDashboard />;
+      case "storekeeper": return <StorekeeperDashboard />;
+      case "site_supervisor": return <SiteSupervisorDashboard />;
       case "society_manager": return <SocietyManagerDashboard />;
       case "service_boy": return <ServiceBoyDashboard />;
       case "resident": return <ResidentDashboard />;

@@ -65,7 +65,7 @@ enterprise-canvas-main/
 │   ├── forms/               # Reusable form components
 │   ├── dialogs/             # Feature-specific dialogs (ServiceDeliveryNoteDialog, BuyerFeedbackDialog, AdBookingDialog, ServiceAcknowledgmentDialog, ManualAdjustmentDialog, ScheduleVisit, NewJobOrder, SummaryReports, etc.)
 │   ├── shared/              # DataTable, StatusBadge, PageHeader, ComingSoon
-│   ├── dashboards/          # 12 role-specific dashboard widgets
+│   ├── dashboards/          # 14 role-specific dashboard widgets
 │   ├── buyer/               # Buyer-specific components
 │   ├── visitors/            # FamilyDirectory, visitor components
 │   ├── printing/            # IDPrintingModule

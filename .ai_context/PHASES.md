@@ -1,6 +1,7 @@
 # FacilityPro — Implementation Phases & Module Status
 
-> **Last Updated:** 2026-03-16 (Context audit — synced all migrations, tables, and component references)
+> **Last Updated:** 2026-03-24 (Added Storekeeper and Site Supervisor dashboards)
+
 > **Purpose:** This file is the single source of truth for what is built, what's partially built, and what's missing.
 > Paste the relevant section when starting a new AI session.
 
@@ -152,13 +153,14 @@ All master data tables, auth, and app shell are complete.
 
 ---
 
-## Dashboards (12 Role-Specific)
+## Dashboards (14 Role-Specific)
+
 
 All located in `components/dashboards/`. Accessible via `/dashboard` with admin role switcher.
 
 | Dashboard | Component | Status | Notes |
 |-----------|-----------|--------|-------|
-| Admin | `AdminView` (inline in page) | 🟡 PARTIAL | Real stats from `useMDStats`, `useServiceRequests`, `useReorderAlerts`. **Revenue chart uses `ComingSoonChart` placeholder** |
+| Admin | `AdminView` (inline in page) | ✅ FULL | Real stats from `useMDStats`, `useServiceRequests`, `useReorderAlerts`. Revenue chart uses Recharts AreaChart with `mdStats.monthlyTrends` — fully connected. |
 | Company MD | `MDDashboard.tsx` | ✅ FULL | All cards connected: YTD revenue from `useMDStats`, Growth Forecast AreaChart, Financial Metrics, PSARA Compliance %. No ComingSoon blocks remaining |
 | Company HOD | `HODDashboard.tsx` | ✅ FULL | `useHODStats` hook |
 | Account | `AccountsDashboard.tsx` | ✅ FULL | All hooks connected: `useSupplierBills`, `useBuyerInvoices`, `useReconciliation`, `useCompliance`. KPI cards, cash flow chart, quick actions — all real data |
@@ -168,7 +170,10 @@ All located in `components/dashboards/`. Accessible via `/dashboard` with admin 
 | Security Guard | `GuardDashboard.tsx` | ✅ FULL | 51KB — checklist, panic, attendance, GPS |
 | Security Supervisor | `SecuritySupervisorDashboard.tsx` | ✅ FULL | `useSupervisorStats` hook |
 | Society Manager | `SocietyManagerDashboard.tsx` | ✅ FULL | 26KB — visitor stats, checklist status, panic logs, live guard map. Imports `ComingSoonWidget` but doesn't render it |
+| Storekeeper | `StorekeeperDashboard.tsx` | ✅ FULL | KPIs for GRNs, stock alerts, RTV, shortage notes |
+| Site Supervisor | `SiteSupervisorDashboard.tsx` | ✅ FULL | KPIs for deployments, dispatches, incidents, attendance |
 | Service Boy | `ServiceBoyDashboard.tsx` | ✅ FULL | Job sessions, GPS, photo evidence, stock alerts. Imports `ComingSoonWidget` but doesn't render it |
+
 | Resident | `ResidentDashboard.tsx` | ✅ FULL | 30KB — Dynamically fetches correct logged-in user's resident record |
 
 ---
@@ -310,6 +315,15 @@ All items from `previousplan.md` Sprints 1–5 completed:
 ---
 
 ## Recent Session Handoffs
+
+### Session: 2026-03-24 — Storekeeper & Site Supervisor Dashboards
+- **What was done**: Implemented dedicated dashboards for Storekeeper and Site Supervisor roles.
+- **Key implementation**:
+  1. **StorekeeperDashboard** — integrated `useGRN`, `useReorderAlerts`, `useRTVTickets`, and `useShortageNotes`. Displays KPIs for pending GRNs, critical stock, and open returns.
+  2. **SiteSupervisorDashboard** — integrated `useServiceRequests`, `usePersonnelDispatches`, `useBehaviorTickets`, and `useAnalyticsData("attendance")`. Displays KPIs for active deployments, today's dispatches, incidents, and attendance.
+  3. **Wired into Dashboard Page** — updated `app/(dashboard)/dashboard/page.tsx` with role-based switching and admin role switcher entries for both roles.
+- **Files modified**: `components/dashboards/StorekeeperDashboard.tsx`, `components/dashboards/SiteSupervisorDashboard.tsx`, `app/(dashboard)/dashboard/page.tsx`, `.ai_context/PHASES.md`
+- **Status**: 14 of 14 role-specific dashboards now implemented.
 
 ### Session: 2026-03-16 — Full Context Sync
 - **What was done**: Comprehensive audit and sync of all 4 AI context files. Cross-referenced every hook (91), migration (21), edge function (8), page (99), dashboard (12), and dialog (10) against what was documented.
