@@ -173,7 +173,6 @@ export function useRTVTickets() {
           table: 'rtv_tickets'
         },
         (payload) => {
-          console.log('RTV tickets change received!', payload);
           fetchTickets();
         }
       )

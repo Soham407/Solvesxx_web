@@ -140,6 +140,45 @@ export function useWorkMaster() {
     }
   }, [fetchServiceWorkLinks]);
 
+  // Update work master item
+  const updateWorkItem = useCallback(async (
+    id: string,
+    updates: Partial<Omit<WorkMaster, "id" | "created_at" | "updated_at">>
+  ): Promise<boolean> => {
+    try {
+      const { error } = await supabase
+        .from("work_master")
+        .update(updates)
+        .eq("id", id);
+
+      if (error) throw error;
+
+      await fetchWorkItems();
+      return true;
+    } catch (err) {
+      console.error("Error updating work item:", err);
+      return false;
+    }
+  }, [fetchWorkItems]);
+
+  // Soft delete work master item (archive)
+  const deleteWorkItem = useCallback(async (id: string): Promise<boolean> => {
+    try {
+      const { error } = await supabase
+        .from("work_master")
+        .update({ is_active: false })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      await fetchWorkItems();
+      return true;
+    } catch (err) {
+      console.error("Error deleting work item:", err);
+      return false;
+    }
+  }, [fetchWorkItems]);
+
   const refresh = useCallback(() => {
     fetchWorkItems();
     fetchServiceWorkLinks();
@@ -154,6 +193,8 @@ export function useWorkMaster() {
     ...state,
     createWorkItem,
     linkWorkToService,
+    updateWorkItem,
+    deleteWorkItem,
     refresh,
   };
 }

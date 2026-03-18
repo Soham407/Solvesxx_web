@@ -28,27 +28,21 @@ import { useAuditLogs } from "@/hooks/useAuditLogs";
 import { formatCurrency } from "@/src/lib/utils/currency";
 import { Label } from "@/components/ui/label"; // Fixed Label import if target file was missing it
 import { cn } from "@/lib/utils";
-import { supabase } from "@/src/lib/supabaseClient";
 import { toast } from "sonner";
+import { toRupees } from "@/src/lib/utils/currency";
 
 export default function ComplianceDashboard() {
   const { user, role } = useAuth();
-  const { snapshots, isLoading, createMonthlySnapshot, exportToCSV, refresh } = useCompliance();
+  const { snapshots, isLoading, createMonthlySnapshot, exportToCSV, refresh, fetchCurrentPeriodId, fetchSaleBillsForExport, fetchPurchaseBillsForExport, fetchOutstandingBillsWithAging } = useCompliance();
   const { logs: auditLogs } = useAuditLogs();
   const [isExporting, setIsExporting] = useState(false);
   const [currentPeriodId, setCurrentPeriodId] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase
-      .from("financial_periods")
-      .select("id")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .single()
-      .then(({ data }) => {
-        if (data) setCurrentPeriodId(data.id);
-      });
-  }, []);
+    fetchCurrentPeriodId().then(id => {
+      if (id) setCurrentPeriodId(id);
+    });
+  }, [fetchCurrentPeriodId]);
 
   const isAuthorizedToExport = role === "admin" || role === "account";
   const canSeeCompliance = role === "admin" || role === "account" || role === "society_manager";
@@ -66,27 +60,20 @@ export default function ComplianceDashboard() {
   const handleExportInvoices = async () => {
     setIsExporting(true);
     try {
-      const { data, error } = await supabase
-        .from("sale_bills")
-        .select(`
-          invoice_number,
-          clients!client_id (client_name),
-          total_amount,
-          tax_amount,
-          payment_status,
-          last_payment_date
-        `);
-      
-      if (error) throw error;
+      const data = await fetchSaleBillsForExport();
+      if (!data || !data.length) {
+        toast.error("No invoices available to export");
+        setIsExporting(false);
+        return;
+      }
 
       const exportData = data.map(item => ({
         "Invoice #": item.invoice_number,
         "Buyer": (item.clients as any)?.client_name || "N/A",
         "Total (Paise)": item.total_amount,
         "Total (INR)": toRupees(item.total_amount || 0),
-        "Tax (INR)": toRupees(item.tax_amount || 0),
-        "Status": item.payment_status,
-        "Payment Date": item.last_payment_date || "---"
+        "Status": item.status,
+        "Payment Date": item.bill_date || "---"
       }));
 
       exportToCSV("Buyer_Invoices_Report", exportData, Object.keys(exportData[0]));
@@ -101,26 +88,19 @@ export default function ComplianceDashboard() {
   const handleExportSupplierBills = async () => {
     setIsExporting(true);
     try {
-      const { data, error } = await supabase
-        .from("purchase_bills")
-        .select(`
-          bill_number,
-          suppliers!supplier_id (supplier_name),
-          total_amount,
-          status,
-          payment_status,
-          last_payment_date
-        `);
-      
-      if (error) throw error;
+      const data = await fetchPurchaseBillsForExport();
+      if (!data || !data.length) {
+        toast.error("No supplier bills available to export");
+        setIsExporting(false);
+        return;
+      }
 
       const exportData = data.map(item => ({
         "Bill #": item.bill_number,
         "Supplier": (item.suppliers as any)?.supplier_name || "N/A",
         "Amount (INR)": toRupees(item.total_amount || 0),
-        "Audit Status": item.status,
-        "Payment Status": item.payment_status,
-        "Payout Date": item.last_payment_date || "---"
+        "Status": item.status,
+        "Due Date": item.due_date || "---"
       }));
 
       exportToCSV("Supplier_Bills_Report", exportData, Object.keys(exportData[0]));
@@ -158,9 +138,13 @@ export default function ComplianceDashboard() {
   const handleExportAging = async () => {
     setIsExporting(true);
     try {
-      // 1. Fetch Outstanding Bills
-      const { data: sales } = await supabase.from("sale_bills").select("invoice_number, due_date, due_amount").gt("due_amount", 0);
-      const { data: purchases } = await supabase.from("purchase_bills").select("bill_number, due_date, due_amount").gt("due_amount", 0);
+      const { sales, purchases } = await fetchOutstandingBillsWithAging();
+
+      if ((!sales || !sales.length) && (!purchases || !purchases.length)) {
+        toast.error("No outstanding bills available to export");
+        setIsExporting(false);
+        return;
+      }
 
       const today = new Date();
       const calculateAging = (dueDate: string) => {
@@ -184,8 +168,6 @@ export default function ComplianceDashboard() {
       setIsExporting(false);
     }
   };
-
-  const toRupees = (paise: number) => paise / 100;
 
   const snapshotColumns: ColumnDef<ComplianceSnapshot>[] = [
     {

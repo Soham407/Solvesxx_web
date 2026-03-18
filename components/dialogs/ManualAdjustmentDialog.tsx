@@ -23,8 +23,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { UserCheck, Loader2, Clock, Calendar, AlertCircle } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import { supabase } from "@/src/lib/supabaseClient";
 import { format } from "date-fns";
+import { useAttendance } from "@/hooks/useAttendance";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
@@ -50,6 +50,7 @@ export function ManualAdjustmentDialog({
     notes: "",
   });
   const { toast } = useToast();
+  const { recordManualAdjustment } = useAttendance(employeeId);
 
   const handleSubmit = async () => {
     if (!formData.employeeId || !formData.time || !formData.reason) {
@@ -64,46 +65,26 @@ export function ManualAdjustmentDialog({
     try {
       setIsSubmitting(true);
 
-      const today = date.toISOString().split("T")[0];
+      const logDate = date.toISOString().split("T")[0];
       const timeValue = formData.time;
 
-      // Update or create attendance log
-      const { data: existingLog } = await supabase
-        .from("attendance_logs")
-        .select("id")
-        .eq("employee_id", formData.employeeId)
-        .eq("log_date", today)
-        .single();
+      const punchInDateTime = formData.adjustmentType === "checkin"
+        ? `${logDate}T${timeValue}:00`
+        : undefined;
+      const punchOutDateTime = formData.adjustmentType === "checkout"
+        ? `${logDate}T${timeValue}:00`
+        : undefined;
 
-      const updateData: any = {};
-      if (formData.adjustmentType === "checkin") {
-        updateData.check_in_time = `${today}T${timeValue}:00`;
-        updateData.status = "present";
-      } else {
-        updateData.check_out_time = `${today}T${timeValue}:00`;
-      }
+      const result = await recordManualAdjustment({
+        employeeId: formData.employeeId,
+        logDate,
+        punchIn: punchInDateTime,
+        punchOut: punchOutDateTime,
+        reason: formData.reason,
+        notes: formData.notes,
+      });
 
-      if (existingLog) {
-        await supabase
-          .from("attendance_logs")
-          .update({
-            ...updateData,
-            is_manual_adjustment: true,
-            adjustment_reason: formData.reason,
-            adjustment_notes: formData.notes,
-          })
-          .eq("id", existingLog.id);
-      } else {
-        await supabase.from("attendance_logs").insert({
-          employee_id: formData.employeeId,
-          log_date: today,
-          ...updateData,
-          status: "present",
-          is_manual_adjustment: true,
-          adjustment_reason: formData.reason,
-          adjustment_notes: formData.notes,
-        } as any);
-      }
+      if (!result.success) throw new Error(result.error || "Failed to record adjustment");
 
       toast({
         title: "Attendance Adjusted",
@@ -111,10 +92,10 @@ export function ManualAdjustmentDialog({
       });
 
       setIsOpen(false);
-    } catch (err) {
+    } catch (err: any) {
       toast({
         title: "Error",
-        description: "Failed to record adjustment. Please try again.",
+        description: err.message || "Failed to record adjustment. Please try again.",
         variant: "destructive",
       });
     } finally {

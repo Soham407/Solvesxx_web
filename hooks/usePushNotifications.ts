@@ -69,7 +69,6 @@ export function usePushNotifications() {
 
     navigator.serviceWorker.register('/firebase-messaging-sw.js')
       .then((registration) => {
-        console.log('Firebase messaging SW registered:', registration.scope);
         // Send Firebase config to the service worker (it can't access process.env)
         const firebaseConfig = {
           apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,

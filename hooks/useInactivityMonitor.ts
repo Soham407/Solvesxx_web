@@ -104,8 +104,6 @@ export function useInactivityMonitor(employeeId: string | null, isClockedIn: boo
           `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`
         );
       }
-      
-      console.log("Inactivity alert triggered for", empId);
     } catch (err) {
       console.error("Failed to trigger inactivity alert:", err);
     }

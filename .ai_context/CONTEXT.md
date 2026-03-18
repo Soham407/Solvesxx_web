@@ -18,7 +18,7 @@
 | **Framework** | Next.js 16 (App Router) |
 | **Language** | TypeScript (strict OFF, strictNullChecks OFF) |
 | **UI** | TailwindCSS 3.4 + Radix UI + shadcn/ui + Framer Motion |
-| **State** | React hooks (custom hooks per domain — 91 hooks in `/hooks/`) |
+| **State** | React hooks (custom hooks per domain — 93 hooks in `/hooks/`) |
 | **Backend** | Supabase (Postgres + Auth + Realtime + Storage + Edge Functions) |
 | **Push Notifications** | Firebase Cloud Messaging (FCM) |
 | **SMS** | MSG91 via Supabase Edge Function (`send-notification`) |
@@ -269,7 +269,7 @@ return () => { supabase.removeChannel(channel); };
 
 ---
 
-## Existing Hooks Reference (91 hooks)
+## Existing Hooks Reference (93 hooks)
 
 Below is a categorized list of all hooks. **Always check if a hook already exists before creating a new one.**
 

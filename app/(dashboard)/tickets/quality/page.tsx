@@ -46,7 +46,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { supabase } from "@/src/lib/supabaseClient";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -82,7 +81,7 @@ export default function QualityTicketsPage() {
   const [error, setError] = useState<string | null>(null);
 
   const { materialReceipts, isLoading: grnLoading, error: grnError, fetchGRNItems } = useGRN();
-  const { notes: shortageNotes, isLoading: shortageLoading, stats: shortageStats } = useShortageNotes();
+  const { notes: shortageNotes, isLoading: shortageLoading, stats: shortageStats, createNote } = useShortageNotes();
   const { logs: auditLogs } = useAuditLogs();
 
   const [logDiscrepancyOpen, setLogDiscrepancyOpen] = useState(false);
@@ -100,20 +99,15 @@ export default function QualityTicketsPage() {
     if (!discrepancyForm.item_description) return;
     setIsSubmittingDiscrepancy(true);
     try {
-      const { error } = await supabase.from("shortage_notes").insert({
-        note_number: `SN-${Date.now()}`,
-        po_number: "MANUAL",
+      const result = await createNote({
         supplier_name: discrepancyForm.vendor || "Unknown",
-        status: "open",
-        total_shortage_value: 0,
         items: [{
           product_name: discrepancyForm.item_description,
           shortage_quantity: Math.max(0, (parseFloat(discrepancyForm.expected_qty) || 0) - (parseFloat(discrepancyForm.actual_qty) || 0)),
           unit: "units",
         }],
       });
-      if (error) throw error;
-      toast.success("Discrepancy logged successfully");
+      if (!result.success) throw new Error("Failed to log discrepancy");
       setLogDiscrepancyOpen(false);
       setDiscrepancyForm({ item_description: "", issue_type: "Shortage", expected_qty: "", actual_qty: "", vendor: "" });
     } catch (err: any) {

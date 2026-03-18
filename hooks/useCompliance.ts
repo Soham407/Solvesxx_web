@@ -111,7 +111,7 @@ export function useCompliance() {
 
   const exportToCSV = (filename: string, data: any[], headers: string[]) => {
     if (!data || !data.length) return;
-    
+
     const csvContent = [
       headers.join(","),
       ...data.map(row => headers.map(header => {
@@ -132,6 +132,61 @@ export function useCompliance() {
     document.body.removeChild(link);
   };
 
+  const fetchCurrentPeriodId = useCallback(async (): Promise<string | null> => {
+    try {
+      const { data, error } = await supabase
+        .from("financial_periods")
+        .select("id")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+      if (error) throw error;
+      return data?.id ?? null;
+    } catch (err) {
+      console.error("fetchCurrentPeriodId error:", err);
+      return null;
+    }
+  }, []);
+
+  const fetchSaleBillsForExport = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("sale_bills")
+        .select(`invoice_number, clients!client_id (client_name), total_amount, due_amount, status, bill_date, due_date`);
+      if (error) throw error;
+      return data ?? [];
+    } catch (err) {
+      console.error("fetchSaleBillsForExport error:", err);
+      return [];
+    }
+  }, []);
+
+  const fetchPurchaseBillsForExport = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("purchase_bills")
+        .select(`bill_number, suppliers!supplier_id (supplier_name), total_amount, due_amount, status, bill_date, due_date`);
+      if (error) throw error;
+      return data ?? [];
+    } catch (err) {
+      console.error("fetchPurchaseBillsForExport error:", err);
+      return [];
+    }
+  }, []);
+
+  const fetchOutstandingBillsWithAging = useCallback(async () => {
+    try {
+      const [{ data: sales }, { data: purchases }] = await Promise.all([
+        supabase.from("sale_bills").select(`invoice_number, clients!client_id(client_name), due_amount, due_date`).gt("due_amount", 0),
+        supabase.from("purchase_bills").select(`bill_number, suppliers!supplier_id(supplier_name), due_amount, due_date`).gt("due_amount", 0),
+      ]);
+      return { sales: sales ?? [], purchases: purchases ?? [] };
+    } catch (err) {
+      console.error("fetchOutstandingBillsWithAging error:", err);
+      return { sales: [], purchases: [] };
+    }
+  }, []);
+
   useEffect(() => {
     fetchSnapshots();
   }, [fetchSnapshots]);
@@ -142,6 +197,10 @@ export function useCompliance() {
     error,
     createMonthlySnapshot,
     exportToCSV,
+    fetchCurrentPeriodId,
+    fetchSaleBillsForExport,
+    fetchPurchaseBillsForExport,
+    fetchOutstandingBillsWithAging,
     refresh: fetchSnapshots
   };
 }

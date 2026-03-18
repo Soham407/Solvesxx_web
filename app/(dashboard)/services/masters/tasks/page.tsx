@@ -35,12 +35,11 @@ import {
 } from "@/components/ui/select";
 import { useWorkMaster, WorkMaster } from "@/hooks/useWorkMaster";
 import { toast } from "sonner";
-import { supabase } from "@/src/lib/supabaseClient";
 
 const EMPTY_FORM = { work_name: "", skill_level_required: "", standard_time_minutes: "", priority: "medium", description: "" };
 
 export default function WorkTasksPage() {
-  const { workItems, isLoading, error, createWorkItem, refresh } = useWorkMaster();
+  const { workItems, isLoading, error, createWorkItem, updateWorkItem, deleteWorkItem, refresh } = useWorkMaster();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<WorkMaster | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -69,16 +68,15 @@ export default function WorkTasksPage() {
     setIsSubmitting(true);
     try {
       if (editTarget) {
-        const { error } = await supabase.from("work_master").update({
+        const success = await updateWorkItem(editTarget.id, {
           work_name: form.work_name,
           skill_level_required: form.skill_level_required || null,
           standard_time_minutes: form.standard_time_minutes ? parseInt(form.standard_time_minutes) : null,
-          priority: form.priority,
+          is_active: true,
           description: form.description || null,
-        }).eq("id", editTarget.id);
-        if (error) throw error;
+        });
+        if (!success) throw new Error("Failed to update task");
         toast.success("Task updated");
-        refresh();
       } else {
         await createWorkItem({
           work_code: `WM-${Date.now()}`,
@@ -100,10 +98,9 @@ export default function WorkTasksPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      const { error } = await supabase.from("work_master").update({ is_active: false }).eq("id", id);
-      if (error) throw error;
+      const success = await deleteWorkItem(id);
+      if (!success) throw new Error("Failed to archive task");
       toast.success("Task archived");
-      refresh();
     } catch (err: any) {
       toast.error(err.message || "Failed to archive task");
     }

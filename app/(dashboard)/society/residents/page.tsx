@@ -20,8 +20,9 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/src/lib/supabaseClient";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useResidents } from "@/hooks/useResidents";
+import { toast } from "sonner";
 
 import {
   Dialog,
@@ -54,113 +55,37 @@ interface Resident {
 }
 
 export default function ResidentsPage() {
-  const [residents, setResidents] = useState<Resident[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { residents: rawResidents, flats, isLoading, error: hookError, createResident, refresh } = useResidents();
 
-  // Stats
-  const [stats, setStats] = useState({
-    totalFlats: 0,
-    totalResidents: 0,
-    totalVehicles: 0
+  // Transform hook data to page's Resident format
+  const residents: Resident[] = (rawResidents || []).map((r: any) => {
+    const flatData = r.flats;
+    const buildingName = flatData?.buildings?.building_name || "";
+    const flatNumber = flatData?.flat_number || "N/A";
+
+    return {
+      id: r.id,
+      full_name: r.full_name,
+      mobile: r.phone || "",
+      vehicle_numbers: r.vehicles || [],
+      relation: r.relation || "Resident",
+      photo_url: undefined,
+      flat_number: flatNumber,
+      building_name: buildingName,
+    };
   });
 
-  // Flat data for form
-  const [flats, setFlats] = useState<any[]>([]);
+  // Calculate stats
+  const stats = {
+    totalFlats: flats.length,
+    totalResidents: residents.length,
+    totalVehicles: residents.reduce((sum, r) => sum + (r.vehicle_numbers?.length || 0), 0)
+  };
 
   // Dialog State
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [formData, setFormData] = useState({ full_name: '', phone: '', relation: 'Owner', flat_id: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  useEffect(() => {
-    fetchResidents();
-    fetchFlats();
-  }, []);
-
-  const fetchFlats = async () => {
-    const { data } = await supabase.from('flats').select('id, flat_number, buildings(building_name)').eq('is_active', true);
-    if (data) {
-       setFlats(data.map((f: any) => ({
-         id: f.id,
-         flat_number: f.flat_number,
-         building_name: Array.isArray(f.buildings) ? f.buildings[0]?.building_name : f.buildings?.building_name
-       })));
-    }
-  };
-
-  const fetchResidents = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      const { data, error: fetchError } = await supabase
-        .from("residents")
-        .select(`
-          id,
-          full_name,
-          phone,
-          relation,
-          flat_id,
-          flats (
-            id,
-            flat_number,
-            building_id,
-            buildings (
-              id,
-              building_name
-            )
-          )
-        `)
-        .eq("is_active", true)
-        .order("full_name");
-
-      if (fetchError) throw fetchError;
-
-      let vehicleCount = 0;
-      const uniqueFlats = new Set<string>();
-
-      const formattedResidents: Resident[] = (data || []).map((r: any) => {
-        // Handle array or object returns for flats relation
-        const flatData = Array.isArray(r.flats) ? r.flats[0] : r.flats;
-        const buildingData = flatData ? (Array.isArray(flatData.buildings) ? flatData.buildings[0] : flatData.buildings) : null;
-
-        const flatNo = flatData?.flat_number || "N/A";
-        const bldg = buildingData?.building_name || "";
-        const flatIdent = `${bldg}-${flatNo}`;
-        if (flatData?.id) {
-          uniqueFlats.add(flatData.id);
-        }
-        
-        // We will default to empty vehicles as it's not present in residents table natively (it's in a separate table/relation)
-        const vehicles: string[] = []; // Update this to match schema if a vehicles table exists
-        vehicleCount += vehicles.length;
-
-        return {
-          id: r.id,
-          full_name: r.full_name,
-          mobile: r.phone || r.alternate_phone || "",
-          vehicle_numbers: vehicles,
-          relation: r.relation || "Resident",
-          photo_url: undefined, // Update with correct profile photo field if there is one
-          flat_number: flatNo,
-          building_name: bldg,
-        };
-      });
-
-      setResidents(formattedResidents);
-      setStats({
-        totalFlats: uniqueFlats.size,
-        totalResidents: formattedResidents.length,
-        totalVehicles: vehicleCount
-      });
-    } catch (err: any) {
-      console.error("Error fetching residents:", err);
-      setError("Failed to load resident directory");
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleExportCSV = () => {
     if (residents.length === 0) return;
@@ -185,33 +110,38 @@ export default function ResidentsPage() {
   };
 
   const handleCreateResident = async () => {
-    if(!formData.full_name || !formData.flat_id) {
-        setError("Full name and Flat selection are required");
-        return;
+    if (!formData.full_name || !formData.flat_id) {
+      toast({
+        title: "Missing Information",
+        description: "Full name and Flat selection are required.",
+        variant: "destructive"
+      });
+      return;
     }
     setIsSubmitting(true);
-    setError(null);
     try {
       const userCode = "RES-" + Math.random().toString(36).substr(2, 6).toUpperCase();
-      const { error: insertError } = await supabase.from('residents').insert({
-         full_name: formData.full_name,
-         phone: formData.phone,
-         relation: formData.relation,
-         flat_id: formData.flat_id,
-         resident_code: userCode,
-         is_active: true
+      const result = await createResident({
+        full_name: formData.full_name,
+        phone: formData.phone,
+        relation: formData.relation,
+        flat_id: formData.flat_id,
+        resident_code: userCode,
       });
-      if(insertError) throw insertError;
-      setIsDialogOpen(false);
-      setFormData({ full_name: '', phone: '', relation: 'Owner', flat_id: '' });
-      fetchResidents();
-    } catch(e: any) {
-       console.error(e);
-       setError(e.message || "Failed to register resident");
+      if (result.success) {
+        setIsDialogOpen(false);
+        setFormData({ full_name: '', phone: '', relation: 'Owner', flat_id: '' });
+      }
+    } catch (e: any) {
+      toast({
+        title: "Error",
+        description: e.message || "Failed to register resident",
+        variant: "destructive"
+      });
     } finally {
-       setIsSubmitting(false);
+      setIsSubmitting(false);
     }
- };
+  };
 
   const columns: ColumnDef<Resident>[] = [
     {
@@ -310,10 +240,10 @@ export default function ResidentsPage() {
         }
       />
 
-      {error && (
+      {hookError && (
          <Alert variant="destructive">
            <AlertCircle className="h-4 w-4" />
-           <AlertDescription>{error}</AlertDescription>
+           <AlertDescription>{hookError}</AlertDescription>
          </Alert>
       )}
 

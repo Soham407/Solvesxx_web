@@ -27,7 +27,7 @@ import { format } from "date-fns";
 import { CalendarIcon, Clock, Wrench, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/use-toast";
-import { supabase } from "@/src/lib/supabaseClient";
+import { useServiceRequests } from "@/hooks/useServiceRequests";
 
 interface ScheduleVisitDialogProps {
   children: React.ReactNode;
@@ -47,6 +47,7 @@ export function ScheduleVisitDialog({ children, serviceType = "AC Service" }: Sc
     preferredTime: "",
   });
   const { toast } = useToast();
+  const { createRequest } = useServiceRequests();
 
   const handleSubmit = async () => {
     if (!date || !formData.location) {
@@ -61,7 +62,7 @@ export function ScheduleVisitDialog({ children, serviceType = "AC Service" }: Sc
     try {
       setIsSubmitting(true);
 
-      const { error } = await supabase.from("service_requests").insert({
+      const result = await createRequest({
         title: `Scheduled ${serviceType} Visit`,
         description: formData.description,
         location_name: formData.location,
@@ -71,10 +72,9 @@ export function ScheduleVisitDialog({ children, serviceType = "AC Service" }: Sc
         preferred_time: formData.preferredTime,
         priority: formData.priority,
         status: "scheduled",
-        created_at: new Date().toISOString(),
-      } as any);
+      });
 
-      if (error) throw error;
+      if (!result.success) throw new Error(result.error || "Failed to schedule visit");
 
       toast({
         title: "Visit Scheduled",

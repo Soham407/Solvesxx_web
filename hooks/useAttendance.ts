@@ -597,6 +597,61 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
   ]);
 
   // Cleanup on unmount
+  // Manual attendance adjustment (for admin/HR override)
+  const recordManualAdjustment = useCallback(
+    async (params: {
+      employeeId: string;
+      logDate: string;
+      punchIn?: string;
+      punchOut?: string;
+      reason: string;
+      notes?: string;
+    }): Promise<{ success: boolean; error?: string }> => {
+      try {
+        const updateData = {
+          check_in_time: params.punchIn ? new Date(params.punchIn).toISOString() : undefined,
+          check_out_time: params.punchOut ? new Date(params.punchOut).toISOString() : undefined,
+          is_manual_adjustment: true,
+          adjustment_reason: params.reason,
+          adjustment_notes: params.notes,
+        };
+
+        // Remove undefined fields
+        Object.keys(updateData).forEach(
+          (key) => updateData[key as keyof typeof updateData] === undefined && delete updateData[key as keyof typeof updateData]
+        );
+
+        // Check if log exists
+        const { data: existing, error: checkError } = await supabase
+          .from("attendance_logs")
+          .select("id")
+          .eq("employee_id", params.employeeId)
+          .eq("log_date", params.logDate)
+          .single();
+
+        if (checkError && checkError.code !== "PGRST116") throw checkError; // PGRST116 = no rows
+
+        const result = existing
+          ? await supabase.from("attendance_logs").update(updateData).eq("id", existing.id)
+          : await supabase.from("attendance_logs").insert({
+              employee_id: params.employeeId,
+              log_date: params.logDate,
+              status: "present",
+              ...updateData,
+            });
+
+        if (result.error) throw result.error;
+
+        return { success: true };
+      } catch (err: any) {
+        const msg = err.message || "Failed to record manual adjustment";
+        console.error("recordManualAdjustment error:", err);
+        return { success: false, error: msg };
+      }
+    },
+    []
+  );
+
   useEffect(() => {
     return () => {
       if (watchIdRef.current !== null) {
@@ -611,6 +666,7 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
     clockIn,
     clockOut,
     autoClockOut,
+    recordManualAdjustment,
     refresh,
   };
 }

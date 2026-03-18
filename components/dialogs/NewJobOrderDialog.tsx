@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/select";
 import { Wrench, Loader2, FileText } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import { supabase } from "@/src/lib/supabaseClient";
+import { useServiceRequests } from "@/hooks/useServiceRequests";
 
 interface NewJobOrderDialogProps {
   children: React.ReactNode;
@@ -43,6 +43,7 @@ export function NewJobOrderDialog({ children, serviceType = "Service", onSuccess
     estimatedHours: "",
   });
   const { toast } = useToast();
+  const { createRequest } = useServiceRequests();
 
   const handleSubmit = async () => {
     if (!formData.title || !formData.description) {
@@ -57,7 +58,7 @@ export function NewJobOrderDialog({ children, serviceType = "Service", onSuccess
     try {
       setIsSubmitting(true);
 
-      const { error } = await supabase.from("service_requests").insert({
+      const result = await createRequest({
         title: formData.title,
         description: formData.description,
         location_name: formData.location,
@@ -65,10 +66,9 @@ export function NewJobOrderDialog({ children, serviceType = "Service", onSuccess
         service_category: formData.category,
         estimated_hours: formData.estimatedHours ? parseInt(formData.estimatedHours) : null,
         status: "open",
-        created_at: new Date().toISOString(),
-      } as any);
+      });
 
-      if (error) throw error;
+      if (!result.success) throw new Error(result.error || "Failed to create job order");
 
       toast({
         title: "Job Order Created",

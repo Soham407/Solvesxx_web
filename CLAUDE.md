@@ -16,7 +16,7 @@
 ## ⚡ Before You Start Coding
 
 1. **Check PHASES.md** — It has the real status of every module (✅ FULL / 🟡 PARTIAL / 🔵 UI-ONLY / 🔴 NOT BUILT). This prevents building something that already exists.
-2. **Check the hooks list** — `CONTEXT.md` has all 82 hooks categorized. Always search for an existing hook before creating one.
+2. **Check the hooks list** — `CONTEXT.md` has all 93 hooks categorized. Always search for an existing hook before creating one.
 3. **Check the "Known Mock Data" section** — PHASES.md lists every place where data is still hardcoded. If you're working on a module, check if it has known mocks.
 4. **Check the "Not Yet Built" section** — Lists PRD features with actionable "What's Needed" columns.
 
@@ -85,7 +85,7 @@
 6. **Don't modify RLS policies** without understanding the existing role structure.
 7. **Don't use `createClient` directly**: Use helpers from `src/lib/supabase/`.
 8. **Don't remove `ignoreBuildErrors: true`** from next.config.ts — the massive type file causes TS2589.
-9. **Don't duplicate hooks**: Check the hooks list in CONTEXT.md before creating. 82 hooks already exist.
+9. **Don't duplicate hooks**: Check the hooks list in CONTEXT.md before creating. 93 hooks already exist.
 
 ---
 

@@ -47,13 +47,15 @@ export const SHORTAGE_STATUS_CONFIG: Record<ShortageNoteStatus, { label: string;
 };
 
 export interface CreateShortageNoteDTO {
-  po_id: string;
-  supplier_id: string;
+  po_id?: string | null;
+  supplier_id?: string | null;
   grn_id?: string;
+  supplier_name?: string; // For manual entries without supplier_id
   items: Array<{
     product_name: string;
-    ordered_quantity: number;
-    received_quantity: number;
+    ordered_quantity?: number;
+    received_quantity?: number;
+    shortage_quantity?: number; // For manual entries
     unit?: string;
     rate?: number;
     notes?: string;
@@ -101,15 +103,18 @@ export function useShortageNotes() {
 
       // Calculate total value
       const totalValue = dto.items.reduce((sum, item) => {
-        const shortage = item.ordered_quantity - item.received_quantity;
+        const shortage = item.shortage_quantity !== undefined
+          ? item.shortage_quantity
+          : (item.ordered_quantity || 0) - (item.received_quantity || 0);
         return sum + shortage * (item.rate || 0);
       }, 0);
 
       const { data: note, error: noteError } = await supabase
         .from("shortage_notes")
         .insert({
-          po_id: dto.po_id,
-          supplier_id: dto.supplier_id,
+          po_id: dto.po_id || null,
+          supplier_id: dto.supplier_id || null,
+          supplier_name: dto.supplier_name || null,
           grn_id: dto.grn_id || null,
           status: "open",
           total_shortage_value: totalValue,
@@ -125,8 +130,9 @@ export function useShortageNotes() {
       const itemsToInsert = dto.items.map((item) => ({
         shortage_note_id: note.id,
         product_name: item.product_name,
-        ordered_quantity: item.ordered_quantity,
-        received_quantity: item.received_quantity,
+        ordered_quantity: item.ordered_quantity || null,
+        received_quantity: item.received_quantity || null,
+        shortage_quantity: item.shortage_quantity || null,
         unit: item.unit || null,
         rate: item.rate || null,
         notes: item.notes || null,
