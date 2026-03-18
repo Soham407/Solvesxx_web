@@ -139,7 +139,7 @@ export default function InventoryDashboardPage() {
       </PageHeader>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Products</CardTitle>
@@ -321,7 +321,7 @@ export default function InventoryDashboardPage() {
                   </Button>
                 </div>
               ) : (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                   {warehouses.map((warehouse) => (
                     <Card key={warehouse.id} className="cursor-pointer hover:bg-muted/50 transition-colors">
                       <CardHeader>
@@ -351,7 +351,7 @@ export default function InventoryDashboardPage() {
       </Tabs>
 
       {/* Quick Links */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
         <Link href="/inventory/products">
           <Card className="cursor-pointer hover:bg-muted/50 transition-colors">
             <CardHeader>

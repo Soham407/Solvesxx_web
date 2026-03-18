@@ -10,6 +10,7 @@ import { useBuyerRequests } from "@/hooks/useBuyerRequests";
 import { useBuyerInvoices } from "@/hooks/useBuyerInvoices";
 import { formatCurrency } from "@/src/lib/utils/currency";
 import { cn } from "@/lib/utils";
+import { DashboardKPIGrid } from "@/components/shared/DashboardKPIGrid";
 
 const ACTIVE_STATUSES = [
   "accepted", "indent_generated", "indent_forwarded", "indent_accepted",
@@ -56,23 +57,7 @@ export function BuyerDashboard() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        {kpis.map((kpi) => (
-          <Card key={kpi.label} className="border-none shadow-card">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-3">
-                <div className={cn("p-2.5 rounded-xl", kpi.bg)}>
-                  <kpi.icon className={cn("h-5 w-5", kpi.color)} />
-                </div>
-              </div>
-              <div className="text-3xl font-bold tracking-tight mt-1">
-                {kpi.value === null ? <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /> : kpi.value}
-              </div>
-              <p className="text-[11px] font-black uppercase text-muted-foreground tracking-[0.15em] mt-1">{kpi.label}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <DashboardKPIGrid kpis={kpis} />
 
       {/* Invoice Summary */}
       <div className="grid gap-6 md:grid-cols-2">

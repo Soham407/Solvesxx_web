@@ -15,7 +15,6 @@ import { useSocietyStats } from "@/hooks/useSocietyStats";
 import { useSocietyAudit } from "@/hooks/useSocietyAudit";
 import { useGuardLiveLocation } from "@/hooks/useGuardLiveLocation";
 import { GuardLiveMap } from "@/components/dashboards/GuardLiveMap";
-import { ComingSoonWidget } from "@/components/shared/ComingSoon";
 import { useToast } from "@/components/ui/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";

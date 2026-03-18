@@ -9,7 +9,6 @@ import { useEmployeeProfile } from "@/hooks/useEmployeeProfile";
 import { useJobSessions } from "@/hooks/useJobSessions";
 import { useServiceRequests } from "@/hooks/useServiceRequests";
 import { useReorderAlerts } from "@/hooks/useReorderAlerts";
-import { ComingSoonWidget } from "@/components/shared/ComingSoon";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useRouter } from "next/navigation";

@@ -31,7 +31,10 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "FacilityPro | Enterprise Cloud ERP",
+  title: {
+    template: "%s | FacilityPro",
+    default: "FacilityPro — Enterprise Facility Management",
+  },
   description: "Next-generation facility management and ERP solution for modern enterprises.",
   manifest: "/manifest.json",
 };

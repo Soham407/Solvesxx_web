@@ -146,7 +146,7 @@ export default function BuyerDashboard() {
       {/* QUICK SERVICES */}
       <div className="space-y-4">
         <h2 className="text-xl font-semibold tracking-tight">Request a Service</h2>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
           {quickServices.map((service, i) => (
             <Link key={i} href={service.href}>
               <Card className="border-none shadow-sm hover:shadow-md transition-all hover:-translate-y-1 cursor-pointer group h-full bg-card">
@@ -232,7 +232,7 @@ export default function BuyerDashboard() {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
         {/* LEFT COLUMN: Current Services */}
         <div className="lg:col-span-2 space-y-6">
           <Card className="shadow-sm">

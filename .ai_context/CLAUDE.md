@@ -16,7 +16,7 @@
 ## ⚡ Before You Start Coding
 
 1. **Check PHASES.md** — It has the real status of every module (✅ FULL / 🟡 PARTIAL / 🔵 UI-ONLY / 🔴 NOT BUILT). This prevents building something that already exists.
-2. **Check the hooks list** — `CONTEXT.md` has all 91 hooks categorized. Always search for an existing hook before creating one.
+2. **Check the hooks list** — `CONTEXT.md` has all 92 hooks categorized. Always search for an existing hook before creating one.
 3. **Check the "Known Mock Data" section** — PHASES.md lists every place where data is still hardcoded. If you're working on a module, check if it has known mocks.
 4. **Check the "Not Yet Built" section** — Lists PRD features with actionable "What's Needed" columns.
 
@@ -85,7 +85,39 @@
 6. **Don't modify RLS policies** without understanding the existing role structure.
 7. **Don't use `createClient` directly**: Use helpers from `src/lib/supabase/`.
 8. **Don't remove `ignoreBuildErrors: true`** from next.config.ts — the massive type file causes TS2589.
-9. **Don't duplicate hooks**: Check the hooks list in CONTEXT.md before creating. 91 hooks already exist.
+9. **Don't duplicate hooks**: Check the hooks list in CONTEXT.md before creating. 92 hooks already exist.
+10. **Don't roll your own loading/error/toast in new hooks**: Use `useSupabaseQuery` and `useSupabaseMutation` from `hooks/lib/` for all new hooks.
+
+---
+
+## Shared Hook Utils (New — Use for All New Hooks)
+
+> Located in `hooks/lib/`. Do NOT rewrite existing 92 hooks — apply to new hooks only.
+
+```typescript
+// READ pattern
+import { useSupabaseQuery } from "@/hooks/lib/useSupabaseQuery";
+export function useMyData() {
+  return useSupabaseQuery(async () => {
+    const { data, error } = await supabase.from("my_table").select("*");
+    if (error) throw error;
+    return data ?? [];
+  });
+  // Returns: { data, isLoading, error, refresh }
+}
+
+// WRITE pattern
+import { useSupabaseMutation } from "@/hooks/lib/useSupabaseMutation";
+const { execute: createItem, isLoading } = useSupabaseMutation(
+  async (payload) => {
+    const { data, error } = await supabase.from("my_table").insert(payload).select().single();
+    if (error) throw error;
+    return data;
+  },
+  { successMessage: "Item created" }
+);
+// execute returns: { success, data?, error? }
+```
 
 ---
 
@@ -150,11 +182,15 @@ const pestService = services.find(s => s.service_code === "PST-CON" ||
 7. **Dashboard widget status**: All 12 dashboard widgets are ✅ FULL — `BuyerDashboard.tsx` uses `useBuyerRequests`/`useBuyerInvoices`, `SupplierDashboard.tsx` uses `useSupplierPortal`, `AccountsDashboard.tsx` and `MDDashboard.tsx` are fully connected. `NotificationBell.tsx` is built and wired into `TopNav.tsx` (line 195). `ServiceAcknowledgmentDialog` exists in `components/dialogs/` for SPO headcount/grade verification.
 8. **`formatCurrency()`** handles paise-to-rupee conversion — always use it for monetary values.
 9. **When filtering services by type**, use `service_code` lookup (e.g., `PST-CON`, `PRN-ADV`) instead of hardcoded UUIDs.
-10. **`ComingSoonChart` / `ComingSoonWidget`** in `@/components/shared/ComingSoon` are used as placeholders — replace them when real data aggregation is available.
-11. **Sidebar has hidden items** — Some nav items are `/* Temporarily hidden */` via comments in `AppSidebar.tsx`. Unhide them when the feature is ready.
+10. **Sidebar has hidden items** — Some nav items are `/* Temporarily hidden */` via comments in `AppSidebar.tsx`. Unhide them when the feature is ready.
 12. **Two Supabase client imports coexist** — Older hooks use `import { supabase } from "@/src/lib/supabaseClient"` (singleton), newer hooks use `import { createClient } from "@/src/lib/supabase/client"`. Both work. Be consistent within a file.
 13. **`service_acknowledgments` table** exists for SPO headcount/grade verification (used by `ServiceAcknowledgmentDialog`). **`system_config`** table is a key-value store for runtime settings (e.g., `guard_inactivity_threshold_minutes`).
 14. **`CommandMenu.tsx`** in `components/layout/` provides a keyboard-shortcut command palette (Ctrl+K). It's wired into the layout.
+15. **Pre-commit type-check is active** — `git commit` runs `tsc --noEmit --project tsconfig.check.json` via Husky. If it fails, fix the type error before committing. Run `npm run type-check` manually to check without committing.
+16. **E2E tests** live in `e2e/`. Run `npm run test:e2e` (requires `localhost:3000` running). Set `E2E_ADMIN_EMAIL`, `E2E_BUYER_EMAIL`, `E2E_GUARD_EMAIL` + passwords in `.env.local`.
+17. **RLS smoke test** — After any migration touching RLS, run `supabase/scripts/rls_smoke_test.sql` in the Supabase SQL editor to verify role-based access is intact.
+18. **DashboardKPIGrid** — `components/shared/DashboardKPIGrid.tsx` is the shared KPI card grid. Use it for new dashboards. BuyerDashboard and SupplierDashboard already use it. Interface: `{ label, value, icon, color, bg, sub?, onClick? }[]`.
+19. **184 FK indexes added** — `supabase/migrations/20260318000005_advisor_indexes.sql` covers all previously unindexed foreign keys. Future tables should index FK columns at creation time.
 
 ---
 
@@ -208,7 +244,7 @@ When fixing a 🟡 PARTIAL or 🔵 UI-ONLY page:
 3. **Check if DB table exists** — If not, create migration first
 4. **Replace hardcoded arrays** with hook data (e.g., `const { data } = useMyHook()`)
 5. **Replace hardcoded stats** with computed values from hook data
-6. **Replace `ComingSoonChart`** with real Recharts chart using hook data
+6. **Replace placeholder sections** with real Recharts chart using hook data
 7. **Wire up non-functional buttons** with actual handlers from hooks
 8. **Test with real data** — Create seed data if table is empty
 9. **Update PHASES.md** — Change status from 🔵/🟡 to ✅

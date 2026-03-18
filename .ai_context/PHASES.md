@@ -1,6 +1,6 @@
 # FacilityPro — Implementation Phases & Module Status
 
-> **Last Updated:** 2026-03-24 (Added Storekeeper and Site Supervisor dashboards)
+> **Last Updated:** 2026-03-18 (Phases 1–3 hardening complete: RLS advisor fixes, 184 FK indexes, Husky pre-commit, shared hook utils, Playwright E2E, RLS smoke test, metadata, responsive fixes, DashboardKPIGrid)
 
 > **Purpose:** This file is the single source of truth for what is built, what's partially built, and what's missing.
 > Paste the relevant section when starting a new AI session.

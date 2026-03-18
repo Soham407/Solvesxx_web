@@ -249,7 +249,7 @@ function AdminView() {
 
   return (
     <div className="space-y-8 animate-fade-in">
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
             {isLoading ? (
               <Card className="col-span-4 p-8">
                 <div className="flex items-center justify-center">
@@ -281,7 +281,7 @@ function AdminView() {
             )}
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
+        <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-7">
             <Card className="lg:col-span-4 border-none shadow-card">
               <CardHeader className="flex flex-row items-center justify-between bg-muted/5 border-b py-4">
                   <CardTitle className="text-sm font-bold uppercase tracking-widest">Revenue Analytics</CardTitle>

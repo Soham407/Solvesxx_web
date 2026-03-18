@@ -94,7 +94,7 @@ export default function ServiceRequestsPage() {
           </DialogHeader>
           {selectedRequest && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="text-xs font-bold text-muted-foreground uppercase">Request #</p>
                   <p>{selectedRequest.request_number}</p>

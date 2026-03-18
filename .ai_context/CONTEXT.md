@@ -1,6 +1,6 @@
 # FacilityPro — Project Context
 
-> **Last Updated:** 2026-03-16 (Context audit — synced migrations, tables, components)
+> **Last Updated:** 2026-03-18 (Phases 1–3 hardening — new: hooks/lib/, e2e/, supabase/scripts/, components/shared/DashboardKPIGrid.tsx, tsconfig.check.json)
 > Paste this at the start of every AI session for instant context.
 
 ---
@@ -18,7 +18,7 @@
 | **Framework** | Next.js 16 (App Router) |
 | **Language** | TypeScript (strict OFF, strictNullChecks OFF) |
 | **UI** | TailwindCSS 3.4 + Radix UI + shadcn/ui + Framer Motion |
-| **State** | React hooks (custom hooks per domain — 91 hooks in `/hooks/`) |
+| **State** | React hooks (custom hooks per domain — 92 hooks in `/hooks/`) |
 | **Backend** | Supabase (Postgres + Auth + Realtime + Storage + Edge Functions) |
 | **Push Notifications** | Firebase Cloud Messaging (FCM) |
 | **SMS** | MSG91 via Supabase Edge Function (`send-notification`) |
@@ -78,13 +78,13 @@ enterprise-canvas-main/
 │   ├── qr-codes/            # QR code generation & scanning (QrCodeComponents, QrBatchGenerator)
 │   ├── inventory-ops/       # Inventory ops (InventoryTable, StockForm)
 │   └── society/             # VisitorRegistrationDialog, society-specific components
-├── hooks/                   # 91 custom hooks (one per domain entity)
+├── hooks/                   # 92 custom hooks (one per domain entity)
 ├── lib/                     # Firebase config, notification service, utils
 ├── src/
 │   ├── lib/                 # Supabase clients, constants, feature flags, auth, utils/currency
 │   └── types/               # TypeScript types (supabase.ts, operations.ts, supply-chain.ts)
 ├── supabase/
-│   ├── migrations/          # SQL migration files (21 total as of 2026-03-16)
+│   ├── migrations/          # SQL migration files (30 total as of 2026-03-18)
 │   ├── functions/           # Edge Functions (8 deployed)
 │   ├── archive/             # Historical phase schema SQL (PhaseA–E)
 │   ├── scripts/             # One-off diagnostic/hotfix SQL scripts
@@ -269,7 +269,7 @@ return () => { supabase.removeChannel(channel); };
 
 ---
 
-## Existing Hooks Reference (91 hooks)
+## Existing Hooks Reference (92 hooks)
 
 Below is a categorized list of all hooks. **Always check if a hook already exists before creating a new one.**
 
