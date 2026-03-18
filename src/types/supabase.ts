@@ -7170,6 +7170,33 @@ export type Database = {
           },
         ]
       }
+      waitlist: {
+        Row: {
+          company: string | null
+          created_at: string
+          email: string
+          id: string
+          name: string | null
+          source: string | null
+        }
+        Insert: {
+          company?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          name?: string | null
+          source?: string | null
+        }
+        Update: {
+          company?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string | null
+          source?: string | null
+        }
+        Relationships: []
+      }
       work_master: {
         Row: {
           created_at: string | null

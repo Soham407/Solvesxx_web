@@ -6,7 +6,7 @@ import { hasAccess, type AppRole } from "@/src/lib/auth/roles";
  * Public paths that don't require authentication.
  * All other paths require a valid session.
  */
-const PUBLIC_PATHS = ["/login", "/api/auth"];
+const PUBLIC_PATHS = ["/login", "/api/auth", "/api/waitlist"];
 
 /**
  * Paths that Next.js / the browser handles internally — skip middleware entirely.
@@ -31,6 +31,15 @@ export async function middleware(request: NextRequest) {
 
   // Skip middleware for static assets and Next.js internals
   if (isInternalPath(pathname)) {
+    return NextResponse.next();
+  }
+
+  // Landing page — public, but redirect authenticated users to dashboard
+  if (pathname === "/") {
+    const { user } = await updateSession(request);
+    if (user) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
     return NextResponse.next();
   }
 
