@@ -68,6 +68,10 @@ export interface IndentItem {
   notes: string | null;
   created_at: string;
   updated_at: string;
+  // Price override approval (replaces localStorage)
+  override_approved_by: string | null;
+  override_reason: string | null;
+  override_approved_at: string | null;
   // Joined data
   product_name?: string;
   product_code?: string;
@@ -603,6 +607,34 @@ export function useIndents(filters?: { status?: IndentStatus; department?: strin
   }, [state.indents, fetchIndents]);
 
   // ============================================
+  // UPDATE INDENT ITEM OVERRIDE (price override approval → DB)
+  // ============================================
+  const updateIndentItemOverride = useCallback(async (
+    itemId: string,
+    reason: string,
+    approvedBy: string
+  ): Promise<boolean> => {
+    try {
+      const { error } = await supabase
+        .from("indent_items")
+        .update({
+          override_reason: reason,
+          override_approved_by: approvedBy,
+          override_approved_at: new Date().toISOString(),
+        })
+        .eq("id", itemId);
+
+      if (error) throw error;
+      return true;
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to save override";
+      console.error("Error saving override:", err);
+      setState((prev) => ({ ...prev, error: errorMessage }));
+      return false;
+    }
+  }, []);
+
+  // ============================================
   // CANCEL INDENT
   // ============================================
   const cancelIndent = useCallback(async (indentId: string): Promise<boolean> => {
@@ -739,6 +771,7 @@ export function useIndents(filters?: { status?: IndentStatus; department?: strin
     addIndentItem,
     updateIndentItem,
     deleteIndentItem,
+    updateIndentItemOverride,
 
     // Workflow Operations
     submitForApproval,

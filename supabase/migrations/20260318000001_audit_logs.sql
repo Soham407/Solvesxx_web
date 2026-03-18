@@ -1,0 +1,10 @@
+-- Audit Logs — Column alignment patch
+-- The audit_logs table was created in an earlier migration with different column names.
+-- This migration was SKIPPED (table already existed). Applied via audit_logs_align_columns instead.
+--
+-- Final schema applied to DB:
+--   id UUID PK, entity_type TEXT, entity_id UUID, actor_id UUID (ref auth.users),
+--   action TEXT, old_data JSONB, new_data JSONB, evidence_url TEXT,
+--   actor_role VARCHAR(50), metadata JSONB, created_at TIMESTAMPTZ
+--
+-- See: supabase/migrations/20260318094616_audit_logs_align_columns (applied via MCP)

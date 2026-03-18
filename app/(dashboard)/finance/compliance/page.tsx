@@ -1,7 +1,7 @@
 // @ts-nocheck
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTable } from "@/components/shared/DataTable";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { useCompliance, ComplianceSnapshot } from "@/hooks/useCompliance";
 import { useAuth } from "@/hooks/useAuth";
+import { useAuditLogs } from "@/hooks/useAuditLogs";
 import { formatCurrency } from "@/src/lib/utils/currency";
 import { Label } from "@/components/ui/label"; // Fixed Label import if target file was missing it
 import { cn } from "@/lib/utils";
@@ -33,7 +34,21 @@ import { toast } from "sonner";
 export default function ComplianceDashboard() {
   const { user, role } = useAuth();
   const { snapshots, isLoading, createMonthlySnapshot, exportToCSV, refresh } = useCompliance();
+  const { logs: auditLogs } = useAuditLogs();
   const [isExporting, setIsExporting] = useState(false);
+  const [currentPeriodId, setCurrentPeriodId] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase
+      .from("financial_periods")
+      .select("id")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single()
+      .then(({ data }) => {
+        if (data) setCurrentPeriodId(data.id);
+      });
+  }, []);
 
   const isAuthorizedToExport = role === "admin" || role === "account";
   const canSeeCompliance = role === "admin" || role === "account" || role === "society_manager";
@@ -120,9 +135,19 @@ export default function ComplianceDashboard() {
   const handleExportAuditLogs = async () => {
     setIsExporting(true);
     try {
-      // TODO: Implement audit_logs table in database schema
-      // Currently disabled as the table doesn't exist
-      toast.error("Audit logs export is not yet available");
+      if (!auditLogs.length) {
+        toast.error("No audit logs available to export");
+        return;
+      }
+      const exportData = auditLogs.map(log => ({
+        "Timestamp": log.created_at,
+        "Module": log.entity_type,
+        "Action": log.action,
+        "Actor": log.actor_name || "System",
+        "Entity ID": log.entity_id || "",
+      }));
+      exportToCSV("Audit_Trail", exportData, Object.keys(exportData[0]));
+      toast.success("Audit trail exported");
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -214,9 +239,11 @@ export default function ComplianceDashboard() {
                <History className="h-4 w-4" /> Sync Registry
             </Button>
             {isAuthorizedToExport && (
-              <Button 
+              <Button
                  className="gap-2 bg-success hover:bg-success/90"
-                 onClick={() => createMonthlySnapshot('b33501b1-684f-4450-adc7-69cb58d9d564', `System Snapshot - ${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric'})}`)}
+                 disabled={!currentPeriodId}
+                 onClick={() => currentPeriodId && createMonthlySnapshot(currentPeriodId, `System Snapshot - ${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric'})}`)
+                 }
               >
                  <ShieldCheck className="h-4 w-4" /> Create Period Snapshot
               </Button>
@@ -227,7 +254,7 @@ export default function ComplianceDashboard() {
 
       <div className="grid gap-6 md:grid-cols-4">
         {[
-          { label: "Audit Integrity", value: "100%", sub: "Verified Logs", icon: ShieldCheck, color: "text-success" },
+          { label: "Audit Integrity", value: snapshots.length > 0 ? "Verified" : "No Data", sub: `${snapshots.length} Snapshot${snapshots.length !== 1 ? "s" : ""}`, icon: ShieldCheck, color: "text-success" },
           { label: "Export Ready", value: "4 Modules", sub: "Compliant Formats", icon: Download, color: "text-primary" },
           { label: "Aging Dues", value: "Active", sub: "Bucket Monitoring", icon: Calendar, color: "text-warning" },
           { label: "Data Truth", value: "Paise", sub: "Zero-error Precision", icon: BarChart3, color: "text-info" },

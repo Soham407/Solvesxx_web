@@ -209,6 +209,7 @@ export default function IndentVerificationPage() {
   const {
     indents,
     fetchIndentItems,
+    updateIndentItemOverride,
     isLoading: isLoadingIndents,
     refresh: refreshIndents,
   } = useIndents();
@@ -276,15 +277,13 @@ export default function IndentVerificationPage() {
             masterRateInPaise
           );
 
-          // Check if this item already has an override approved (stored in localStorage for demo)
-          const overrideKey = `override_${item.id}`;
-          const storedOverride = localStorage.getItem(overrideKey);
-          const overrideData = storedOverride ? JSON.parse(storedOverride) : null;
+          // Override state comes from DB columns (not localStorage)
+          const overrideApproved = !!item.override_approved_at;
 
           const status = getVerificationStatus(
             item.estimated_unit_price,
             masterRateInPaise,
-            !!overrideData
+            overrideApproved
           );
 
           allVerificationItems.push({
@@ -302,10 +301,10 @@ export default function IndentVerificationPage() {
             variancePercent: variance.percent,
             varianceAmount: variance.amount,
             status,
-            overrideApproved: !!overrideData,
-            overrideReason: overrideData?.reason || null,
-            overrideApprovedBy: overrideData?.approvedBy || null,
-            overrideApprovedAt: overrideData?.approvedAt || null,
+            overrideApproved,
+            overrideReason: item.override_reason || null,
+            overrideApprovedBy: item.override_approved_by || null,
+            overrideApprovedAt: item.override_approved_at || null,
             supplierId: matchedSupplierId,
             supplierName: matchedSupplierName,
           });
@@ -327,13 +326,23 @@ export default function IndentVerificationPage() {
     }
   }, [loadVerificationData, isLoadingIndents, suppliers.length]);
 
-  // Load override log from localStorage
+  // Build override log from DB-backed verification items
   useEffect(() => {
-    const storedLog = localStorage.getItem("override_log");
-    if (storedLog) {
-      setOverrideLog(JSON.parse(storedLog));
-    }
-  }, []);
+    const dbLog: OverrideLogEntry[] = verificationItems
+      .filter((item) => item.overrideApproved && item.overrideApprovedAt)
+      .map((item) => ({
+        id: `LOG-${item.indentItemId}`,
+        indentItemId: item.indentItemId,
+        productName: item.productName,
+        indentRate: item.indentRate || 0,
+        masterRate: item.masterRate,
+        variancePercent: item.variancePercent,
+        reason: item.overrideReason || "",
+        approvedBy: item.overrideApprovedBy || "",
+        approvedAt: item.overrideApprovedAt || "",
+      }));
+    setOverrideLog(dbLog);
+  }, [verificationItems]);
 
   // ============================================
   // STATS CALCULATIONS
@@ -365,16 +374,15 @@ export default function IndentVerificationPage() {
   // HANDLERS
   // ============================================
 
-  const handleApprove = (item: VerificationItem) => {
+  const handleApprove = async (item: VerificationItem) => {
     if (item.status === "matches") {
-      // Direct approve - mark as verified
-      const overrideData = {
-        reason: "Rate matches master contract",
-        approvedBy: user?.email || "System",
-        approvedAt: new Date().toISOString(),
-      };
-      localStorage.setItem(`override_${item.indentItemId}`, JSON.stringify(overrideData));
-      loadVerificationData();
+      // Direct approve - mark as verified in DB
+      await updateIndentItemOverride(
+        item.indentItemId,
+        "Rate matches master contract",
+        user?.id || user?.email || "System"
+      );
+      await loadVerificationData();
     } else {
       // Need override reason
       setOverrideItem(item);
@@ -389,32 +397,14 @@ export default function IndentVerificationPage() {
     setIsSubmittingOverride(true);
 
     try {
-      // Store override in localStorage (in real app, this would be saved to database)
-      const overrideData = {
-        reason: overrideReason,
-        approvedBy: user?.email || "SYSTEM_AUDITOR",
-        approvedAt: new Date().toISOString(),
-      };
-      localStorage.setItem(`override_${overrideItem.indentItemId}`, JSON.stringify(overrideData));
+      // Persist override approval to DB (replaces localStorage)
+      await updateIndentItemOverride(
+        overrideItem.indentItemId,
+        overrideReason,
+        user?.id || user?.email || "SYSTEM_AUDITOR"
+      );
 
-      // Add to override log
-      const newLogEntry: OverrideLogEntry = {
-        id: `LOG-${Date.now()}`,
-        indentItemId: overrideItem.indentItemId,
-        productName: overrideItem.productName,
-        indentRate: overrideItem.indentRate || 0,
-        masterRate: overrideItem.masterRate,
-        variancePercent: overrideItem.variancePercent,
-        reason: overrideReason,
-        approvedBy: user?.email || "SYSTEM_AUDITOR",
-        approvedAt: new Date().toISOString(),
-      };
-
-      const updatedLog = [newLogEntry, ...overrideLog];
-      setOverrideLog(updatedLog);
-      localStorage.setItem("override_log", JSON.stringify(updatedLog));
-
-      // Refresh data
+      // Refresh data — overrideLog rebuilds from DB items via useEffect
       await loadVerificationData();
 
       setIsOverrideDialogOpen(false);

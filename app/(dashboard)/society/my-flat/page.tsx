@@ -1,3 +1,4 @@
+import React from "react";
 import { ResidentDashboard } from "@/components/dashboards/ResidentDashboard";
 
 export default function MyFlatPage() {
@@ -23,4 +24,3 @@ export default function MyFlatPage() {
   );
 }
 
-import React from "react";

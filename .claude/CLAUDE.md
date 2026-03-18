@@ -4,6 +4,7 @@
 
 ## Context Files (read before any task)
 
+@.ai_context/STATE.md
 @.ai_context/CONTEXT.md
 @.ai_context/PHASES.md
 @.ai_context/SCOPE.md
