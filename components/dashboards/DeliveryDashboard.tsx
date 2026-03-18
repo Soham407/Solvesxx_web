@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Truck, Package, Camera, Loader2, CheckCircle2, History, MapPin, Scan, Clock } from "lucide-react";
+import { Truck, Package, Camera, Loader2, CheckCircle2, History, MapPin, Scan, Clock, CalendarCheck } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,7 @@ export function DeliveryDashboard() {
   
   const { purchaseOrders, isLoading: isPOsLoading } = usePurchaseOrders();
   
+  const [activeTab, setActiveTab] = useState("log");
   const [selectedPOId, setSelectedPOId] = useState("");
   const [vehicleNumber, setVehicleNumber] = useState("");
   const [notes, setNotes] = useState("");
@@ -143,9 +144,37 @@ export function DeliveryDashboard() {
   };
 
   // Filter for POs that are in process
-  const activePOs = purchaseOrders.filter(po => 
+  const activePOs = purchaseOrders.filter(po =>
     po.status === "sent_to_vendor" || po.status === "acknowledged" || po.status === "partial_received"
   );
+
+  // Expected today: POs with expected_delivery_date = today (or within next 24hrs) AND active status
+  const todayStr = new Date().toISOString().split("T")[0];
+  const tomorrowStr = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+  const expectedTodayPOs = purchaseOrders.filter(po => {
+    if (!po.expected_delivery_date) return false;
+    const deliveryDate = po.expected_delivery_date.split("T")[0];
+    const isActiveStatus = po.status === "sent_to_vendor" || po.status === "acknowledged";
+    return isActiveStatus && (deliveryDate === todayStr || deliveryDate === tomorrowStr);
+  });
+
+  const getStatusBadgeClass = (status: string | null) => {
+    switch (status) {
+      case "sent_to_vendor": return "bg-warning/10 text-warning border-warning/20";
+      case "acknowledged": return "bg-info/10 text-info border-info/20";
+      case "partial_received": return "bg-success/10 text-success border-success/20";
+      default: return "bg-muted text-muted-foreground";
+    }
+  };
+
+  const formatStatusLabel = (status: string | null) => {
+    switch (status) {
+      case "sent_to_vendor": return "Sent to Vendor";
+      case "acknowledged": return "Acknowledged";
+      case "partial_received": return "Partial Received";
+      default: return status ?? "Unknown";
+    }
+  };
 
   return (
     <div className="max-w-md mx-auto space-y-6 pb-20">
@@ -165,13 +194,22 @@ export function DeliveryDashboard() {
         </div>
       </div>
 
-      <Tabs defaultValue="log" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 mb-6 h-12 bg-muted/50 p-1">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-3 mb-6 h-12 bg-muted/50 p-1">
           <TabsTrigger value="log" className="text-xs font-bold uppercase tracking-widest gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm">
             <Scan className="h-3.5 w-3.5" /> Log Arrival
           </TabsTrigger>
           <TabsTrigger value="history" className="text-xs font-bold uppercase tracking-widest gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm">
             <History className="h-3.5 w-3.5" /> Recent Logs
+          </TabsTrigger>
+          <TabsTrigger value="expected" className="text-xs font-bold uppercase tracking-widest gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm relative">
+            <CalendarCheck className="h-3.5 w-3.5" />
+            Expected
+            {expectedTodayPOs.length > 0 && (
+              <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-critical flex items-center justify-center text-[8px] font-black text-white">
+                {expectedTodayPOs.length}
+              </span>
+            )}
           </TabsTrigger>
         </TabsList>
 
@@ -347,6 +385,72 @@ export function DeliveryDashboard() {
                ))
              )}
            </div>
+        </TabsContent>
+
+        <TabsContent value="expected" className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div className="space-y-4">
+            {isPOsLoading ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : expectedTodayPOs.length === 0 ? (
+              <Card className="border-none bg-muted/20">
+                <CardContent className="p-12 text-center">
+                  <CalendarCheck className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" />
+                  <p className="text-sm font-medium text-muted-foreground">No deliveries expected today</p>
+                  <p className="text-[10px] text-muted-foreground/60 mt-1 uppercase tracking-widest">Check back later or log an unscheduled arrival</p>
+                </CardContent>
+              </Card>
+            ) : (
+              expectedTodayPOs.map(po => (
+                <Card key={po.id} className="border-none shadow-card ring-1 ring-border group hover:ring-primary/50 transition-all overflow-hidden bg-card">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                          <Package className="h-4 w-4 text-primary" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-black text-sm truncate">{po.po_number || "PO-####"}</p>
+                          <p className="text-xs text-muted-foreground truncate">{po.supplier_name || "Unknown Supplier"}</p>
+                        </div>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className={`text-[9px] font-bold uppercase shrink-0 ${getStatusBadgeClass(po.status)}`}
+                      >
+                        {formatStatusLabel(po.status)}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-bold">
+                        <CalendarCheck className="h-3 w-3" />
+                        Expected:{" "}
+                        {po.expected_delivery_date
+                          ? new Date(po.expected_delivery_date).toLocaleDateString("en-IN", {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                            })
+                          : "—"}
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-[10px] font-bold uppercase tracking-wider"
+                        onClick={() => {
+                          setSelectedPOId(po.id);
+                          setActiveTab("log");
+                        }}
+                      >
+                        Log Arrival
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
         </TabsContent>
       </Tabs>
     </div>
