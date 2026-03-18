@@ -49,6 +49,11 @@ export const FEATURE_FLAGS = {
   // Configuration-Heavy Modules
   LEAVE_CONFIG_ADMIN: ff("LEAVE_CONFIG_ADMIN"),
   SPECIALIZED_PROFILES: ff("SPECIALIZED_PROFILES"),
+
+  // Bonus Modules (beyond client PRD scope)
+  ASSET_MODULE: ff("ASSET_MODULE"),
+  FINANCE_EXTENDED: ff("FINANCE_EXTENDED"),
+  SETTINGS_MODULE: ff("SETTINGS_MODULE"),
 } as const;
 
 // ===== FROZEN ROUTES =====
@@ -68,6 +73,16 @@ const ROUTE_FLAG_MAP: Record<string, keyof typeof FEATURE_FLAGS> = {
   "/hrms/leave/config": "LEAVE_CONFIG_ADMIN",
   "/hrms/specialized-profiles": "SPECIALIZED_PROFILES",
   "/service-boy": "SERVICE_BOY_PAGE",
+
+  // Bonus module routes
+  "/assets": "ASSET_MODULE",
+  "/assets/qr-codes": "ASSET_MODULE",
+  "/finance/budgeting": "FINANCE_EXTENDED",
+  "/finance/closure": "FINANCE_EXTENDED",
+  "/finance/performance-audit": "FINANCE_EXTENDED",
+  "/finance/ledger": "FINANCE_EXTENDED",
+  "/finance/buyer-invoices": "FINANCE_EXTENDED",
+  "/settings": "SETTINGS_MODULE",
 };
 
 // Derived frozen routes for backward compatibility
@@ -91,6 +106,16 @@ const NAV_ITEM_FLAG_MAP: Record<string, keyof typeof FEATURE_FLAGS> = {
   "Leave Config": "LEAVE_CONFIG_ADMIN",
   "Specialized Profiles": "SPECIALIZED_PROFILES",
   "My Jobs": "SERVICE_BOY_PAGE",
+
+  // Bonus module nav items
+  "Assets & Maintenance": "ASSET_MODULE",
+  "Asset Registry": "ASSET_MODULE",
+  "QR Code Lab": "ASSET_MODULE",
+  "Settings": "SETTINGS_MODULE",
+  "Company Identity": "SETTINGS_MODULE",
+  "Access Control": "SETTINGS_MODULE",
+  "Notification Center": "SETTINGS_MODULE",
+  "Visual Branding": "SETTINGS_MODULE",
 };
 
 export const FROZEN_NAV_ITEMS: string[] = Object.entries(NAV_ITEM_FLAG_MAP)

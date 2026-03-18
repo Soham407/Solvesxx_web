@@ -192,7 +192,9 @@ export default function ResidentsPage() {
     setIsSubmitting(true);
     setError(null);
     try {
-      const userCode = "RES-" + Math.random().toString(36).substr(2, 6).toUpperCase();
+      const resArr = new Uint8Array(3);
+      crypto.getRandomValues(resArr);
+      const userCode = "RES-" + Array.from(resArr).map(b => b.toString(16).padStart(2, "0")).join("").toUpperCase();
       const { error: insertError } = await supabase.from('residents').insert({
          full_name: formData.full_name,
          phone: formData.phone,

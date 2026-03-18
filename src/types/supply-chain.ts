@@ -43,28 +43,36 @@ export interface SupplierExtended extends Supplier {
   supplier_type?: SupplierType | null;
   alternate_phone?: string | null;
   pan_number?: string | null;
-  
+  supplier_code?: string | null;
+
   // Address (granular)
   city?: string | null;
   state?: string | null;
   pincode?: string | null;
   country?: string | null;
-  
+
   // Banking
   bank_name?: string | null;
   bank_account_number?: string | null;
   ifsc_code?: string | null;
-  
+
   // Business terms
   payment_terms?: number | null;  // Days
   credit_limit?: number | null;
-  
+
+  // Status & verification
+  status?: SupplierStatus | null;
+  is_verified?: boolean | null;
+  tier?: number | null;
+  rating?: number | null;
+  overall_score?: number | null;
+
   // Performance scores (0-100)
   quality_score?: number | null;
   delivery_score?: number | null;
   price_score?: number | null;
   service_score?: number | null;
-  
+
   // Audit
   created_by?: string | null;
   updated_by?: string | null;
@@ -78,6 +86,10 @@ export interface SupplierProductExtended extends SupplierProduct {
   pack_size?: string | null;
   case_size?: number | null;
   is_active?: boolean | null;
+  is_preferred?: boolean | null;
+  preference_rank?: number | null;
+  lead_time_days?: number | null;
+  updated_at?: string | null;
   created_by?: string | null;
 }
 
@@ -85,12 +97,23 @@ export interface SupplierProductExtended extends SupplierProduct {
 export interface SupplierRateExtended extends SupplierRate {
   currency?: string | null;
   created_by?: string | null;
+  effective_to?: string | null;
+  discount_percentage?: number | null;
+  gst_percentage?: number | null;
+  min_qty_for_price?: number | null;
+  notes?: string | null;
 }
 
 /** Extended Sale Product Rate type with all Phase D columns */
 export interface SaleProductRateExtended extends SaleProductRate {
   currency?: string | null;
   created_by?: string | null;
+  society_id?: string | null;
+  effective_to?: string | null;
+  gst_percentage?: number | null;
+  margin_percentage?: number | null;
+  base_cost?: number | null;
+  notes?: string | null;
 }
 
 // ===== UI DISPLAY TYPES =====

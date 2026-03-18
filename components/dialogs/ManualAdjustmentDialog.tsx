@@ -21,12 +21,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { UserCheck, Loader2, Clock, Calendar, AlertCircle } from "lucide-react";
+import { UserCheck, Loader2, Clock, Calendar as CalendarIcon, AlertCircle } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/components/ui/use-toast";
-import { supabase } from "@/src/lib/supabaseClient";
+import { supabase as supabaseTyped } from "@/src/lib/supabaseClient";
 import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+
+const supabase = supabaseTyped as any;
 
 interface ManualAdjustmentDialogProps {
   children: React.ReactNode;
@@ -149,7 +152,7 @@ export function ManualAdjustmentDialog({
                       !date && "text-muted-foreground"
                     )}
                   >
-                    <Calendar className="mr-2 h-4 w-4" />
+                    <CalendarIcon className="mr-2 h-4 w-4" />
                     {date ? format(date, "PPP") : "Select date"}
                   </Button>
                 </PopoverTrigger>

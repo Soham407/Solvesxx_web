@@ -35,7 +35,8 @@ import {
 } from "@/components/ui/select";
 import { useWorkMaster, WorkMaster } from "@/hooks/useWorkMaster";
 import { toast } from "sonner";
-import { supabase } from "@/src/lib/supabaseClient";
+import { supabase as supabaseTyped } from "@/src/lib/supabaseClient";
+const supabase = supabaseTyped as any;
 
 const EMPTY_FORM = { work_name: "", skill_level_required: "", standard_time_minutes: "", priority: "medium", description: "" };
 

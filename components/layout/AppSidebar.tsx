@@ -176,7 +176,7 @@ const navigation: NavGroup[] = [
         href: "/society",
         icon: Home,
         children: [
-          { title: "Guard Station",      href: "/test-guard" },
+          { title: "Guard Station",      href: "/guard" },
           { title: "Resident Directory", href: "/society/residents" },
           { title: "Visitor Management", href: "/society/visitors" },
           { title: "Incident Alerts", href: "/society/panic-alerts" },
@@ -336,7 +336,7 @@ export function AppSidebar({ collapsed, onToggle, className, isMobile }: AppSide
       // Portal roles redirect /dashboard → their portal page, so keep Main Dashboard active there
       if (role === "buyer" && pathname?.startsWith("/buyer")) return true;
       if ((role === "supplier" || role === "vendor") && pathname?.startsWith("/supplier")) return true;
-      if (role === "resident" && pathname?.startsWith("/test-resident")) return true;
+      if (role === "resident" && (pathname?.startsWith("/resident") || pathname?.startsWith("/test-resident"))) return true;
       return pathname === "/dashboard";
     }
     return pathname?.startsWith(href);

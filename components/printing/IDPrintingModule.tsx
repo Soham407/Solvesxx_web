@@ -46,7 +46,7 @@ export function IDPrintingModule() {
   const printRef = useRef<HTMLDivElement>(null);
 
   const handlePrint = useReactToPrint({
-    content: () => printRef.current,
+    contentRef: printRef,
     documentTitle: `ID-Card-${cardData.id || "preview"}`,
   });
 

@@ -12,7 +12,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Camera, User, Phone, Car, MapPin, Loader2, AlertCircle } from "lucide-react";
-import { supabase } from "@/src/lib/supabaseClient";
+import { supabase as supabaseTyped } from "@/src/lib/supabaseClient";
+const supabase = supabaseTyped as any;
 import { MAIN_GATE_CODE } from "@/src/lib/constants";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/hooks/useAuth";

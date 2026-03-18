@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Shield, Save, AlertCircle, Loader2 } from "lucide-react";
-import { supabase } from "@/src/lib/supabaseClient";
+import { supabase as supabaseTyped } from "@/src/lib/supabaseClient";
+const supabase = supabaseTyped as any;
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/components/ui/use-toast";
 

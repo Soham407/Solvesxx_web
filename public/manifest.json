@@ -2,7 +2,7 @@
   "name": "FacilityPro Guard Portal",
   "short_name": "FacilityPro",
   "description": "FacilityPro Guard & Security Portal — visitor management, panic alerts, and checklist compliance.",
-  "start_url": "/test-guard",
+  "start_url": "/guard",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0f172a",

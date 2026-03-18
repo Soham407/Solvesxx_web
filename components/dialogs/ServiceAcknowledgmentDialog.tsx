@@ -19,9 +19,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle2, Loader2, AlertTriangle, Users } from "lucide-react";
-import { supabase } from "@/src/lib/supabaseClient";
+import { supabase as supabaseTyped } from "@/src/lib/supabaseClient";
 import { useToast } from "@/components/ui/use-toast";
 import { ServicePurchaseOrder } from "@/hooks/useServicePurchaseOrders";
+
+const supabase = supabaseTyped as any;
 
 const formSchema = z.object({
   headcount_received: z.coerce.number().min(0, "Must be 0 or more"),
@@ -29,7 +31,11 @@ const formSchema = z.object({
   notes: z.string().optional(),
 });
 
-type FormValues = z.infer<typeof formSchema>;
+type FormValues = {
+  headcount_received: number;
+  grade_verified: boolean;
+  notes?: string;
+};
 
 interface ServiceAcknowledgmentDialogProps {
   open: boolean;
@@ -50,7 +56,7 @@ export function ServiceAcknowledgmentDialog({
   const { toast } = useToast();
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(formSchema) as any,
     defaultValues: {
       headcount_received: 0,
       grade_verified: false,

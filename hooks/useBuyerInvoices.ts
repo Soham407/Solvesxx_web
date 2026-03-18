@@ -38,6 +38,8 @@ export interface BuyerInvoice {
   client_name?: string;
   client_code?: string;
   contract_number?: string;
+  feedback_submitted?: boolean | null;
+  supplier_name?: string | null;
   total_items?: number;
 }
 

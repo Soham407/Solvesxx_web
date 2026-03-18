@@ -477,7 +477,9 @@ export function useVisitors(initialFilters?: VisitorFilters) {
   // Issue pass to visitor (PRD: Guard resolution)
   const issueVisitorPass = async (visitorId: string) => {
     try {
-      const passNumber = `PASS-${Math.floor(1000 + Math.random() * 9000)}`;
+      const arr = new Uint32Array(1);
+      crypto.getRandomValues(arr);
+      const passNumber = `PASS-${(arr[0] % 9000) + 1000}`;
       const { error: updateError } = await supabase
         .from("visitors")
         .update({ visitor_pass_number: passNumber })

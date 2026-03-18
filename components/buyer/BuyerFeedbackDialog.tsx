@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/src/lib/supabaseClient";
+import { supabase as supabaseTyped } from "@/src/lib/supabaseClient";
+const supabase = supabaseTyped as any;
 import { useToast } from "@/components/ui/use-toast";
 import {
   Dialog,

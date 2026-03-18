@@ -18,6 +18,7 @@ interface Employee {
   photo_url?: string | null;
   date_of_joining?: string | null;
   designation_name?: string | null;
+  role?: string | null;
 }
 
 interface UseEmployeesState {

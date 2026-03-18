@@ -46,7 +46,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { supabase } from "@/src/lib/supabaseClient";
+import { supabase as supabaseTyped } from "@/src/lib/supabaseClient";
+const supabase = supabaseTyped as any;
 import { toast } from "sonner";
 import { format } from "date-fns";
 

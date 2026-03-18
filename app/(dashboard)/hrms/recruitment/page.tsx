@@ -241,7 +241,7 @@ export default function RecruitmentPortalPage() {
     setSelectedCandidate(candidate);
     if (status === "hired") {
       setConvertData({
-        employee_code: `EMP-${Math.floor(1000 + Math.random() * 9000)}`,
+        employee_code: `EMP-${(() => { const a = new Uint32Array(1); crypto.getRandomValues(a); return (a[0] % 9000) + 1000; })()}`,
         date_of_joining: new Date().toISOString().split("T")[0],
       });
       setConvertDialogOpen(true);

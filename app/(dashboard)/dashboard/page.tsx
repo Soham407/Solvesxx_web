@@ -98,7 +98,7 @@ function DashboardPageContent() {
   useEffect(() => {
     if (role === "buyer") router.replace("/buyer");
     else if (role === "supplier" || role === "vendor") router.replace("/supplier");
-    else if (role === "resident") router.replace("/test-resident");
+    else if (role === "resident") router.replace("/resident");
   }, [role, router]);
 
   // Automatically set the selected role to the user's actual role on load

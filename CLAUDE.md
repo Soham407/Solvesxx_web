@@ -176,9 +176,9 @@ const pestService = services.find(s => s.service_code === "PST-CON" ||
 | Admin | `/login` → admin dashboard | Full CRUD on all modules |
 | Buyer | `/login` → `/buyer` | Order requests, invoices, feedback |
 | Supplier | `/login` → `/supplier` | Indent response, bills, POs |
-| Guard | `/login` → `/test-guard` | Resident verification, visitor logging |
-| Resident | `/login` → `/test-resident` | Visitor invitation |
-| Delivery | `/login` → `/test-delivery` | Material arrival logging |
+| Guard | `/login` → `/guard` | SOS panic, visitor registration, resident verification |
+| Resident | `/login` → `/resident` | Visitor invitation |
+| Delivery | `/login` → `/delivery` | Material arrival logging |
 
 ---
 

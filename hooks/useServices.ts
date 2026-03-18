@@ -15,6 +15,7 @@ interface UseServicesReturn extends UseServicesState {
   updateService: (id: string, data: ServiceUpdate) => Promise<{ success: boolean; error?: string }>;
   deleteService: (id: string) => Promise<{ success: boolean; error?: string }>;
   getServiceById: (id: string) => Service | undefined;
+  getServiceByCode: (code: string) => Service | undefined;
   getServicesByCategory: (category: string) => Service[];
   refresh: () => void;
 }

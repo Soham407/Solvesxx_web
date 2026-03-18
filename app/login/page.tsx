@@ -90,10 +90,11 @@ export default function LoginPage() {
         const userRole = (userData as any)?.roles?.role_name;
 
         const roleRedirects: Record<string, string> = {
-          buyer:    "/buyer",
-          supplier: "/supplier",
-          vendor:   "/supplier",
-          resident: "/test-resident",
+          buyer:        "/buyer",
+          supplier:     "/supplier",
+          vendor:       "/supplier",
+          resident:     "/resident",
+          delivery_boy: "/delivery",
         };
 
         toast.success("Welcome back!");
