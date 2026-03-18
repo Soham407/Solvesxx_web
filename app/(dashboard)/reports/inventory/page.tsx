@@ -17,6 +17,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAnalyticsData } from "@/hooks/useAnalyticsData";
 import { AnalyticsChart } from "@/components/shared/AnalyticsChart";
 import { Skeleton } from "@/components/ui/skeleton";
+import { downloadCSV } from "@/lib/utils/csvExport";
+import { toast } from "sonner";
 
 interface InventoryReport {
   product_id: string;
@@ -73,10 +75,10 @@ export default function InventoryAnalysisPage() {
         description="Predictive stock-out modeling, category burn rates, and automated reorder forecasting."
         actions={
           <div className="flex gap-2">
-             <Button variant="outline" className="gap-2">
+             <Button variant="outline" className="gap-2" onClick={() => { const alerts = data.filter(i => i.days_to_stockout < 7); if (alerts.length === 0) { toast.info("No critical stock alerts at this time"); return; } downloadCSV("stock_alerts", alerts); toast.success(`${alerts.length} stock alert(s) exported`); }}>
                <AlertTriangle className="h-4 w-4" /> Stock Alerts
             </Button>
-            <Button className="gap-2 shadow-lg shadow-primary/20">
+            <Button className="gap-2 shadow-lg shadow-primary/20" onClick={() => { if (data.length === 0) { toast.error("No data to export"); return; } downloadCSV("po_manifest", data); toast.success("PO Manifest downloaded"); }}>
                <Download className="h-4 w-4" /> PO Manifest (XL)
             </Button>
           </div>

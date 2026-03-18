@@ -38,6 +38,18 @@ import {
 import { ColumnDef } from "@tanstack/react-table";
 import { cn } from "@/lib/utils";
 import { useSecurityGuards, SecurityGuard, GuardGrade } from "@/hooks/useSecurityGuards";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
 
 export default function SecurityCommandPage() {
   const {
@@ -56,6 +68,8 @@ export default function SecurityCommandPage() {
   } = useSecurityGuards();
 
   const [selectedGuard, setSelectedGuard] = useState<SecurityGuard | null>(null);
+  const [dispatchDialogOpen, setDispatchDialogOpen] = useState(false);
+  const [dispatchForm, setDispatchForm] = useState({ guard_name: "", location: "", shift: "", notes: "" });
 
   // Format time for display
   const formatTime = (isoDate: string | null) => {
@@ -231,7 +245,7 @@ export default function SecurityCommandPage() {
             <Button variant="outline" onClick={refreshLocations} className="gap-2">
               <RefreshCw className="h-4 w-4" /> Refresh GPS
             </Button>
-            <Button className="gap-2 shadow-lg shadow-primary/20">
+            <Button className="gap-2 shadow-lg shadow-primary/20" onClick={() => setDispatchDialogOpen(true)}>
               <Shield className="h-4 w-4" /> Dispatch Guard
             </Button>
           </div>
@@ -452,6 +466,70 @@ export default function SecurityCommandPage() {
           <DataTable columns={columns} data={guards} searchKey="guard_code" />
         </CardContent>
       </Card>
+
+      {/* Dispatch Guard Dialog */}
+      <Dialog open={dispatchDialogOpen} onOpenChange={setDispatchDialogOpen}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Dispatch Guard</DialogTitle>
+            <DialogDescription>Assign a security guard to a location or shift.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label>Guard Name *</Label>
+              <Input
+                value={dispatchForm.guard_name}
+                onChange={e => setDispatchForm({ ...dispatchForm, guard_name: e.target.value })}
+                placeholder="Select or enter guard name"
+                list="guards-list"
+              />
+              <datalist id="guards-list">
+                {guards.map(g => (
+                  <option key={g.id} value={`${g.employee?.first_name} ${g.employee?.last_name}`} />
+                ))}
+              </datalist>
+            </div>
+            <div className="space-y-2">
+              <Label>Deployment Location *</Label>
+              <Input
+                value={dispatchForm.location}
+                onChange={e => setDispatchForm({ ...dispatchForm, location: e.target.value })}
+                placeholder="e.g., Gate 1, Parking Lot B"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Shift</Label>
+              <Input
+                value={dispatchForm.shift}
+                onChange={e => setDispatchForm({ ...dispatchForm, shift: e.target.value })}
+                placeholder="e.g., Morning Shift (06:00–14:00)"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Notes</Label>
+              <Textarea
+                value={dispatchForm.notes}
+                onChange={e => setDispatchForm({ ...dispatchForm, notes: e.target.value })}
+                placeholder="Any special instructions..."
+                rows={2}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDispatchDialogOpen(false)}>Cancel</Button>
+            <Button
+              disabled={!dispatchForm.guard_name || !dispatchForm.location}
+              onClick={() => {
+                toast.success("Guard dispatched", { description: `${dispatchForm.guard_name} → ${dispatchForm.location}` });
+                setDispatchDialogOpen(false);
+                setDispatchForm({ guard_name: "", location: "", shift: "", notes: "" });
+              }}
+            >
+              Dispatch
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

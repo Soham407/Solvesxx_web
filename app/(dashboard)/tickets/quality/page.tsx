@@ -25,10 +25,30 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useGRN, GRN_STATUS_CONFIG, QualityStatus } from "@/hooks/useGRN";
-import { supabase } from "@/src/lib/supabaseClient";
 import { useEffect, useState } from "react";
 import { useShortageNotes, SHORTAGE_STATUS_CONFIG } from "@/hooks/useShortageNotes";
+import { useAuditLogs } from "@/hooks/useAuditLogs";
 import { formatCurrency } from "@/src/lib/utils/currency";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { supabase } from "@/src/lib/supabaseClient";
+import { toast } from "sonner";
+import { format } from "date-fns";
 
 interface QualityTicket {
   id: string;
@@ -63,6 +83,45 @@ export default function QualityTicketsPage() {
 
   const { materialReceipts, isLoading: grnLoading, error: grnError, fetchGRNItems } = useGRN();
   const { notes: shortageNotes, isLoading: shortageLoading, stats: shortageStats } = useShortageNotes();
+  const { logs: auditLogs } = useAuditLogs();
+
+  const [logDiscrepancyOpen, setLogDiscrepancyOpen] = useState(false);
+  const [auditLogsOpen, setAuditLogsOpen] = useState(false);
+  const [isSubmittingDiscrepancy, setIsSubmittingDiscrepancy] = useState(false);
+  const [discrepancyForm, setDiscrepancyForm] = useState({
+    item_description: "",
+    issue_type: "Shortage" as QualityTicket["issueType"],
+    expected_qty: "",
+    actual_qty: "",
+    vendor: "",
+  });
+
+  const handleLogDiscrepancy = async () => {
+    if (!discrepancyForm.item_description) return;
+    setIsSubmittingDiscrepancy(true);
+    try {
+      const { error } = await supabase.from("shortage_notes").insert({
+        note_number: `SN-${Date.now()}`,
+        po_number: "MANUAL",
+        supplier_name: discrepancyForm.vendor || "Unknown",
+        status: "open",
+        total_shortage_value: 0,
+        items: [{
+          product_name: discrepancyForm.item_description,
+          shortage_quantity: Math.max(0, (parseFloat(discrepancyForm.expected_qty) || 0) - (parseFloat(discrepancyForm.actual_qty) || 0)),
+          unit: "units",
+        }],
+      });
+      if (error) throw error;
+      toast.success("Discrepancy logged successfully");
+      setLogDiscrepancyOpen(false);
+      setDiscrepancyForm({ item_description: "", issue_type: "Shortage", expected_qty: "", actual_qty: "", vendor: "" });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to log discrepancy");
+    } finally {
+      setIsSubmittingDiscrepancy(false);
+    }
+  };
 
   const fetchQualityData = async () => {
     try {
@@ -232,10 +291,10 @@ export default function QualityTicketsPage() {
             >
               <RefreshCw className={cn("h-4 w-4", displayLoading && "animate-spin")} /> Refresh
             </Button>
-            <Button variant="outline" className="gap-2">
+            <Button variant="outline" className="gap-2" onClick={() => setAuditLogsOpen(true)}>
                <FileSearch className="h-4 w-4" /> Audit Logs
             </Button>
-            <Button className="gap-2 shadow-sm">
+            <Button className="gap-2 shadow-sm" onClick={() => setLogDiscrepancyOpen(true)}>
                <Plus className="h-4 w-4" /> Log Discrepancy
             </Button>
           </div>
@@ -361,6 +420,83 @@ export default function QualityTicketsPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Log Discrepancy Dialog */}
+      <Dialog open={logDiscrepancyOpen} onOpenChange={setLogDiscrepancyOpen}>
+        <DialogContent className="sm:max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle>Log Discrepancy</DialogTitle>
+            <DialogDescription>Record a quality or quantity issue for a received item.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label>Item Description *</Label>
+              <Input
+                value={discrepancyForm.item_description}
+                onChange={e => setDiscrepancyForm({ ...discrepancyForm, item_description: e.target.value })}
+                placeholder="e.g., Cleaning Agent 5L"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Issue Type</Label>
+              <Select value={discrepancyForm.issue_type} onValueChange={v => setDiscrepancyForm({ ...discrepancyForm, issue_type: v as QualityTicket["issueType"] })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {["Shortage", "Damaged", "Expired", "Wrong Item", "Partial"].map(t => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Expected Qty</Label>
+                <Input type="number" value={discrepancyForm.expected_qty} onChange={e => setDiscrepancyForm({ ...discrepancyForm, expected_qty: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Actual Qty</Label>
+                <Input type="number" value={discrepancyForm.actual_qty} onChange={e => setDiscrepancyForm({ ...discrepancyForm, actual_qty: e.target.value })} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Vendor / Supplier</Label>
+              <Input value={discrepancyForm.vendor} onChange={e => setDiscrepancyForm({ ...discrepancyForm, vendor: e.target.value })} placeholder="Supplier name" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLogDiscrepancyOpen(false)}>Cancel</Button>
+            <Button onClick={handleLogDiscrepancy} disabled={isSubmittingDiscrepancy || !discrepancyForm.item_description}>
+              {isSubmittingDiscrepancy ? "Saving..." : "Log Discrepancy"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Audit Logs Dialog */}
+      <Dialog open={auditLogsOpen} onOpenChange={setAuditLogsOpen}>
+        <DialogContent className="sm:max-w-[560px]">
+          <DialogHeader>
+            <DialogTitle>Quality Audit Logs</DialogTitle>
+            <DialogDescription>Recent system activity related to quality and inventory checks.</DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[400px] overflow-y-auto space-y-2 py-2">
+            {auditLogs.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">No audit logs found.</p>
+            ) : auditLogs.slice(0, 50).map(log => (
+              <div key={log.id} className="flex items-start justify-between p-3 rounded-lg bg-muted/30 text-xs">
+                <div>
+                  <p className="font-bold">{log.entity_type} — <span className="text-primary">{log.action}</span></p>
+                  <p className="text-muted-foreground">{log.actor_name || "System"}</p>
+                </div>
+                <span className="text-muted-foreground shrink-0 ml-2">{format(new Date(log.created_at), "MMM d, HH:mm")}</span>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setAuditLogsOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

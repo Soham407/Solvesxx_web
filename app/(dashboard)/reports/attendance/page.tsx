@@ -19,6 +19,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAnalyticsData } from "@/hooks/useAnalyticsData";
 import { AnalyticsChart } from "@/components/shared/AnalyticsChart";
 import { Skeleton } from "@/components/ui/skeleton";
+import { downloadCSV } from "@/lib/utils/csvExport";
+import { toast } from "sonner";
 
 interface AttendanceReport {
   department: string;
@@ -73,10 +75,10 @@ export default function AttendanceAnalyticsPage() {
         description="Deep dive into staff punctuality, absenteeism heatmaps, and department-wise shift compliance."
         actions={
           <div className="flex gap-2">
-            <Button variant="outline" className="gap-2">
+            <Button variant="outline" className="gap-2" onClick={() => toast.info("Trend View", { description: "Chart already shows trend data above." })}>
                <TrendingUp className="h-4 w-4" /> Trend View
             </Button>
-            <Button className="gap-2 shadow-lg shadow-primary/20">
+            <Button className="gap-2 shadow-lg shadow-primary/20" onClick={() => { if (data.length === 0) { toast.error("No data to export"); return; } downloadCSV("attendance_report", data); toast.success("Report downloaded"); }}>
                <Download className="h-4 w-4" /> Download Report
             </Button>
           </div>
@@ -128,7 +130,7 @@ export default function AttendanceAnalyticsPage() {
                  <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Absent Alerts</span>
              </div>
              <div className="flex flex-col">
-                <span className="text-xl font-bold text-foreground">3</span>
+                <span className="text-xl font-bold text-foreground">{data.reduce((acc, curr) => acc + Number(curr.total_absent || 0), 0)}</span>
                 <span className="text-[10px] text-critical font-medium mt-1">Unexplained absences</span>
              </div>
         </Card>

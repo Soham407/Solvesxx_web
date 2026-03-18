@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTable } from "@/components/shared/DataTable";
 import { Button } from "@/components/ui/button";
-import { Plus, User, Key, Mail, ShieldCheck, MoreHorizontal, Loader2, AlertCircle } from "lucide-react";
+import { Plus, User, Key, Mail, ShieldCheck, MoreHorizontal, AlertCircle } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -14,71 +14,33 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { supabase } from "@/src/lib/supabaseClient";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { format } from "date-fns";
-
-interface UserMaster {
-  id: string;
-  full_name: string;
-  email: string;
-  role_name: string;
-  last_login: string | null;
-  status: "Active" | "Locked" | "Pending";
-}
+import { toast } from "sonner";
+import { useUsers, UserMaster } from "@/hooks/useUsers";
 
 export default function UsersPage() {
-  const [users, setUsers] = useState<UserMaster[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { users, isLoading, error, deactivateUser, activateUser } = useUsers();
+  const [mfaDialogOpen, setMfaDialogOpen] = useState(false);
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  const fetchUsers = async () => {
+  const handleResetPassword = async (user: UserMaster) => {
     try {
-      setIsLoading(true);
-      setError(null);
-
-      const { data, error: fetchError } = await supabase
-        .from("users")
-        .select(`
-          id,
-          full_name,
-          email,
-          last_login,
-          is_active,
-          roles (
-            role_display_name
-          )
-        `)
-        .order("full_name");
-
-      if (fetchError) throw fetchError;
-
-      const formattedUsers: UserMaster[] = (data || []).map((u: any) => {
-        const roleData = Array.isArray(u.roles) ? u.roles[0] : u.roles;
-        
-        // Basic status logic based purely on is_active for now
-        let status: "Active" | "Locked" | "Pending" = u.is_active ? "Active" : "Locked";
-
-        return {
-          id: u.id,
-          full_name: u.full_name,
-          email: u.email,
-          role_name: roleData?.role_display_name || "Unknown Role",
-          last_login: u.last_login,
-          status,
-        };
+      const res = await fetch("/api/users/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: user.email }),
       });
-
-      setUsers(formattedUsers);
-    } catch (err: any) {
-      console.error("Error fetching users:", err);
-      setError("Failed to load users list");
-    } finally {
-      setIsLoading(false);
+      if (!res.ok) throw new Error("Request failed");
+      toast.success("Reset link sent", { description: `Password reset email sent to ${user.email}` });
+    } catch {
+      toast.error("Failed to send reset link");
     }
   };
 
@@ -94,8 +56,10 @@ export default function UsersPage() {
             </AvatarFallback>
           </Avatar>
           <div className="flex flex-col">
-            <span className="font-bold text-sm ">{row.original.full_name}</span>
-            <span className="text-[10px] text-muted-foreground flex items-center gap-1 font-bold"><Mail className="h-2.5 w-2.5" /> {row.original.email}</span>
+            <span className="font-bold text-sm">{row.original.full_name}</span>
+            <span className="text-[10px] text-muted-foreground flex items-center gap-1 font-bold">
+              <Mail className="h-2.5 w-2.5" /> {row.original.email}
+            </span>
           </div>
         </div>
       ),
@@ -129,12 +93,12 @@ export default function UsersPage() {
       cell: ({ row }) => {
         const status = row.getValue("status") as string;
         const variants: Record<string, string> = {
-            Active: "bg-success/10 text-success border-success/20",
-            Locked: "bg-critical/10 text-critical border-critical/20",
-            Pending: "bg-warning/10 text-warning border-warning/20"
+          Active: "bg-success/10 text-success border-success/20",
+          Locked: "bg-critical/10 text-critical border-critical/20",
+          Pending: "bg-warning/10 text-warning border-warning/20",
         };
         return (
-          <Badge variant="outline" className={variants[status]} >
+          <Badge variant="outline" className={variants[status]}>
             {status}
           </Badge>
         );
@@ -142,26 +106,41 @@ export default function UsersPage() {
     },
     {
       id: "actions",
-      cell: () => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem className="gap-2">
-              <ShieldCheck className="h-3.5 w-3.5" /> Reset Password
-            </DropdownMenuItem>
-            <DropdownMenuItem className="gap-2">
-              <Key className="h-3.5 w-3.5" /> Manage MFA
-            </DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive font-bold gap-2">
-              Deactivate User
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
+      cell: ({ row }) => {
+        const user = row.original;
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem className="gap-2" onClick={() => handleResetPassword(user)}>
+                <ShieldCheck className="h-3.5 w-3.5" /> Reset Password
+              </DropdownMenuItem>
+              <DropdownMenuItem className="gap-2" onClick={() => setMfaDialogOpen(true)}>
+                <Key className="h-3.5 w-3.5" /> Manage MFA
+              </DropdownMenuItem>
+              {user.is_active ? (
+                <DropdownMenuItem
+                  className="text-destructive font-bold gap-2"
+                  onClick={() => deactivateUser(user.id)}
+                >
+                  Deactivate User
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem
+                  className="text-success font-bold gap-2"
+                  onClick={() => activateUser(user.id)}
+                >
+                  Activate User
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+      },
     },
   ];
 
@@ -171,12 +150,12 @@ export default function UsersPage() {
         title="User Master"
         description="Provision system access and monitor secure identity portal accounts."
         actions={
-          <Button className="gap-2 shadow-sh-primary/20">
+          <Button className="gap-2 shadow-primary/20">
             <Plus className="h-4 w-4" /> Provision New User
           </Button>
         }
       />
-      
+
       {error && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
@@ -184,13 +163,22 @@ export default function UsersPage() {
         </Alert>
       )}
 
-      {isLoading ? (
-        <div className="flex items-center justify-center h-64 border rounded-lg bg-muted/10">
-           <Loader2 className="h-8 w-8 text-muted-foreground animate-spin" />
-        </div>
-      ) : (
-        <DataTable columns={columns} data={users} searchKey="full_name" />
-      )}
+      <DataTable columns={columns} data={users} searchKey="full_name" isLoading={isLoading} />
+
+      <Dialog open={mfaDialogOpen} onOpenChange={setMfaDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Manage MFA</DialogTitle>
+            <DialogDescription>
+              Multi-factor authentication is managed through the Supabase Auth dashboard. Navigate to
+              Authentication → Users to enable or disable MFA for individual users.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end pt-2">
+            <Button onClick={() => setMfaDialogOpen(false)}>Close</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

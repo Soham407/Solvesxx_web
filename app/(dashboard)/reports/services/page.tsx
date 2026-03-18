@@ -19,6 +19,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAnalyticsData } from "@/hooks/useAnalyticsData";
 import { AnalyticsChart } from "@/components/shared/AnalyticsChart";
 import { Skeleton } from "@/components/ui/skeleton";
+import { downloadCSV } from "@/lib/utils/csvExport";
+import { toast } from "sonner";
 
 interface ServiceReport {
   service_category: string;
@@ -26,6 +28,7 @@ interface ServiceReport {
   avg_response: number;
   avg_rating: number;
   resolution_rate: number;
+  total_breaches?: number;
 }
 
 export default function ServiceAnalyticsPage() {
@@ -80,10 +83,10 @@ export default function ServiceAnalyticsPage() {
         description="Monitoring resolution SLMs, technician efficiency scores, and resident satisfaction across all facility services."
         actions={
           <div className="flex gap-2">
-            <Button variant="outline" className="gap-2">
+            <Button variant="outline" className="gap-2" onClick={() => toast.info("KPI Trends", { description: "Trend charts are displayed in the dashboard below." })}>
                <TrendingUp className="h-4 w-4" /> KPI Trends
             </Button>
-            <Button className="gap-2 shadow-lg shadow-primary/20">
+            <Button className="gap-2 shadow-lg shadow-primary/20" onClick={() => { if (data.length === 0) { toast.error("No data to export"); return; } downloadCSV("service_analytics", data); toast.success("Report downloaded"); }}>
                <Download className="h-4 w-4" /> Download Report
             </Button>
           </div>

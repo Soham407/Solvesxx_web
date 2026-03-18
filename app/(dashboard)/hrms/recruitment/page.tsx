@@ -156,6 +156,9 @@ export default function RecruitmentPortalPage() {
   // BGV panel
   const [bgvCandidateId, setBgvCandidateId] = useState<string | null>(null);
 
+  // Detail view
+  const [detailCandidate, setDetailCandidate] = useState<Candidate | null>(null);
+
   // Convert dialog
   const [convertDialogOpen, setConvertDialogOpen] = useState(false);
   const [convertData, setConvertData] = useState({
@@ -347,7 +350,7 @@ export default function RecruitmentPortalPage() {
                 <ShieldCheck className="h-3 w-3" /> BGV
               </Button>
             )}
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-primary">
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => setDetailCandidate(candidate)}>
               <FileSearch className="h-4 w-4" />
             </Button>
             <DropdownMenu>
@@ -357,7 +360,7 @@ export default function RecruitmentPortalPage() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem>View Details</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setDetailCandidate(candidate)}>View Details</DropdownMenuItem>
                 <DropdownMenuItem>Edit Candidate</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 {canTransitionTo(candidate.id, "interviewing") && (
@@ -696,6 +699,36 @@ export default function RecruitmentPortalPage() {
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {newStatus === "rejected" ? "Reject" : "Confirm"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Candidate Detail Dialog */}
+      <Dialog open={!!detailCandidate} onOpenChange={(open) => { if (!open) setDetailCandidate(null); }}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle>Candidate Profile</DialogTitle>
+            <DialogDescription>{detailCandidate?.candidate_code}</DialogDescription>
+          </DialogHeader>
+          {detailCandidate && (
+            <div className="space-y-3 py-2 text-sm">
+              <div className="grid grid-cols-2 gap-3">
+                <div><p className="text-[10px] uppercase font-bold text-muted-foreground">Full Name</p><p className="font-medium">{detailCandidate.full_name}</p></div>
+                <div><p className="text-[10px] uppercase font-bold text-muted-foreground">Position</p><p className="font-medium">{detailCandidate.applied_position}</p></div>
+                <div><p className="text-[10px] uppercase font-bold text-muted-foreground">Email</p><p className="font-medium">{detailCandidate.email}</p></div>
+                <div><p className="text-[10px] uppercase font-bold text-muted-foreground">Phone</p><p className="font-medium">{detailCandidate.phone || "—"}</p></div>
+                <div><p className="text-[10px] uppercase font-bold text-muted-foreground">Department</p><p className="font-medium">{detailCandidate.department || "—"}</p></div>
+                <div><p className="text-[10px] uppercase font-bold text-muted-foreground">Source</p><p className="font-medium">{detailCandidate.source || "Direct"}</p></div>
+                <div><p className="text-[10px] uppercase font-bold text-muted-foreground">Status</p><Badge variant="outline" className={cn("font-bold text-[10px] uppercase h-5", STATUS_CONFIG[detailCandidate.status]?.className)}>{STATUS_CONFIG[detailCandidate.status]?.label}</Badge></div>
+                <div><p className="text-[10px] uppercase font-bold text-muted-foreground">Applied On</p><p className="font-medium">{new Date(detailCandidate.created_at).toLocaleDateString()}</p></div>
+              </div>
+              {detailCandidate.notes && (
+                <div><p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Notes</p><p className="text-xs text-muted-foreground">{detailCandidate.notes}</p></div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setDetailCandidate(null)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

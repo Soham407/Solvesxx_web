@@ -193,7 +193,10 @@ export default function BehaviorTicketsPage() {
               <History className="h-4 w-4 mr-2" /> Take Action
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive">
+            <DropdownMenuItem
+              className="text-destructive"
+              onClick={() => updateStatus(row.original.id, "dismissed")}
+            >
               <XCircle className="h-4 w-4 mr-2" /> Dismiss Ticket
             </DropdownMenuItem>
           </DropdownMenuContent>

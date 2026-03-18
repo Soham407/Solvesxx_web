@@ -455,7 +455,7 @@ export default function PayrollPage() {
               <Calendar className="h-12 w-12 mb-4 opacity-50" />
               <p className="text-sm">No payslips generated for this cycle yet.</p>
               {selectedCycle?.status === "draft" && (
-                <Button variant="outline" className="mt-4 gap-2">
+                <Button variant="outline" className="mt-4 gap-2" onClick={handleGeneratePayslips}>
                   <ShieldCheck className="h-4 w-4" /> Generate Payslips
                 </Button>
               )}

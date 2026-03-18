@@ -18,6 +18,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAnalyticsData } from "@/hooks/useAnalyticsData";
 import { AnalyticsChart } from "@/components/shared/AnalyticsChart";
 import { Skeleton } from "@/components/ui/skeleton";
+import { downloadCSV } from "@/lib/utils/csvExport";
+import { toast } from "sonner";
 
 interface LedgerSummary {
   category: string;
@@ -52,6 +54,15 @@ export default function FinancialAnalyticsPage() {
   const totalCollection = summary?.total_collected_ytd || 0;
   const outstanding = summary?.total_outstanding || 0;
   const totalExpense = trends.reduce((acc, curr) => acc + Number(curr.expense || 0), 0);
+
+  // Month-over-month collection change
+  const lastTwoMonths = trends.slice(-2);
+  const momCollectionChange = lastTwoMonths.length === 2 && Number(lastTwoMonths[0].revenue || 0) > 0
+    ? (((Number(lastTwoMonths[1].revenue || 0) - Number(lastTwoMonths[0].revenue || 0)) / Number(lastTwoMonths[0].revenue || 0)) * 100).toFixed(1)
+    : null;
+  const momOutstandingChange = lastTwoMonths.length === 2 && Number(lastTwoMonths[0].expense || 0) > 0
+    ? (((Number(lastTwoMonths[1].expense || 0) - Number(lastTwoMonths[0].expense || 0)) / Number(lastTwoMonths[0].expense || 0)) * 100).toFixed(1)
+    : null;
   const profitRetention = totalCollection > 0 ? (((totalCollection - totalExpense) / totalCollection) * 100).toFixed(1) : "0.0";
 
   return (
@@ -61,10 +72,10 @@ export default function FinancialAnalyticsPage() {
         description="Consolidated AR/AP reporting, collection trends, and revenue leakage analysis across all society operations."
         actions={
           <div className="flex gap-2">
-            <Button variant="outline" className="gap-2">
+            <Button variant="outline" className="gap-2" onClick={() => { if (data.length === 0) { toast.error("No data to export"); return; } downloadCSV("tax_summary", data); toast.success("Tax summary downloaded"); }}>
                <TrendingUp className="h-4 w-4" /> Tax Summary
             </Button>
-            <Button className="gap-2 shadow-lg shadow-primary/20">
+            <Button className="gap-2 shadow-lg shadow-primary/20" onClick={() => window.print()}>
                <Download className="h-4 w-4" /> Audit Pack (PDF)
             </Button>
           </div>
@@ -77,7 +88,7 @@ export default function FinancialAnalyticsPage() {
                  <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
                     <Wallet className="h-5 w-5" />
                  </div>
-                 <Badge variant="outline" className="text-success border-success/20 bg-success/5 font-bold">+14.2%</Badge>
+                 <Badge variant="outline" className="text-success border-success/20 bg-success/5 font-bold">{momCollectionChange ? `${Number(momCollectionChange) >= 0 ? "+" : ""}${momCollectionChange}%` : "YTD"}</Badge>
              </div>
              <div className="flex flex-col text-left">
                 <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Total Collection (YTD)</span>
@@ -89,7 +100,7 @@ export default function FinancialAnalyticsPage() {
                  <div className="h-10 w-10 rounded-xl bg-critical/10 text-critical flex items-center justify-center">
                     <TrendingDown className="h-5 w-5" />
                  </div>
-                 <Badge variant="outline" className="text-critical border-critical/20 bg-critical/5 font-bold">+2%</Badge>
+                 <Badge variant="outline" className="text-critical border-critical/20 bg-critical/5 font-bold">{momOutstandingChange ? `${Number(momOutstandingChange) >= 0 ? "+" : ""}${momOutstandingChange}%` : "Aged"}</Badge>
              </div>
              <div className="flex flex-col text-left">
                 <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Outstanding (Aged)</span>
