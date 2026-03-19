@@ -55,6 +55,8 @@ import { MDDashboard } from "@/components/dashboards/MDDashboard";
 import { ResidentDashboard } from "@/components/dashboards/ResidentDashboard";
 import { StorekeeperDashboard } from "@/components/dashboards/StorekeeperDashboard";
 import { SiteSupervisorDashboard } from "@/components/dashboards/SiteSupervisorDashboard";
+import { ACTechnicianDashboard } from "@/components/dashboards/ACTechnicianDashboard";
+import { PestControlTechnicianDashboard } from "@/components/dashboards/PestControlTechnicianDashboard";
 
 const roles = [
   { id: "admin", label: "Admin", icon: Shield },
@@ -125,8 +127,8 @@ function DashboardPageContent() {
       case "service_boy": return <ServiceBoyDashboard />;
       case "resident": return <ResidentDashboard />;
       case "super_admin": return <AdminView />;
-      case "ac_technician": return <ServiceBoyDashboard />;
-      case "pest_control_technician": return <ServiceBoyDashboard />;
+      case "ac_technician": return <ACTechnicianDashboard />;
+      case "pest_control_technician": return <PestControlTechnicianDashboard />;
       default: return <AdminView />;
     }
   };
