@@ -52,8 +52,8 @@ export async function updateSession(request: NextRequest) {
       .eq('id', user.id)
       .maybeSingle();
     
-    // @ts-ignore - Supabase join types are sometimes tricky with maybeSingle
-    role = data?.roles?.role_name || null;
+    const roleData = data as { roles: { role_name: string } | null } | null;
+    role = roleData?.roles?.role_name || null;
   }
 
   return { supabaseResponse, user, role }

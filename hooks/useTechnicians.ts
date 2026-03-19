@@ -1,4 +1,3 @@
-// @ts-nocheck
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -18,6 +17,26 @@ export interface TechnicianProfile {
   designation?: string;
   department?: string;
   photo_url?: string;
+}
+
+interface RawTechnicianRow {
+  id: string;
+  employee_id: string;
+  skills: string[];
+  certifications: string[];
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  employee?: {
+    first_name?: string;
+    last_name?: string;
+    employee_code?: string;
+    photo_url?: string;
+    department?: string;
+    designations?: {
+      designation_name?: string;
+    };
+  };
 }
 
 interface UseTechniciansState {
@@ -63,7 +82,8 @@ export function useTechnicians(): UseTechniciansReturn {
 
       if (error) throw error;
 
-      const transformedData: TechnicianProfile[] = (data || []).map((item: any) => ({
+      const typedData = (data || []) as unknown as RawTechnicianRow[];
+      const transformedData: TechnicianProfile[] = typedData.map((item) => ({
         ...item,
         full_name: item.employee ? `${item.employee.first_name} ${item.employee.last_name}` : "Unknown",
         employee_code: item.employee?.employee_code,
@@ -77,12 +97,12 @@ export function useTechnicians(): UseTechniciansReturn {
         isLoading: false,
         error: null,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching technicians:", err);
       setState((prev) => ({
         ...prev,
         isLoading: false,
-        error: err.message || "Failed to fetch technicians",
+        error: err instanceof Error ? err.message : "Failed to fetch technicians",
       }));
     }
   }, []);
@@ -91,25 +111,25 @@ export function useTechnicians(): UseTechniciansReturn {
     fetchTechnicians();
   }, [fetchTechnicians]);
 
-  const addTechnician = async (profile: any) => {
+  const addTechnician = async (profile: Omit<TechnicianProfile, "id" | "created_at" | "updated_at">) => {
     try {
       const { error } = await supabase.from("technician_profiles").insert(profile);
       if (error) throw error;
       fetchTechnicians();
       return { success: true };
-    } catch (err: any) {
-      return { success: false, error: err.message };
+    } catch (err: unknown) {
+      return { success: false, error: err instanceof Error ? err.message : "Operation failed" };
     }
   };
 
-  const updateTechnician = async (id: string, profile: any) => {
+  const updateTechnician = async (id: string, profile: Partial<TechnicianProfile>) => {
     try {
       const { error } = await supabase.from("technician_profiles").update(profile).eq("id", id);
       if (error) throw error;
       fetchTechnicians();
       return { success: true };
-    } catch (err: any) {
-      return { success: false, error: err.message };
+    } catch (err: unknown) {
+      return { success: false, error: err instanceof Error ? err.message : "Operation failed" };
     }
   };
 

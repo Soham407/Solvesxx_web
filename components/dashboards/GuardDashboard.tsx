@@ -217,7 +217,7 @@ export function GuardDashboard() {
     );
   }
 
-  // Show login prompt if not authenticated (and not in dev mode with mock)
+  // Show login prompt if not authenticated
   if (!employeeId) {
     return (
       <div className="max-w-md mx-auto flex flex-col items-center justify-center min-h-[60vh] gap-4 p-6">

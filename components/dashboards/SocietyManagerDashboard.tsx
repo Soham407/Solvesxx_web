@@ -24,8 +24,8 @@ export function SocietyManagerDashboard() {
   const { toast } = useToast();
   const router = useRouter();
   
-  // Get authenticated manager profile (falls back to mock in dev)
-  const { 
+  // Get authenticated manager profile
+  const {
     employeeId, 
     fullName: managerName,
     isLoading: isProfileLoading, 
