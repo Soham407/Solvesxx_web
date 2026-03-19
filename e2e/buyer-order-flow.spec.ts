@@ -36,4 +36,46 @@ test.describe("Buyer Order Flow", () => {
     await expect(page).toHaveURL(/feedback/);
     await expect(page.locator("main")).toBeVisible();
   });
+
+  test("order request list shows data or empty state", async ({ page }) => {
+    await page.goto("/buyer/requests");
+    await page.waitForLoadState("networkidle");
+    const hasRows = page.locator("table tbody tr, [data-testid='request-row']").first();
+    const hasEmpty = page.getByText(/no (requests|orders|records|data)/i);
+    const hasContent = page.locator("main .card, main [class*='card']").first();
+    await expect(hasRows.or(hasEmpty).or(hasContent)).toBeVisible({ timeout: 10_000 });
+  });
+
+  test("order status badge is visible when orders exist", async ({ page }) => {
+    await page.goto("/buyer/requests");
+    await page.waitForLoadState("networkidle");
+    // If any rows exist, check for a status badge
+    const firstRow = page.locator("table tbody tr").first();
+    if (await firstRow.isVisible({ timeout: 3_000 })) {
+      const statusBadge = page.locator("table tbody tr").first().locator("[class*='badge'], [class*='Badge'], span[class*='bg-']").first();
+      await expect(statusBadge).toBeVisible({ timeout: 5_000 });
+    }
+  });
+
+  test("buyer can view order details when orders exist", async ({ page }) => {
+    await page.goto("/buyer/requests");
+    await page.waitForLoadState("networkidle");
+    const firstRow = page.locator("table tbody tr").first();
+    if (await firstRow.isVisible({ timeout: 3_000 })) {
+      await firstRow.click();
+      // Should either navigate or open a dialog/sheet
+      const dialogOrNav = page.getByRole("dialog").or(
+        page.getByRole("heading").filter({ hasText: /order|request|details/i })
+      );
+      await expect(dialogOrNav).toBeVisible({ timeout: 8_000 });
+    }
+  });
+
+  test("invoice section loads", async ({ page }) => {
+    const invoiceLink = page.getByRole("link", { name: /invoice|bill/i }).first();
+    if (await invoiceLink.isVisible({ timeout: 3_000 })) {
+      await invoiceLink.click();
+      await expect(page.locator("main")).toBeVisible();
+    }
+  });
 });

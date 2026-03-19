@@ -283,7 +283,7 @@ Below is a categorized list of all hooks. **Always check if a hook already exist
 `useProducts`, `useInventory`, `useWarehouses`, `useSuppliers`, `useSupplierProducts`, `useSupplierRates`, `useSupplierRateSubscription`, `useSaleProductRates`, `useSaleRateSubscription`, `useReorderAlerts`, `useServices`
 
 ### Procurement
-`useIndents`, `usePurchaseOrders`, `usePurchaseOrderList`, `usePurchaseOrderDetails`, `useGRN`
+`useIndents`, `usePurchaseOrders`, `usePurchaseOrderList`, `usePurchaseOrderDetails`, `useGRN`, `useSupplierBills` (bill number generation via `generateBillNumber()`, document upload to storage via `uploadBillDocument(billId, supplierId, file)`)
 
 ### Financial
 `useFinance`, `useFinancialClosure`, `useSupplierBills`, `useBuyerInvoices`, `useReconciliation`, `useReconMatch`, `useReconAudit`, `useBudgets`, `useCompliance`, `usePerformanceAudit`

@@ -60,13 +60,13 @@ All master data tables, auth, and app shell are complete.
 | Indent Forward to Supplier | Via indent actions | ✅ FULL | Status transition workflow |
 | Purchase Orders | `/inventory/purchase-orders` | ✅ FULL | `usePurchaseOrders` hook (40KB), full lifecycle |
 | GRN (Goods Received Notes) | `/inventory/grn` | ✅ FULL | `useGRN` hook (32KB), quality/quantity checks |
-| Supplier Bills | `/finance/supplier-bills` | ✅ FULL | `useSupplierBills` hook (34KB), approval workflow |
+| Supplier Bills | `/finance/supplier-bills` | ✅ FULL | `useSupplierBills` hook (34KB), approval workflow, real bill number generation via `generate_bill_number()` RPC, PO deduplication (eligible POs exclude those already billed), document upload to `bill-documents` storage |
 | Sale Bills / Buyer Invoices | `/finance/buyer-invoices` | ✅ FULL | `useBuyerInvoices` hook (30KB) |
 | Reconciliation | `/finance/reconciliation` | ✅ FULL | `useReconciliation` hook (48KB), PO↔GRN↔Bill matching |
 | Supplier Portal Dashboard | `/supplier` | ✅ FULL | `useSupplierPortal` hook, real data |
 | Supplier Indent View | `/supplier/indents` | ✅ FULL | Accept/reject workflow |
 | Supplier PO View | `/supplier/purchase-orders` | ✅ FULL | Acknowledge/dispatch actions |
-| Supplier Bills | `/supplier/bills` | ✅ FULL | Submit/track bills |
+| Supplier Bills | `/supplier/bills` | ✅ FULL | Submit/track bills, real bill number generation, document upload to storage |
 | Supplier Service Orders | `/supplier/service-orders` | ✅ FULL | `useServicePurchaseOrders` hook. "Upload Delivery Note" button per SPO row → `ServiceDeliveryNoteDialog` |
 | Warehouses | `/inventory/warehouses` | ✅ FULL | `useWarehouses` hook |
 | Return To Vendor (RTV) | `/tickets/returns` | ✅ FULL | `useRTVTickets` hook, full lifecycle |
@@ -173,6 +173,8 @@ All located in `components/dashboards/`. Accessible via `/dashboard` with admin 
 | Storekeeper | `StorekeeperDashboard.tsx` | ✅ FULL | KPIs for GRNs, stock alerts, RTV, shortage notes |
 | Site Supervisor | `SiteSupervisorDashboard.tsx` | ✅ FULL | KPIs for deployments, dispatches, incidents, attendance |
 | Service Boy | `ServiceBoyDashboard.tsx` | ✅ FULL | Job sessions, GPS, photo evidence, stock alerts. Imports `ComingSoonWidget` but doesn't render it |
+| AC Technician | `ACTechnicianDashboard.tsx` | ✅ FULL | Certifications panel, AC service PPE checklist, AC service requests list |
+| Pest Control Technician | `PestControlTechnicianDashboard.tsx` | ✅ FULL | Chemical expiry warning banner, mandatory PPE checklist, pest control service requests list |
 
 | Resident | `ResidentDashboard.tsx` | ✅ FULL | 30KB — Dynamically fetches correct logged-in user's resident record |
 
@@ -237,7 +239,7 @@ All located in `components/dashboards/`. Accessible via `/dashboard` with admin 
 
 ## ⚠️ Known Mock Data / Hardcoded Areas
 
-No known mocked data areas remain. All dashboards, pages, and widgets use live Supabase data.
+No known mocked data areas remain. All dashboards, pages, and widgets use live Supabase data. (Supplier bill creation and document upload now fully implemented.)
 
 ---
 

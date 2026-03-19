@@ -222,16 +222,18 @@ export function useSupplierPortal() {
     }
   };
 
-  const submitBill = async (billData: any) => {
+  const submitBill = async (billData: any): Promise<{ success: boolean; billId?: string }> => {
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('purchase_bills')
         .insert([{
           ...billData,
           status: 'submitted',
           payment_status: 'unpaid',
           created_by: user?.id
-        }]);
+        }])
+        .select('id')
+        .single();
 
       if (error) throw error;
 
@@ -247,10 +249,10 @@ export function useSupplierPortal() {
       }
 
       await fetchPortalData();
-      return true;
+      return { success: true, billId: data.id };
     } catch (err) {
       console.error("Error submitting bill:", err);
-      return false;
+      return { success: false };
     }
   };
 
