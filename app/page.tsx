@@ -52,6 +52,7 @@ const PORTALS = [
     color: "from-blue-500/10 to-blue-600/5 border-blue-200/60",
     iconBg: "bg-blue-100",
     iconColor: "text-blue-600",
+    dotColor: "bg-blue-500",
     glowColor: "hover:shadow-blue-100",
   },
   {
@@ -63,6 +64,7 @@ const PORTALS = [
     color: "from-slate-500/10 to-slate-600/5 border-slate-200/60",
     iconBg: "bg-slate-100",
     iconColor: "text-slate-600",
+    dotColor: "bg-slate-500",
     glowColor: "hover:shadow-slate-100",
   },
   {
@@ -74,6 +76,7 @@ const PORTALS = [
     color: "from-violet-500/10 to-violet-600/5 border-violet-200/60",
     iconBg: "bg-violet-100",
     iconColor: "text-violet-600",
+    dotColor: "bg-violet-500",
     glowColor: "hover:shadow-violet-100",
   },
   {
@@ -85,6 +88,7 @@ const PORTALS = [
     color: "from-orange-500/10 to-orange-600/5 border-orange-200/60",
     iconBg: "bg-orange-100",
     iconColor: "text-orange-600",
+    dotColor: "bg-orange-500",
     glowColor: "hover:shadow-orange-100",
   },
   {
@@ -96,6 +100,7 @@ const PORTALS = [
     color: "from-emerald-500/10 to-emerald-600/5 border-emerald-200/60",
     iconBg: "bg-emerald-100",
     iconColor: "text-emerald-600",
+    dotColor: "bg-emerald-500",
     glowColor: "hover:shadow-emerald-100",
   },
   {
@@ -107,17 +112,18 @@ const PORTALS = [
     color: "from-amber-500/10 to-amber-600/5 border-amber-200/60",
     iconBg: "bg-amber-100",
     iconColor: "text-amber-600",
+    dotColor: "bg-amber-500",
     glowColor: "hover:shadow-amber-100",
   },
 ];
 
 const STATS = [
   { value: "14", label: "Dashboards", icon: BarChart3 },
-  { value: "92", label: "React Hooks", icon: Code2 },
-  { value: "21+", label: "DB Migrations", icon: Database },
   { value: "6", label: "Role Portals", icon: Users },
-  { value: "8", label: "Edge Functions", icon: Zap },
-  { value: "0", label: "Mock Data", icon: CheckCircle2 },
+  { value: "20+", label: "Feature Modules", icon: Layers },
+  { value: "100%", label: "Live Data", icon: Database },
+  { value: "24/7", label: "Realtime Sync", icon: Zap },
+  { value: "0", label: "Downtime", icon: CheckCircle2 },
 ];
 
 const MODULES = [
@@ -257,8 +263,7 @@ export default function LandingPage() {
                 variant="secondary"
                 className="hidden sm:flex text-[10px] uppercase font-bold tracking-wider gap-1"
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                Building in Public
+                Enterprise Ready
               </Badge>
               <Link href="/login">
                 <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
@@ -301,9 +306,8 @@ export default function LandingPage() {
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             {/* Left — Copy + Form */}
             <div className="text-center lg:text-left">
-              <Badge className="mb-6 inline-flex text-[10px] uppercase font-bold tracking-widest bg-primary/10 text-primary border-primary/20 hover:bg-primary/10 gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                Building in Public · Day 1 of 90
+              <Badge className="mb-6 inline-flex text-[10px] uppercase font-bold tracking-widest bg-primary/10 text-primary border-primary/20 hover:bg-primary/10">
+                Enterprise Facility Management
               </Badge>
 
               <h1 className="font-heading text-5xl sm:text-6xl lg:text-[64px] font-bold text-foreground leading-[1.05] tracking-tight mb-6">
@@ -320,7 +324,7 @@ export default function LandingPage() {
               </p>
 
               <div className="flex flex-wrap items-center justify-center lg:justify-start gap-x-5 gap-y-2 mb-10 text-sm text-muted-foreground">
-                {["14 Dashboards", "92 Hooks", "Zero Mock Data", "Realtime Alerts", "Offline PWA"].map(
+                {["14 Dashboards", "6 Role Portals", "Real-time Alerts", "Offline PWA", "Zero Downtime"].map(
                   (item) => (
                     <span key={item} className="flex items-center gap-1.5">
                       <CheckCircle2 className="w-3.5 h-3.5 text-primary shrink-0" />
@@ -539,8 +543,8 @@ export default function LandingPage() {
 
           <div className="grid lg:grid-cols-2 gap-8 max-w-5xl mx-auto">
             {/* Before */}
-            <div className="relative rounded-2xl border border-destructive/20 bg-destructive/3 p-8 overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-destructive/5 rounded-bl-3xl" />
+            <div className="relative rounded-2xl border border-destructive/20 bg-destructive/5 p-8 overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-destructive/8 rounded-bl-3xl" />
               <Badge className="mb-5 bg-destructive/10 text-destructive border-destructive/20 text-[10px] uppercase font-bold hover:bg-destructive/10">
                 The Problem
               </Badge>
@@ -566,8 +570,8 @@ export default function LandingPage() {
             </div>
 
             {/* After */}
-            <div className="relative rounded-2xl border border-success/20 bg-success/3 p-8 overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-success/5 rounded-bl-3xl" />
+            <div className="relative rounded-2xl border border-success/20 bg-success/5 p-8 overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-success/8 rounded-bl-3xl" />
               <Badge className="mb-5 bg-success/10 text-success border-success/20 text-[10px] uppercase font-bold hover:bg-success/10">
                 The Solution
               </Badge>
@@ -653,7 +657,7 @@ export default function LandingPage() {
           </div>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {PORTALS.map(({ icon: Icon, role, emoji, description, features, color, iconBg, iconColor }) => (
+            {PORTALS.map(({ icon: Icon, role, emoji, description, features, color, iconBg, iconColor, dotColor }) => (
               <div
                 key={role}
                 className={`group relative p-6 rounded-2xl bg-gradient-to-br border ${color} hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5`}
@@ -683,8 +687,7 @@ export default function LandingPage() {
                 <div className="space-y-1.5 pt-4 border-t border-border/30">
                   {features.map((f) => (
                     <div key={f} className="flex items-center gap-2">
-                      <div className={`w-1 h-1 rounded-full ${iconBg.replace("bg-", "bg-").replace("/100", "-500")} shrink-0`}
-                        style={{ background: iconColor.replace("text-", "").replace("-600", "") }} />
+                      <div className={`w-1.5 h-1.5 rounded-full ${dotColor} shrink-0`} />
                       <span className="text-[11px] text-muted-foreground">{f}</span>
                     </div>
                   ))}
@@ -763,7 +766,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Building in Public CTA ─────────────────────────────────────── */}
+      {/* ── Enterprise CTA ─────────────────────────────────────────────── */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-muted/20 border-y border-border/50">
         <div className="max-w-5xl mx-auto">
           <div className="relative rounded-3xl bg-gradient-to-br from-primary via-primary/90 to-violet-600 p-10 sm:p-14 text-center overflow-hidden">
@@ -775,52 +778,37 @@ export default function LandingPage() {
               }}
             />
             <div className="relative">
-              <Badge className="mb-6 inline-flex bg-white/15 text-white border-white/25 hover:bg-white/15 text-[10px] uppercase font-bold tracking-widest gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                90 Days · Building in Public
+              <Badge className="mb-6 inline-flex bg-white/15 text-white border-white/25 hover:bg-white/15 text-[10px] uppercase font-bold tracking-widest">
+                Enterprise Platform
               </Badge>
-              <h2 className="font-heading text-4xl sm:text-5xl font-bold text-white mb-4 leading-tight">
-                Watch it get built.
+              <h2 className="font-heading text-4xl sm:text-5xl font-bold text-white mb-6 leading-tight">
+                Ready to modernize your
                 <br />
-                Day by day.
+                facility operations?
               </h2>
-              <p className="text-lg text-white/75 mb-4 max-w-xl mx-auto">
-                I'm documenting every technical decision, every bug, and every milestone — publicly on
-                LinkedIn. Follow the journey.
+              <p className="text-lg text-white/90 mb-10 max-w-xl mx-auto leading-relaxed">
+                FacilityPro brings every role, workflow, and data point into one connected platform.
+                Built for enterprise facilities, available today.
               </p>
 
-              {/* Progress bar */}
-              <div className="max-w-xs mx-auto mb-8">
-                <div className="flex justify-between text-[10px] text-white/60 mb-1.5">
-                  <span>Day 1</span>
-                  <span>Day 90</span>
-                </div>
-                <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-white/80 rounded-full"
-                    style={{ width: "1.1%" }}
-                  />
-                </div>
-              </div>
-
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer">
-                  <Button
-                    size="lg"
-                    variant="secondary"
-                    className="h-12 px-8 bg-white/10 text-white border-white/20 hover:bg-white/20"
-                  >
-                    Follow on LinkedIn <Globe className="ml-2 w-4 h-4" />
-                  </Button>
-                </a>
                 <a href="#waitlist">
                   <Button
                     size="lg"
                     className="h-12 px-8 bg-white text-primary hover:bg-white/90 border-0 font-semibold"
                   >
-                    Join the Waitlist <ArrowRight className="ml-2 w-4 h-4" />
+                    Request a Demo <ArrowRight className="ml-2 w-4 h-4" />
                   </Button>
                 </a>
+                <Link href="/login">
+                  <Button
+                    size="lg"
+                    variant="secondary"
+                    className="h-12 px-8 bg-white/10 text-white border-white/20 hover:bg-white/20"
+                  >
+                    Sign In
+                  </Button>
+                </Link>
               </div>
             </div>
           </div>
@@ -886,7 +874,7 @@ export default function LandingPage() {
               <div>
                 <span className="font-heading font-bold text-foreground text-sm">FacilityPro</span>
                 <p className="text-[10px] text-muted-foreground leading-none mt-0.5">
-                  Built in public · 90 days
+                  Enterprise Facility Management
                 </p>
               </div>
             </div>
@@ -905,7 +893,7 @@ export default function LandingPage() {
               <a href="#waitlist" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
                 Get Early Access
               </a>
-              <span className="text-xs font-medium text-primary">#BuildInPublic</span>
+              <span className="text-xs text-muted-foreground">Contact Us</span>
             </div>
           </div>
         </div>
