@@ -1,6 +1,7 @@
 "use client";
 
 import { useSupplierPortal } from "@/hooks/useSupplierPortal";
+import { useSupplierBills } from "@/hooks/useSupplierBills";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,23 +14,27 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/use-toast";
 import { formatCurrency } from "@/src/lib/utils/currency";
+import { createBrowserClient } from "@supabase/ssr";
 
 export default function NewSupplierBillPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { pos, submitBill, isLoading } = useSupplierPortal();
-  
+  const { pos, bills, submitBill, isLoading } = useSupplierPortal();
+  const { uploadBillDocument } = useSupplierBills();
+
   const [selectedPoId, setSelectedPoId] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
-  // Only show POs that are dispatched or received but not yet billed (simplification)
-  // In reality, we should check if a bill already exists for this PO
+  // Only show POs that are dispatched or received AND not already billed
   const eligiblePOs = useMemo(() => {
-    return pos.filter(p => ['dispatched', 'received'].includes(p.status));
-  }, [pos]);
+    const billedPOIds = new Set((bills || []).map((b: any) => b.purchase_order_id).filter(Boolean));
+    return pos.filter(p => ['dispatched', 'received'].includes(p.status) && !billedPOIds.has(p.id));
+  }, [pos, bills]);
 
   const selectedPO = useMemo(() => {
     return pos.find(p => p.id === selectedPoId);
@@ -41,7 +46,15 @@ export default function NewSupplierBillPage() {
 
     try {
       setIsSubmitting(true);
-      
+
+      // Generate bill number from DB sequence
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+      const { data: billNumData } = await supabase.rpc('generate_bill_number');
+      const billNumber = billNumData || `BILL-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
+
       const billData = {
         purchase_order_id: selectedPoId,
         supplier_invoice_number: invoiceNumber,
@@ -52,11 +65,21 @@ export default function NewSupplierBillPage() {
         discount_amount: selectedPO?.discount_amount || 0,
         notes: notes,
         supplier_id: selectedPO?.supplier_id,
-        bill_number: `BILL-${Date.now().toString().slice(-6)}` // Temporary auto-gen
+        bill_number: billNumber
       };
 
       const success = await submitBill(billData);
       if (success) {
+        // Upload document if provided
+        if (uploadedFile && selectedPO?.supplier_id) {
+          setIsUploading(true);
+          try {
+            await uploadBillDocument(billNumber, selectedPO.supplier_id, uploadedFile);
+          } finally {
+            setIsUploading(false);
+          }
+        }
+
         toast({ title: "Bill Submitted", description: "Your invoice has been received and is under review." });
         router.push("/supplier/bills");
       }
@@ -131,20 +154,20 @@ export default function NewSupplierBillPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="inv-num">Your Invoice #</Label>
-                <Input 
-                  id="inv-num" 
-                  placeholder="e.g., INV-001" 
-                  required 
+                <Input
+                  id="inv-num"
+                  placeholder="e.g., INV-001"
+                  required
                   value={invoiceNumber}
                   onChange={(e) => setInvoiceNumber(e.target.value)}
                 />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="inv-date">Invoice Date</Label>
-                <Input 
-                  id="inv-date" 
-                  type="date" 
-                  required 
+                <Input
+                  id="inv-date"
+                  type="date"
+                  required
                   value={invoiceDate}
                   onChange={(e) => setInvoiceDate(e.target.value)}
                 />
@@ -152,19 +175,35 @@ export default function NewSupplierBillPage() {
             </div>
 
             <div className="grid gap-2">
-              <Label>Attach Document (Mock)</Label>
-              <div className="flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-6 bg-muted/10 cursor-not-allowed opacity-50">
+              <Label htmlFor="bill-doc">Attach Invoice Document</Label>
+              <div className="flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-6 bg-muted/10 cursor-pointer hover:bg-muted/20 transition-colors relative">
+                <input
+                  id="bill-doc"
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  onChange={(e) => setUploadedFile(e.target.files?.[0] || null)}
+                />
                 <Upload className="h-8 w-8 text-muted-foreground mb-2" />
-                <span className="text-sm text-muted-foreground font-medium">Click to upload PDF or Photo</span>
-                <span className="text-xs text-muted-foreground mt-1">Maximum file size: 5MB</span>
+                {uploadedFile ? (
+                  <>
+                    <span className="text-sm font-medium text-primary">{uploadedFile.name}</span>
+                    <span className="text-xs text-muted-foreground mt-1">{(uploadedFile.size / 1024).toFixed(1)} KB</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-sm text-muted-foreground font-medium">Click to upload PDF or Photo</span>
+                    <span className="text-xs text-muted-foreground mt-1">Maximum file size: 5MB</span>
+                  </>
+                )}
               </div>
             </div>
 
             <div className="grid gap-2">
               <Label htmlFor="notes">Notes to Accounts</Label>
-              <Textarea 
-                id="notes" 
-                placeholder="Payment instructions, bank details, etc." 
+              <Textarea
+                id="notes"
+                placeholder="Payment instructions, bank details, etc."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
               />
@@ -176,8 +215,8 @@ export default function NewSupplierBillPage() {
           <Link href="/supplier/bills">
             <Button type="button" variant="outline">Cancel</Button>
           </Link>
-          <Button type="submit" className="gap-2" disabled={isSubmitting || !selectedPoId}>
-            {isSubmitting ? "Submitting..." : (
+          <Button type="submit" className="gap-2" disabled={isSubmitting || isUploading || !selectedPoId}>
+            {isUploading ? "Uploading document..." : isSubmitting ? "Submitting..." : (
               <>
                 <Send className="h-4 w-4" /> Submit for Review
               </>

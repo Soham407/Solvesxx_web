@@ -987,6 +987,61 @@ export function useSupplierBills(filters?: {
   }, [fetchBillItems]);
 
   // ============================================
+  // UPLOAD BILL DOCUMENT
+  // ============================================
+  const uploadBillDocument = useCallback(async (
+    billId: string,
+    supplierId: string,
+    file: File
+  ): Promise<string | null> => {
+    try {
+      // Validate file type
+      const allowedTypes = ["application/pdf", "image/jpeg", "image/png"];
+      if (!allowedTypes.includes(file.type)) {
+        throw new Error("Invalid file type. Only PDF, JPEG, and PNG are allowed.");
+      }
+
+      // Validate file size (max 5MB)
+      const maxSize = 5 * 1024 * 1024;
+      if (file.size > maxSize) {
+        throw new Error("File size exceeds the 5MB limit.");
+      }
+
+      // Generate storage path
+      const timestamp = Date.now();
+      const sanitizedFilename = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+      const filePath = `${supplierId}/${billId}/${timestamp}_${sanitizedFilename}`;
+
+      // Upload to storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("bill-documents")
+        .upload(filePath, file, { contentType: file.type, upsert: false });
+
+      if (uploadError) throw uploadError;
+
+      // Update the purchase_bills record with the document URL
+      const { error: updateError } = await supabase
+        .from("purchase_bills")
+        .update({ document_url: uploadData.path })
+        .eq("id", billId);
+
+      if (updateError) {
+        // Rollback: remove the uploaded file
+        await supabase.storage.from("bill-documents").remove([uploadData.path]);
+        throw updateError;
+      }
+
+      await fetchSupplierBills();
+      return uploadData.path;
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to upload bill document";
+      console.error("Error uploading bill document:", err);
+      setState((prev) => ({ ...prev, error: errorMessage }));
+      return null;
+    }
+  }, [fetchSupplierBills]);
+
+  // ============================================
   // CLEAR ERROR
   // ============================================
   const clearError = useCallback(() => {
@@ -1046,5 +1101,6 @@ export function useSupplierBills(filters?: {
     selectBill,
     clearError,
     recalculateBillTotals,
+    uploadBillDocument,
   };
 }
