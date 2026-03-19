@@ -1042,6 +1042,19 @@ export function useSupplierBills(filters?: {
   }, [fetchSupplierBills]);
 
   // ============================================
+  // GENERATE BILL NUMBER
+  // ============================================
+  const generateBillNumber = useCallback(async (): Promise<string> => {
+    const { data, error } = await supabase.rpc('generate_bill_number');
+    if (error) {
+      console.error('Error generating bill number:', error);
+      // Fallback
+      return `BILL-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
+    }
+    return data as string;
+  }, []);
+
+  // ============================================
   // CLEAR ERROR
   // ============================================
   const clearError = useCallback(() => {
@@ -1102,5 +1115,6 @@ export function useSupplierBills(filters?: {
     clearError,
     recalculateBillTotals,
     uploadBillDocument,
+    generateBillNumber,
   };
 }

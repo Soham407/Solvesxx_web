@@ -26,3 +26,9 @@ ON storage.objects
 FOR SELECT
 TO authenticated
 USING (bucket_id = 'bill-documents');
+
+-- RLS policy: authenticated users can delete from bill-documents (needed for rollback on upload failure)
+CREATE POLICY "Authenticated users can delete bill documents"
+ON storage.objects FOR DELETE
+TO authenticated
+USING (bucket_id = 'bill-documents');

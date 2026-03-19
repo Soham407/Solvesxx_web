@@ -14,13 +14,12 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/use-toast";
 import { formatCurrency } from "@/src/lib/utils/currency";
-import { createBrowserClient } from "@supabase/ssr";
 
 export default function NewSupplierBillPage() {
   const router = useRouter();
   const { toast } = useToast();
   const { pos, bills, submitBill, isLoading } = useSupplierPortal();
-  const { uploadBillDocument } = useSupplierBills();
+  const { uploadBillDocument, generateBillNumber } = useSupplierBills();
 
   const [selectedPoId, setSelectedPoId] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
@@ -32,7 +31,7 @@ export default function NewSupplierBillPage() {
 
   // Only show POs that are dispatched or received AND not already billed
   const eligiblePOs = useMemo(() => {
-    const billedPOIds = new Set((bills || []).map((b: any) => b.purchase_order_id).filter(Boolean));
+    const billedPOIds = new Set((bills || []).map(b => b.purchase_order_id).filter(Boolean));
     return pos.filter(p => ['dispatched', 'received'].includes(p.status) && !billedPOIds.has(p.id));
   }, [pos, bills]);
 
@@ -47,13 +46,8 @@ export default function NewSupplierBillPage() {
     try {
       setIsSubmitting(true);
 
-      // Generate bill number from DB sequence
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
-      const { data: billNumData } = await supabase.rpc('generate_bill_number');
-      const billNumber = billNumData || `BILL-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
+      // Generate bill number via hook (no inline Supabase in pages)
+      const billNumber = await generateBillNumber();
 
       const billData = {
         purchase_order_id: selectedPoId,
@@ -68,25 +62,18 @@ export default function NewSupplierBillPage() {
         bill_number: billNumber
       };
 
-      const success = await submitBill(billData);
+      const result = await submitBill(billData);
+      const success = result?.success ?? false;
+      const newBillId = result?.billId;
+
       if (success) {
         // Upload document if provided
-        if (uploadedFile && selectedPO?.supplier_id) {
+        if (uploadedFile && selectedPO?.supplier_id && newBillId) {
           setIsUploading(true);
           try {
-            // Look up the newly created bill's UUID by bill_number
-            const supabaseLookup = createBrowserClient(
-              process.env.NEXT_PUBLIC_SUPABASE_URL!,
-              process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-            );
-            const { data: newBill } = await supabaseLookup
-              .from('purchase_bills')
-              .select('id')
-              .eq('bill_number', billNumber)
-              .maybeSingle();
-
-            if (newBill?.id) {
-              await uploadBillDocument(newBill.id, selectedPO.supplier_id, uploadedFile);
+            const uploaded = await uploadBillDocument(newBillId, selectedPO.supplier_id, uploadedFile);
+            if (!uploaded) {
+              toast({ title: "Bill submitted", description: "Bill submitted but document upload failed. Please re-upload from the bills list.", variant: "default" });
             }
           } finally {
             setIsUploading(false);
