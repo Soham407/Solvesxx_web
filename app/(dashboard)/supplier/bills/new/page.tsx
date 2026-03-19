@@ -74,7 +74,20 @@ export default function NewSupplierBillPage() {
         if (uploadedFile && selectedPO?.supplier_id) {
           setIsUploading(true);
           try {
-            await uploadBillDocument(billNumber, selectedPO.supplier_id, uploadedFile);
+            // Look up the newly created bill's UUID by bill_number
+            const supabaseLookup = createBrowserClient(
+              process.env.NEXT_PUBLIC_SUPABASE_URL!,
+              process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+            );
+            const { data: newBill } = await supabaseLookup
+              .from('purchase_bills')
+              .select('id')
+              .eq('bill_number', billNumber)
+              .maybeSingle();
+
+            if (newBill?.id) {
+              await uploadBillDocument(newBill.id, selectedPO.supplier_id, uploadedFile);
+            }
           } finally {
             setIsUploading(false);
           }
