@@ -101,6 +101,7 @@ interface AttendanceStats {
 
 interface PersonalRecord {
   id: string;
+  rawDate: string; // YYYY-MM-DD for filtering
   logDate: string;
   checkIn: string;
   checkOut: string;
@@ -127,6 +128,8 @@ function MyAttendanceView({ employeeId }: { employeeId: string }) {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [filterFrom, setFilterFrom] = useState("");
+  const [filterTo, setFilterTo] = useState("");
 
   const fetchMyAttendance = async () => {
     try {
@@ -204,6 +207,7 @@ function MyAttendanceView({ employeeId }: { employeeId: string }) {
 
         return {
           id: log.id,
+          rawDate: log.log_date, // keep YYYY-MM-DD for range filtering
           logDate: new Date(log.log_date).toLocaleDateString("en-IN", {
             weekday: "short",
             day: "numeric",
@@ -447,18 +451,59 @@ function MyAttendanceView({ employeeId }: { employeeId: string }) {
             ))}
       </div>
 
+      {/* Date range filter */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm text-muted-foreground">From</span>
+          <input
+            type="date"
+            value={filterFrom}
+            onChange={(e) => setFilterFrom(e.target.value)}
+            className="text-sm border border-border rounded-md px-2 py-1 bg-card text-foreground"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">To</span>
+          <input
+            type="date"
+            value={filterTo}
+            onChange={(e) => setFilterTo(e.target.value)}
+            className="text-sm border border-border rounded-md px-2 py-1 bg-card text-foreground"
+          />
+        </div>
+        {(filterFrom || filterTo) && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs"
+            onClick={() => { setFilterFrom(""); setFilterTo(""); }}
+          >
+            Clear
+          </Button>
+        )}
+      </div>
+
       {isLoading ? (
         <div className="space-y-4">
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-48 w-full" />
         </div>
-      ) : records.length === 0 ? (
-        <div className="text-center py-20 text-muted-foreground text-sm">
-          No attendance records found for the last 30 days.
-        </div>
-      ) : (
-        <DataTable columns={columns} data={records} searchKey="logDate" />
-      )}
+      ) : (() => {
+        const filtered = records.filter((r) => {
+          const raw = r.rawDate;
+          if (filterFrom && raw < filterFrom) return false;
+          if (filterTo && raw > filterTo) return false;
+          return true;
+        });
+        return filtered.length === 0 ? (
+          <div className="text-center py-20 text-muted-foreground text-sm">
+            No attendance records found{filterFrom || filterTo ? " for the selected date range" : " for the last 30 days"}.
+          </div>
+        ) : (
+          <DataTable columns={columns} data={filtered} />
+        );
+      })()}
     </div>
   );
 }
