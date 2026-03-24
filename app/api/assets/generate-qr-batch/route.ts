@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
+
+import { createServiceRoleClient } from "@/src/lib/platform/server";
+import { createClient as createServerClient } from "@/src/lib/supabase/server";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PREFIX_REGEX = /^[A-Z0-9-]{1,20}$/;
@@ -15,24 +17,8 @@ const GenerateBatchSchema = z.object({
     .optional(),
 });
 
-// Create Supabase admin client lazily to avoid build-time errors
 function getSupabaseAdmin() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-  return createClient(supabaseUrl, supabaseServiceKey);
-}
-
-// Create Supabase client from user's auth token for verification
-function getSupabaseFromRequest(request: NextRequest) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  const authHeader = request.headers.get("Authorization");
-
-  return createClient(supabaseUrl, supabaseAnonKey, {
-    global: {
-      headers: authHeader ? { Authorization: authHeader } : {},
-    },
-  });
+  return createServiceRoleClient();
 }
 
 /** Roles that are allowed to manage QR codes. */
@@ -42,12 +28,13 @@ const QR_MANAGEMENT_ROLES = ["admin", "account", "security_supervisor"];
  * Verify the request is from an authenticated user.
  * Returns the user or a NextResponse error.
  */
-async function authenticateRequest(request: NextRequest): Promise<{
+async function authenticateRequest(): Promise<{
   user: any | null;
   role: string | null;
   error: NextResponse | null;
 }> {
-  const supabase = getSupabaseFromRequest(request);
+  // Route handlers should authenticate from the browser session cookies first.
+  const supabase = await createServerClient();
   const {
     data: { user },
     error,
@@ -68,17 +55,16 @@ async function authenticateRequest(request: NextRequest): Promise<{
 }
 
 /**
- * After authentication, verify the user has a role that permits QR code management.
- * Queries the employees table to find the user's role.
+ * After authentication, verify the user has a shared app role that permits QR code management.
  */
 async function authorizeQrManagement(userId: string) {
-  const supabase = getSupabaseAdmin();
+  const supabase = await createServerClient();
 
-  const { data: employee, error } = await supabase
-    .from("employees")
-    .select("role")
-    .eq("auth_user_id", userId)
-    .maybeSingle();
+  const { data: userRecord, error } = await supabase
+    .from("users")
+    .select("roles(role_name)")
+    .eq("id", userId)
+    .single();
 
   if (error) {
     console.error("Role lookup error:", error);
@@ -92,10 +78,15 @@ async function authorizeQrManagement(userId: string) {
     };
   }
 
-  if (!employee || !QR_MANAGEMENT_ROLES.includes(employee.role)) {
+  const roleRecord = Array.isArray((userRecord as any)?.roles)
+    ? (userRecord as any).roles[0]
+    : (userRecord as any)?.roles;
+  const roleName = roleRecord?.role_name ?? null;
+
+  if (!roleName || !QR_MANAGEMENT_ROLES.includes(roleName)) {
     return {
       authorized: false,
-      role: employee?.role ?? null,
+      role: roleName,
       error: NextResponse.json(
         { error: "Forbidden - insufficient permissions for QR code management" },
         { status: 403 }
@@ -103,13 +94,13 @@ async function authorizeQrManagement(userId: string) {
     };
   }
 
-  return { authorized: true, role: employee.role, error: null };
+  return { authorized: true, role: roleName, error: null };
 }
 
 export async function POST(request: NextRequest) {
   try {
     // Authenticate the request
-    const auth = await authenticateRequest(request);
+    const auth = await authenticateRequest();
     if (auth.error) return auth.error;
 
     // Authorize: verify user has QR management permissions
@@ -187,7 +178,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     // Authenticate the request
-    const auth = await authenticateRequest(request);
+    const auth = await authenticateRequest();
     if (auth.error) return auth.error;
 
     // Authorize: verify user has QR management permissions

@@ -1,28 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+
+import { createServiceRoleClient } from "@/src/lib/platform/server";
+import { createClient as createServerClient } from "@/src/lib/supabase/server";
 
 /** Roles that are allowed to download QR batches. Must match generate-qr-batch. */
 const QR_MANAGEMENT_ROLES = ["admin", "account", "security_supervisor"];
 
 function getSupabaseAdmin() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-  return createClient(supabaseUrl, supabaseServiceKey);
+  return createServiceRoleClient();
 }
 
 async function authenticateAndAuthorize(request: NextRequest): Promise<{
   user: any | null;
   error: NextResponse | null;
 }> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  const authHeader = request.headers.get("Authorization");
-
-  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    global: {
-      headers: authHeader ? { Authorization: authHeader } : {},
-    },
-  });
+  const supabase = await createServerClient();
 
   const {
     data: { user },
@@ -39,13 +31,11 @@ async function authenticateAndAuthorize(request: NextRequest): Promise<{
     };
   }
 
-  // Verify the user has a role that permits QR code management
-  const admin = getSupabaseAdmin();
-  const { data: employee, error: roleError } = await admin
-    .from("employees")
-    .select("role")
-    .eq("auth_user_id", user.id)
-    .maybeSingle();
+  const { data: userRecord, error: roleError } = await supabase
+    .from("users")
+    .select("roles(role_name)")
+    .eq("id", user.id)
+    .single();
 
   if (roleError) {
     console.error("[qr-batch/download] Role lookup error:", roleError);
@@ -58,7 +48,12 @@ async function authenticateAndAuthorize(request: NextRequest): Promise<{
     };
   }
 
-  if (!employee || !QR_MANAGEMENT_ROLES.includes(employee.role)) {
+  const roleRecord = Array.isArray((userRecord as any)?.roles)
+    ? (userRecord as any).roles[0]
+    : (userRecord as any)?.roles;
+  const roleName = roleRecord?.role_name ?? null;
+
+  if (!roleName || !QR_MANAGEMENT_ROLES.includes(roleName)) {
     return {
       user: null,
       error: NextResponse.json(
@@ -105,13 +100,16 @@ export async function GET(
     }
 
     // Ownership check: requester must have generated the batch OR be an admin/super_admin
-    const { data: employee } = await supabase
-      .from("employees")
-      .select("role")
-      .eq("auth_user_id", auth.user.id)
-      .maybeSingle();
+    const { data: userRecord } = await supabase
+      .from("users")
+      .select("roles(role_name)")
+      .eq("id", auth.user.id)
+      .single();
+    const roleRecord = Array.isArray((userRecord as any)?.roles)
+      ? (userRecord as any).roles[0]
+      : (userRecord as any)?.roles;
 
-    const isAdmin = employee?.role === "admin";
+    const isAdmin = roleRecord?.role_name === "admin" || roleRecord?.role_name === "super_admin";
     const isOwner = batchInfo.generated_by === auth.user.id;
 
     if (!isAdmin && !isOwner) {

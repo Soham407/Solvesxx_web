@@ -83,11 +83,31 @@ Deno.serve(async (req) => {
            }
         }
       } else if (item.item_type === 'chemical' || item.item_type === 'safety_equipment') {
-        // Send to Facility Manager or Admin
-        // For now, we'll try to find a user with role 'facility_manager' or 'admin' 
-        // OR skip if no specific logic defined yet. The Plan focused on "Unified View".
-        // We will log this for now.
-        console.log(`[check-document-expiry] Unhandled item type for notification: ${item.item_type} (${item.item_name})`);
+        // SEC-H3 Fix: Insert chemical_expiry_alert notification for pest control technicians.
+        // Query all users who are pest control technicians to notify them.
+        const { data: pestUsers } = await supabase
+          .from('users')
+          .select('id')
+          .eq('role', 'pest_control_technician');
+
+        const targets = pestUsers && pestUsers.length > 0 ? pestUsers : [];
+
+        for (const target of targets) {
+          await supabase.from('notifications').insert({
+            user_id: target.id,
+            notification_type: 'chemical_expiry_alert',
+            title: 'Chemical Expiry Warning',
+            message: `${item.item_name} expires on ${item.expiry_date}`,
+            priority: item.severity === 'critical' ? 'high' : 'normal',
+            reference_id: item.item_id,
+            reference_type: item.item_type,
+          });
+        }
+
+        if (targets.length === 0) {
+          // Fallback: log if no pest control technicians found
+          console.log(`[check-document-expiry] No pest_control_technician users found for chemical expiry alert: ${item.item_name}`);
+        }
       }
 
       // 3. Send Notification if Recipient Found

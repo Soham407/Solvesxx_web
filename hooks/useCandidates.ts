@@ -642,21 +642,69 @@ export function useCandidates(initialFilters?: UseCandidatesFilters) {
     updateCandidateStatus,
     uploadBGVDocument: async (file: File, candidateId: string): Promise<string | null> => {
       try {
+        const supabaseAny = supabase as any;
+
+        if (!['application/pdf', 'image/jpeg', 'image/png'].includes(file.type)) {
+          throw new Error('Only PDF, JPEG, and PNG files are allowed');
+        }
+        if (file.size > 5 * 1024 * 1024) {
+          throw new Error('File size must be under 5MB');
+        }
+
         const fileExt = file.name.split('.').pop();
         const fileName = `${candidateId}_bgv_${Date.now()}.${fileExt}`;
         const filePath = `candidates/${candidateId}/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
           .from('staff-compliance-docs')
-          .upload(filePath, file);
+          .upload(filePath, file, { upsert: true });
 
         if (uploadError) throw uploadError;
 
-        const { data: { publicUrl } } = supabase.storage
-          .from('staff-compliance-docs')
-          .getPublicUrl(filePath);
+        const verificationTypes = ["police", "address", "education", "employment"] as const;
+        const { data: existingVerifications, error: fetchError } = await supabaseAny
+          .from("background_verifications")
+          .select("id, verification_type")
+          .eq("candidate_id", candidateId)
+          .in("verification_type", [...verificationTypes]);
 
-        return publicUrl;
+        if (fetchError) throw fetchError;
+
+        const existingByType = new Map(
+          (existingVerifications || []).map((verification: any) => [
+            verification.verification_type,
+            verification.id,
+          ])
+        );
+
+        const missingTypes = verificationTypes.filter((type) => !existingByType.has(type));
+        if (missingTypes.length > 0) {
+          const { error: insertError } = await supabaseAny
+            .from("background_verifications")
+            .insert(
+              missingTypes.map((type) => ({
+                candidate_id: candidateId,
+                verification_type: type,
+                initiated_date: new Date().toISOString().split("T")[0],
+                status: "in_progress",
+                verification_document_url: filePath,
+              }))
+            );
+
+          if (insertError) throw insertError;
+        }
+
+        const existingIds = [...existingByType.values()];
+        if (existingIds.length > 0) {
+          const { error: updateError } = await supabaseAny
+            .from("background_verifications")
+            .update({ verification_document_url: filePath })
+            .in("id", existingIds);
+
+          if (updateError) throw updateError;
+        }
+
+        return filePath;
       } catch (err: unknown) {
         console.error("Error uploading BGV document:", err);
         return null;

@@ -1,4 +1,3 @@
-// @ts-nocheck
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -477,15 +476,21 @@ export function useVisitors(initialFilters?: VisitorFilters) {
   // Issue pass to visitor (PRD: Guard resolution)
   const issueVisitorPass = async (visitorId: string) => {
     try {
-      const arr = new Uint32Array(1);
-      crypto.getRandomValues(arr);
-      const passNumber = `PASS-${(arr[0] % 9000) + 1000}`;
-      const { error: updateError } = await supabase
-        .from("visitors")
-        .update({ visitor_pass_number: passNumber })
-        .eq("id", visitorId);
+      const response = await fetch(`/api/society/visitors/${visitorId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ action: "issue_pass" }),
+      });
 
-      if (updateError) throw updateError;
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to issue pass");
+      }
+
+      const passNumber = payload.passNumber as string;
 
       toast({
         title: "Pass Issued",
@@ -534,12 +539,19 @@ export function useVisitors(initialFilters?: VisitorFilters) {
   // Mark as daily helper (PRD: Daily Visitor Database)
   const markAsFrequent = async (visitorId: string, isFrequent: boolean) => {
     try {
-      const { error: updateError } = await supabase
-        .from("visitors")
-        .update({ is_frequent_visitor: isFrequent })
-        .eq("id", visitorId);
+      const response = await fetch(`/api/society/visitors/${visitorId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ action: "set_frequent", isFrequent }),
+      });
 
-      if (updateError) throw updateError;
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to update visitor");
+      }
 
       toast({
         title: isFrequent

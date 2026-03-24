@@ -306,6 +306,23 @@ export function useLeaveApplications(employeeId?: string) {
             status,
             approverName
           );
+
+          // UI-H1 Fix: Also insert a row into the notifications table so the
+          // in-app notification centre shows the leave decision.
+          const leaveTypeName = (leaveData as any).leave_type?.leave_name || 'leave';
+          try {
+            await supabase.from('notifications').insert({
+              user_id: empData.auth_user_id,
+              notification_type: 'leave_status_update',
+              title: `Leave Request ${status === 'approved' ? 'Approved' : 'Rejected'}`,
+              message: `Your ${leaveTypeName} leave request has been ${status} by ${approverName}.`,
+              reference_id: id,
+              reference_type: 'leave_application',
+            });
+          } catch (notifyErr) {
+            // Non-fatal: log but don't fail the mutation
+            console.error('Failed to insert leave notification row:', notifyErr);
+          }
         }
 
         // Send SMS notification

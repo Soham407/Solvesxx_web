@@ -68,9 +68,11 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const now = new Date();
-    const nowMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
-    const today = now.toISOString().split('T')[0];
+    // SEC-H4 Fix: Use IST (UTC+5:30) for time comparisons so shift end reminders
+    // fire at the correct local time instead of UTC which is 5.5 hours behind IST.
+    const nowIST = new Date(new Date().getTime() + (5.5 * 60 * 60 * 1000));
+    const nowMinutes = nowIST.getUTCHours() * 60 + nowIST.getUTCMinutes();
+    const today = nowIST.toISOString().split('T')[0]; // YYYY-MM-DD in IST
 
     // Get active assignments
     const { data: assignments, error: assignError } = await supabaseClient

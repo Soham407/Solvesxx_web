@@ -14,11 +14,23 @@ interface PatrolLog {
   anomalies: string | null;
 }
 
+export interface CreatePatrolLogPayload {
+  guard_id: string;
+  /** ISO timestamp for when the patrol started. Defaults to now if omitted. */
+  timestamp?: string;
+  /** Free-text notes / anomaly description. Maps to the anomalies_found column. */
+  notes?: string;
+  checkpoints_verified?: number;
+  total_checkpoints?: number;
+  patrol_end_time?: string;
+}
+
 interface UsePatrolLogsReturn {
   logs: PatrolLog[];
   isLoading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
+  createPatrolLog: (payload: CreatePatrolLogPayload) => Promise<{ success: boolean; data?: any; error?: string }>;
 }
 
 export function usePatrolLogs(
@@ -116,6 +128,43 @@ export function usePatrolLogs(
     }
   }, [guardId, limit]);
 
+  // UI-H2 Fix: Insert a new patrol log entry into guard_patrol_logs.
+  // The guard_patrol_logs table columns are: guard_id, patrol_start_time,
+  // anomalies_found, checkpoints_verified, total_checkpoints, patrol_end_time, photos.
+  // NOTE: There is no location_id or notes column in the schema — the `notes`
+  // payload field is mapped to anomalies_found.
+  const createPatrolLog = useCallback(
+    async (payload: CreatePatrolLogPayload): Promise<{ success: boolean; data?: any; error?: string }> => {
+      try {
+        const { data, error: insertError } = await supabase
+          .from("guard_patrol_logs")
+          .insert({
+            guard_id: payload.guard_id,
+            patrol_start_time: payload.timestamp || new Date().toISOString(),
+            anomalies_found: payload.notes || null,
+            checkpoints_verified: payload.checkpoints_verified ?? 0,
+            total_checkpoints: payload.total_checkpoints ?? 0,
+            patrol_end_time: payload.patrol_end_time || null,
+          })
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+
+        // Refresh the list so the new entry appears immediately
+        await fetchLogs();
+
+        return { success: true, data };
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to create patrol log";
+        console.error("Error creating patrol log:", err);
+        return { success: false, error: errorMessage };
+      }
+    },
+    [fetchLogs]
+  );
+
   useEffect(() => {
     fetchLogs();
   }, [fetchLogs]);
@@ -125,5 +174,6 @@ export function usePatrolLogs(
     isLoading,
     error,
     refresh: fetchLogs,
+    createPatrolLog,
   };
 }

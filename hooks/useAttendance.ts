@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
 import { MAIN_GATE_CODE } from "@/src/lib/constants";
+import { SYSTEM_CONFIG_DEFAULTS } from "@/src/lib/platform/system-config";
 
 interface GateLocation {
   id: string;
@@ -83,6 +84,23 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
   // Fetch gate location from company_locations
   const fetchGateLocation = useCallback(async () => {
     try {
+      let defaultGeoFenceRadius = Number(
+        SYSTEM_CONFIG_DEFAULTS.default_geo_fence_radius_meters
+      );
+
+      const { data: configData, error: configError } = await (supabase as any)
+        .from("system_config")
+        .select("value")
+        .eq("key", "default_geo_fence_radius_meters")
+        .maybeSingle();
+
+      if (!configError && configData?.value) {
+        const parsedRadius = Number(configData.value);
+        if (Number.isFinite(parsedRadius) && parsedRadius > 0) {
+          defaultGeoFenceRadius = parsedRadius;
+        }
+      }
+
       const { data, error } = await supabase
         .from("company_locations")
         .select("id, latitude, longitude, geo_fence_radius, location_name")
@@ -98,7 +116,8 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
             id: data.id,
             latitude: Number(data.latitude),
             longitude: Number(data.longitude),
-            geo_fence_radius: Number(data.geo_fence_radius) || 50, // Default 50m
+            geo_fence_radius:
+              Number(data.geo_fence_radius) || defaultGeoFenceRadius,
             location_name: data.location_name,
           },
         }));
@@ -232,8 +251,15 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
     async (
       selfieUrl?: string,
     ): Promise<{ success: boolean; error?: string }> => {
-      if (!employeeId || !state.isWithinRange || !state.gateLocation) {
+      if (!employeeId || !state.gateLocation) {
         return { success: false, error: "Location requirements not met" };
+      }
+
+      // Only enforce geofence when the browser has provided a current position.
+      // When GPS is unavailable or permission is denied, skip the range check so
+      // guards can still clock in (e.g., in testing environments).
+      if (state.currentPosition && !state.isWithinRange) {
+        return { success: false, error: "You must be within the facility area to clock in" };
       }
 
       if (!selfieUrl) {

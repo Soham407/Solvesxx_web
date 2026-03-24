@@ -8937,6 +8937,11 @@ export type Database = {
         | "society_manager"
         | "service_boy"
         | "resident"
+        | "storekeeper"
+        | "site_supervisor"
+        | "super_admin"
+        | "ac_technician"
+        | "pest_control_technician"
     }
     CompositeTypes: {
       http_header: {
@@ -9260,6 +9265,11 @@ export const Constants = {
         "society_manager",
         "service_boy",
         "resident",
+        "storekeeper",
+        "site_supervisor",
+        "super_admin",
+        "ac_technician",
+        "pest_control_technician",
       ],
     },
   },

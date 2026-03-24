@@ -37,12 +37,26 @@ import { useGuardVisitors } from "@/hooks/useGuardVisitors";
 import { useGuardChecklist, useGuardShift } from "@/hooks/useGuardChecklist";
 import { useEmployeeProfile } from "@/hooks/useEmployeeProfile";
 import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/components/ui/use-toast";
+import { toast } from "@/components/ui/sonner";
 import { supabase } from "@/src/lib/supabaseClient";
 import { useEmergencyContacts } from "@/hooks/useEmergencyContacts";
 import { useInactivityMonitor } from "@/hooks/useInactivityMonitor";
+import { usePlatformConfig } from "@/hooks/usePlatformConfig";
 
-
+// Adapts the old shadcn toast({ title, description, variant }) API to Sonner
+function showToast({ title, description, variant, duration }: {
+  title: string;
+  description?: string;
+  variant?: string;
+  duration?: number;
+}) {
+  const opts = { description, duration };
+  if (variant === "destructive") {
+    toast.error(title, opts);
+  } else {
+    toast.success(title, opts);
+  }
+}
 
 // Expected Visitors Section Component
 interface ExpectedVisitorsSectionProps {
@@ -56,7 +70,6 @@ interface ExpectedVisitorsSectionProps {
 }
 
 function ExpectedVisitorsSection({ gateLocation }: ExpectedVisitorsSectionProps) {
-  const { toast } = useToast();
   const {
     expectedVisitors,
     isLoading,
@@ -70,12 +83,12 @@ function ExpectedVisitorsSection({ gateLocation }: ExpectedVisitorsSectionProps)
     const result = await checkInVisitor(visitorId, undefined, gateLocation?.id);
     
     if (result.success) {
-      toast({
+      showToast({
         title: "Visitor Checked In",
         description: `${visitorName} has been checked in successfully.`,
       });
     } else {
-      toast({
+      showToast({
         title: "Check-In Failed",
         description: result.error || "Could not check in visitor.",
         variant: "destructive",
@@ -253,8 +266,6 @@ interface GuardDashboardContentProps {
 }
 
 function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: GuardDashboardContentProps) {
-  const { toast } = useToast();
-  
   const {
     isWithinRange,
     distance,
@@ -295,13 +306,8 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
   } = usePanicAlert();
 
   // Stability refs for useEffect — prevent stale closures in timeouts
-  const toastRef = useRef(toast);
   const triggerPanicRef = useRef(triggerPanic);
   const autoClockOutRef = useRef(autoClockOut);
-
-  useEffect(() => {
-    toastRef.current = toast;
-  }, [toast]);
 
   useEffect(() => {
     triggerPanicRef.current = triggerPanic;
@@ -330,6 +336,11 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
     contacts: emergencyContacts,
     isLoading: isLoadingEmergencyContacts,
   } = useEmergencyContacts();
+  const { getNumber: getPlatformConfigNumber } = usePlatformConfig();
+  const autoPunchOutDelayMinutes = getPlatformConfigNumber(
+    "geo_breach_auto_punch_out_minutes"
+  );
+  const autoPunchOutDelayMs = autoPunchOutDelayMinutes * 60 * 1000;
 
   // Inactivity Monitoring (Anti-Sleeping)
   useInactivityMonitor(employeeId, isClockedIn, currentPosition);
@@ -337,6 +348,14 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
   // Handle panic button hold release
   const handlePanicRelease = async () => {
     const wasHeldLongEnough = endPanicHold();
+    if (!wasHeldLongEnough) {
+      // Guard released too soon — give subtle feedback
+      showToast({
+        title: "Hold Longer",
+        description: "Keep holding the button for 3 seconds to send an emergency alert.",
+      });
+      return;
+    }
     if (wasHeldLongEnough) {
       // Use guard's real-time position if available, fallback to gate location
       const currentLat = currentPosition?.latitude ?? gateLocation?.latitude;
@@ -352,13 +371,13 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
       });
 
       if (result.success) {
-        toast({
+        showToast({
           title: "🚨 Emergency Alert Sent!",
           description: "Security supervisor has been notified. Help is on the way.",
           variant: "destructive",
         });
       } else {
-        toast({
+        showToast({
           title: "Alert Failed",
           description: result.error || "Could not send emergency alert. Try again.",
           variant: "destructive",
@@ -388,7 +407,7 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
     }
 
     const warningTimeout = setTimeout(() => {
-      toastRef.current({
+      showToast({
         title: "⚠️ Warning: Return to Zone",
         description: "You are outside your assigned geo-fence area. Help has NOT been called yet, but your location is being tracked.",
         variant: "destructive",
@@ -401,47 +420,49 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
       try {
         const result = await triggerPanicRef.current({
           alertType: "geo_fence_breach",
-          description: `Persistent geo-fence breach. Current distance: ${dist}m.`,
+          description: `Persistent geo-fence breach for ${autoPunchOutDelayMinutes}+ minutes. Current distance: ${dist}m.`,
           locationId: gate?.id,
           latitude: pos?.latitude,
           longitude: pos?.longitude,
         });
 
         if (result.success) {
-          toastRef.current({
+          showToast({
             title: "🚨 Geo-fence Breach Alert Sent!",
             description: "A persistent breach has been reported to the supervisor.",
             variant: "destructive",
           });
 
           // Auto Punch-Out for persistent breach (M8 FIX: use ref to avoid stale closure)
-          await autoClockOutRef.current("Persistent geo-fence breach (5+ minutes)");
-          toastRef.current({
+          await autoClockOutRef.current(
+            `Persistent geo-fence breach (${autoPunchOutDelayMinutes}+ minutes)`
+          );
+          showToast({
             title: "Shift Auto-Terminated",
             description: "You have been automatically clocked out due to geo-fence breach.",
             variant: "destructive",
           });
         } else {
-          toastRef.current({
+          showToast({
             title: "🚨 Breach Alert Failed",
             description: result.error || "Could not notify supervisor of breach.",
             variant: "destructive",
           });
         }
       } catch (err: unknown) {
-        toastRef.current({
+        showToast({
           title: "🚨 Alert Error",
           description: "System error while sending breach alert.",
           variant: "destructive",
         });
       }
-    }, 5 * 60 * 1000); // 5 minutes
+    }, autoPunchOutDelayMs);
 
     return () => {
       clearTimeout(warningTimeout);
       clearTimeout(breachTimeout);
     };
-  }, [isClockedIn, isWithinRange]);
+  }, [autoPunchOutDelayMinutes, autoPunchOutDelayMs, isClockedIn, isWithinRange]);
 
   // Fetch visitor statistics
   useEffect(() => {
@@ -553,7 +574,7 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
 
       // Explicitly reject if type is still unknown or unsupported
       if (fileExt === "bin") {
-        toast({
+        showToast({
           title: "Unsupported File Type",
           description: `Allowed types: ${ALLOWED_EXTENSIONS.join(', ')}`,
           variant: "destructive"
@@ -561,7 +582,7 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
         return;
       }
 
-      toast({ title: "Uploading Evidence...", description: "Please wait.", duration: 2000 });
+      showToast({ title: "Uploading Evidence...", description: "Please wait.", duration: 2000 });
       
       const fileName = `${itemId}-${Date.now()}.${fileExt}`;
       const filePath = `tasks/${fileName}`;
@@ -578,7 +599,7 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
         const result = await recordChecklistPhoto(itemId, filePath);
 
         if (result.success) {
-          toast({ 
+          showToast({ 
             title: "Photo Added", 
             description: "Evidence has been attached to this task.",
           });
@@ -600,7 +621,7 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
       }
     } catch (err: any) {
       console.error("Evidence upload failed:", err);
-      toast({ 
+      showToast({ 
         title: "Upload Failed", 
         description: err.message || "Could not upload photo.",
         variant: "destructive"
@@ -615,17 +636,21 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
     setIsClockingIn(false);
 
     if (result.success) {
-      toast({
-        title: "Clocked In Successfully",
-        description: `Welcome! Your shift has started at ${new Date().toLocaleTimeString()}`,
+      const timeStr = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+      showToast({
+        title: "✅ Shift Started",
+        description: `Welcome! You clocked in at ${timeStr}. Stay safe on duty.`,
       });
       setShowSelfieDialog(false);
       setSelfieFile(null);
       setSelfiePreview(null);
     } else {
-      toast({
-        title: "Clock In Failed",
-        description: result.error || "Please ensure you are within the geofenced area.",
+      // Surface the exact reason so guard knows what to do
+      const errorMsg = result.error || "Could not start shift.";
+      const isShiftWindow = errorMsg.includes("shift hours");
+      showToast({
+        title: isShiftWindow ? "Outside Shift Hours" : "Clock In Failed",
+        description: errorMsg,
         variant: "destructive",
       });
     }
@@ -634,7 +659,7 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
   // Upload selfie and then clock in
   const processCheckInWithSelfie = async () => {
     if (!selfieFile) {
-      toast({ title: "Selfie Required", description: "Please take a photo to check in.", variant: "destructive" });
+      showToast({ title: "Selfie Required", description: "Please take a photo to check in.", variant: "destructive" });
       return;
     }
 
@@ -680,7 +705,7 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
       await handleClockIn(filePath);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Upload failed";
-      toast({ title: "Upload Failed", description: message, variant: "destructive" });
+      showToast({ title: "Upload Failed", description: message, variant: "destructive" });
     } finally {
       setIsUploadingSelfie(false);
     }
@@ -701,14 +726,24 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
     setIsClockingOut(false);
 
     if (success) {
-      toast({
-        title: "Clocked Out Successfully",
-        description: `Your shift has ended at ${new Date().toLocaleTimeString()}`,
+      const timeStr = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+      // Calculate hours worked if we have check-in time
+      const checkInTime = todayAttendance?.check_in_time;
+      let durationStr = "";
+      if (checkInTime) {
+        const ms = Date.now() - new Date(checkInTime).getTime();
+        const hrs = Math.floor(ms / 3600000);
+        const mins = Math.floor((ms % 3600000) / 60000);
+        durationStr = ` Total on duty: ${hrs}h ${mins}m.`;
+      }
+      showToast({
+        title: "Shift Ended",
+        description: `You clocked out at ${timeStr}.${durationStr} Good work today!`,
       });
     } else {
-      toast({
+      showToast({
         title: "Clock Out Failed",
-        description: "An error occurred. Please try again.",
+        description: "Could not record your clock-out. Please try again or contact your supervisor.",
         variant: "destructive",
       });
     }
@@ -880,52 +915,81 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
           </div>
 
           {/* Clock In/Out Button */}
-          {!isClockedIn ? (
-            <div className="space-y-3">
+          {(() => {
+            // Guard has completed their shift for today (clocked in AND clocked out)
+            const hasCompletedShiftToday = !isClockedIn && !!todayAttendance?.check_in_time && !!todayAttendance?.check_out_time;
+            // Guard clocked in earlier but page was refreshed (in = true, out = null)
+            // isClockedIn handles that case already
+
+            if (hasCompletedShiftToday) {
+              return (
+                <div className="p-4 rounded-lg bg-success/10 border border-success/20 text-center space-y-1">
+                  <CheckCircle2 className="h-6 w-6 text-success mx-auto" />
+                  <p className="text-sm font-bold text-success">Shift Completed for Today</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    In: {formatTime(todayAttendance?.check_in_time || null)} · Out: {formatTime(todayAttendance?.check_out_time || null)}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground/70">You can only start one shift per day.</p>
+                </div>
+              );
+            }
+
+            if (isClockedIn) {
+              return (
+                <Button
+                  className="w-full h-14 text-base font-bold gap-2"
+                  variant="destructive"
+                  onClick={handleClockOut}
+                  disabled={isClockingOut}
+                >
+                  {isClockingOut ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <LogOut className="h-5 w-5" />
+                  )}
+                  {isClockingOut ? "Clocking Out..." : "Close Shift (Clock Out)"}
+                </Button>
+              );
+            }
+
+            // Not yet clocked in today — show Start Shift button (always clickable, explains reason on click)
+            return (
               <Button
                 className="w-full h-14 text-base font-bold gap-2 bg-success hover:bg-success/90"
-                onClick={() => setShowSelfieDialog(true)}
-                disabled={isClockingIn || !isWithinRange || isLoading}
+                onClick={() => {
+                  if (isLoading) {
+                    showToast({ title: "Please Wait", description: "Loading location data..." });
+                    return;
+                  }
+                  if (!gateLocation) {
+                    showToast({
+                      title: "Gate Location Not Configured",
+                      description: "No gate location is set up. Contact your administrator.",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  if (currentPosition && !isWithinRange) {
+                    showToast({
+                      title: "Too Far from Gate",
+                      description: `You are ${distance}m away from ${gateLocation.location_name}. Move closer to clock in.`,
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  setShowSelfieDialog(true);
+                }}
+                disabled={isClockingIn}
               >
                 {isClockingIn ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
                   <LogIn className="h-5 w-5" />
                 )}
-                Start Shift (Clock In)
+                {isLoading ? "Checking Location..." : "Start Shift (Clock In)"}
               </Button>
-              {!isWithinRange && !isLoading && (
-                <p className="text-[10px] text-warning text-center font-bold uppercase">
-                  Approach the gate to enable Clock In
-                </p>
-              )}
-            </div>
-          ) : (
-            <Button
-              className="w-full h-14 text-base font-bold gap-2"
-              variant="destructive"
-              onClick={handleClockOut}
-              disabled={isClockingOut}
-            >
-              {isClockingOut ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                <LogOut className="h-5 w-5" />
-              )}
-              {isClockingOut ? "Clocking Out..." : "Clock Out"}
-            </Button>
-          )}
-
-          {/* Warning if out of range */}
-          {!isWithinRange && !isLoading && !error && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-warning/10 text-warning">
-              <AlertCircle className="h-4 w-4 shrink-0" />
-              <p className="text-xs font-medium">
-                Move closer to {gateLocation?.location_name || "the gate"} to
-                clock in.
-              </p>
-            </div>
-          )}
+            );
+          })()}
         </CardContent>
       </Card>
 
@@ -1050,12 +1114,22 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
                         if (item.status === "pending") {
                           const result = await completeChecklistItem(item.id, currentPosition || undefined);
                           if (result.success) {
-                            toast({
-                              title: "Task Completed",
-                              description: `"${item.task}" marked as done.`,
-                            });
+                            const remainingPending = checklistItems.filter(
+                              (i) => i.id !== item.id && i.status === "pending"
+                            ).length;
+                            if (remainingPending === 0) {
+                              showToast({
+                                title: "🎉 All Tasks Completed!",
+                                description: "You have completed all checklist items for this shift.",
+                              });
+                            } else {
+                              showToast({
+                                title: "Task Completed",
+                                description: `"${item.task}" marked as done. ${remainingPending} task${remainingPending !== 1 ? "s" : ""} remaining.`,
+                              });
+                            }
                           } else {
-                            toast({
+                            showToast({
                               title: "Error",
                               description: result.error || "Could not save.",
                               variant: "destructive",
@@ -1303,14 +1377,15 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
                   )}
                   {isUploadingSelfie ? "Uploading Signature..." : "Confirm & Clock In"}
                 </Button>
-                <Button 
-                  variant="ghost" 
+                <Button
+                  variant="ghost"
                   className="w-full text-xs font-bold uppercase text-muted-foreground"
                   disabled={isUploadingSelfie || isClockingIn}
                   onClick={() => {
                     setShowSelfieDialog(false);
                     setSelfieFile(null);
                     setSelfiePreview(null);
+                    showToast({ title: "Clock-In Cancelled", description: "Your shift has not started." });
                   }}
                 >
                   Cancel

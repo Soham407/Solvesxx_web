@@ -38,15 +38,27 @@ export function PhotoUploadDialog({
   const beforeInputRef = useRef<HTMLInputElement>(null);
   const afterInputRef = useRef<HTMLInputElement>(null);
 
+  const validateFile = (file: File): boolean => {
+    if (!file.type.startsWith('image/')) {
+      toast({ title: "Invalid file", description: 'Only image files are allowed', variant: "destructive" });
+      return false;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "File too large", description: 'Image must be under 5MB', variant: "destructive" });
+      return false;
+    }
+    return true;
+  };
+
   const handleBeforeFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
+    const files = Array.from(e.target.files || []).filter(validateFile);
     if (files.length > 0) {
       setBeforePhotos(prev => [...prev, ...files]);
     }
   };
 
   const handleAfterFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
+    const files = Array.from(e.target.files || []).filter(validateFile);
     if (files.length > 0) {
       setAfterPhotos(prev => [...prev, ...files]);
     }

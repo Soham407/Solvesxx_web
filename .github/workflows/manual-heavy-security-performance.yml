@@ -1,0 +1,233 @@
+name: Manual Heavy Security Performance
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Suite to run
+        type: choice
+        required: true
+        default: all
+        options:
+          - all
+          - heavy
+          - security
+          - performance
+
+permissions:
+  contents: read
+
+concurrency:
+  group: manual-heavy-security-performance-${{ github.ref }}-${{ github.run_id }}
+  cancel-in-progress: false
+
+env:
+  CI: true
+  NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
+  NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+jobs:
+  heavy:
+    if: ${{ github.event.inputs.mode == 'all' || github.event.inputs.mode == 'heavy' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Start app
+        run: |
+          npm run start -- --hostname 127.0.0.1 > app.log 2>&1 &
+          echo $! > app.pid
+
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:3000 >/dev/null; then
+              exit 0
+            fi
+            sleep 5
+          done
+
+          echo "Application failed to start"
+          cat app.log
+          exit 1
+
+      - name: Run backend contracts
+        run: npm run test:backend
+
+      - name: Run deep workflow coverage
+        run: npm run test:e2e:features
+
+      - name: Stop app
+        if: always()
+        run: |
+          if [ -f app.pid ]; then
+            kill "$(cat app.pid)" || true
+          fi
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-manual-heavy-${{ github.run_id }}
+          path: playwright-report
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-manual-heavy-${{ github.run_id }}
+          path: test-results
+          if-no-files-found: warn
+          retention-days: 30
+
+  security:
+    if: ${{ github.event.inputs.mode == 'all' || github.event.inputs.mode == 'security' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Start app
+        run: |
+          npm run start -- --hostname 127.0.0.1 > app.log 2>&1 &
+          echo $! > app.pid
+
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:3000 >/dev/null; then
+              exit 0
+            fi
+            sleep 5
+          done
+
+          echo "Application failed to start"
+          cat app.log
+          exit 1
+
+      - name: Run backend contracts
+        run: npm run test:backend
+
+      - name: Run security baseline
+        run: npm run test:security
+
+      - name: Stop app
+        if: always()
+        run: |
+          if [ -f app.pid ]; then
+            kill "$(cat app.pid)" || true
+          fi
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-manual-security-${{ github.run_id }}
+          path: playwright-report
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-manual-security-${{ github.run_id }}
+          path: test-results
+          if-no-files-found: warn
+          retention-days: 30
+
+  performance:
+    if: ${{ github.event.inputs.mode == 'all' || github.event.inputs.mode == 'performance' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Install k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Start app
+        run: |
+          npm run start -- --hostname 127.0.0.1 > app.log 2>&1 &
+          echo $! > app.pid
+
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:3000 >/dev/null; then
+              exit 0
+            fi
+            sleep 5
+          done
+
+          echo "Application failed to start"
+          cat app.log
+          exit 1
+
+      - name: Run k6 smoke
+        run: npm run test:perf:smoke
+
+      - name: Stop app
+        if: always()
+        run: |
+          if [ -f app.pid ]; then
+            kill "$(cat app.pid)" || true
+          fi
+
+      - name: Upload performance artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-smoke-${{ github.run_id }}
+          path: |
+            app.log
+            test-results/k6-summary.json
+          if-no-files-found: warn
+          retention-days: 14

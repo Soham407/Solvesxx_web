@@ -182,9 +182,23 @@ export function useServiceRequests(initialFilters?: ServiceRequestFilters): UseS
       data: Omit<ServiceRequestInsert, "request_number">
     ): Promise<{ success: boolean; error?: string; data?: ServiceRequest }> => {
       try {
+        const {
+          data: { user },
+          error: authError,
+        } = await supabase.auth.getUser();
+
+        if (authError) throw authError;
+        if (!user) throw new Error("Not authenticated");
+
+        const fallbackRequestNumber = `REQ-${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2, 8)
+          .toUpperCase()}`;
         const insertData = {
           ...data,
-          request_number: "PENDING", // Will be replaced by trigger
+          created_by: data.created_by ?? user.id,
+          request_number: fallbackRequestNumber,
+          requester_id: data.requester_id ?? user.id,
           status: "open" as const,
         };
 

@@ -19,6 +19,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { toast } from "sonner";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { useEmployees } from "@/hooks/useEmployees";
 
 const employeeSchema = z.object({
   firstName: z.string().min(2, "First name is required"),
@@ -35,16 +36,28 @@ type EmployeeFormValues = z.infer<typeof employeeSchema>;
 
 export default function CreateEmployeePage() {
   const router = useRouter();
+  const { createEmployee } = useEmployees();
   const { register, handleSubmit, formState: { errors, isSubmitting }, setValue } = useForm<EmployeeFormValues>({
     resolver: zodResolver(employeeSchema),
   });
 
   const onSubmit = async (data: EmployeeFormValues) => {
-    // Mock save
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    console.log(data);
-    toast.success("Employee onboarding initiated successfully!");
-    router.push("/company/employees");
+    const result = await createEmployee({
+      first_name: data.firstName,
+      last_name: data.lastName,
+      email: data.email,
+      phone: data.phone,
+      department: data.department,
+      designation: data.designation,
+      location: data.location,
+      role: data.role,
+    });
+    if (result.success) {
+      toast.success("Employee record created successfully!");
+      router.push("/company/employees");
+    } else {
+      toast.error(result.error || "Failed to create employee");
+    }
   };
 
   return (
@@ -181,7 +194,7 @@ export default function CreateEmployeePage() {
         {/* Footer Actions */}
         <div className="flex items-center justify-end gap-4 p-6 bg-muted/20 border rounded-xl">
            <p className="text-xs text-muted-foreground mr-auto">
-             Note: An onboarding email will be sent to the employee immediately after saving.
+             Note: This creates the employee record. Role assignment, location mapping, and account/email onboarding still happen separately.
            </p>
            <Button variant="outline" type="button" asChild>
              <Link href="/company/employees">Cancel</Link>

@@ -61,7 +61,7 @@ import {
   FEATURE_FUTURE_PHASE 
 } from "@/src/lib/featureFlags";
 import { useAuth } from "@/hooks/useAuth";
-import { hasAccess } from "@/src/lib/auth/roles";
+import { canAccessPath } from "@/src/lib/platform/permissions";
 
 
 interface NavItem {
@@ -287,10 +287,10 @@ const navigation: NavGroup[] = [
         href: "/settings",
         icon: Settings,
         children: [
-          { title: "Company Identity", href: "/settings/company" },
-          { title: "Access Control", href: "/settings/permissions" },
-          { title: "Notification Center", href: "/settings/notifications" },
-          { title: "Visual Branding", href: "/settings/branding" },
+          { title: "Admin Management", href: "/settings/admins" },
+          { title: "Role & Permissions", href: "/settings/permissions" },
+          { title: "Audit Logs", href: "/settings/audit-logs" },
+          { title: "System Configuration", href: "/settings/company" },
         ],
       },
     ],
@@ -307,7 +307,7 @@ interface AppSidebarProps {
 
 export function AppSidebar({ collapsed, onToggle, className, isMobile }: AppSidebarProps) {
   const pathname = usePathname();
-  const { role } = useAuth();
+  const { role, permissions } = useAuth();
   const [openGroups, setOpenGroups] = useState<string[]>([]);
 
   useEffect(() => {
@@ -371,21 +371,21 @@ export function AppSidebar({ collapsed, onToggle, className, isMobile }: AppSide
     }
 
     // Then apply Role-based access filtering
-    if (role !== "admin") {
+    if (role) {
       filtered = filtered.map(group => ({
         ...group,
         items: group.items
           .filter(item => {
             // For items with children, show if any child is accessible
             if (item.children && item.children.length > 0) {
-              return item.children.some(child => hasAccess(role!, child.href));
+              return item.children.some(child => canAccessPath(role!, permissions, child.href));
             }
-            return hasAccess(role!, item.href);
+            return canAccessPath(role!, permissions, item.href);
           })
           .map(item => ({
             ...item,
             children: item.children?.filter(
-              child => hasAccess(role!, child.href)
+              child => canAccessPath(role!, permissions, child.href)
             ),
           }))
           .filter(item => (item.children && item.children.length > 0) || !item.children),
@@ -393,7 +393,7 @@ export function AppSidebar({ collapsed, onToggle, className, isMobile }: AppSide
     }
 
     return filtered;
-  }, [role]);
+  }, [permissions, role]);
 
 
   return (

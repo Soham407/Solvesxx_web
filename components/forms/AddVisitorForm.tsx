@@ -198,9 +198,28 @@ export function AddVisitorForm({ onSuccess, onCancel }: AddVisitorFormProps) {
 
       if (imageSrc) {
         try {
+          // Resize image to max 640x480 before upload
+          const resizedDataUrl = await new Promise<string>((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+              const ratio = Math.min(640 / img.width, 480 / img.height, 1);
+              const canvas = document.createElement("canvas");
+              canvas.width = Math.round(img.width * ratio);
+              canvas.height = Math.round(img.height * ratio);
+              const ctx = canvas.getContext("2d")!;
+              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+              resolve(canvas.toDataURL("image/jpeg", 0.8));
+            };
+            img.src = imageSrc;
+          });
+
           // Convert base64 to Blob
-          const base64Response = await fetch(imageSrc);
+          const base64Response = await fetch(resizedDataUrl);
           const blob = await base64Response.blob();
+
+          if (blob.size > 2 * 1024 * 1024) {
+            throw new Error("Photo is too large (max 2MB). Please retake in better lighting.");
+          }
 
           // Generate unique filename
           const fileName = `visitor_${Date.now()}_${Math.random().toString(36).substring(7)}.jpg`;

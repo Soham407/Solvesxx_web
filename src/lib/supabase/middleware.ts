@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { Database } from '@/src/types/supabase'
+import { normalizePermissions } from '@/src/lib/platform/permissions'
 
 /**
  * Updates the Supabase auth session by refreshing tokens via cookies.
@@ -45,16 +46,23 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   let role: string | null = null;
+  let permissions: string[] = []
+  let isActive = true
   if (user) {
     const { data } = await supabase
       .from('users')
-      .select('roles!inner(role_name)')
+      .select('is_active, roles!inner(role_name, permissions)')
       .eq('id', user.id)
       .maybeSingle();
-    
-    const roleData = data as { roles: { role_name: string } | null } | null;
-    role = roleData?.roles?.role_name || null;
+
+    const roleData = Array.isArray((data as any)?.roles)
+      ? (data as any)?.roles[0]
+      : (data as any)?.roles
+
+    role = roleData?.role_name || null
+    permissions = normalizePermissions(roleData?.permissions)
+    isActive = (data as any)?.is_active !== false
   }
 
-  return { supabaseResponse, user, role }
+  return { supabaseResponse, user, role, permissions, isActive }
 }

@@ -9,14 +9,13 @@
  * See /docs/FEATURE_FREEZE_REGISTER.md for re-enablement instructions.
  */
 
-import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { isRouteFrozen, FEATURE_FUTURE_PHASE } from "@/src/lib/featureFlags";
 import { useAuth } from "@/hooks/useAuth";
-import { hasAccess } from "@/src/lib/auth/roles";
 import { AlertTriangle, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { canAccessPath } from "@/src/lib/platform/permissions";
 
 interface RouteGuardProps {
   children: React.ReactNode;
@@ -25,7 +24,7 @@ interface RouteGuardProps {
 export function RouteGuard({ children }: RouteGuardProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { role, isLoading } = useAuth();
+  const { role, permissions, isLoading } = useAuth();
   
   // If all features are enabled and role is admin, render children
   if (FEATURE_FUTURE_PHASE && role === "admin") {
@@ -41,7 +40,7 @@ export function RouteGuard({ children }: RouteGuardProps) {
   const isFrozen = pathname ? isRouteFrozen(pathname) : false;
   
   // Check if current user is authorized for this route
-  const isAuthorized = pathname && role ? hasAccess(role, pathname) : true;
+  const isAuthorized = pathname && role ? canAccessPath(role, permissions, pathname) : true;
 
   if (!isAuthorized) {
     return (

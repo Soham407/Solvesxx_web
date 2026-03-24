@@ -18,7 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Plus, Trash2, Users, Loader2 } from "lucide-react";
+import { Plus, Trash2, Users, Loader2, Download, CheckCircle2 } from "lucide-react";
 import { useServiceDeliveryNotes } from "@/hooks/useServiceDeliveryNotes";
 
 const personnelSchema = z.object({
@@ -53,6 +53,8 @@ export function ServiceDeliveryNoteDialog({
   onSuccess,
 }: ServiceDeliveryNoteDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [createdSDN, setCreatedSDN] = useState<any>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
   const { createNote } = useServiceDeliveryNotes(poId);
 
   const form = useForm<FormValues>({
@@ -79,14 +81,70 @@ export function ServiceDeliveryNoteDialog({
     });
     setIsSubmitting(false);
     if (result.success) {
+      setCreatedSDN(result.data);
       form.reset();
-      onOpenChange(false);
       onSuccess?.();
     }
   };
 
+  const handleDownloadPDF = async () => {
+    if (!createdSDN) return;
+    setIsDownloading(true);
+    try {
+      const { default: jsPDF } = await import("jspdf");
+      const doc = new jsPDF();
+
+      doc.setFontSize(18);
+      doc.setFont("helvetica", "bold");
+      doc.text("Service Delivery Note", 20, 20);
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(`SDN ID: ${createdSDN.id || "N/A"}`, 20, 34);
+      doc.text(`PO Number: ${poNumber}`, 20, 42);
+      doc.text(
+        `Delivery Date: ${createdSDN.delivery_date || new Date().toISOString().split("T")[0]}`,
+        20,
+        50
+      );
+      doc.text(`Status: ${createdSDN.status || "pending"}`, 20, 58);
+      if (createdSDN.remarks) {
+        doc.text(`Remarks: ${createdSDN.remarks}`, 20, 66);
+      }
+
+      const personnel: any[] = createdSDN.personnel_details || [];
+      if (personnel.length > 0) {
+        doc.setFont("helvetica", "bold");
+        doc.text("Personnel Deployed:", 20, 80);
+        doc.setFont("helvetica", "normal");
+        let y = 90;
+        personnel.forEach((p: any, idx: number) => {
+          doc.text(
+            `${idx + 1}. ${p.name} — ${p.qualification} | ${p.id_proof_type}: ${p.id_proof_number} | ${p.contact}`,
+            20,
+            y
+          );
+          y += 8;
+        });
+
+        doc.setFont("helvetica", "bold");
+        doc.text(`Total Headcount: ${personnel.length}`, 20, y + 4);
+      }
+
+      const fileName = `SDN-${(createdSDN.id || "draft").substring(0, 8).toUpperCase()}.pdf`;
+      doc.save(fileName);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  const handleClose = () => {
+    setCreatedSDN(null);
+    onOpenChange(false);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -96,7 +154,41 @@ export function ServiceDeliveryNoteDialog({
           <p className="text-xs text-muted-foreground">PO: <span className="font-mono font-bold">{poNumber}</span></p>
         </DialogHeader>
 
-        <form onSubmit={form.handleSubmit(handleSubmit)}>
+        {/* Success State */}
+        {createdSDN && (
+          <div className="flex flex-col items-center gap-4 py-8 text-center">
+            <CheckCircle2 className="h-12 w-12 text-success" />
+            <div>
+              <p className="font-bold text-base">Delivery Note Submitted</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                SDN created successfully and is awaiting admin verification.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={handleClose}
+              >
+                Close
+              </Button>
+              <Button
+                onClick={handleDownloadPDF}
+                disabled={isDownloading}
+                className="gap-2"
+              >
+                {isDownloading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+                Download PDF
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Form State */}
+        {!createdSDN && <form onSubmit={form.handleSubmit(handleSubmit)}>
           <div className="space-y-4 py-2">
             {/* Delivery Date */}
             <div className="grid grid-cols-2 gap-4">
@@ -201,7 +293,7 @@ export function ServiceDeliveryNoteDialog({
           </div>
 
           <DialogFooter className="pt-4">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={handleClose}>
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting} className="gap-2">
@@ -209,7 +301,7 @@ export function ServiceDeliveryNoteDialog({
               Submit Delivery Note
             </Button>
           </DialogFooter>
-        </form>
+        </form>}
       </DialogContent>
     </Dialog>
   );

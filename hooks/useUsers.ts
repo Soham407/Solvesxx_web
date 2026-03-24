@@ -9,10 +9,14 @@ export interface UserMaster {
   full_name: string;
   email: string;
   role_name: string;
+  role_key: string | null;
   last_login: string | null;
   is_active: boolean;
+  is_admin_tier: boolean;
   status: "Active" | "Locked" | "Pending";
 }
+
+const ADMIN_TIER_ROLES = new Set(["admin", "super_admin"]);
 
 export function useUsers() {
   const [users, setUsers] = useState<UserMaster[]>([]);
@@ -33,6 +37,7 @@ export function useUsers() {
           last_login,
           is_active,
           roles (
+            role_name,
             role_display_name
           )
         `)
@@ -40,21 +45,39 @@ export function useUsers() {
 
       if (fetchError) throw fetchError;
 
-      const formatted: UserMaster[] = (data || []).map((u: any) => {
+      const formatted: UserMaster[] = (data || []).map((u: {
+        id: string;
+        full_name: string;
+        email: string;
+        last_login: string | null;
+        is_active: boolean;
+        roles:
+          | {
+              role_name?: string | null;
+              role_display_name?: string | null;
+            }
+          | Array<{
+              role_name?: string | null;
+              role_display_name?: string | null;
+            }>
+          | null;
+      }) => {
         const roleData = Array.isArray(u.roles) ? u.roles[0] : u.roles;
         return {
           id: u.id,
           full_name: u.full_name,
           email: u.email,
           role_name: roleData?.role_display_name || "Unknown Role",
+          role_key: roleData?.role_name || null,
           last_login: u.last_login,
           is_active: u.is_active,
+          is_admin_tier: ADMIN_TIER_ROLES.has(roleData?.role_name),
           status: u.is_active ? "Active" : "Locked",
         };
       });
 
       setUsers(formatted);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching users:", err);
       setError("Failed to load users list");
     } finally {
@@ -62,30 +85,40 @@ export function useUsers() {
     }
   }, []);
 
-  const deactivateUser = async (userId: string) => {
+  const deactivateUser = async (user: UserMaster) => {
     try {
+      if (user.is_admin_tier) {
+        toast.error("Manage admin accounts from Platform Settings");
+        return;
+      }
+
       const { error } = await supabase
         .from("users")
         .update({ is_active: false })
-        .eq("id", userId);
+        .eq("id", user.id);
       if (error) throw error;
       toast.success("User deactivated");
       fetchUsers();
-    } catch (err: any) {
+    } catch (_err: unknown) {
       toast.error("Failed to deactivate user");
     }
   };
 
-  const activateUser = async (userId: string) => {
+  const activateUser = async (user: UserMaster) => {
     try {
+      if (user.is_admin_tier) {
+        toast.error("Manage admin accounts from Platform Settings");
+        return;
+      }
+
       const { error } = await supabase
         .from("users")
         .update({ is_active: true })
-        .eq("id", userId);
+        .eq("id", user.id);
       if (error) throw error;
       toast.success("User activated");
       fetchUsers();
-    } catch (err: any) {
+    } catch (_err: unknown) {
       toast.error("Failed to activate user");
     }
   };

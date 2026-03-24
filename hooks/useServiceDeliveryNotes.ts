@@ -159,8 +159,10 @@ export function useServiceDeliveryNotes(poId?: string) {
     }
   };
 
-  // Realtime subscription
+  // Realtime subscription + initial fetch
   useEffect(() => {
+    fetchNotes();
+
     const channel = supabase
       .channel("delivery-notes-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "service_delivery_notes" }, () => {
@@ -170,8 +172,6 @@ export function useServiceDeliveryNotes(poId?: string) {
 
     return () => { supabase.removeChannel(channel); };
   }, [fetchNotes]);
-
-  useEffect(() => { fetchNotes(); }, [fetchNotes]);
 
   return { notes, isLoading, error, createNote, verifyNote, rejectNote, refresh: fetchNotes };
 }

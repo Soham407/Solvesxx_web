@@ -466,8 +466,19 @@ export default function POTrackingPage() {
   // Loading state
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-96">
+      <div
+        className="flex flex-col items-center justify-center h-96 gap-3 text-center"
+        data-testid="purchase-orders-loading-state"
+        role="status"
+        aria-live="polite"
+      >
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <div className="space-y-1">
+          <p className="font-medium text-foreground">Loading purchase orders</p>
+          <p className="text-sm text-muted-foreground">
+            Fetching the latest procurement records from the vendor ledger.
+          </p>
+        </div>
       </div>
     );
   }
@@ -475,8 +486,15 @@ export default function POTrackingPage() {
   // Error state
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-96 gap-4">
-        <p className="text-destructive">{error}</p>
+      <div
+        className="flex flex-col items-center justify-center h-96 gap-4 text-center"
+        data-testid="purchase-orders-error-state"
+        role="alert"
+      >
+        <div className="space-y-2">
+          <p className="font-semibold text-destructive">Unable to load purchase orders</p>
+          <p className="text-sm text-muted-foreground max-w-lg">{error}</p>
+        </div>
         <Button onClick={refresh} variant="outline" className="gap-2">
           <RefreshCw className="h-4 w-4" /> Retry
         </Button>
@@ -619,7 +637,10 @@ export default function POTrackingPage() {
         </CardHeader>
         <CardContent className="p-4">
           {filteredPOs.length === 0 ? (
-            <div className="p-20 text-center border-2 border-dashed rounded-2xl bg-muted/20">
+            <div
+              className="p-20 text-center border-2 border-dashed rounded-2xl bg-muted/20"
+              data-testid="purchase-orders-empty-state"
+            >
               <FileText className="h-12 w-12 mx-auto text-muted-foreground/30 mb-4" />
               <CardDescription>No purchase orders found</CardDescription>
               <Button onClick={() => setCreateDialogOpen(true)} variant="link" className="mt-2">

@@ -31,7 +31,12 @@ INSERT INTO roles (role_name, role_display_name, is_active) VALUES
   ('company_md',   'Company MD',   true),
   ('company_hod',  'Company HOD',  true),
   ('delivery_boy', 'Delivery Boy', true),
-  ('service_boy',  'Service Boy',  true)
+  ('service_boy',  'Service Boy',  true),
+  ('storekeeper', 'Storekeeper', true),
+  ('site_supervisor', 'Site Supervisor', true),
+  ('super_admin', 'Super Admin', true),
+  ('ac_technician', 'AC Technician', true),
+  ('pest_control_technician', 'Pest Control Technician', true)
 ON CONFLICT (role_name) DO NOTHING;
 
 -- =============================================================================

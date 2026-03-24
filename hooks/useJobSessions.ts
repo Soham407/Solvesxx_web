@@ -104,6 +104,43 @@ export function useJobSessions(serviceRequestId?: string, technicianId?: string)
   const startSession = useCallback(
     async (data: StartJobSessionForm): Promise<{ success: boolean; error?: string; data?: JobSession }> => {
       try {
+        // Enforce the pre-job PPE gate for pest-control work using the
+        // live `service_requests_with_details` view and the dedicated
+        // `pest_control_ppe_verifications` table.
+        const { data: serviceRequest, error: serviceError } = await supabase
+          .from("service_requests_with_details")
+          .select("service_name")
+          .eq("id", data.serviceRequestId)
+          .maybeSingle();
+
+        if (serviceError) throw serviceError;
+
+        const serviceName = String(serviceRequest?.service_name || "").toLowerCase();
+        const isPestControlJob =
+          serviceName.includes("pest control") ||
+          serviceName.includes("pest") ||
+          serviceName.includes("pst-con");
+
+        if (isPestControlJob) {
+          const { data: ppeVerifications, error: ppeError } = await supabase
+            .from("pest_control_ppe_verifications")
+            .select("id")
+            .eq("service_request_id", data.serviceRequestId)
+            .eq("technician_id", data.technicianId)
+            .eq("status", "verified")
+            .order("verified_at", { ascending: false })
+            .limit(1);
+
+          if (ppeError) throw ppeError;
+
+          if (!ppeVerifications?.length) {
+            return {
+              success: false,
+              error: "PPE checklist must be completed before starting this job",
+            };
+          }
+        }
+
         const sessionData: JobSessionInsert = {
           service_request_id: data.serviceRequestId,
           technician_id: data.technicianId,

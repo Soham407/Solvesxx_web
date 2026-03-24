@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
-  Search,
   Menu,
   ChevronDown,
   User,
@@ -22,7 +21,6 @@ import {
 import { CommandMenu } from "./CommandMenu";
 import { NotificationBell } from "./NotificationBell";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,10 +38,13 @@ import {
 } from "@/components/ui/sheet";
 import { AppSidebar } from "./AppSidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import {
+  getDefaultSettingsRoute,
+  hasAnySettingsPermission,
+} from "@/src/lib/platform/permissions";
 
 interface TopNavProps {
   onToggleSidebar: () => void;
@@ -58,8 +59,10 @@ export function TopNav({ onToggleSidebar, sidebarCollapsed }: TopNavProps) {
   const router = useRouter();
   const [selectedCompany, setSelectedCompany] = useState(companies[0]);
   const { theme, setTheme } = useTheme();
-  const { signOut, user, role } = useAuth();
+  const { signOut, user, role, permissions } = useAuth();
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const settingsHref = getDefaultSettingsRoute(permissions);
+  const canAccessSettings = hasAnySettingsPermission(permissions);
 
   const handleSignOut = async () => {
     setIsSigningOut(true);
@@ -67,7 +70,7 @@ export function TopNav({ onToggleSidebar, sidebarCollapsed }: TopNavProps) {
       await signOut();
       toast.success("Signed out successfully");
       router.push("/login");
-    } catch (error) {
+    } catch (_error) {
       toast.error("Failed to sign out");
     } finally {
       setIsSigningOut(false);
@@ -96,6 +99,17 @@ export function TopNav({ onToggleSidebar, sidebarCollapsed }: TopNavProps) {
             <AppSidebar collapsed={false} isMobile={true} />
           </SheetContent>
         </Sheet>
+      </div>
+      <div className="hidden lg:block">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onToggleSidebar}
+          className="shrink-0 transition-transform active:scale-95"
+          aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
       </div>
 
       
@@ -134,10 +148,15 @@ export function TopNav({ onToggleSidebar, sidebarCollapsed }: TopNavProps) {
             ))}
           </div>
           <DropdownMenuSeparator className="my-2" />
-          <DropdownMenuItem className="gap-3 p-2 cursor-pointer rounded-md" onClick={() => router.push("/settings/company")}>
-            <Building2 className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm">Organization Settings</span>
-          </DropdownMenuItem>
+          {canAccessSettings && (
+            <DropdownMenuItem
+              className="gap-3 p-2 cursor-pointer rounded-md"
+              onClick={() => router.push(settingsHref)}
+            >
+              <Building2 className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm">Platform Settings</span>
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -234,10 +253,15 @@ export function TopNav({ onToggleSidebar, sidebarCollapsed }: TopNavProps) {
               <User className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium">My Profile</span>
             </DropdownMenuItem>
-            <DropdownMenuItem className="gap-3 p-2.5 cursor-pointer rounded-md" onClick={() => router.push("/settings")}>
-              <Settings className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">Account Settings</span>
-            </DropdownMenuItem>
+            {canAccessSettings && (
+              <DropdownMenuItem
+                className="gap-3 p-2.5 cursor-pointer rounded-md"
+                onClick={() => router.push(settingsHref)}
+              >
+                <Settings className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Platform Settings</span>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator className="my-2" />
             <DropdownMenuItem 
               className="gap-3 p-2.5 cursor-pointer rounded-md text-destructive focus:bg-destructive/5 focus:text-destructive"

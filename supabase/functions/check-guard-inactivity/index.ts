@@ -23,6 +23,25 @@ interface InactivityResult {
   supervisor_id?: string; // If the RPC returns this
 }
 
+async function getSystemConfigNumber(
+  supabase: ReturnType<typeof createClient>,
+  key: string,
+  fallback: number
+): Promise<number> {
+  const { data, error } = await supabase
+    .from('system_config')
+    .select('value')
+    .eq('key', key)
+    .maybeSingle();
+
+  if (error || !data?.value) {
+    return fallback;
+  }
+
+  const parsed = Number(data.value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 /**
  * Validate that the request is from an authorized cron scheduler.
  */
@@ -73,10 +92,16 @@ Deno.serve(async (req) => {
       }
     });
 
-    // Get threshold from query param or use default (15 minutes)
+    // Get threshold from query param or fall back to system configuration.
     const url = new URL(req.url);
     const thresholdParam = url.searchParams.get('threshold');
-    const thresholdMinutes = thresholdParam ? parseInt(thresholdParam, 10) : 15;
+    const thresholdMinutes = thresholdParam
+      ? parseInt(thresholdParam, 10)
+      : await getSystemConfigNumber(
+          supabase,
+          'guard_inactivity_threshold_minutes',
+          30
+        );
 
     console.log(`[check-guard-inactivity] Starting detection with threshold: ${thresholdMinutes} minutes`);
 

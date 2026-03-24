@@ -19,6 +19,7 @@
 /playwright-report/
 /blob-report/
 playwright/.cache/
+e2e/.feature-fixtures.json
 
 # next.js
 /.next/
@@ -50,3 +51,15 @@ next-env.d.ts
 # Claude Code (local overrides only — .claude/settings.json is team-shared)
 .claude/settings.local.json
 .worktrees/
+
+# Dev / test process artifacts
+.build.log
+.codex-next-start.log
+.dev-check.log
+.dev-verify.log
+.start-check.log
+.test-app*.log
+.test-app*.pid
+role-test.log
+.playwright-mcp/
+.tmp-society-migration/

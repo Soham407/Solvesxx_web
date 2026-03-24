@@ -57,7 +57,7 @@ export function usePersonnelDispatches(poId?: string) {
           *,
           purchase_orders!service_po_id (po_number),
           suppliers!supplier_id (supplier_name),
-          locations!deployment_site_id (name)
+          company_locations!deployment_site_id (name)
         `)
         .order("created_at", { ascending: false });
 
@@ -136,8 +136,10 @@ export function usePersonnelDispatches(poId?: string) {
     }
   };
 
-  // Realtime
+  // Realtime subscription + initial fetch
   useEffect(() => {
+    fetchDispatches();
+
     const channel = supabase
       .channel("personnel-dispatches-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "personnel_dispatches" }, () => {
@@ -147,8 +149,6 @@ export function usePersonnelDispatches(poId?: string) {
 
     return () => { supabase.removeChannel(channel); };
   }, [fetchDispatches]);
-
-  useEffect(() => { fetchDispatches(); }, [fetchDispatches]);
 
   return { dispatches, isLoading, createDispatch, confirmDeployment, refresh: fetchDispatches };
 }

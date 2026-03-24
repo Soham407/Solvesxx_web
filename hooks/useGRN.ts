@@ -778,15 +778,15 @@ export function useGRN(filters?: { status?: GRNStatus; poId?: string; supplierId
         }
       }
 
-      // Update PO items
-      for (const [poItemId, receivedQty] of Object.entries(receivedByItem)) {
-        await supabase
-          .from("purchase_order_items")
-          .update({
-            received_quantity: receivedQty,
-          })
-          .eq("id", poItemId);
-      }
+      // Update PO items in parallel to avoid N+1 sequential writes
+      await Promise.all(
+        Object.entries(receivedByItem).map(([poItemId, receivedQty]) =>
+          supabase
+            .from("purchase_order_items")
+            .update({ received_quantity: receivedQty })
+            .eq("id", poItemId)
+        )
+      );
 
       // Check if PO is fully received
       const { data: poItems } = await supabase

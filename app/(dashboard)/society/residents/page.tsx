@@ -192,18 +192,22 @@ export default function ResidentsPage() {
     setIsSubmitting(true);
     setError(null);
     try {
-      const resArr = new Uint8Array(3);
-      crypto.getRandomValues(resArr);
-      const userCode = "RES-" + Array.from(resArr).map(b => b.toString(16).padStart(2, "0")).join("").toUpperCase();
-      const { error: insertError } = await supabase.from('residents').insert({
-         full_name: formData.full_name,
-         phone: formData.phone,
-         relation: formData.relation,
-         flat_id: formData.flat_id,
-         resident_code: userCode,
-         is_active: true
+      const response = await fetch("/api/society/residents", {
+         method: "POST",
+         headers: {
+           "Content-Type": "application/json",
+         },
+         body: JSON.stringify({
+           flat_id: formData.flat_id,
+           full_name: formData.full_name,
+           phone: formData.phone,
+           relation: formData.relation,
+         }),
       });
-      if(insertError) throw insertError;
+
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || "Failed to register resident");
+
       setIsDialogOpen(false);
       setFormData({ full_name: '', phone: '', relation: 'Owner', flat_id: '' });
       fetchResidents();

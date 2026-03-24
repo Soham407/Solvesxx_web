@@ -64,11 +64,13 @@ export function useShortageNotes() {
   const { toast } = useToast();
   const [notes, setNotes] = useState<ShortageNote[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchNotes = useCallback(async () => {
     setIsLoading(true);
+    setError(null);
     try {
-      const { data, error } = await supabase
+      const { data, error: fetchError } = await supabase
         .from("shortage_notes")
         .select(`
           *,
@@ -78,7 +80,7 @@ export function useShortageNotes() {
         `)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (fetchError) throw fetchError;
 
       const mapped = (data || []).map((n: any) => ({
         ...n,
@@ -89,7 +91,9 @@ export function useShortageNotes() {
 
       setNotes(mapped);
     } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to fetch shortage notes";
       console.error("Shortage notes fetch error:", err);
+      setError(msg);
     } finally {
       setIsLoading(false);
     }
@@ -138,6 +142,29 @@ export function useShortageNotes() {
 
       if (itemsError) throw itemsError;
 
+      // UI-H1 Fix: Notify the supplier that a shortage note has been raised against them.
+      // Look up the supplier's portal user via the users.supplier_id FK.
+      try {
+        const { data: supplierUsers } = await supabase
+          .from("users")
+          .select("id")
+          .eq("supplier_id", dto.supplier_id);
+
+        for (const supplierUser of supplierUsers || []) {
+          await supabase.from("notifications").insert({
+            user_id: supplierUser.id,
+            notification_type: "shortage_note_raised",
+            title: "Shortage Note Raised",
+            message: `A shortage note (${note.note_number}) has been raised against your supply. Please review the shortage items.`,
+            reference_id: note.id,
+            reference_type: "shortage_note",
+          });
+        }
+      } catch (notifyErr) {
+        // Non-fatal: log but don't fail the mutation
+        console.error("Failed to send shortage note notification:", notifyErr);
+      }
+
       toast({
         title: "Shortage Note Created",
         description: `${note.note_number} raised for supplier.`,
@@ -176,5 +203,5 @@ export function useShortageNotes() {
 
   useEffect(() => { fetchNotes(); }, [fetchNotes]);
 
-  return { notes, isLoading, stats, createNote, resolveNote, refresh: fetchNotes };
+  return { notes, isLoading, error, stats, createNote, resolveNote, refresh: fetchNotes };
 }

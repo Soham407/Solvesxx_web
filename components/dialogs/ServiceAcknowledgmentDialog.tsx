@@ -99,6 +99,10 @@ export function ServiceAcknowledgmentDialog({
   }, [open]);
 
   const handleSubmit = async (values: FormValues) => {
+    if (hasMismatch && !values.notes?.trim()) {
+      form.setError("notes", { message: "Notes are required when headcount mismatches" });
+      return;
+    }
     setIsSubmitting(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -217,6 +221,9 @@ export function ServiceAcknowledgmentDialog({
                 rows={3}
                 {...form.register("notes")}
               />
+              {form.formState.errors.notes && (
+                <p className="text-xs text-destructive">{form.formState.errors.notes.message}</p>
+              )}
             </div>
           </div>
 

@@ -532,14 +532,16 @@ export function useIndents(filters?: { status?: IndentStatus; department?: strin
         throw new Error(`Cannot approve indent from status: ${indent.status}`);
       }
 
-      // Update approved quantities if provided
+      // Update approved quantities if provided — use parallel writes to avoid N+1
       if (approvedQuantities) {
-        for (const [itemId, approvedQty] of Object.entries(approvedQuantities)) {
-          await supabase
-            .from("indent_items")
-            .update({ approved_quantity: approvedQty })
-            .eq("id", itemId);
-        }
+        await Promise.all(
+          Object.entries(approvedQuantities).map(([itemId, approvedQty]) =>
+            supabase
+              .from("indent_items")
+              .update({ approved_quantity: approvedQty })
+              .eq("id", itemId)
+          )
+        );
       }
 
       const { error } = await supabase

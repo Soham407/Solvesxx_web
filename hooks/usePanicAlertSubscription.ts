@@ -141,7 +141,7 @@ export function usePanicAlertSubscription() {
     }
 
     const channel = supabase
-      .channel("panic-alerts-realtime")
+      .channel("panic-alerts-live")
       .on(
         "postgres_changes",
         {

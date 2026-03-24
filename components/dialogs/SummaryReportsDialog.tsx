@@ -190,9 +190,9 @@ export function SummaryReportsDialog({ children, reportType = "tickets" }: Summa
                 </>
               )}
             </Button>
-            <Button variant="outline" onClick={handleDownload}>
+            <Button variant="outline" disabled>
               <Download className="mr-2 h-4 w-4" />
-              Download
+              Reports Coming Soon
             </Button>
           </div>
         </div>

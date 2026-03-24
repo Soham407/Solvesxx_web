@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/providers";
 import { AuthProvider } from "@/hooks/useAuth";
 import { Toaster } from "@/components/ui/sonner";
+import { Toaster as ShadcnToaster } from "@/components/ui/toaster";
 import ErrorBoundary from "@/components/shared/ErrorBoundary";
 
 // Plus Jakarta Sans - Refined, modern, excellent for data-dense apps
@@ -58,6 +59,7 @@ export default function RootLayout({
               {children}
             </ErrorBoundary>
             <Toaster position="top-right" closeButton richColors />
+            <ShadcnToaster />
           </AuthProvider>
         </ThemeProvider>
       </body>

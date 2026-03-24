@@ -17,7 +17,6 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Printer, Download, QrCode, CreditCard, User, Building2, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useReactToPrint } from "react-to-print";
-import jsPDF from "jspdf";
 
 interface IDCardData {
   type: "visitor" | "staff" | "contractor";
@@ -50,7 +49,8 @@ export function IDPrintingModule() {
     documentTitle: `ID-Card-${cardData.id || "preview"}`,
   });
 
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
+    const { default: jsPDF } = await import("jspdf");
     const doc = new jsPDF({ unit: "mm", format: [85, 54] }); // Credit card size
     doc.setFillColor(99, 102, 241);
     doc.rect(0, 0, 85, 14, "F");

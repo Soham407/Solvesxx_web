@@ -21,9 +21,15 @@ const formSchema = z.object({
   advertiser_name: z.string().min(2, "Advertiser name required"),
   start_date: z.string().min(1, "Start date required"),
   end_date: z.string().min(1, "End date required"),
-  agreed_rate: z.string().min(1, "Rate required"),
+  agreed_rate: z.string().refine(
+    v => !isNaN(parseFloat(v)) && parseFloat(v) > 0,
+    { message: "Rate must be a positive number" }
+  ),
   creative_url: z.string().url("Enter a valid URL").optional().or(z.literal("")),
   notes: z.string().optional(),
+}).refine(data => !data.end_date || !data.start_date || data.end_date >= data.start_date, {
+  message: "End date must be on or after start date",
+  path: ["end_date"],
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -107,6 +113,9 @@ export function AdBookingDialog({
               <div className="space-y-1.5">
                 <Label className="text-xs font-bold uppercase">End Date</Label>
                 <Input type="date" {...form.register("end_date")} />
+                {form.formState.errors.end_date && (
+                  <p className="text-xs text-destructive">{form.formState.errors.end_date.message}</p>
+                )}
               </div>
             </div>
 

@@ -17,13 +17,37 @@
 export const FEATURE_FUTURE_PHASE =
   process.env.NEXT_PUBLIC_FEATURE_FUTURE_PHASE === "true";
 
+// Next.js only inlines statically-referenced NEXT_PUBLIC env vars in client bundles.
+// Keep this explicit mapping so RouteGuard and other client components see the same
+// feature-flag state as the server and middleware.
+const FEATURE_FLAG_ENV = {
+  KANBAN_BOARD: process.env.NEXT_PUBLIC_FF_KANBAN_BOARD,
+  REPORTS_MODULE: process.env.NEXT_PUBLIC_FF_REPORTS_MODULE,
+  GPS_COMMAND_CENTER: process.env.NEXT_PUBLIC_FF_GPS_COMMAND_CENTER,
+  MAINTENANCE_SCHEDULING: process.env.NEXT_PUBLIC_FF_MAINTENANCE_SCHEDULING,
+  QR_BATCH_GENERATOR: process.env.NEXT_PUBLIC_FF_QR_BATCH_GENERATOR,
+  JOB_MATERIAL_TRACKING: process.env.NEXT_PUBLIC_FF_JOB_MATERIAL_TRACKING,
+  INDENT_VERIFICATION: process.env.NEXT_PUBLIC_FF_INDENT_VERIFICATION,
+  SERVICE_BOY_PAGE: process.env.NEXT_PUBLIC_FF_SERVICE_BOY_PAGE,
+  MULTI_WAREHOUSE: process.env.NEXT_PUBLIC_FF_MULTI_WAREHOUSE,
+  ASSET_CATEGORY_HIERARCHY: process.env.NEXT_PUBLIC_FF_ASSET_CATEGORY_HIERARCHY,
+  STOCK_BATCH_MANAGEMENT: process.env.NEXT_PUBLIC_FF_STOCK_BATCH_MANAGEMENT,
+  LEAVE_CONFIG_ADMIN: process.env.NEXT_PUBLIC_FF_LEAVE_CONFIG_ADMIN,
+  SPECIALIZED_PROFILES: process.env.NEXT_PUBLIC_FF_SPECIALIZED_PROFILES,
+  ASSET_MODULE: process.env.NEXT_PUBLIC_FF_ASSET_MODULE,
+  FINANCE_EXTENDED: process.env.NEXT_PUBLIC_FF_FINANCE_EXTENDED,
+  SETTINGS_MODULE: process.env.NEXT_PUBLIC_FF_SETTINGS_MODULE,
+} as const;
+
+type FeatureFlagName = keyof typeof FEATURE_FLAG_ENV;
+
 /**
  * Read a per-feature env var override.
  * Returns true if NEXT_PUBLIC_FF_<name>=true, or if FEATURE_FUTURE_PHASE is on.
  */
-function ff(name: string): boolean {
+function ff(name: FeatureFlagName): boolean {
   if (FEATURE_FUTURE_PHASE) return true;
-  return process.env[`NEXT_PUBLIC_FF_${name}`] === "true";
+  return FEATURE_FLAG_ENV[name] === "true";
 }
 
 // ===== INDIVIDUAL FEATURE FLAGS =====
@@ -67,11 +91,8 @@ const ROUTE_FLAG_MAP: Record<string, keyof typeof FEATURE_FLAGS> = {
   "/reports/services": "REPORTS_MODULE",
   "/reports/inventory": "REPORTS_MODULE",
   "/assets/maintenance": "MAINTENANCE_SCHEDULING",
-  "/inventory/indents/verification": "INDENT_VERIFICATION",
   "/inventory/warehouses": "MULTI_WAREHOUSE",
   "/assets/categories": "ASSET_CATEGORY_HIERARCHY",
-  "/hrms/leave/config": "LEAVE_CONFIG_ADMIN",
-  "/hrms/specialized-profiles": "SPECIALIZED_PROFILES",
   "/service-boy": "SERVICE_BOY_PAGE",
 
   // Bonus module routes
@@ -81,8 +102,8 @@ const ROUTE_FLAG_MAP: Record<string, keyof typeof FEATURE_FLAGS> = {
   "/finance/closure": "FINANCE_EXTENDED",
   "/finance/performance-audit": "FINANCE_EXTENDED",
   "/finance/ledger": "FINANCE_EXTENDED",
-  "/finance/buyer-invoices": "FINANCE_EXTENDED",
-  "/settings": "SETTINGS_MODULE",
+  "/settings/notifications": "SETTINGS_MODULE",
+  "/settings/branding": "SETTINGS_MODULE",
 };
 
 // Derived frozen routes for backward compatibility
@@ -103,17 +124,12 @@ const NAV_ITEM_FLAG_MAP: Record<string, keyof typeof FEATURE_FLAGS> = {
   "Warehouses": "MULTI_WAREHOUSE",
   "Asset Categories": "ASSET_CATEGORY_HIERARCHY",
   "Indent Verification": "INDENT_VERIFICATION",
-  "Leave Config": "LEAVE_CONFIG_ADMIN",
-  "Specialized Profiles": "SPECIALIZED_PROFILES",
   "My Jobs": "SERVICE_BOY_PAGE",
 
   // Bonus module nav items
   "Assets & Maintenance": "ASSET_MODULE",
   "Asset Registry": "ASSET_MODULE",
   "QR Code Lab": "ASSET_MODULE",
-  "Settings": "SETTINGS_MODULE",
-  "Company Identity": "SETTINGS_MODULE",
-  "Access Control": "SETTINGS_MODULE",
   "Notification Center": "SETTINGS_MODULE",
   "Visual Branding": "SETTINGS_MODULE",
 };

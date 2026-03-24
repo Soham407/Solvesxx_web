@@ -1,6 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import {
   Dialog,
   DialogContent,
@@ -25,6 +28,17 @@ import { Wrench, Loader2, FileText } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/src/lib/supabaseClient";
 
+const formSchema = z.object({
+  title: z.string().min(5, "Title must be at least 5 characters"),
+  description: z.string().min(5, "Description must be at least 5 characters"),
+  location: z.string().optional(),
+  priority: z.string().min(1, "Priority required"),
+  category: z.string().optional(),
+  estimatedHours: z.coerce.number().min(0.5, "Must be at least 0.5 hours").max(24, "Cannot exceed 24 hours").optional().or(z.literal("")),
+});
+
+type FormValues = z.infer<typeof formSchema>;
+
 interface NewJobOrderDialogProps {
   children: React.ReactNode;
   serviceType?: string;
@@ -33,37 +47,35 @@ interface NewJobOrderDialogProps {
 
 export function NewJobOrderDialog({ children, serviceType = "Service", onSuccess }: NewJobOrderDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    location: "",
-    priority: "normal",
-    category: "",
-    estimatedHours: "",
-  });
   const { toast } = useToast();
 
-  const handleSubmit = async () => {
-    if (!formData.title || !formData.description) {
-      toast({
-        title: "Missing Information",
-        description: "Please enter a title and description for the job order.",
-        variant: "destructive",
-      });
-      return;
-    }
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema) as any,
+    defaultValues: {
+      title: "",
+      description: "",
+      location: "",
+      priority: "normal",
+      category: "",
+      estimatedHours: "",
+    },
+  });
 
+  useEffect(() => {
+    if (!isOpen) form.reset();
+  }, [isOpen]);
+
+  const isSubmitting = form.formState.isSubmitting;
+
+  const handleSubmit = async (values: FormValues) => {
     try {
-      setIsSubmitting(true);
-
       const { error } = await supabase.from("service_requests").insert({
-        title: formData.title,
-        description: formData.description,
-        location_name: formData.location,
-        priority: formData.priority,
-        service_category: formData.category,
-        estimated_hours: formData.estimatedHours ? parseInt(formData.estimatedHours) : null,
+        title: values.title,
+        description: values.description,
+        location_name: values.location || null,
+        priority: values.priority,
+        service_category: values.category || null,
+        estimated_hours: values.estimatedHours ? Number(values.estimatedHours) : null,
         status: "open",
         created_at: new Date().toISOString(),
       } as any);
@@ -76,14 +88,6 @@ export function NewJobOrderDialog({ children, serviceType = "Service", onSuccess
       });
 
       setIsOpen(false);
-      setFormData({
-        title: "",
-        description: "",
-        location: "",
-        priority: "normal",
-        category: "",
-        estimatedHours: "",
-      });
       onSuccess?.();
     } catch (err) {
       toast({
@@ -91,8 +95,6 @@ export function NewJobOrderDialog({ children, serviceType = "Service", onSuccess
         description: "Failed to create job order. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -110,101 +112,105 @@ export function NewJobOrderDialog({ children, serviceType = "Service", onSuccess
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 py-4">
-          <div className="space-y-2">
-            <Label>Job Title</Label>
-            <Input
-              placeholder="Enter job title"
-              value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
+        <form onSubmit={form.handleSubmit(handleSubmit)}>
+          <div className="grid gap-4 py-4">
             <div className="space-y-2">
-              <Label>Category</Label>
-              <Select
-                value={formData.category}
-                onValueChange={(value) => setFormData({ ...formData, category: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="repair">Repair</SelectItem>
-                  <SelectItem value="maintenance">Maintenance</SelectItem>
-                  <SelectItem value="installation">Installation</SelectItem>
-                  <SelectItem value="inspection">Inspection</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label>Job Title</Label>
+              <Input placeholder="Enter job title" {...form.register("title")} />
+              {form.formState.errors.title && (
+                <p className="text-xs text-destructive">{form.formState.errors.title.message}</p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Category</Label>
+                <Select
+                  value={form.watch("category")}
+                  onValueChange={(value) => form.setValue("category", value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="repair">Repair</SelectItem>
+                    <SelectItem value="maintenance">Maintenance</SelectItem>
+                    <SelectItem value="installation">Installation</SelectItem>
+                    <SelectItem value="inspection">Inspection</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Priority</Label>
+                <Select
+                  value={form.watch("priority")}
+                  onValueChange={(value) => form.setValue("priority", value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="normal">Normal</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="urgent">Urgent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="space-y-2">
-              <Label>Priority</Label>
-              <Select
-                value={formData.priority}
-                onValueChange={(value) => setFormData({ ...formData, priority: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="normal">Normal</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label>Location</Label>
+              <Input placeholder="Enter work location" {...form.register("location")} />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Estimated Hours</Label>
+              <Input
+                type="number"
+                step="0.5"
+                min="0.5"
+                max="24"
+                placeholder="Estimated time required"
+                {...form.register("estimatedHours")}
+              />
+              {form.formState.errors.estimatedHours && (
+                <p className="text-xs text-destructive">{form.formState.errors.estimatedHours.message}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Textarea
+                placeholder="Detailed description of the work required..."
+                {...form.register("description")}
+              />
+              {form.formState.errors.description && (
+                <p className="text-xs text-destructive">{form.formState.errors.description.message}</p>
+              )}
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>Location</Label>
-            <Input
-              placeholder="Enter work location"
-              value={formData.location}
-              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Estimated Hours</Label>
-            <Input
-              type="number"
-              placeholder="Estimated time required"
-              value={formData.estimatedHours}
-              onChange={(e) => setFormData({ ...formData, estimatedHours: e.target.value })}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Description</Label>
-            <Textarea
-              placeholder="Detailed description of the work required..."
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            />
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setIsOpen(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting}>
-            {isSubmitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Creating...
-              </>
-            ) : (
-              <>
-                <FileText className="mr-2 h-4 w-4" />
-                Create Job Order
-              </>
-            )}
-          </Button>
-        </DialogFooter>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <FileText className="mr-2 h-4 w-4" />
+                  Create Job Order
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

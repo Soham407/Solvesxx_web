@@ -956,6 +956,36 @@ export function usePurchaseOrders(filters?: { status?: POStatus; supplierId?: st
       const rpcResult = result as any;
       if (!rpcResult?.success) throw new Error(rpcResult?.error || 'Status transition failed');
 
+      // UI-H1 Fix: Notify the supplier's portal user(s) that a PO has been issued to them.
+      try {
+        const { data: poData } = await supabase
+          .from('purchase_orders')
+          .select('supplier_id, po_number')
+          .eq('id', poId)
+          .single();
+
+        if (poData?.supplier_id) {
+          const { data: supplierUsers } = await supabase
+            .from('users')
+            .select('id')
+            .eq('supplier_id', poData.supplier_id);
+
+          for (const supplierUser of supplierUsers || []) {
+            await supabase.from('notifications').insert({
+              user_id: supplierUser.id,
+              notification_type: 'po_issued',
+              title: 'New Purchase Order Issued',
+              message: `Purchase Order ${poData.po_number || poId} has been issued to you. Please review and acknowledge.`,
+              reference_id: poId,
+              reference_type: 'purchase_order',
+            });
+          }
+        }
+      } catch (notifyErr) {
+        // Non-fatal: log but don't fail the mutation
+        console.error('Failed to send PO issued notification:', notifyErr);
+      }
+
       await fetchPurchaseOrders();
       return true;
     } catch (err: unknown) {

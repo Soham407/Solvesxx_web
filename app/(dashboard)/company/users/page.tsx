@@ -4,7 +4,7 @@ import { useState } from "react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTable } from "@/components/shared/DataTable";
 import { Button } from "@/components/ui/button";
-import { Plus, User, Key, Mail, ShieldCheck, MoreHorizontal, AlertCircle } from "lucide-react";
+import { Plus, Key, Mail, ShieldCheck, MoreHorizontal, AlertCircle } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -31,6 +31,11 @@ export default function UsersPage() {
   const [mfaDialogOpen, setMfaDialogOpen] = useState(false);
 
   const handleResetPassword = async (user: UserMaster) => {
+    if (user.is_admin_tier) {
+      toast.info("Admin-tier accounts are managed from Platform Settings.");
+      return;
+    }
+
     try {
       const res = await fetch("/api/users/reset-password", {
         method: "POST",
@@ -72,6 +77,14 @@ export default function UsersPage() {
           <Badge variant="outline" className="bg-primary/5 border-primary/10 text-primary font-bold">
             {row.getValue("role_name")}
           </Badge>
+          {row.original.is_admin_tier && (
+            <Badge
+              variant="outline"
+              className="bg-warning/10 border-warning/20 text-warning font-bold"
+            >
+              Platform Admin
+            </Badge>
+          )}
         </div>
       ),
     },
@@ -116,26 +129,39 @@ export default function UsersPage() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem className="gap-2" onClick={() => handleResetPassword(user)}>
-                <ShieldCheck className="h-3.5 w-3.5" /> Reset Password
-              </DropdownMenuItem>
-              <DropdownMenuItem className="gap-2" onClick={() => setMfaDialogOpen(true)}>
-                <Key className="h-3.5 w-3.5" /> Manage MFA
-              </DropdownMenuItem>
-              {user.is_active ? (
-                <DropdownMenuItem
-                  className="text-destructive font-bold gap-2"
-                  onClick={() => deactivateUser(user.id)}
-                >
-                  Deactivate User
-                </DropdownMenuItem>
+              {user.is_admin_tier ? (
+                <>
+                  <DropdownMenuItem disabled className="gap-2">
+                    <ShieldCheck className="h-3.5 w-3.5" /> Use Platform Settings
+                  </DropdownMenuItem>
+                  <DropdownMenuItem disabled className="gap-2">
+                    <Key className="h-3.5 w-3.5" /> Admin Tier Protected
+                  </DropdownMenuItem>
+                </>
               ) : (
-                <DropdownMenuItem
-                  className="text-success font-bold gap-2"
-                  onClick={() => activateUser(user.id)}
-                >
-                  Activate User
-                </DropdownMenuItem>
+                <>
+                  <DropdownMenuItem className="gap-2" onClick={() => handleResetPassword(user)}>
+                    <ShieldCheck className="h-3.5 w-3.5" /> Reset Password
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="gap-2" onClick={() => setMfaDialogOpen(true)}>
+                    <Key className="h-3.5 w-3.5" /> Manage MFA
+                  </DropdownMenuItem>
+                  {user.is_active ? (
+                    <DropdownMenuItem
+                      className="text-destructive font-bold gap-2"
+                      onClick={() => deactivateUser(user)}
+                    >
+                      Deactivate User
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem
+                      className="text-success font-bold gap-2"
+                      onClick={() => activateUser(user)}
+                    >
+                      Activate User
+                    </DropdownMenuItem>
+                  )}
+                </>
               )}
             </DropdownMenuContent>
           </DropdownMenu>

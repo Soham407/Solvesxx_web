@@ -62,8 +62,10 @@ Deno.serve(async (req: Request) => {
 
     if (guardError) throw guardError;
 
-    // Current date
-    const today = new Date().toISOString().split('T')[0];
+    // SEC-H4 Fix: Use IST midnight for date comparison so "today" matches the
+    // date visible on the guard's screen in India, not UTC which rolls over 5.5h earlier.
+    const nowIST = new Date(new Date().getTime() + (5.5 * 60 * 60 * 1000));
+    const today = nowIST.toISOString().split('T')[0]; // YYYY-MM-DD in IST
 
     // For each guard and checklist, check if response exists
     for (const guard of guards || []) {

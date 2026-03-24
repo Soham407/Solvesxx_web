@@ -295,7 +295,7 @@ export function usePanicAlertHistory(initialFilters?: AlertFilters) {
   // Real-time subscription for new alerts
   useEffect(() => {
     const channel = supabase
-      .channel("panic-alerts-realtime")
+      .channel("panic-alerts-history")
       .on(
         "postgres_changes",
         {

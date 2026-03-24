@@ -8,6 +8,25 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+async function getSystemConfigNumber(
+  supabase: ReturnType<typeof createClient>,
+  key: string,
+  fallback: number
+): Promise<number> {
+  const { data, error } = await supabase
+    .from('system_config')
+    .select('value')
+    .eq('key', key)
+    .maybeSingle();
+
+  if (error || !data?.value) {
+    return fallback;
+  }
+
+  const parsed = Number(data.value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 Deno.serve(async (req: Request) => {
   // Handle CORS
   if (req.method === 'OPTIONS') {
@@ -28,6 +47,11 @@ Deno.serve(async (req: Request) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const inactivityThresholdMinutes = await getSystemConfigNumber(
+      supabase,
+      'guard_inactivity_threshold_minutes',
+      30
+    );
 
     const alertsCreated = [];
     const errors = [];
@@ -49,8 +73,9 @@ Deno.serve(async (req: Request) => {
 
     if (guardError) throw guardError;
 
-    // 30 minutes ago
-    const inactivityThreshold = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    const inactivityThreshold = new Date(
+      Date.now() - inactivityThresholdMinutes * 60 * 1000
+    ).toISOString();
 
     for (const guard of guards || []) {
       try {
@@ -100,14 +125,14 @@ Deno.serve(async (req: Request) => {
           if (!existingAlert || existingAlert.length === 0) {
             // Create panic alert
             const { data: alert, error: alertError } = await supabase
-              .from('panic_alerts')
-              .insert({
-                guard_id: guard.id,
-                alert_type: 'inactivity',
-                description: `Guard has been stationary for more than 30 minutes. Last movement: ${latestPosition.tracked_at}`,
-                latitude: latestPosition.latitude,
-                longitude: latestPosition.longitude,
-                location_id: guard.assigned_location_id,
+                .from('panic_alerts')
+                .insert({
+                  guard_id: guard.id,
+                  alert_type: 'inactivity',
+                  description: `Guard has been stationary for more than ${inactivityThresholdMinutes} minutes. Last movement: ${latestPosition.tracked_at}`,
+                  latitude: latestPosition.latitude,
+                  longitude: latestPosition.longitude,
+                  location_id: guard.assigned_location_id,
                 is_resolved: false,
                 alert_time: new Date().toISOString()
               })
@@ -139,7 +164,7 @@ Deno.serve(async (req: Request) => {
                   await supabase.from('notifications').insert({
                     user_id: supervisor.auth_user_id,
                     title: '🚨 Guard Inactivity Alert',
-                    body: `${employee.first_name} ${employee.last_name} has been stationary for 30+ minutes`,
+                    body: `${employee.first_name} ${employee.last_name} has been stationary for ${inactivityThresholdMinutes}+ minutes`,
                     type: 'panic_alert',
                     data: {
                       alert_id: alert.id,

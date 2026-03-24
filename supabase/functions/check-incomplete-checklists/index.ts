@@ -26,6 +26,25 @@ interface ChecklistResult {
   error_message: string | null;
 }
 
+async function getSystemConfigNumber(
+  supabase: ReturnType<typeof createClient>,
+  key: string,
+  fallback: number
+): Promise<number> {
+  const { data, error } = await supabase
+    .from('system_config')
+    .select('value')
+    .eq('key', key)
+    .maybeSingle();
+
+  if (error || !data?.value) {
+    return fallback;
+  }
+
+  const parsed = Number(data.value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 /**
  * Validate that the request is from an authorized cron scheduler.
  */
@@ -79,7 +98,11 @@ Deno.serve(async (req) => {
     });
 
     // Parse request body for parameters
-    let threshold = 50.00;
+    let threshold = await getSystemConfigNumber(
+      supabase,
+      'checklist_completion_alert_threshold_percent',
+      50
+    );
     let onlyPastMidpoint = true;
 
     try {

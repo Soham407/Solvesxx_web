@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480">
+  <rect width="640" height="480" fill="#dff0e1" />
+  <rect x="48" y="64" width="544" height="352" rx="24" fill="#b7d7bc" stroke="#2f6841" stroke-width="6" />
+  <path d="M184 246l72 72 200-200" fill="none" stroke="#2f6841" stroke-width="26" stroke-linecap="round" stroke-linejoin="round" />
+  <text x="320" y="400" text-anchor="middle" font-family="Arial" font-size="28" fill="#1f4a2c">E2E AFTER</text>
+</svg>

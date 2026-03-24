@@ -27,10 +27,22 @@ interface UseEmployeesState {
   error: string | null;
 }
 
+interface CreateEmployeePayload {
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone?: string;
+  department?: string;
+  designation?: string;
+  location?: string;
+  role?: string;
+}
+
 interface UseEmployeesReturn extends UseEmployeesState {
   getEmployeeById: (id: string) => Employee | undefined;
   getEmployeeName: (id: string | null) => string;
   getEmployeeInitials: (id: string | null) => string;
+  createEmployee: (payload: CreateEmployeePayload) => Promise<{ success: boolean; error?: string }>;
   refresh: () => void;
 }
 
@@ -130,6 +142,43 @@ export function useEmployees(): UseEmployeesReturn {
     [state.employees]
   );
 
+  const createEmployee = useCallback(async (payload: CreateEmployeePayload): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const employee_code = `EMP-${Date.now()}`;
+      let designationId: string | null = null;
+
+      if (payload.designation) {
+        const { data: designation, error: designationError } = await supabase
+          .from("designations")
+          .select("id")
+          .ilike("designation_name", payload.designation)
+          .limit(1)
+          .maybeSingle();
+
+        if (designationError) throw designationError;
+        designationId = designation?.id || null;
+      }
+
+      const { error } = await supabase.from("employees").insert({
+        employee_code,
+        first_name: payload.first_name,
+        last_name: payload.last_name,
+        email: payload.email,
+        phone: payload.phone || null,
+        department: payload.department || null,
+        designation_id: designationId,
+        date_of_joining: new Date().toISOString().split("T")[0],
+        is_active: true,
+      } as any);
+      if (error) throw error;
+      await fetchEmployees();
+      return { success: true };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to create employee";
+      return { success: false, error: message };
+    }
+  }, [fetchEmployees]);
+
   const refresh = useCallback(() => {
     fetchEmployees();
   }, [fetchEmployees]);
@@ -143,6 +192,7 @@ export function useEmployees(): UseEmployeesReturn {
     getEmployeeById,
     getEmployeeName,
     getEmployeeInitials,
+    createEmployee,
     refresh,
   };
 }

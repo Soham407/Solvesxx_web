@@ -211,10 +211,11 @@ export default function RecruitmentPortalPage() {
         
         // Truth Engine: Upload BGV Evidence
         if (bgvFile) {
-
-          const docUrl = await uploadBGVDocument(bgvFile, selectedCandidate.id);
-          if (docUrl) {
-            additionalData.bgv_document_url = docUrl;
+          const uploaded = await uploadBGVDocument(bgvFile, selectedCandidate.id);
+          if (!uploaded) {
+            toast.error("Failed to upload BGV evidence");
+            setIsSubmitting(false);
+            return;
           }
         } else {
           toast.error("BGV Document Required", { 

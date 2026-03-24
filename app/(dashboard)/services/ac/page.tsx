@@ -38,9 +38,6 @@ export default function ACServicePage() {
   const acService = useMemo(() => {
     const found = services.find(s => s.service_code === ServiceCode.AC_REPAIR ||
       s.service_name?.toLowerCase().includes("air condition"));
-    if (!found && !servicesLoading) {
-      console.log("[ACServicePage] Available services:", services);
-    }
     return found;
   }, [services, servicesLoading]);
 

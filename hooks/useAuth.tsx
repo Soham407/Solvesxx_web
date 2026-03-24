@@ -1,23 +1,19 @@
 "use client";
 
 import React, { useState, useEffect, createContext, useContext } from "react";
-import { supabase } from "@/src/lib/supabaseClient";
 import type { User } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
-import { type AppRole } from "@/src/lib/auth/roles";
 
-/**
- * Auth context using @supabase/ssr.
- *
- * Authentication is now handled via cookie-based sessions managed by @supabase/ssr.
- * The middleware validates the session server-side via supabase.auth.getUser().
- * No more spoofable fp-auth-status cookie.
- */
+import { normalizePermissions } from "@/src/lib/platform/permissions";
+import { supabase } from "@/src/lib/supabaseClient";
+import { type AppRole } from "@/src/lib/auth/roles";
 
 interface AuthContextType {
   user: User | null;
   userId: string | null;
   role: AppRole | null;
+  permissions: string[];
+  isActive: boolean;
   isLoading: boolean;
   signOut: () => Promise<void>;
 }
@@ -35,23 +31,21 @@ export function useAuth() {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
+  const [permissions, setPermissions] = useState<string[]>([]);
+  const [isActive, setIsActive] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    // Get initial user - MUST use getUser() for server-side validation
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
         setUser(user);
         fetchUserRole(user.id);
       } else {
-        setUser(null);
-        setRole(null);
-        setIsLoading(false);
+        resetState();
       }
     });
 
-    // Listen for auth changes (sign in, sign out, token refresh)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -59,37 +53,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session.user);
         fetchUserRole(session.user.id);
       } else {
-        setUser(null);
-        setRole(null);
-        setIsLoading(false);
+        resetState();
       }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
+  const resetState = () => {
+    setUser(null);
+    setRole(null);
+    setPermissions([]);
+    setIsActive(true);
+    setIsLoading(false);
+  };
+
   const fetchUserRole = async (userId: string) => {
     try {
       const { data, error } = await supabase
         .from("users")
-        .select("roles!inner(role_name)")
+        .select("is_active, roles!inner(role_name, permissions)")
         .eq("id", userId)
         .single();
 
       if (error) throw error;
-      setRole((data as any).roles.role_name as AppRole);
+
+      const roleData = Array.isArray((data as any).roles)
+        ? (data as any).roles[0]
+        : (data as any).roles;
+
+      setRole((roleData?.role_name ?? null) as AppRole | null);
+      setPermissions(normalizePermissions(roleData?.permissions));
+      setIsActive((data as any).is_active !== false);
     } catch (error) {
       console.error("Error fetching user role:", error);
       setRole(null);
+      setPermissions([]);
+      setIsActive(false);
     } finally {
       setIsLoading(false);
     }
   };
 
   const signOut = async () => {
-    // Clear UI state immediately for responsive UX
     setUser(null);
     setRole(null);
+    setPermissions([]);
+    setIsActive(true);
 
     try {
       await supabase.auth.signOut();
@@ -97,8 +107,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error("Sign out error:", error);
     }
 
-    // Force a router refresh so middleware re-evaluates auth state
-    // and redirects to /login if needed
     router.refresh();
   };
 
@@ -108,6 +116,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         userId: user?.id ?? null,
         role,
+        permissions,
+        isActive,
         isLoading,
         signOut,
       }}

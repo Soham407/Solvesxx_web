@@ -43,31 +43,37 @@ export function useNotifications() {
 
   const markAsRead = useCallback(async (notificationId: string) => {
     try {
-      await supabase
+      const { error } = await supabase
         .from("notifications")
         .update({ is_read: true })
         .eq("id", notificationId);
+
+      if (error) throw error;
 
       setNotifications((prev) =>
         prev.map((n) => (n.id === notificationId ? { ...n, is_read: true } : n))
       );
     } catch (err) {
       console.error("Mark read error:", err);
+      throw err;
     }
   }, []);
 
   const markAllRead = useCallback(async () => {
     if (!userId) return;
     try {
-      await supabase
+      const { error } = await supabase
         .from("notifications")
         .update({ is_read: true })
         .eq("user_id", userId)
         .eq("is_read", false);
 
+      if (error) throw error;
+
       setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
     } catch (err) {
       console.error("Mark all read error:", err);
+      throw err;
     }
   }, [userId]);
 

@@ -42,6 +42,7 @@ export function useBackgroundVerifications(candidateId?: string) {
   const { toast } = useToast();
   const [verifications, setVerifications] = useState<BackgroundVerification[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const requiredTypes: BGVType[] = ["police", "address", "education", "employment"];
 
   const fetchVerifications = useCallback(async () => {
     if (!candidateId) return;
@@ -141,8 +142,9 @@ export function useBackgroundVerifications(candidateId?: string) {
   };
 
   // Computed: all 4 types verified = candidate can proceed to 'offered'
-  const allVerified = verifications.length === 4 &&
-    verifications.every((v) => v.status === "verified");
+  const allVerified = requiredTypes.every((type) =>
+    verifications.some((verification) => verification.verification_type === type && verification.status === "verified")
+  );
 
   useEffect(() => { fetchVerifications(); }, [fetchVerifications]);
 

@@ -57,6 +57,7 @@ import { StorekeeperDashboard } from "@/components/dashboards/StorekeeperDashboa
 import { SiteSupervisorDashboard } from "@/components/dashboards/SiteSupervisorDashboard";
 import { ACTechnicianDashboard } from "@/components/dashboards/ACTechnicianDashboard";
 import { PestControlTechnicianDashboard } from "@/components/dashboards/PestControlTechnicianDashboard";
+import { SuperAdminDashboard } from "@/components/dashboards/SuperAdminDashboard";
 
 const roles = [
   { id: "admin", label: "Admin", icon: Shield },
@@ -74,7 +75,6 @@ const roles = [
   { id: "society_manager", label: "Society Manager", icon: Building2 },
   { id: "service_boy", label: "Service Boy", icon: Wrench },
   { id: "resident", label: "Resident", icon: Home },
-  { id: "super_admin", label: "Super Admin", icon: Shield },
   { id: "ac_technician", label: "AC Technician", icon: Wrench },
   { id: "pest_control_technician", label: "Pest Control Technician", icon: Shovel },
 ];
@@ -126,7 +126,7 @@ function DashboardPageContent() {
       case "society_manager": return <SocietyManagerDashboard />;
       case "service_boy": return <ServiceBoyDashboard />;
       case "resident": return <ResidentDashboard />;
-      case "super_admin": return <AdminView />;
+      case "super_admin": return <SuperAdminDashboard />;
       case "ac_technician": return <ACTechnicianDashboard />;
       case "pest_control_technician": return <PestControlTechnicianDashboard />;
       default: return <AdminView />;
@@ -382,4 +382,3 @@ function AdminView() {
     </div>
   );
 }
-

@@ -1,17 +1,48 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { supabase } from "@/src/lib/supabaseClient";
+import { useEffect, useRef, useState } from "react";
+import { supabase as supabaseClient } from "@/src/lib/supabaseClient";
 import { sendPanicAlertNotification } from "@/src/lib/notifications";
+import { SYSTEM_CONFIG_DEFAULTS } from "@/src/lib/platform/system-config";
+
+const supabase = supabaseClient;
 
 /**
  * Hook to detect guard inactivity (static GPS) and trigger alerts.
- * Requirement: 30 minutes of static GPS = Alert.
+ * Threshold is read from system_config table (key: guard_inactivity_threshold_minutes).
+ * Falls back to 30 minutes if the key is absent.
  */
 export function useInactivityMonitor(employeeId: string | null, isClockedIn: boolean, currentPosition: { latitude: number; longitude: number } | null) {
   const lastActivePositionRef = useRef<{ lat: number; lng: number; time: number } | null>(null);
-  const INACTIVITY_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes
+  const [threshold, setThreshold] = useState(
+    Number(SYSTEM_CONFIG_DEFAULTS.guard_inactivity_threshold_minutes)
+  );
   const MOVEMENT_THRESHOLD_METERS = 5; // GPS drift threshold
+
+  // Load inactivity threshold from system_config on mount
+  useEffect(() => {
+    async function loadThreshold() {
+      try {
+        const { data, error } = await (supabase as any)
+          .from("system_config")
+          .select("value")
+          .eq("key", "guard_inactivity_threshold_minutes")
+          .single();
+
+        if (!error && data?.value) {
+          const parsed = parseInt(data.value, 10);
+          if (!isNaN(parsed) && parsed > 0) {
+            setThreshold(parsed);
+          }
+        }
+      } catch {
+        // Keep default of 30 minutes on any failure
+      }
+    }
+    loadThreshold();
+  }, []);
+
+  const INACTIVITY_THRESHOLD_MS = threshold * 60 * 1000;
 
   useEffect(() => {
     if (!isClockedIn || !currentPosition || !employeeId) {
@@ -34,17 +65,22 @@ export function useInactivityMonitor(employeeId: string | null, isClockedIn: boo
       // Guard moved! Reset the inactivity timer
       lastActivePositionRef.current = { lat, lng, time: now };
     } else {
-      // Guard is static. Check if it's been > 30 mins
+      // Guard is static. Check if it's been longer than the configured threshold.
       const duration = now - lastActivePositionRef.current.time;
       if (duration >= INACTIVITY_THRESHOLD_MS) {
-        triggerInactivityAlert(employeeId, lat, lng);
+        triggerInactivityAlert(employeeId, lat, lng, threshold);
         // Reset time to avoid spamming alerts every second
         lastActivePositionRef.current.time = now; 
       }
     }
-  }, [isClockedIn, currentPosition, employeeId]);
+  }, [INACTIVITY_THRESHOLD_MS, currentPosition, employeeId, isClockedIn, threshold]);
 
-  async function triggerInactivityAlert(empId: string, lat: number, lng: number) {
+  async function triggerInactivityAlert(
+    empId: string,
+    lat: number,
+    lng: number,
+    inactivityThresholdMinutes: number
+  ) {
     try {
       // Get guard details
       const { data: guard, error: guardError } = await supabase
@@ -71,12 +107,12 @@ export function useInactivityMonitor(employeeId: string | null, isClockedIn: boo
         : "A guard";
 
       // Insert panic alert
-      const { data: alert } = await supabase
+      await supabase
         .from("panic_alerts")
         .insert({
           guard_id: guard.id,
           alert_type: "inactivity",
-          description: "Static inactivity detected for 30+ minutes. No GPS movement recorded.",
+          description: `Static inactivity detected for ${inactivityThresholdMinutes}+ minutes. No GPS movement recorded.`,
           latitude: lat,
           longitude: lng,
           location_id: guard.assigned_location_id,
