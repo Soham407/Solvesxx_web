@@ -383,9 +383,11 @@ function ResidentDashboardContent({ residentId }: { residentId: string }) {
             {pendingApprovals.map(visitor => (
               <Card key={visitor.id} className="border-none shadow-premium ring-2 ring-critical/20 overflow-hidden bg-critical/5">
                 <CardContent className="p-4 flex flex-col sm:flex-row gap-4 items-center">
-                  <div className="h-20 w-20 rounded-xl overflow-hidden shadow-md ring-2 ring-white">
-                    <VisitorAvatar photoUrl={visitor.photo_url} name={visitor.visitor_name} />
-                  </div>
+                  <VisitorAvatar
+                    photoUrl={visitor.photo_url}
+                    name={visitor.visitor_name}
+                    className="h-20 w-20 rounded-xl shadow-md ring-2 ring-white flex-shrink-0"
+                  />
                   <div className="flex-1 text-center sm:text-left">
                     <h3 className="font-black text-lg leading-tight uppercase tracking-tight">{visitor.visitor_name}</h3>
                     <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">
