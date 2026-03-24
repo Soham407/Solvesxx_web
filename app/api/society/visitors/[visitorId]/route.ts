@@ -18,6 +18,8 @@ const VISITOR_MANAGEMENT_ROLES = new Set([
   "admin",
   "super_admin",
   "society_manager",
+  "security_guard",
+  "security_supervisor",
 ]);
 
 async function getAuthorizedVisitorManager() {
