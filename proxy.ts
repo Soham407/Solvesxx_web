@@ -105,6 +105,11 @@ export async function proxy(request: NextRequest) {
     return supabaseResponse;
   }
 
+  // /change-password is accessible to any authenticated user regardless of role
+  if (pathname === "/change-password") {
+    return supabaseResponse;
+  }
+
   if (!canAccessPath(role as AppRole, permissions, pathname)) {
     if (isApiRoute) {
       return NextResponse.json(
