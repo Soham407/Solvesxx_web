@@ -63,7 +63,10 @@ export function ProvisionUserDialog({
 }: ProvisionUserDialogProps) {
   const { roles: allRoles, isLoading: rolesLoading } = useRoles();
   // Exclude admin-tier roles — the API blocks them too, but better to not show them at all
-  const roles = allRoles.filter((r) => r.roleKey !== "admin" && r.roleKey !== "super_admin");
+  // Exclude admin-tier and resident roles — residents are provisioned from Resident Directory
+  const roles = allRoles.filter(
+    (r) => r.roleKey !== "admin" && r.roleKey !== "super_admin" && r.roleKey !== "resident"
+  );
 
   const [apiError, setApiError] = useState<string | null>(null);
   const [selectedRoleKey, setSelectedRoleKey] = useState<string | null>(null);

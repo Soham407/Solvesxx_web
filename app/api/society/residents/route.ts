@@ -9,6 +9,9 @@ const CreateResidentSchema = z.object({
   full_name: z.string().trim().min(1).max(200),
   phone: z.string().trim().max(20).optional().default(""),
   relation: z.string().trim().min(1).max(50),
+  // Optional login account creation
+  email: z.string().email().optional().or(z.literal("")),
+  temp_password: z.string().min(8).optional().or(z.literal("")),
 });
 
 const RESIDENT_MANAGEMENT_ROLES = new Set([
@@ -115,6 +118,78 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) throw error;
+
+    const newResidentId = (data as any).id;
+    const { email, temp_password } = parsed.data;
+
+    // Optionally create a login account for this resident
+    if (email && temp_password) {
+      let newAuthUserId: string | null = null;
+
+      try {
+        // Create auth user
+        const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
+          email,
+          password: temp_password,
+          email_confirm: true,
+        });
+
+        if (authError) {
+          if (authError.message?.includes("already registered") || authError.message?.includes("already been registered")) {
+            // Roll back resident record
+            await supabaseAdmin.from("residents").delete().eq("id", newResidentId);
+            return NextResponse.json({ error: "A user with this email already exists" }, { status: 409 });
+          }
+          throw authError;
+        }
+
+        newAuthUserId = authUser.user.id;
+
+        // Look up resident role_id
+        const { data: roleRow, error: roleError } = await supabaseAdmin
+          .from("roles")
+          .select("id")
+          .eq("role_name", "resident")
+          .single();
+
+        if (roleError || !roleRow) throw new Error("Resident role not found");
+
+        // Generate username from email
+        const baseUsername = email.split("@")[0].toLowerCase().replace(/[^a-z0-9._-]/g, "");
+        const username = `${baseUsername}_${Date.now().toString(36)}`;
+
+        // Insert users row
+        const { error: userInsertError } = await supabaseAdmin.from("users").insert({
+          id: newAuthUserId,
+          full_name: parsed.data.full_name,
+          email,
+          role_id: (roleRow as any).id,
+          username,
+          must_change_password: true,
+          is_active: true,
+        });
+
+        if (userInsertError) throw userInsertError;
+
+        // Link auth_user_id on the resident record
+        const { error: linkError } = await supabaseAdmin
+          .from("residents")
+          .update({ auth_user_id: newAuthUserId })
+          .eq("id", newResidentId);
+
+        if (linkError) throw linkError;
+
+      } catch (accountError: unknown) {
+        // Roll back: delete auth user and resident record
+        if (newAuthUserId) await supabaseAdmin.auth.admin.deleteUser(newAuthUserId);
+        await supabaseAdmin.from("residents").delete().eq("id", newResidentId);
+        console.error("Account creation failed, rolled back resident:", accountError);
+        return NextResponse.json(
+          { error: accountError instanceof Error ? accountError.message : "Failed to create login account" },
+          { status: 500 }
+        );
+      }
+    }
 
     return NextResponse.json({ success: true, resident: data });
   } catch (error: unknown) {

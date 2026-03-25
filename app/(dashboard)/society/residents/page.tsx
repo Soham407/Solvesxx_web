@@ -4,16 +4,17 @@ import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTable } from "@/components/shared/DataTable";
 import { Button } from "@/components/ui/button";
-import { 
-  Users, 
-  Home, 
-  Car, 
-  Search, 
-  MoreHorizontal, 
-  Phone, 
+import {
+  Users,
+  Home,
+  Car,
+  Search,
+  MoreHorizontal,
+  Phone,
   UserPlus,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  KeyRound
 } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
@@ -70,7 +71,7 @@ export default function ResidentsPage() {
 
   // Dialog State
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [formData, setFormData] = useState({ full_name: '', phone: '', relation: 'Owner', flat_id: '' });
+  const [formData, setFormData] = useState({ full_name: '', phone: '', relation: 'Owner', flat_id: '', email: '', temp_password: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -189,6 +190,14 @@ export default function ResidentsPage() {
         setError("Full name and Flat selection are required");
         return;
     }
+    if (formData.email && !formData.temp_password) {
+        setError("Please enter a temporary password for the login account.");
+        return;
+    }
+    if (formData.temp_password && formData.temp_password.length < 8) {
+        setError("Temporary password must be at least 8 characters.");
+        return;
+    }
     setIsSubmitting(true);
     setError(null);
     try {
@@ -202,6 +211,8 @@ export default function ResidentsPage() {
            full_name: formData.full_name,
            phone: formData.phone,
            relation: formData.relation,
+           email: formData.email || undefined,
+           temp_password: formData.temp_password || undefined,
          }),
       });
 
@@ -209,7 +220,7 @@ export default function ResidentsPage() {
       if (!response.ok) throw new Error(payload.error || "Failed to register resident");
 
       setIsDialogOpen(false);
-      setFormData({ full_name: '', phone: '', relation: 'Owner', flat_id: '' });
+      setFormData({ full_name: '', phone: '', relation: 'Owner', flat_id: '', email: '', temp_password: '' });
       fetchResidents();
     } catch(e: any) {
        console.error(e);
@@ -414,6 +425,36 @@ export default function ResidentsPage() {
                   <SelectItem value="Family Member">Family Member</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            {/* Optional login account section */}
+            <div className="border-t pt-4 mt-2 space-y-3">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground font-semibold uppercase tracking-wider">
+                <KeyRound className="h-3.5 w-3.5" />
+                Login Account <span className="normal-case font-normal">(optional)</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Fill in to create app access for this resident. Leave blank for family members who don&apos;t need login.
+              </p>
+              <div className="grid gap-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="resident@example.com"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="temp_password">Temporary Password</Label>
+                <Input
+                  id="temp_password"
+                  type="password"
+                  value={formData.temp_password}
+                  onChange={(e) => setFormData({ ...formData, temp_password: e.target.value })}
+                  placeholder="Min. 8 characters"
+                />
+              </div>
             </div>
           </div>
           <DialogFooter>
