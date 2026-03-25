@@ -24,6 +24,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ChevronLeft, ChevronRight, Search, SlidersHorizontal, FileDown } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -34,6 +35,8 @@ interface DataTableProps<TData, TValue> {
   onRowClick?: (row: TData) => void;
   isLoading?: boolean;
   onSearch?: (value: string) => void;
+  filterContent?: React.ReactNode;
+  filterActive?: boolean;
 }
 
 export function DataTable<TData, TValue>({
@@ -43,6 +46,8 @@ export function DataTable<TData, TValue>({
   onRowClick,
   isLoading,
   onSearch,
+  filterContent,
+  filterActive,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -85,10 +90,33 @@ export function DataTable<TData, TValue>({
           )}
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-2 h-9">
-            <SlidersHorizontal className="h-4 w-4" />
-            Filters
-          </Button>
+          {filterContent ? (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={`gap-2 h-9 ${filterActive ? "border-primary text-primary" : ""}`}
+                >
+                  <SlidersHorizontal className="h-4 w-4" />
+                  Filters
+                  {filterActive && (
+                    <span className="ml-0.5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold px-1.5 py-0.5 leading-none">
+                      1
+                    </span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-72 p-4">
+                {filterContent}
+              </PopoverContent>
+            </Popover>
+          ) : (
+            <Button variant="outline" size="sm" className="gap-2 h-9">
+              <SlidersHorizontal className="h-4 w-4" />
+              Filters
+            </Button>
+          )}
           <Button variant="outline" size="sm" className="h-9 gap-2">
             <FileDown className="h-4 w-4" />
             Export

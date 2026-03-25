@@ -21,6 +21,7 @@ import {
   CheckCircle2,
   XCircle,
   Timer,
+  X,
 } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
@@ -136,7 +137,9 @@ function MyAttendanceView({ employeeId }: { employeeId: string }) {
       setIsLoading(true);
       setError(null);
 
-      // Last 30 days
+      // Last 30 days, never beyond today
+      const today = new Date();
+      const todayStr = today.toISOString().split("T")[0];
       const since = new Date();
       since.setDate(since.getDate() - 30);
       const sinceStr = since.toISOString().split("T")[0];
@@ -156,6 +159,7 @@ function MyAttendanceView({ employeeId }: { employeeId: string }) {
         `)
         .eq("employee_id", employeeId)
         .gte("log_date", sinceStr)
+        .lte("log_date", todayStr)
         .order("log_date", { ascending: false });
 
       if (fetchError) throw fetchError;
@@ -212,6 +216,7 @@ function MyAttendanceView({ employeeId }: { employeeId: string }) {
             weekday: "short",
             day: "numeric",
             month: "short",
+            year: "numeric",
           }),
           checkIn: log.check_in_time
             ? new Date(log.check_in_time).toLocaleTimeString("en-IN", {
@@ -381,6 +386,47 @@ function MyAttendanceView({ employeeId }: { employeeId: string }) {
     },
   ];
 
+  const hasActiveFilter = !!(filterFrom || filterTo);
+
+  const dateFilterPanel = (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-semibold">Date Range</span>
+        {hasActiveFilter && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-xs text-muted-foreground"
+            onClick={() => { setFilterFrom(""); setFilterTo(""); }}
+          >
+            <X className="h-3 w-3 mr-1" />
+            Clear
+          </Button>
+        )}
+      </div>
+      <div className="space-y-3">
+        <div className="space-y-1">
+          <label className="text-xs text-muted-foreground font-medium">From</label>
+          <input
+            type="date"
+            value={filterFrom}
+            onChange={(e) => setFilterFrom(e.target.value)}
+            className="w-full text-sm border border-border rounded-md px-2 py-1.5 bg-card text-foreground"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs text-muted-foreground font-medium">To</label>
+          <input
+            type="date"
+            value={filterTo}
+            onChange={(e) => setFilterTo(e.target.value)}
+            className="w-full text-sm border border-border rounded-md px-2 py-1.5 bg-card text-foreground"
+          />
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="animate-fade-in space-y-8">
       <PageHeader
@@ -451,39 +497,6 @@ function MyAttendanceView({ employeeId }: { employeeId: string }) {
             ))}
       </div>
 
-      {/* Date range filter */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex items-center gap-2">
-          <Calendar className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">From</span>
-          <input
-            type="date"
-            value={filterFrom}
-            onChange={(e) => setFilterFrom(e.target.value)}
-            className="text-sm border border-border rounded-md px-2 py-1 bg-card text-foreground"
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">To</span>
-          <input
-            type="date"
-            value={filterTo}
-            onChange={(e) => setFilterTo(e.target.value)}
-            className="text-sm border border-border rounded-md px-2 py-1 bg-card text-foreground"
-          />
-        </div>
-        {(filterFrom || filterTo) && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-xs"
-            onClick={() => { setFilterFrom(""); setFilterTo(""); }}
-          >
-            Clear
-          </Button>
-        )}
-      </div>
-
       {isLoading ? (
         <div className="space-y-4">
           <Skeleton className="h-10 w-full" />
@@ -496,12 +509,8 @@ function MyAttendanceView({ employeeId }: { employeeId: string }) {
           if (filterTo && raw > filterTo) return false;
           return true;
         });
-        return filtered.length === 0 ? (
-          <div className="text-center py-20 text-muted-foreground text-sm">
-            No attendance records found{filterFrom || filterTo ? " for the selected date range" : " for the last 30 days"}.
-          </div>
-        ) : (
-          <DataTable columns={columns} data={filtered} />
+        return (
+          <DataTable columns={columns} data={filtered} filterContent={dateFilterPanel} filterActive={hasActiveFilter} />
         );
       })()}
     </div>
