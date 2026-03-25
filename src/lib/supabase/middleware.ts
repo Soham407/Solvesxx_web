@@ -48,10 +48,11 @@ export async function updateSession(request: NextRequest) {
   let role: string | null = null;
   let permissions: string[] = []
   let isActive = true
+  let mustChangePassword = false
   if (user) {
     const { data } = await supabase
       .from('users')
-      .select('is_active, roles!inner(role_name, permissions)')
+      .select('is_active, must_change_password, roles!inner(role_name, permissions)')
       .eq('id', user.id)
       .maybeSingle();
 
@@ -62,7 +63,8 @@ export async function updateSession(request: NextRequest) {
     role = roleData?.role_name || null
     permissions = normalizePermissions(roleData?.permissions)
     isActive = (data as any)?.is_active !== false
+    mustChangePassword = (data as any)?.must_change_password === true
   }
 
-  return { supabaseResponse, user, role, permissions, isActive }
+  return { supabaseResponse, user, role, permissions, isActive, mustChangePassword }
 }

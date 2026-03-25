@@ -6,6 +6,7 @@ import { supabase } from "@/src/lib/supabaseClient";
 export interface Role {
   id: string;
   name: string;
+  roleKey: string;
   description: string | null;
   permissions: string[];
   isActive: boolean;
@@ -37,7 +38,7 @@ export function useRoles() {
       // Fetch all roles
       const { data: rolesData, error: rolesError } = await supabase
         .from("roles")
-        .select("id, role_display_name, description, permissions, is_active, created_at, updated_at")
+        .select("id, role_name, role_display_name, description, permissions, is_active, created_at, updated_at")
         .order("role_display_name");
 
       if (rolesError) throw rolesError;
@@ -70,6 +71,7 @@ export function useRoles() {
       const roles: Role[] = rolesData.map((role: any) => ({
         id: role.id,
         name: role.role_display_name,
+        roleKey: role.role_name,
         description: role.description,
         permissions: (role.permissions as string[]) || [],
         isActive: role.is_active ?? true,

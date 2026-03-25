@@ -13,6 +13,7 @@ export interface UserMaster {
   last_login: string | null;
   is_active: boolean;
   is_admin_tier: boolean;
+  must_change_password: boolean;
   status: "Active" | "Locked" | "Pending";
 }
 
@@ -36,6 +37,7 @@ export function useUsers() {
           email,
           last_login,
           is_active,
+          must_change_password,
           roles (
             role_name,
             role_display_name
@@ -45,12 +47,13 @@ export function useUsers() {
 
       if (fetchError) throw fetchError;
 
-      const formatted: UserMaster[] = (data || []).map((u: {
+      const formatted: UserMaster[] = ((data || []) as any[]).map((u: {
         id: string;
         full_name: string;
         email: string;
         last_login: string | null;
         is_active: boolean;
+        must_change_password: boolean;
         roles:
           | {
               role_name?: string | null;
@@ -72,7 +75,8 @@ export function useUsers() {
           last_login: u.last_login,
           is_active: u.is_active,
           is_admin_tier: ADMIN_TIER_ROLES.has(roleData?.role_name),
-          status: u.is_active ? "Active" : "Locked",
+          must_change_password: u.must_change_password ?? false,
+          status: !u.is_active ? "Locked" : (u.must_change_password ? "Pending" : "Active"),
         };
       });
 

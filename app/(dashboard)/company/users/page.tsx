@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTable } from "@/components/shared/DataTable";
 import { Button } from "@/components/ui/button";
 import { Plus, Key, Mail, ShieldCheck, MoreHorizontal, AlertCircle } from "lucide-react";
+import { ProvisionUserDialog } from "@/components/dialogs/ProvisionUserDialog";
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -27,8 +28,9 @@ import { toast } from "sonner";
 import { useUsers, UserMaster } from "@/hooks/useUsers";
 
 export default function UsersPage() {
-  const { users, isLoading, error, deactivateUser, activateUser } = useUsers();
+  const { users, isLoading, error, deactivateUser, activateUser, refresh } = useUsers();
   const [mfaDialogOpen, setMfaDialogOpen] = useState(false);
+  const [provisionDialogOpen, setProvisionDialogOpen] = useState(false);
 
   const handleResetPassword = async (user: UserMaster) => {
     if (user.is_admin_tier) {
@@ -176,7 +178,7 @@ export default function UsersPage() {
         title="User Master"
         description="Provision system access and monitor secure identity portal accounts."
         actions={
-          <Button className="gap-2 shadow-primary/20">
+          <Button className="gap-2 shadow-primary/20" onClick={() => setProvisionDialogOpen(true)}>
             <Plus className="h-4 w-4" /> Provision New User
           </Button>
         }
@@ -190,6 +192,12 @@ export default function UsersPage() {
       )}
 
       <DataTable columns={columns} data={users} searchKey="full_name" isLoading={isLoading} />
+
+      <ProvisionUserDialog
+        open={provisionDialogOpen}
+        onOpenChange={setProvisionDialogOpen}
+        onSuccess={refresh}
+      />
 
       <Dialog open={mfaDialogOpen} onOpenChange={setMfaDialogOpen}>
         <DialogContent className="sm:max-w-[400px]">

@@ -59,7 +59,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const { supabaseResponse, user, role, permissions, isActive } = await updateSession(
+  const { supabaseResponse, user, role, permissions, isActive, mustChangePassword } = await updateSession(
     request
   );
 
@@ -71,6 +71,18 @@ export async function proxy(request: NextRequest) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirectTo", pathname);
     return NextResponse.redirect(loginUrl);
+  }
+
+  // Force password change before allowing access to any other route
+  if (
+    mustChangePassword &&
+    pathname !== "/change-password" &&
+    !pathname.startsWith("/api/users/change-password")
+  ) {
+    if (isApiRoute) {
+      return NextResponse.json({ error: "Password change required" }, { status: 403 });
+    }
+    return NextResponse.redirect(new URL("/change-password", request.url));
   }
 
   if (!role || isActive === false) {

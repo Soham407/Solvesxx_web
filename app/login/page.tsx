@@ -80,21 +80,30 @@ export default function LoginPage() {
       }
 
       if (data.user) {
-        // Fetch role to determine the appropriate landing page
+        // Fetch role and first-login flag
         const { data: userData } = await supabase
           .from("users")
-          .select("roles(role_name)")
+          .select("roles(role_name), must_change_password")
           .eq("id", data.user.id)
           .single();
+
+        // UX shortcut: redirect early if password change is required.
+        // This is NOT the security gate — proxy.ts enforces this for all routes.
+        if ((userData as any)?.must_change_password) {
+          router.push("/change-password");
+          return;
+        }
 
         const userRole = (userData as any)?.roles?.role_name;
 
         const roleRedirects: Record<string, string> = {
-          buyer:        "/buyer",
-          supplier:     "/supplier",
-          vendor:       "/supplier",
-          resident:     "/resident",
-          delivery_boy: "/delivery",
+          buyer:                  "/buyer",
+          supplier:               "/supplier",
+          vendor:                 "/supplier",
+          resident:               "/resident",
+          delivery_boy:           "/delivery",
+          security_guard:         "/guard",
+          security_supervisor:    "/guard",
         };
 
         toast.success("Welcome back!");
