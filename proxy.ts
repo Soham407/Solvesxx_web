@@ -14,6 +14,7 @@ const API_PERMISSION_EXEMPTIONS = [
   "/api/society/residents",
   "/api/society/visitors/",
   "/api/users/change-password",
+  "/api/residents/unlinked",
 ];
 
 /**

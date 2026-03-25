@@ -1,7 +1,7 @@
 // @ts-nocheck
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -22,6 +22,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Home } from "lucide-react";
 import { toast } from "sonner";
 import { useRoles } from "@/hooks/useRoles";
 
@@ -41,6 +43,13 @@ const schema = z
 
 type FormValues = z.infer<typeof schema>;
 
+interface UnlinkedResident {
+  id: string;
+  full_name: string;
+  resident_code: string;
+  flats: { flat_number: string; buildings: { building_name: string } } | null;
+}
+
 interface ProvisionUserDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -55,7 +64,25 @@ export function ProvisionUserDialog({
   const { roles: allRoles, isLoading: rolesLoading } = useRoles();
   // Exclude admin-tier roles — the API blocks them too, but better to not show them at all
   const roles = allRoles.filter((r) => r.roleKey !== "admin" && r.roleKey !== "super_admin");
+
   const [apiError, setApiError] = useState<string | null>(null);
+  const [selectedRoleKey, setSelectedRoleKey] = useState<string | null>(null);
+  const [selectedResidentId, setSelectedResidentId] = useState<string>("");
+  const [unlinkedResidents, setUnlinkedResidents] = useState<UnlinkedResident[]>([]);
+  const [residentsLoading, setResidentsLoading] = useState(false);
+
+  const isResidentRole = selectedRoleKey === "resident";
+
+  // Fetch unlinked residents when resident role is selected
+  useEffect(() => {
+    if (!isResidentRole) return;
+    setResidentsLoading(true);
+    fetch("/api/residents/unlinked")
+      .then((r) => r.json())
+      .then((data) => setUnlinkedResidents(data.residents || []))
+      .catch(() => setUnlinkedResidents([]))
+      .finally(() => setResidentsLoading(false));
+  }, [isResidentRole]);
 
   const {
     register,
@@ -70,6 +97,11 @@ export function ProvisionUserDialog({
   const onSubmit = async (values: FormValues) => {
     setApiError(null);
 
+    if (isResidentRole && !selectedResidentId) {
+      setApiError("Please select the resident profile to link this account to.");
+      return;
+    }
+
     try {
       const res = await fetch("/api/users/create", {
         method: "POST",
@@ -80,6 +112,7 @@ export function ProvisionUserDialog({
           phone: values.phone || null,
           role_id: values.role_id,
           temp_password: values.temp_password,
+          resident_id: isResidentRole ? selectedResidentId : undefined,
         }),
       });
 
@@ -95,6 +128,8 @@ export function ProvisionUserDialog({
       });
 
       reset();
+      setSelectedRoleKey(null);
+      setSelectedResidentId("");
       onOpenChange(false);
       onSuccess();
     } catch {
@@ -106,13 +141,22 @@ export function ProvisionUserDialog({
     if (!open) {
       reset();
       setApiError(null);
+      setSelectedRoleKey(null);
+      setSelectedResidentId("");
     }
     onOpenChange(open);
   };
 
+  const handleRoleChange = (roleId: string) => {
+    setValue("role_id", roleId, { shouldValidate: true });
+    const role = roles.find((r) => r.id === roleId);
+    setSelectedRoleKey(role?.roleKey ?? null);
+    setSelectedResidentId("");
+  };
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[480px]">
+      <DialogContent className="sm:max-w-[480px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Provision New User</DialogTitle>
           <DialogDescription>
@@ -158,10 +202,7 @@ export function ProvisionUserDialog({
 
           <div className="space-y-1.5">
             <Label htmlFor="role_id">Role <span className="text-destructive">*</span></Label>
-            <Select
-              onValueChange={(val) => setValue("role_id", val, { shouldValidate: true })}
-              disabled={rolesLoading}
-            >
+            <Select onValueChange={handleRoleChange} disabled={rolesLoading}>
               <SelectTrigger id="role_id">
                 <SelectValue placeholder={rolesLoading ? "Loading roles…" : "Select a role"} />
               </SelectTrigger>
@@ -177,6 +218,42 @@ export function ProvisionUserDialog({
               <p className="text-destructive text-xs">{errors.role_id.message}</p>
             )}
           </div>
+
+          {/* Resident profile linking — only shown when Resident role is selected */}
+          {isResidentRole && (
+            <div className="space-y-1.5">
+              <Label htmlFor="resident_id">
+                Link Resident Profile <span className="text-destructive">*</span>
+              </Label>
+              {unlinkedResidents.length === 0 && !residentsLoading ? (
+                <Alert className="border-warning/30 bg-warning/10">
+                  <Home className="h-4 w-4 text-warning" />
+                  <AlertDescription className="text-warning text-xs">
+                    No unlinked resident profiles found. Create a resident record first from Society &amp; Residents → Residents.
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <Select
+                  onValueChange={setSelectedResidentId}
+                  disabled={residentsLoading}
+                >
+                  <SelectTrigger id="resident_id">
+                    <SelectValue placeholder={residentsLoading ? "Loading…" : "Select resident profile"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {unlinkedResidents.map((r) => (
+                      <SelectItem key={r.id} value={r.id}>
+                        {r.full_name}
+                        {r.flats
+                          ? ` — ${r.flats.buildings?.building_name} / Flat ${r.flats.flat_number}`
+                          : ` (${r.resident_code})`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <Label htmlFor="temp_password">
@@ -216,7 +293,11 @@ export function ProvisionUserDialog({
             <Button type="button" variant="outline" onClick={() => handleClose(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting} className="gap-2">
+            <Button
+              type="submit"
+              disabled={isSubmitting || (isResidentRole && unlinkedResidents.length === 0)}
+              className="gap-2"
+            >
               {isSubmitting ? (
                 <>
                   <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />

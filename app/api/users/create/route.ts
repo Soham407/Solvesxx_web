@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
     }
 
     // --- Validate request body ---
-    const { full_name, email, phone, role_id, temp_password } = await req.json();
+    const { full_name, email, phone, role_id, temp_password, resident_id } = await req.json();
 
     if (!full_name || !email || !role_id || !temp_password) {
       return NextResponse.json({ error: "full_name, email, role_id, and temp_password are required" }, { status: 400 });
@@ -139,6 +139,28 @@ export async function POST(req: NextRequest) {
       }
 
       employeeId = (newEmployee as any).id;
+    }
+
+    // --- Link resident record if role is resident ---
+    if (roleName === "resident") {
+      if (!resident_id) {
+        await supabaseAdmin.auth.admin.deleteUser(newUserId);
+        return NextResponse.json(
+          { error: "resident_id is required when provisioning a resident account" },
+          { status: 400 }
+        );
+      }
+
+      const { error: residentLinkError } = await supabaseAdmin
+        .from("residents")
+        .update({ auth_user_id: newUserId })
+        .eq("id", resident_id)
+        .is("auth_user_id", null); // safety: only link if not already linked
+
+      if (residentLinkError) {
+        await supabaseAdmin.auth.admin.deleteUser(newUserId);
+        throw residentLinkError;
+      }
     }
 
     // --- Insert into public.users ---
