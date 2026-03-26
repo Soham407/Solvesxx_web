@@ -1,58 +1,96 @@
 "use client";
 
-import { useBuyerRequests, REQUEST_STATUS_CONFIG } from "@/hooks/useBuyerRequests";
-import { useBuyerInvoices, PAYMENT_STATUS_CONFIG } from "@/hooks/useBuyerInvoices";
-import { useState } from "react";
+import { useBuyerRequests } from "@/hooks/useBuyerRequests";
+import { useBuyerInvoices } from "@/hooks/useBuyerInvoices";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
-import { Plus, Clock, AlertCircle, Activity, ShieldCheck, RefreshCw, XCircle, MessageSquare, Wallet, Paintbrush, Wind, Bug, Printer, LayoutGrid, Search, ChevronRight, Package } from "lucide-react";
+import { Plus, Clock, AlertCircle, Activity, ShieldCheck, RefreshCw, XCircle, MessageSquare, Wallet } from "lucide-react";
 import Link from "next/link";
 import { format, addDays } from "date-fns";
 import { formatCurrency } from "@/src/lib/utils/currency";
+import { cn } from "@/lib/utils";
 
-const quickServices = [
-  { name: "Security", icon: ShieldCheck, color: "text-indigo-600", bgColor: "bg-indigo-100", href: "/buyer/requests/new?category=security", desc: "Guards & Patrols" },
-  { name: "Housekeeping", icon: Paintbrush, color: "text-emerald-600", bgColor: "bg-emerald-100", href: "/buyer/requests/new?category=housekeeping", desc: "Cleaning & Staff" },
-  { name: "AC Maintenance", icon: Wind, color: "text-cyan-600", bgColor: "bg-cyan-100", href: "/buyer/requests/new?category=ac", desc: "Repair & Service" },
-  { name: "Pest Control", icon: Bug, color: "text-rose-600", bgColor: "bg-rose-100", href: "/buyer/requests/new?category=pest_control", desc: "Fumigation" },
-];
+const SERVICE_IMAGE_VERSION = "20260326-real-images-v2";
 
-const allServicesCatalog = [
-  { category: "Facilities & Maintenance", items: [
-      { name: "Security Services", icon: ShieldCheck, href: "/buyer/requests/new?category=security" },
-      { name: "Housekeeping", icon: Paintbrush, href: "/buyer/requests/new?category=housekeeping" },
-      { name: "AC Maintenance & Repair", icon: Wind, href: "/buyer/requests/new?category=ac" },
-      { name: "Pest Control", icon: Bug, href: "/buyer/requests/new?category=pest_control" },
-  ]},
-  { category: "Corporate & Office", items: [
-      { name: "Printing & Advertising", icon: Printer, href: "/buyer/requests/new?category=printing" },
-      { name: "Stationery Supplies", icon: LayoutGrid, href: "/buyer/requests/new?category=stationery" },
-      { name: "Corporate Gifting", icon: LayoutGrid, href: "/buyer/requests/new?category=gifting" },
-      { name: "Pantry & Beverages", icon: LayoutGrid, href: "/buyer/requests/new?category=pantry" },
-  ]},
-  { category: "Materials & Supplies", items: [
-      { name: "Cleaning Essentials", icon: Paintbrush, href: "/buyer/requests/new?category=cleaning" },
-      { name: "Security Panel Materials", icon: ShieldCheck, href: "/buyer/requests/new?category=security_materials" },
-      { name: "Pest Control Supplies", icon: Bug, href: "/buyer/requests/new?category=pest_supplies" },
-      { name: "Eco-Friendly Disposables", icon: Package, href: "/buyer/requests/new?category=eco_disposable" },
-      { name: "Pantry Stock Replenishment", icon: Package, href: "/buyer/requests/new?category=pantry" },
-  ]},
+const requestServiceTiles = [
+  {
+    name: "Security Services",
+    href: "/buyer/requests/new?category=security",
+    imageSrc: "/ServiceImages/Security_Guard.png",
+    imageClassName: "object-cover",
+  },
+  {
+    name: "Housekeeping",
+    href: "/buyer/requests/new?category=housekeeping",
+    imageSrc: "/ServiceImages/Housekeeping.png",
+    imageClassName: "object-cover",
+  },
+  {
+    name: "AC Maintenance & Repair",
+    href: "/buyer/requests/new?category=ac",
+    imageSrc: "/ServiceImages/AC Maint.png",
+    imageClassName: "object-cover",
+  },
+  {
+    name: "Pest Control",
+    href: "/buyer/requests/new?category=pest_control",
+    imageSrc: "/ServiceImages/Pest Control.png",
+    imageClassName: "object-cover",
+  },
+  {
+    name: "Printing & Advertising",
+    href: "/buyer/requests/new?category=printing",
+    imageSrc: "/ServiceImages/Printing.png",
+    imageClassName: "object-cover",
+  },
+  {
+    name: "Stationery Supplies",
+    href: "/buyer/requests/new?category=stationery",
+    imageSrc: "/ServiceImages/Stationary.png",
+    imageClassName: "object-cover",
+  },
+  {
+    name: "Corporate Gifting",
+    href: "/buyer/requests/new?category=gifting",
+    imageSrc: "/ServiceImages/Corporate Gifting.png",
+    imageClassName: "object-cover",
+  },
+  {
+    name: "Pantry & Beverages",
+    href: "/buyer/requests/new?category=pantry",
+    imageSrc: "/ServiceImages/Pantry_&_Beverages.png",
+    imageClassName: "object-cover",
+  },
+  {
+    name: "Cleaning Essentials",
+    href: "/buyer/requests/new?category=cleaning",
+    imageSrc: "/ServiceImages/Cleaning Essientials.png",
+    imageClassName: "object-cover",
+  },
+  {
+    name: "Security Panel Materials",
+    href: "/buyer/requests/new?category=security_materials",
+    imageSrc: "/ServiceImages/Security Panel Material.png",
+    imageClassName: "object-cover",
+  },
+  {
+    name: "Pest Control Supplies",
+    href: "/buyer/requests/new?category=pest_supplies",
+    imageSrc: "/ServiceImages/Pest Control Materials.png",
+    imageClassName: "object-cover",
+  },
+  {
+    name: "Eco-Friendly Disposables",
+    href: "/buyer/requests/new?category=eco_disposable",
+    imageSrc: "/ServiceImages/EcoFriendly disposables.png",
+    imageClassName: "object-cover",
+  },
 ];
 
 export default function BuyerDashboard() {
   const { requests, isLoading: isLoadingRequests } = useBuyerRequests();
   const { invoices, isLoading: isLoadingInvoices } = useBuyerInvoices();
-  const [searchQuery, setSearchQuery] = useState("");
 
   // Metrics
   // Conceptual ongoing services
@@ -93,7 +131,7 @@ export default function BuyerDashboard() {
 
   const activeServicesList = activeServices
     .slice(0, 4)
-    .map((r, i) => ({
+    .map((r) => ({
       id: r.id,
       category: r.category_name || "General Service",
       role: r.title || "Personnel",
@@ -121,6 +159,41 @@ export default function BuyerDashboard() {
         </Link>
       </div>
 
+      {/* REQUEST SERVICES */}
+      <div className="space-y-4">
+        <div className="flex flex-col gap-2">
+          <h2 className="text-2xl font-semibold tracking-tight">Our Best Services</h2>
+          <p className="text-xs font-medium uppercase tracking-[0.28em] text-muted-foreground">
+            Real uploaded service images
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
+          {requestServiceTiles.map((service) => (
+            <Link key={service.name} href={service.href} className="group block h-full">
+              <Card className="h-full overflow-hidden border border-border/60 bg-card/95 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/20 hover:shadow-xl">
+                <div className="relative aspect-[4/5] overflow-hidden">
+                  {/* Using direct img tags here avoids stale next/image optimizer/cache issues for these local service tiles. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={`${service.imageSrc}?v=${SERVICE_IMAGE_VERSION}`}
+                    alt={service.name}
+                    loading="lazy"
+                    className={cn("absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105", service.imageClassName)}
+                  />
+                  <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/35 via-black/10 to-transparent" />
+                </div>
+                <CardContent className="p-3">
+                  <h3 className="text-sm font-semibold leading-snug text-foreground transition-colors group-hover:text-primary">
+                    {service.name}
+                  </h3>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      </div>
+
       {/* METRICS */}
       <div className="grid gap-6 md:grid-cols-3">
         {stats.map((stat, i) => (
@@ -141,95 +214,6 @@ export default function BuyerDashboard() {
             </CardContent>
           </Card>
         ))}
-      </div>
-
-      {/* QUICK SERVICES */}
-      <div className="space-y-4">
-        <h2 className="text-xl font-semibold tracking-tight">Request a Service</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-          {quickServices.map((service, i) => (
-            <Link key={i} href={service.href}>
-              <Card className="border-none shadow-sm hover:shadow-md transition-all hover:-translate-y-1 cursor-pointer group h-full bg-card">
-                <CardContent className="p-5 flex flex-col items-center text-center justify-center gap-3">
-                  <div className={`p-4 rounded-2xl ${service.bgColor} ${service.color} group-hover:scale-110 transition-transform duration-300`}>
-                    <service.icon className="h-8 w-8" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-sm group-hover:text-primary transition-colors">{service.name}</h3>
-                    <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{service.desc}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
-
-          {/* Browse All Services Trigger */}
-          <Sheet>
-            <SheetTrigger asChild>
-              <Card className="border border-dashed shadow-none hover:shadow-sm transition-all hover:-translate-y-1 cursor-pointer group h-full bg-slate-50/50 hover:bg-slate-50">
-                <CardContent className="p-5 flex flex-col items-center text-center justify-center gap-3">
-                  <div className="p-4 rounded-2xl bg-slate-100 text-slate-600 group-hover:scale-110 group-hover:bg-slate-200 transition-all duration-300">
-                    <LayoutGrid className="h-8 w-8" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-sm group-hover:text-primary transition-colors">Browse All</h3>
-                    <p className="text-xs text-muted-foreground mt-1 line-clamp-1">View full catalog</p>
-                  </div>
-                </CardContent>
-              </Card>
-            </SheetTrigger>
-            <SheetContent className="w-full sm:max-w-md overflow-hidden flex flex-col px-0 border-l border-border">
-              <SheetHeader className="px-6 pb-2">
-                <SheetTitle className="text-2xl font-bold">Service Catalog</SheetTitle>
-                <SheetDescription>Browse or search all available services.</SheetDescription>
-              </SheetHeader>
-              
-              <div className="px-6 py-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input 
-                    placeholder="Search for a service..." 
-                    className="pl-9 bg-muted/50 focus-visible:bg-background"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-8 scrollbar-thin">
-                {allServicesCatalog.map((section, idx) => {
-                  const filteredItems = section.items.filter(item => 
-                    item.name.toLowerCase().includes(searchQuery.toLowerCase())
-                  );
-
-                  if (filteredItems.length === 0) return null;
-
-                  return (
-                    <div key={idx} className="space-y-3">
-                      <h4 className="text-sm font-bold tracking-wider uppercase text-muted-foreground/80">{section.category}</h4>
-                      <div className="space-y-2">
-                        {filteredItems.map((item, i) => (
-                          <Link key={i} href={item.href} className="block group">
-                            <div className="flex items-center justify-between p-3 rounded-xl border border-transparent hover:border-border hover:bg-muted/30 transition-all">
-                              <div className="flex items-center gap-3">
-                                <div className="p-2 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                                  <item.icon className="h-4 w-4" />
-                                </div>
-                                <span className="font-medium text-sm group-hover:text-foreground transition-colors">{item.name}</span>
-                              </div>
-                              <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
-                            </div>
-                          </Link>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </SheetContent>
-          </Sheet>
-
-        </div>
       </div>
 
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
@@ -282,7 +266,7 @@ export default function BuyerDashboard() {
                 <div className="flex flex-col items-center justify-center py-12 text-center px-4">
                   <ShieldCheck className="h-12 w-12 text-muted-foreground/20 mb-3" />
                   <p className="text-base font-medium">No active services.</p>
-                  <p className="text-sm text-muted-foreground mt-1 mb-4">You don't have any ongoing service deployments right now.</p>
+                  <p className="text-sm text-muted-foreground mt-1 mb-4">You don&apos;t have any ongoing service deployments right now.</p>
                   <Link href="/buyer/requests/new">
                     <Button>Request a Service</Button>
                   </Link>
