@@ -5,7 +5,7 @@ import { useBuyerInvoices } from "@/hooks/useBuyerInvoices";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, Clock, AlertCircle, Activity, ShieldCheck, RefreshCw, XCircle, MessageSquare, Wallet } from "lucide-react";
+import { Clock, AlertCircle, Activity, ShieldCheck, RefreshCw, XCircle, MessageSquare, Wallet } from "lucide-react";
 import Link from "next/link";
 import { format, addDays } from "date-fns";
 import { formatCurrency } from "@/src/lib/utils/currency";
@@ -146,19 +146,6 @@ export default function BuyerDashboard() {
 
   return (
     <div className="space-y-8 pb-8">
-      {/* HEADER */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">Manage your ongoing services, requests, and bills.</p>
-        </div>
-        <Link href="/buyer/requests/new">
-          <Button className="gap-2 shadow-sm rounded-full px-6">
-            <Plus className="h-4 w-4" /> Request Service
-          </Button>
-        </Link>
-      </div>
-
       {/* REQUEST SERVICES */}
       <div className="space-y-4">
         <div className="flex flex-col gap-2">
