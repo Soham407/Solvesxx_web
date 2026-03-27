@@ -23,7 +23,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  BRAND_DESCRIPTION,
   BRAND_DOMAIN,
   BRAND_LEGAL_NAME,
   BRAND_NAME,
@@ -187,7 +186,6 @@ export default function LandingPage() {
 
       <section className="brand-shell relative overflow-hidden px-4 pb-24 pt-16 sm:px-6 lg:px-8 lg:pt-20">
         <div className="pointer-events-none absolute inset-0">
-          <div className="absolute left-0 top-0 h-48 w-48 rounded-br-[6rem] bg-primary" />
           <div className="absolute right-0 top-0 h-44 w-44 rounded-bl-[5rem] bg-[linear-gradient(145deg,#c3a257,#f2e08a)]" />
           <div className="absolute bottom-0 right-0 h-52 w-52 rounded-tl-[6rem] bg-primary/92" />
           <div className="absolute left-[8%] top-[18%] h-64 w-64 rounded-full bg-warning/18 blur-3xl" />
@@ -203,9 +201,14 @@ export default function LandingPage() {
               <br />
               service-driven facilities.
             </h1>
-            <p className="mt-6 max-w-2xl text-lg leading-relaxed text-muted-foreground sm:text-xl">
-              {BRAND_TAGLINE}. {BRAND_DESCRIPTION} {BRAND_NAME} brings service
-              excellence and operational control into one premium, role-aware platform.
+            <p className="mt-6 text-2xl font-medium text-primary sm:text-3xl">
+              Powerful Solutions for Total Facility Excellence.
+            </p>
+            <p className="mt-4 max-w-2xl text-lg leading-relaxed text-muted-foreground sm:text-xl">
+              Integrated facility operations, workforce coordination, procurement,
+              and service management for modern enterprises. SOLVESXX brings service
+              excellence and operational control into one premium, role-aware
+              platform.
             </p>
 
             <div className="mt-8 flex flex-wrap items-center gap-3">
