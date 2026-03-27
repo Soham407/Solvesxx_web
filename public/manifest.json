@@ -1,12 +1,12 @@
 {
-  "name": "FacilityPro Guard Portal",
-  "short_name": "FacilityPro",
-  "description": "FacilityPro Guard & Security Portal — visitor management, panic alerts, and checklist compliance.",
+  "name": "SOLVESXX Guard Portal",
+  "short_name": "SOLVESXX",
+  "description": "SOLVESXX Guard & Security Portal - visitor management, panic alerts, and checklist compliance.",
   "start_url": "/guard",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0f172a",
-  "theme_color": "#6366f1",
+  "background_color": "#F7F5EF",
+  "theme_color": "#0A3F63",
   "icons": [
     {
       "src": "/icons/icon-192x192.png",

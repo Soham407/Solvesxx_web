@@ -20,7 +20,7 @@ test.describe("API Auth and Validation", () => {
       data: {
         email: "not-an-email",
         name: "Test User",
-        company: "FacilityPro",
+        company: "SOLVESXX",
       },
     });
 

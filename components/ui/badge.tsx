@@ -16,11 +16,11 @@ const badgeVariants = cva(
           "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
         outline: "text-foreground border-border",
         success:
-          "border-transparent bg-green-500/15 text-green-700 dark:text-green-400",
+          "border-transparent bg-success/12 text-success",
         warning:
-          "border-transparent bg-amber-500/15 text-amber-700 dark:text-amber-400",
+          "border-transparent bg-warning/16 text-warning",
         info:
-          "border-transparent bg-blue-500/15 text-blue-700 dark:text-blue-400",
+          "border-transparent bg-info/12 text-info",
         muted:
           "border-transparent bg-muted text-muted-foreground",
         ghost:
@@ -51,10 +51,10 @@ export interface BadgeProps
 
 const dotColorMap = {
   default: "bg-current",
-  success: "bg-green-500",
-  warning: "bg-amber-500",
+  success: "bg-success",
+  warning: "bg-warning",
   destructive: "bg-destructive",
-  info: "bg-blue-500",
+  info: "bg-info",
 };
 
 function Badge({

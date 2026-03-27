@@ -4,7 +4,7 @@ import { updateSession } from "@/src/lib/supabase/middleware";
 import { ROLE_ACCESS, type AppRole } from "@/src/lib/auth/roles";
 
 /**
- * Next.js Middleware for FacilityPro
+ * Next.js Middleware for SOLVESXX
  */
 
 function addSecurityHeaders(response: NextResponse): NextResponse {

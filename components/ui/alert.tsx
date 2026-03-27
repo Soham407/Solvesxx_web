@@ -19,13 +19,13 @@ const alertVariants = cva(
         default:
           "bg-background text-foreground border-border [&>svg]:text-foreground",
         destructive:
-          "border-destructive/50 bg-destructive/5 text-destructive dark:border-destructive [&>svg]:text-destructive",
+          "border-destructive/30 bg-destructive/5 text-destructive [&>svg]:text-destructive",
         success:
-          "border-green-500/50 bg-green-500/5 text-green-700 dark:text-green-400 dark:border-green-500/30 [&>svg]:text-green-600 dark:[&>svg]:text-green-400",
+          "border-success/30 bg-success/5 text-success [&>svg]:text-success",
         warning:
-          "border-amber-500/50 bg-amber-500/5 text-amber-700 dark:text-amber-400 dark:border-amber-500/30 [&>svg]:text-amber-600 dark:[&>svg]:text-amber-400",
+          "border-warning/40 bg-warning/10 text-warning [&>svg]:text-warning",
         info:
-          "border-blue-500/50 bg-blue-500/5 text-blue-700 dark:text-blue-400 dark:border-blue-500/30 [&>svg]:text-blue-600 dark:[&>svg]:text-blue-400",
+          "border-info/30 bg-info/5 text-info [&>svg]:text-info",
         muted:
           "border-muted bg-muted/50 text-muted-foreground [&>svg]:text-muted-foreground",
       },
@@ -161,9 +161,9 @@ const InlineAlert = React.forwardRef<HTMLDivElement, InlineAlertProps>(
         className={cn(
           "flex items-center gap-2 text-sm py-1.5 px-2.5 rounded-md",
           variant === "destructive" && "text-destructive bg-destructive/10",
-          variant === "success" && "text-green-600 bg-green-500/10 dark:text-green-400",
-          variant === "warning" && "text-amber-600 bg-amber-500/10 dark:text-amber-400",
-          variant === "info" && "text-blue-600 bg-blue-500/10 dark:text-blue-400",
+          variant === "success" && "text-success bg-success/10",
+          variant === "warning" && "text-warning bg-warning/12",
+          variant === "info" && "text-info bg-info/10",
           variant === "default" && "text-muted-foreground bg-muted",
           className
         )}

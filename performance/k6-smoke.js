@@ -44,8 +44,8 @@ export default function () {
 
   check(loginRes, {
     "login page returns 200": (res) => res.status === 200,
-    "login page contains FacilityPro": (res) =>
-      String(res.body || "").includes("FacilityPro"),
+    "login page contains SOLVESXX": (res) =>
+      String(res.body || "").includes("SOLVESXX"),
   });
 
   const ipRes = http.get(`${baseUrl}/api/auth/client-ip`, {
@@ -69,7 +69,7 @@ export default function () {
     JSON.stringify({
       email: uniqueEmail(),
       name: "K6 Smoke",
-      company: "FacilityPro",
+      company: "SOLVESXX",
     }),
     {
       headers: {

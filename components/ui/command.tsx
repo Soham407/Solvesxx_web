@@ -26,7 +26,7 @@ interface CommandDialogProps extends DialogProps {}
 const CommandDialog = ({ children, ...props }: CommandDialogProps) => {
   return (
     <Dialog {...props}>
-      <DialogContent className="overflow-hidden p-0 shadow-lg">
+      <DialogContent className="flex max-h-[85vh] w-[calc(100vw-1rem)] max-w-2xl flex-col overflow-hidden p-0 shadow-lg sm:w-full">
         <DialogTitle className="sr-only">Command Palette</DialogTitle>
         <DialogDescription className="sr-only">
           Search for modules, actions, and dashboard settings.

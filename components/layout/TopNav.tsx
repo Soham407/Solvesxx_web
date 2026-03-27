@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useTheme } from "next-themes";
 import {
   Menu,
   ChevronDown,
@@ -14,12 +13,11 @@ import {
   Ticket,
   Wrench,
   Users,
-  Moon,
-  Sun,
   Loader2,
 } from "lucide-react";
 import { CommandMenu } from "./CommandMenu";
 import { NotificationBell } from "./NotificationBell";
+import { BrandMark } from "@/components/branding/BrandLogo";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -32,6 +30,7 @@ import {
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
@@ -45,6 +44,11 @@ import {
   getDefaultSettingsRoute,
   hasAnySettingsPermission,
 } from "@/src/lib/platform/permissions";
+import {
+  BRAND_LEGAL_NAME,
+  BRAND_NAME,
+  BRAND_PORTAL_LABEL,
+} from "@/src/lib/brand";
 
 interface TopNavProps {
   onToggleSidebar: () => void;
@@ -52,13 +56,12 @@ interface TopNavProps {
 }
 
 const companies = [
-  { id: "1", name: "Shri Radhamadhav Enterprise", logo: "SR", color: "bg-primary" },
+  { id: "1", name: BRAND_NAME, subtitle: BRAND_LEGAL_NAME },
 ];
 
 export function TopNav({ onToggleSidebar, sidebarCollapsed }: TopNavProps) {
   const router = useRouter();
   const [selectedCompany, setSelectedCompany] = useState(companies[0]);
-  const { theme, setTheme } = useTheme();
   const { signOut, user, role, permissions } = useAuth();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const settingsHref = getDefaultSettingsRoute(permissions);
@@ -78,7 +81,7 @@ export function TopNav({ onToggleSidebar, sidebarCollapsed }: TopNavProps) {
   };
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-xl px-4 sm:px-6 shadow-sm">
+    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-border/70 bg-white/84 px-4 shadow-[0_18px_48px_-34px_rgba(10,63,99,0.45)] backdrop-blur-xl sm:px-6">
       {/* Mobile Menu Toggle */}
       <div className="lg:hidden">
         <Sheet>
@@ -92,9 +95,15 @@ export function TopNav({ onToggleSidebar, sidebarCollapsed }: TopNavProps) {
               <span className="sr-only">Toggle mobile menu</span>
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="p-0 w-64 border-none">
+          <SheetContent
+            side="left"
+            className="w-[min(88vw,22rem)] max-w-none border-none p-0 [&>button]:right-3 [&>button]:top-3 [&>button]:z-20 [&>button]:rounded-full [&>button]:bg-white/90"
+          >
             <SheetHeader className="sr-only">
                <SheetTitle>Navigation Menu</SheetTitle>
+               <SheetDescription>
+                 Browse SOLVESXX navigation links and operational modules.
+               </SheetDescription>
             </SheetHeader>
             <AppSidebar collapsed={false} isMobile={true} />
           </SheetContent>
@@ -115,11 +124,14 @@ export function TopNav({ onToggleSidebar, sidebarCollapsed }: TopNavProps) {
       
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="gap-2 hidden sm:flex hover:bg-muted/50 hover:text-foreground transition-all">
-            <div className={cn("flex h-7 w-7 items-center justify-center rounded-md text-white text-[10px] font-bold shadow-sm", selectedCompany.color)}>
-              {selectedCompany.logo}
+          <Button variant="ghost" className="hidden gap-3 rounded-full border border-transparent pr-4 hover:border-border/80 hover:bg-secondary/70 hover:text-foreground sm:flex">
+            <BrandMark className="h-9 w-9 shrink-0" />
+            <div className="flex min-w-0 flex-col items-start text-left">
+              <span className="truncate text-sm font-semibold">{selectedCompany.name}</span>
+              <span className="truncate text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                {BRAND_PORTAL_LABEL}
+              </span>
             </div>
-            <span className="font-semibold text-sm">{selectedCompany.name}</span>
             <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
           </Button>
         </DropdownMenuTrigger>
@@ -137,12 +149,12 @@ export function TopNav({ onToggleSidebar, sidebarCollapsed }: TopNavProps) {
                   selectedCompany.id === company.id ? "bg-primary/5 text-primary" : "hover:bg-muted"
                 )}
               >
-                <div className={cn("flex h-8 w-8 items-center justify-center rounded-md text-white text-xs font-bold", company.color)}>
-                  {company.logo}
-                </div>
+                <BrandMark className="h-10 w-10 shrink-0" />
                 <div className="flex flex-col">
                   <span className="text-sm font-medium">{company.name}</span>
-                  <span className="text-[10px] text-muted-foreground">Premium Account</span>
+                  <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                    {company.subtitle}
+                  </span>
                 </div>
               </DropdownMenuItem>
             ))}
@@ -161,7 +173,7 @@ export function TopNav({ onToggleSidebar, sidebarCollapsed }: TopNavProps) {
       </DropdownMenu>
 
       {/* Search */}
-      <div className="hidden md:block flex-1 max-w-lg">
+      <div className="hidden min-w-0 flex-1 md:block md:max-w-md lg:max-w-lg">
         <CommandMenu />
       </div>
 
@@ -170,7 +182,7 @@ export function TopNav({ onToggleSidebar, sidebarCollapsed }: TopNavProps) {
         {/* Quick Action */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="glow" size="sm" className="hidden sm:flex gap-2 rounded-full h-9 px-4 font-semibold">
+            <Button variant="glow" size="sm" className="hidden h-9 gap-2 rounded-full px-4 font-semibold text-primary sm:flex">
               <Plus className="h-4 w-4" />
               <span>Create</span>
             </Button>
@@ -197,18 +209,6 @@ export function TopNav({ onToggleSidebar, sidebarCollapsed }: TopNavProps) {
              </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-
-        {/* Theme Toggle */}
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          className="text-muted-foreground hover:text-foreground"
-        >
-          <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-          <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-          <span className="sr-only">Toggle theme</span>
-        </Button>
 
         {/* Notifications */}
         <NotificationBell />

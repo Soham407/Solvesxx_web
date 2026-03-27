@@ -9,6 +9,7 @@ import { RouteGuard } from "@/components/shared/RouteGuard";
 import ErrorBoundary from "@/components/shared/ErrorBoundary";
 
 import { DynamicBreadcrumbs } from "@/components/shared/DynamicBreadcrumbs";
+import { BRAND_LEGAL_NAME, BRAND_NAME } from "@/src/lib/brand";
 
 export default function DashboardLayout({
   children,
@@ -55,10 +56,12 @@ export default function DashboardLayout({
           </div>
         </main>
         
-        <footer className="border-t border-border/50 py-4 px-6 text-center text-xs text-muted-foreground/70 bg-muted/20">
-          <span className="font-medium">&copy; {new Date().getFullYear()} FacilityPro Enterprise Suite.</span>
+        <footer className="border-t border-border/50 bg-white/60 px-6 py-4 text-center text-xs text-muted-foreground/80 backdrop-blur-sm">
+          <span className="font-medium">
+            &copy; {new Date().getFullYear()} {BRAND_NAME}. {BRAND_LEGAL_NAME}.
+          </span>
           <span className="mx-2">|</span>
-          <span>All rights reserved.</span>
+          <span>Operations portal and service workflow suite.</span>
         </footer>
       </div>
     </div>

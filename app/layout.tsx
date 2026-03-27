@@ -1,42 +1,49 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans, DM_Sans, JetBrains_Mono } from "next/font/google";
+import {
+  Cormorant_Garamond,
+  JetBrains_Mono,
+  Plus_Jakarta_Sans,
+} from "next/font/google";
+
 import "./globals.css";
-import { ThemeProvider } from "@/components/providers";
-import { AuthProvider } from "@/hooks/useAuth";
+import ErrorBoundary from "@/components/shared/ErrorBoundary";
 import { Toaster } from "@/components/ui/sonner";
 import { Toaster as ShadcnToaster } from "@/components/ui/toaster";
-import ErrorBoundary from "@/components/shared/ErrorBoundary";
+import { AuthProvider } from "@/hooks/useAuth";
+import {
+  BRAND_DESCRIPTION,
+  BRAND_LEGAL_NAME,
+  BRAND_NAME,
+  BRAND_PORTAL_LABEL,
+} from "@/src/lib/brand";
 
-// Plus Jakarta Sans - Refined, modern, excellent for data-dense apps
-const plusJakarta = Plus_Jakarta_Sans({ 
-  subsets: ["latin"], 
+const plusJakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
   variable: "--font-sans",
-  display: 'swap',
-  weight: ['300', '400', '500', '600', '700', '800'],
+  display: "swap",
+  weight: ["300", "400", "500", "600", "700", "800"],
 });
 
-// DM Sans - Clean geometric sans for headings
-const dmSans = DM_Sans({ 
-  subsets: ["latin"], 
+const cormorant = Cormorant_Garamond({
+  subsets: ["latin"],
   variable: "--font-heading",
-  display: 'swap',
-  weight: ['400', '500', '600', '700'],
+  display: "swap",
+  weight: ["500", "600", "700"],
 });
 
-// JetBrains Mono - For IDs, codes, and technical content
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   variable: "--font-mono",
-  display: 'swap',
-  weight: ['400', '500', '600'],
+  display: "swap",
+  weight: ["400", "500", "600"],
 });
 
 export const metadata: Metadata = {
   title: {
-    template: "%s | FacilityPro",
-    default: "FacilityPro — Enterprise Facility Management",
+    template: `%s | ${BRAND_NAME}`,
+    default: `${BRAND_NAME} | ${BRAND_PORTAL_LABEL}`,
   },
-  description: "Next-generation facility management and ERP solution for modern enterprises.",
+  description: `${BRAND_LEGAL_NAME}. ${BRAND_DESCRIPTION}`,
   manifest: "/manifest.json",
 };
 
@@ -47,21 +54,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${plusJakarta.variable} ${dmSans.variable} ${jetbrainsMono.variable} font-sans antialiased selection:bg-primary/10 selection:text-primary`} suppressHydrationWarning>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <AuthProvider>
-            <ErrorBoundary>
-              {children}
-            </ErrorBoundary>
-            <Toaster position="top-right" closeButton richColors />
-            <ShadcnToaster />
-          </AuthProvider>
-        </ThemeProvider>
+      <body
+        suppressHydrationWarning
+        className={`${plusJakarta.variable} ${cormorant.variable} ${jetbrainsMono.variable} font-sans antialiased selection:bg-primary/10 selection:text-primary`}
+      >
+        <AuthProvider>
+          <ErrorBoundary>{children}</ErrorBoundary>
+          <Toaster position="top-right" closeButton richColors />
+          <ShadcnToaster />
+        </AuthProvider>
       </body>
     </html>
   );

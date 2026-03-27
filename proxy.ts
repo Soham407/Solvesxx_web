@@ -24,6 +24,7 @@ function isInternalPath(pathname: string): boolean {
   return (
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/favicon") ||
+    pathname === "/manifest.json" ||
     pathname.startsWith("/icons/") ||
     pathname.startsWith("/images/") ||
     pathname.startsWith("/sw.js") ||

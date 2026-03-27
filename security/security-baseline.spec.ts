@@ -32,7 +32,7 @@ test.describe("Security Baseline", () => {
       data: {
         email: uniqueEmail,
         name: "Security Baseline",
-        company: "FacilityPro",
+        company: "SOLVESXX",
       },
     });
 
@@ -42,7 +42,7 @@ test.describe("Security Baseline", () => {
       data: {
         email: uniqueEmail,
         name: "Security Baseline",
-        company: "FacilityPro",
+        company: "SOLVESXX",
       },
     });
 

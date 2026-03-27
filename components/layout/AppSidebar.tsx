@@ -16,32 +16,15 @@ import {
   BarChart3,
   Settings,
   ChevronDown,
-  Shield,
-  UserCheck,
-  ClipboardList,
-  Calendar,
-  FileText,
   Truck,
   ShoppingCart,
-  AlertTriangle,
-  Thermometer,
-  Bug,
-  Printer,
-  DoorOpen,
-  BellRing,
-  Phone,
-  CreditCard,
-  Wallet,
-  BookOpen,
   Menu,
-  LogOut,
   LayoutGrid,
-  Settings2,
   HardDrive,
   ClipboardCheck,
-  Hammer,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BrandMark } from "@/components/branding/BrandLogo";
 import {
   Collapsible,
   CollapsibleContent,
@@ -62,6 +45,7 @@ import {
 } from "@/src/lib/featureFlags";
 import { useAuth } from "@/hooks/useAuth";
 import { canAccessPath } from "@/src/lib/platform/permissions";
+import { BRAND_LEGAL_NAME, BRAND_NAME, BRAND_PORTAL_LABEL } from "@/src/lib/brand";
 
 
 interface NavItem {
@@ -400,44 +384,57 @@ export function AppSidebar({ collapsed, onToggle, className, isMobile }: AppSide
     <TooltipProvider delayDuration={0}>
       <aside
         className={cn(
-          "bg-gradient-to-b from-sidebar to-sidebar/95 transition-all duration-300 border-sidebar-border",
+          "border-sidebar-border bg-sidebar transition-all duration-300",
           !isMobile ? "fixed left-0 top-0 z-40 h-screen border-r hidden lg:block" : "h-full w-full",
           !isMobile && (collapsed ? "w-16" : "w-64"),
           className
         )}
       >
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(242,224,138,0.14),transparent_22%),linear-gradient(180deg,rgba(255,255,255,0.04),transparent_24%)]" />
         {/* Logo Section & Toggle */}
-        <div className="flex h-16 items-center justify-between border-b border-sidebar-border/50 px-4 bg-sidebar/50 backdrop-blur-sm">
+        <div
+          className={cn(
+            "relative flex items-center justify-between border-b border-sidebar-border/60 backdrop-blur-sm",
+            isMobile ? "min-h-20 px-4 py-4 pr-14" : "h-20 px-4"
+          )}
+        >
           {collapsed ? (
             <div className="flex h-full w-full items-center justify-center">
               {onToggle && (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
+                    <button
+                      type="button"
                       onClick={onToggle}
-                      className="h-8 w-8 text-sidebar-muted hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+                      className="rounded-2xl transition-transform duration-200 hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
                       aria-label="Expand sidebar"
                     >
-                      <Menu className="h-4 w-4" />
-                    </Button>
+                      <BrandMark className="h-11 w-11" priority />
+                    </button>
                   </TooltipTrigger>
                   <TooltipContent side="right">
-                    <p>Expand sidebar</p>
+                    <p>{BRAND_NAME}</p>
                   </TooltipContent>
                 </Tooltip>
               )}
             </div>
           ) : (
             <>
-              <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary shadow-glow">
-                  <span className="text-base font-bold text-sidebar-primary-foreground">F</span>
-                </div>
-                <div className="flex flex-col gap-0">
-                  <span className="text-sm font-extrabold text-sidebar-foreground leading-none">FacilityPro</span>
-                  <span className="text-[11px] text-sidebar-primary uppercase font-black tracking-wider opacity-90">Enterprise</span>
+              <div className="flex min-w-0 items-center gap-3">
+                <BrandMark className="h-12 w-12 shrink-0" priority />
+                <div className="min-w-0">
+                  <span className="block truncate text-base font-bold text-sidebar-foreground leading-none">
+                    {BRAND_NAME}
+                  </span>
+                  {isMobile ? (
+                    <span className="mt-1 block truncate text-[10px] font-semibold uppercase tracking-[0.16em] text-sidebar-primary/90">
+                      {BRAND_PORTAL_LABEL}
+                    </span>
+                  ) : (
+                    <span className="mt-1 block truncate text-[10px] font-semibold uppercase tracking-[0.22em] text-sidebar-primary/90">
+                      {BRAND_LEGAL_NAME}
+                    </span>
+                  )}
                 </div>
               </div>
               {onToggle && (
@@ -445,7 +442,7 @@ export function AppSidebar({ collapsed, onToggle, className, isMobile }: AppSide
                   variant="ghost"
                   size="icon"
                   onClick={onToggle}
-                  className="h-8 w-8 text-sidebar-muted hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-all active:scale-90"
+                  className="h-9 w-9 rounded-full text-sidebar-muted hover:bg-white/10 hover:text-sidebar-foreground transition-all active:scale-90"
                   aria-label="Collapse sidebar"
                 >
                   <Menu className="h-4 w-4" />
@@ -455,7 +452,7 @@ export function AppSidebar({ collapsed, onToggle, className, isMobile }: AppSide
           )}
         </div>
 
-        <ScrollArea className="h-[calc(100vh-4rem)] scrollbar-thin">
+      <ScrollArea className="relative h-[calc(100vh-5rem)] scrollbar-thin">
         <div className="p-3 space-y-6">
           {/* 🔒 Using filteredNavigation to hide frozen features */}
           {filteredNavigation.map((group) => (

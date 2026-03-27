@@ -26,11 +26,11 @@ function setupBackgroundMessageHandler(messaging) {
   messaging.onBackgroundMessage((payload) => {
     console.log('[firebase-messaging-sw.js] Background message received:', payload);
 
-    const notificationTitle = payload.notification?.title || payload.data?.title || 'FacilityPro Alert';
+    const notificationTitle = payload.notification?.title || payload.data?.title || 'SOLVESXX Alert';
     const notificationOptions = {
       body: payload.notification?.body || payload.data?.body || 'You have a new notification',
-      icon: '/favicon.ico',
-      badge: '/favicon.ico',
+      icon: '/icons/icon-192x192.png',
+      badge: '/icons/icon-192x192.png',
       tag: payload.data?.tag || 'facility-notification',
       data: payload.data,
       // Vibration pattern for emergency alerts

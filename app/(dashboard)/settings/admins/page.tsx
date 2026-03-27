@@ -143,8 +143,8 @@ export default function SuperAdminAccountsPage() {
             variant="outline"
             className={
               row.original.isActive
-                ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"
-                : "border-rose-300 bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-300"
+                ? "border-success/20 bg-success/10 text-success"
+                : "border-destructive/20 bg-destructive/10 text-destructive"
             }
           >
             {row.original.isActive ? "Active" : "Suspended"}

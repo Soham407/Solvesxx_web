@@ -64,7 +64,7 @@ function mapAdmin(row: any): AdminAccount {
 }
 
 function createTemporaryPassword() {
-  return `FacilityPro!${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
+  return `Solvesxx!${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
 }
 
 async function provisionAdminAccessLink(adminClient: any, email: string): Promise<{
