@@ -14,6 +14,7 @@ export interface WorkMaster {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  priority?: string | null;
 }
 
 export interface ServiceWiseWork {
@@ -37,6 +38,45 @@ interface UseWorkMasterState {
   error: string | null;
 }
 
+function normalizeWorkItem(row: any, index: number): WorkMaster {
+  const generatedCode = row.work_code || `WM-${String(index + 1).padStart(3, "0")}`;
+
+  return {
+    id: row.id,
+    work_code: generatedCode,
+    work_name: row.work_name || "Untitled Work Item",
+    description: row.description || null,
+    standard_time_minutes:
+      row.standard_time_minutes ?? row.estimated_duration_minutes ?? null,
+    skill_level_required: row.skill_level_required || null,
+    is_active: row.is_active ?? true,
+    created_at: row.created_at || new Date().toISOString(),
+    updated_at: row.updated_at || row.created_at || new Date().toISOString(),
+    priority: row.priority || "medium",
+  };
+}
+
+function formatServiceTypeLabel(serviceType: string | null | undefined) {
+  if (!serviceType) {
+    return {
+      service_name: "General",
+      service_code: "GEN",
+    };
+  }
+
+  const normalized = String(serviceType).trim();
+  const serviceName = normalized
+    .split(/[_\s]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+
+  return {
+    service_name: serviceName || "General",
+    service_code: normalized.replace(/[^A-Za-z0-9]/g, "").slice(0, 6).toUpperCase() || "GEN",
+  };
+}
+
 export function useWorkMaster() {
   const [state, setState] = useState<UseWorkMasterState>({
     workItems: [],
@@ -53,14 +93,15 @@ export function useWorkMaster() {
       const { data, error } = await supabase
         .from("work_master")
         .select("*")
-        .eq("is_active", true)
         .order("work_name") as any;
 
       if (error) throw error;
 
       setState((prev) => ({
         ...prev,
-        workItems: (data as any) || [],
+        workItems: ((data as any[]) || [])
+          .map((row, index) => normalizeWorkItem(row, index))
+          .filter((item) => item.is_active !== false),
         isLoading: false,
       }));
     } catch (err: any) {
@@ -80,17 +121,25 @@ export function useWorkMaster() {
         .from("services_wise_work")
         .select(`
           *,
-          work:work_id (*),
-          service:service_id (service_name, service_code)
+          work:work_id (*)
         `)
-        .eq("is_active", true)
         .order("created_at", { ascending: false }) as any;
 
       if (error) throw error;
 
       setState((prev) => ({
         ...prev,
-        serviceWorkLinks: (data as any) || [],
+        serviceWorkLinks: ((data as any[]) || [])
+          .filter((row) => row.is_active !== false)
+          .map((row) => ({
+            id: row.id,
+            service_id: row.service_id || row.service_type || "",
+            work_id: row.work_id,
+            is_active: row.is_active ?? true,
+            created_at: row.created_at,
+            work: row.work ? normalizeWorkItem(row.work, 0) : undefined,
+            service: formatServiceTypeLabel(row.service_type),
+          })),
       }));
     } catch (err: any) {
       console.error("Error fetching service-work links:", err);
@@ -102,9 +151,28 @@ export function useWorkMaster() {
     workData: Omit<WorkMaster, "id" | "created_at" | "updated_at">
   ): Promise<boolean> => {
     try {
-      const { error } = await supabase
+      let { error } = await supabase
         .from("work_master")
-        .insert(workData);
+        .insert({
+          work_code: workData.work_code,
+          work_name: workData.work_name,
+          skill_level_required: workData.skill_level_required,
+          standard_time_minutes: workData.standard_time_minutes,
+          estimated_duration_minutes: workData.standard_time_minutes,
+          description: workData.description,
+          is_active: workData.is_active,
+          priority: workData.priority || "medium",
+        });
+
+      if (error && /Could not find the .* column|column .* does not exist/i.test(error.message || "")) {
+        const fallbackResult = await supabase
+          .from("work_master")
+          .insert({
+            work_name: workData.work_name,
+            description: workData.description,
+          });
+        error = fallbackResult.error;
+      }
 
       if (error) throw error;
 
@@ -125,10 +193,8 @@ export function useWorkMaster() {
       const { error } = await supabase
         .from("services_wise_work")
         .insert({
-          // @ts-ignore
-          service_id: serviceId,
+          service_type: serviceId,
           work_id: workId,
-          is_active: true,
         });
 
       if (error) throw error;

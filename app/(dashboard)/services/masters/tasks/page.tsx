@@ -40,6 +40,15 @@ const supabase = supabaseTyped as any;
 
 const EMPTY_FORM = { work_name: "", skill_level_required: "", standard_time_minutes: "", priority: "medium", description: "" };
 
+function isMissingColumnError(error: unknown) {
+  const message =
+    error && typeof error === "object" && "message" in error
+      ? String((error as { message?: unknown }).message || "")
+      : "";
+
+  return /Could not find the .* column|column .* does not exist/i.test(message);
+}
+
 export default function WorkTasksPage() {
   const { workItems, isLoading, error, createWorkItem, refresh } = useWorkMaster();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -70,18 +79,27 @@ export default function WorkTasksPage() {
     setIsSubmitting(true);
     try {
       if (editTarget) {
-        const { error } = await supabase.from("work_master").update({
+        let { error } = await supabase.from("work_master").update({
           work_name: form.work_name,
           skill_level_required: form.skill_level_required || null,
           standard_time_minutes: form.standard_time_minutes ? parseInt(form.standard_time_minutes) : null,
           priority: form.priority,
           description: form.description || null,
         }).eq("id", editTarget.id);
+
+        if (error && isMissingColumnError(error)) {
+          const fallbackResult = await supabase.from("work_master").update({
+            work_name: form.work_name,
+            description: form.description || null,
+          }).eq("id", editTarget.id);
+          error = fallbackResult.error;
+        }
+
         if (error) throw error;
         toast.success("Task updated");
         refresh();
       } else {
-        await createWorkItem({
+        const created = await createWorkItem({
           work_code: `WM-${Date.now()}`,
           work_name: form.work_name,
           skill_level_required: form.skill_level_required || null,
@@ -89,6 +107,11 @@ export default function WorkTasksPage() {
           description: form.description || null,
           is_active: true,
         });
+
+        if (!created) {
+          throw new Error("Failed to save task");
+        }
+
         toast.success("Task created");
       }
       setDialogOpen(false);
@@ -101,7 +124,18 @@ export default function WorkTasksPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      const { error } = await supabase.from("work_master").update({ is_active: false }).eq("id", id);
+      let { error } = await supabase.from("work_master").update({ is_active: false }).eq("id", id);
+
+      if (error && isMissingColumnError(error)) {
+        const fallbackResult = await supabase.from("work_master").delete().eq("id", id);
+        error = fallbackResult.error;
+        if (!error) {
+          toast.success("Task removed");
+          refresh();
+          return;
+        }
+      }
+
       if (error) throw error;
       toast.success("Task archived");
       refresh();

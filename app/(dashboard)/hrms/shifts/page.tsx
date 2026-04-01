@@ -52,6 +52,34 @@ interface DisplayShift {
   assignedCount: number;
 }
 
+function getGuardDisplayName(guard: {
+  employee?: {
+    first_name?: string | null;
+    last_name?: string | null;
+  } | null;
+  guard_code: string;
+}) {
+  const firstName = guard.employee?.first_name?.trim();
+  const lastName = guard.employee?.last_name?.trim();
+  const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
+
+  return fullName || guard.guard_code || "Unknown Guard";
+}
+
+function getGuardInitials(guard: {
+  employee?: {
+    first_name?: string | null;
+    last_name?: string | null;
+  } | null;
+  guard_code: string;
+}) {
+  const firstInitial = guard.employee?.first_name?.trim()?.charAt(0) || "";
+  const lastInitial = guard.employee?.last_name?.trim()?.charAt(0) || "";
+  const initials = `${firstInitial}${lastInitial}`.trim();
+
+  return initials || guard.guard_code.slice(0, 2).toUpperCase() || "GU";
+}
+
 // Calculate shift duration from start/end times
 function calculateDuration(start: string, end: string): string {
   const [startH, startM] = start.split(":").map(Number);
@@ -123,7 +151,7 @@ export default function ShiftMasterPage() {
     if (result.success) {
       toast({
         title: "Guard Assigned",
-        description: `${guard?.employee.first_name} ${guard?.employee.last_name} has been assigned to ${shift?.shift_name}.`,
+        description: `${guard ? getGuardDisplayName(guard) : "Selected guard"} has been assigned to ${shift?.shift_name}.`,
       });
       setIsAssignDialogOpen(false);
       setSelectedGuardId("");
@@ -286,7 +314,7 @@ export default function ShiftMasterPage() {
                           <SelectItem key={guard.employee_id} value={guard.employee_id}>
                             <div className="flex items-center gap-2">
                               <span>
-                                {guard.employee.first_name} {guard.employee.last_name}
+                                {getGuardDisplayName(guard)}
                               </span>
                               <span className="text-muted-foreground text-xs">
                                 ({guard.guard_code})
@@ -426,13 +454,12 @@ export default function ShiftMasterPage() {
                 >
                   <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                     <span className="text-sm font-bold text-primary">
-                      {guard.employee.first_name.charAt(0)}
-                      {guard.employee.last_name.charAt(0)}
+                      {getGuardInitials(guard)}
                     </span>
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-sm truncate">
-                      {guard.employee.first_name} {guard.employee.last_name}
+                      {getGuardDisplayName(guard)}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {guard.guard_code} • Grade {guard.grade || "N/A"}

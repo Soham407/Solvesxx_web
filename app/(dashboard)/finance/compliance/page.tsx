@@ -1,4 +1,3 @@
-// @ts-nocheck
 "use client";
 
 import { useState, useEffect } from "react";
@@ -30,9 +29,10 @@ import { Label } from "@/components/ui/label"; // Fixed Label import if target f
 import { cn } from "@/lib/utils";
 import { supabase } from "@/src/lib/supabaseClient";
 import { toast } from "sonner";
+import { canAccessPath } from "@/src/lib/platform/permissions";
 
 export default function ComplianceDashboard() {
-  const { user, role } = useAuth();
+  const { user, role, permissions } = useAuth();
   const { snapshots, isLoading, createMonthlySnapshot, exportToCSV, refresh } = useCompliance();
   const { logs: auditLogs } = useAuditLogs();
   const [isExporting, setIsExporting] = useState(false);
@@ -51,7 +51,7 @@ export default function ComplianceDashboard() {
   }, []);
 
   const isAuthorizedToExport = role === "admin" || role === "account";
-  const canSeeCompliance = role === "admin" || role === "account" || role === "society_manager";
+  const canSeeCompliance = role ? canAccessPath(role, permissions, "/finance/compliance") : false;
 
   if (!canSeeCompliance) {
     return (

@@ -43,7 +43,7 @@ interface GuardWithAssignment {
     first_name: string;
     last_name: string;
     employee_code: string;
-  };
+  } | null;
   current_shift?: Shift | null;
   assignment_id?: string | null;
 }
@@ -150,7 +150,7 @@ export function useShifts() {
           employee_id: string;
           guard_code: string;
           grade: string | null;
-          employees: { first_name: string; last_name: string; employee_code: string };
+          employees: { first_name: string; last_name: string; employee_code: string } | null;
         };
         const assignmentInfo = assignmentMap.get(guard.employee_id);
         return {

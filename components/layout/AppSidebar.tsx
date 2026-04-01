@@ -300,6 +300,21 @@ interface AppSidebarProps {
   isMobile?: boolean;
 }
 
+function isPortalGroupVisible(
+  groupTitle: string,
+  role: ReturnType<typeof useAuth>["role"]
+) {
+  if (groupTitle === "Buyer Portal") {
+    return role === "buyer";
+  }
+
+  if (groupTitle === "Supplier Portal") {
+    return role === "supplier" || role === "vendor";
+  }
+
+  return true;
+}
+
 export function AppSidebar({ collapsed, onToggle, className, isMobile }: AppSidebarProps) {
   const pathname = usePathname();
   const { role, permissions } = useAuth();
@@ -372,6 +387,10 @@ export function AppSidebar({ collapsed, onToggle, className, isMobile }: AppSide
     if (role !== "admin" && role !== "super_admin") {
       filtered = filtered.filter(group => !group.adminOnly);
     }
+
+    // Buyer/Supplier portal menus are role-specific surfaces.
+    // Admin access to those portals is exposed through the separate "Portals" group.
+    filtered = filtered.filter(group => isPortalGroupVisible(group.title, role));
 
     // Then apply Role-based access filtering
     if (role) {
