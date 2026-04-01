@@ -19,6 +19,9 @@ EXCEPTION
     WHEN undefined_object THEN NULL;
 END $$;
 
+ALTER TABLE material_receipt_items
+  ALTER COLUMN quality_status DROP DEFAULT;
+
 -- Temporarily change column to text to allow conversion
 ALTER TABLE material_receipt_items ALTER COLUMN quality_status TYPE TEXT;
 

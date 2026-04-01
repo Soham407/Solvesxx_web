@@ -22,7 +22,7 @@ CREATE OR REPLACE FUNCTION enforce_feedback_before_close()
 RETURNS TRIGGER AS $$
 BEGIN
     -- Only check if status is transitioning to 'closed'
-    IF NEW.status = 'closed' AND (OLD.status IS NULL OR OLD.status != 'closed') THEN
+    IF NEW.status::text = 'closed' AND (OLD.status IS NULL OR OLD.status::text != 'closed') THEN
         -- Check if feedback exists for this service request
         IF NOT EXISTS (
             SELECT 1 FROM buyer_feedback 
@@ -40,7 +40,7 @@ DROP TRIGGER IF EXISTS trg_enforce_feedback_before_close ON service_requests;
 CREATE TRIGGER trg_enforce_feedback_before_close
 BEFORE UPDATE ON service_requests
 FOR EACH ROW
-WHEN (NEW.status = 'closed')
+WHEN (NEW.status::text = 'closed')
 EXECUTE FUNCTION enforce_feedback_before_close();
 
 -- Also ensure 'closed' status exists in RLS or other relevant tables if needed

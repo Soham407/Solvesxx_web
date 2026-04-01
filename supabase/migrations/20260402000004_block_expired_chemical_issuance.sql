@@ -2,7 +2,9 @@
 -- Created: 2026-04-02
 
 -- 1. Create DB function get_expiring_chemicals(days_ahead INT)
-CREATE OR REPLACE FUNCTION public.get_expiring_chemicals(p_days_ahead INTEGER DEFAULT 30)
+DROP FUNCTION IF EXISTS public.get_expiring_chemicals(INTEGER);
+
+CREATE FUNCTION public.get_expiring_chemicals(p_days_ahead INTEGER DEFAULT 30)
 RETURNS TABLE (
     id UUID,
     product_name TEXT,

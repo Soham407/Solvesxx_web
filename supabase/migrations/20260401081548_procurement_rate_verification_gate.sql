@@ -1,7 +1,7 @@
 
 -- Create service_rates table
 CREATE TABLE IF NOT EXISTS public.service_rates (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     supplier_id UUID NOT NULL REFERENCES public.suppliers(id) ON DELETE CASCADE,
     service_type TEXT NOT NULL,
     rate NUMERIC(15, 2) NOT NULL,

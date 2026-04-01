@@ -20,16 +20,18 @@ USING (
   OR has_role('society_manager')
 )
 WITH CHECK (
-  has_role('admin')
-  OR has_role('super_admin')
-  OR has_role('security_supervisor')
-  OR has_role('society_manager')
-)
-AND (
-  resolved_by IS NULL
-  OR resolved_by = get_employee_id()
-  OR has_role('admin')
-  OR has_role('super_admin')
+  (
+    has_role('admin')
+    OR has_role('super_admin')
+    OR has_role('security_supervisor')
+    OR has_role('society_manager')
+  )
+  AND (
+    resolved_by IS NULL
+    OR resolved_by = get_employee_id()
+    OR has_role('admin')
+    OR has_role('super_admin')
+  )
 );
 
 DROP POLICY IF EXISTS "Admins can manage all panic alerts" ON public.panic_alerts;
@@ -119,7 +121,9 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION public.detect_inactive_guards(p_threshold_minutes INT DEFAULT 15)
+DROP FUNCTION IF EXISTS public.detect_inactive_guards(INT);
+
+CREATE FUNCTION public.detect_inactive_guards(p_threshold_minutes INT DEFAULT 15)
 RETURNS TABLE (out_guard_id UUID, out_alert_created BOOLEAN)
 LANGUAGE plpgsql
 SECURITY DEFINER

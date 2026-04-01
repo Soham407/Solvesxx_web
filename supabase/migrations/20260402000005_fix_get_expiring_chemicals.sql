@@ -1,7 +1,9 @@
 -- Fix get_expiring_chemicals to be comprehensive and consistent
 -- Ensures it returns from both pest_control_chemicals and general stock_batches
 
-CREATE OR REPLACE FUNCTION public.get_expiring_chemicals(p_days_ahead INTEGER DEFAULT 30)
+DROP FUNCTION IF EXISTS public.get_expiring_chemicals(INTEGER);
+
+CREATE FUNCTION public.get_expiring_chemicals(p_days_ahead INTEGER DEFAULT 30)
 RETURNS TABLE (
     id UUID,
     product_id UUID,

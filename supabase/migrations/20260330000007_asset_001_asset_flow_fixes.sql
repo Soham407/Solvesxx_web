@@ -23,7 +23,7 @@ SELECT
   qc.*,
   qb.generated_at AS batch_generated_at,
   qb.generated_by AS batch_generated_by,
-  COALESCE(u.full_name, 'Unknown') AS generated_by_name,
+  COALESCE(u.full_name::text, 'Unknown'::text) AS generated_by_name,
   qb.count AS batch_count,
   a.name AS linked_asset_name,
   a.asset_code AS linked_asset_tag,

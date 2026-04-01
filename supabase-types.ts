@@ -1,4 +1,4 @@
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -11,31 +11,6 @@ export type Database = {
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.1"
-  }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
   }
   public: {
     Tables: {
@@ -219,6 +194,8 @@ export type Database = {
           id: string
           is_auto_punch_out: boolean | null
           log_date: string
+          notes: string | null
+          overtime_hours: number | null
           status: string | null
           total_hours: number | null
           updated_at: string | null
@@ -238,6 +215,8 @@ export type Database = {
           id?: string
           is_auto_punch_out?: boolean | null
           log_date: string
+          notes?: string | null
+          overtime_hours?: number | null
           status?: string | null
           total_hours?: number | null
           updated_at?: string | null
@@ -257,6 +236,8 @@ export type Database = {
           id?: string
           is_auto_punch_out?: boolean | null
           log_date?: string
+          notes?: string | null
+          overtime_hours?: number | null
           status?: string | null
           total_hours?: number | null
           updated_at?: string | null
@@ -578,7 +559,7 @@ export type Database = {
           overall_rating: number
           professionalism_rating: number | null
           quality_rating: number | null
-          request_id: string | null
+          request_id: string
           service_request_id: string | null
           submitted_by: string | null
           would_recommend: boolean | null
@@ -591,7 +572,7 @@ export type Database = {
           overall_rating: number
           professionalism_rating?: number | null
           quality_rating?: number | null
-          request_id?: string | null
+          request_id: string
           service_request_id?: string | null
           submitted_by?: string | null
           would_recommend?: boolean | null
@@ -604,7 +585,7 @@ export type Database = {
           overall_rating?: number
           professionalism_rating?: number | null
           quality_rating?: number | null
-          request_id?: string | null
+          request_id?: string
           service_request_id?: string | null
           submitted_by?: string | null
           would_recommend?: boolean | null
@@ -1305,6 +1286,7 @@ export type Database = {
           designation_name: string
           id: string
           is_active: boolean | null
+          level: string | null
           updated_at: string | null
           updated_by: string | null
         }
@@ -1317,6 +1299,7 @@ export type Database = {
           designation_name: string
           id?: string
           is_active?: boolean | null
+          level?: string | null
           updated_at?: string | null
           updated_by?: string | null
         }
@@ -1329,6 +1312,7 @@ export type Database = {
           designation_name?: string
           id?: string
           is_active?: boolean | null
+          level?: string | null
           updated_at?: string | null
           updated_by?: string | null
         }
@@ -2485,13 +2469,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "horticulture_seasonal_plans_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "horticulture_seasonal_plans_zone_id_fkey"
             columns: ["zone_id"]
             isOneToOne: false
@@ -2512,7 +2489,7 @@ export type Database = {
           scheduled_date: string | null
           status: string | null
           task_name: string | null
-          task_type: string | null
+          task_type: string
           zone_id: string | null
         }
         Insert: {
@@ -2526,7 +2503,7 @@ export type Database = {
           scheduled_date?: string | null
           status?: string | null
           task_name?: string | null
-          task_type?: string | null
+          task_type: string
           zone_id?: string | null
         }
         Update: {
@@ -2540,7 +2517,7 @@ export type Database = {
           scheduled_date?: string | null
           status?: string | null
           task_name?: string | null
-          task_type?: string | null
+          task_type?: string
           zone_id?: string | null
         }
         Relationships: [
@@ -2573,7 +2550,7 @@ export type Database = {
           created_at: string | null
           id: string
           location_id: string | null
-          name: string | null
+          name: string
           plant_types: string[] | null
         }
         Insert: {
@@ -2581,7 +2558,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           location_id?: string | null
-          name?: string | null
+          name: string
           plant_types?: string[] | null
         }
         Update: {
@@ -2589,7 +2566,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           location_id?: string | null
-          name?: string | null
+          name?: string
           plant_types?: string[] | null
         }
         Relationships: [
@@ -2684,6 +2661,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "stock_levels"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "indent_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "view_inventory_summary"
             referencedColumns: ["product_id"]
           },
           {
@@ -2914,6 +2898,13 @@ export type Database = {
             foreignKeyName: "inventory_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
+            referencedRelation: "view_inventory_summary"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "inventory_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
             referencedRelation: "view_inventory_velocity"
             referencedColumns: ["product_id"]
           },
@@ -2973,6 +2964,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "stock_levels"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "job_materials_used_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "view_inventory_summary"
             referencedColumns: ["product_id"]
           },
           {
@@ -3462,7 +3460,9 @@ export type Database = {
           ordered_quantity: number | null
           po_item_id: string | null
           product_id: string | null
-          quality_status: string | null
+          quality_status:
+            | Database["public"]["Enums"]["grn_item_quality_status"]
+            | null
           received_quantity: number
           rejected_quantity: number | null
           rejection_reason: string | null
@@ -3484,7 +3484,9 @@ export type Database = {
           ordered_quantity?: number | null
           po_item_id?: string | null
           product_id?: string | null
-          quality_status?: string | null
+          quality_status?:
+            | Database["public"]["Enums"]["grn_item_quality_status"]
+            | null
           received_quantity: number
           rejected_quantity?: number | null
           rejection_reason?: string | null
@@ -3506,7 +3508,9 @@ export type Database = {
           ordered_quantity?: number | null
           po_item_id?: string | null
           product_id?: string | null
-          quality_status?: string | null
+          quality_status?:
+            | Database["public"]["Enums"]["grn_item_quality_status"]
+            | null
           received_quantity?: number
           rejected_quantity?: number | null
           rejection_reason?: string | null
@@ -3549,6 +3553,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "stock_levels"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "material_receipt_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "view_inventory_summary"
             referencedColumns: ["product_id"]
           },
           {
@@ -4166,10 +4177,13 @@ export type Database = {
           deployment_site_id: string | null
           dispatch_date: string
           dispatch_number: string
+          employee_id: string | null
+          end_date: string | null
           id: string
           notes: string | null
           personnel_json: Json
           service_po_id: string
+          start_date: string
           status: string
           supplier_id: string
           updated_at: string
@@ -4182,10 +4196,13 @@ export type Database = {
           deployment_site_id?: string | null
           dispatch_date?: string
           dispatch_number: string
+          employee_id?: string | null
+          end_date?: string | null
           id?: string
           notes?: string | null
           personnel_json?: Json
           service_po_id: string
+          start_date?: string
           status?: string
           supplier_id: string
           updated_at?: string
@@ -4198,10 +4215,13 @@ export type Database = {
           deployment_site_id?: string | null
           dispatch_date?: string
           dispatch_number?: string
+          employee_id?: string | null
+          end_date?: string | null
           id?: string
           notes?: string | null
           personnel_json?: Json
           service_po_id?: string
+          start_date?: string
           status?: string
           supplier_id?: string
           updated_at?: string
@@ -4219,6 +4239,13 @@ export type Database = {
             columns: ["deployment_site_id"]
             isOneToOne: false
             referencedRelation: "company_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "personnel_dispatches_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
             referencedColumns: ["id"]
           },
           {
@@ -4316,6 +4343,13 @@ export type Database = {
             foreignKeyName: "pest_control_chemicals_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
+            referencedRelation: "view_inventory_summary"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "pest_control_chemicals_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
             referencedRelation: "view_inventory_velocity"
             referencedColumns: ["product_id"]
           },
@@ -4323,10 +4357,19 @@ export type Database = {
       }
       pest_control_ppe_verifications: {
         Row: {
+          all_items_checked: boolean | null
+          checklist: Json | null
+          chemical_dilution_verified: boolean | null
           created_at: string | null
           created_by: string | null
+          full_suit_worn: boolean | null
+          gloves_worn: boolean | null
+          goggles_worn: boolean | null
           id: string
           items_json: Json
+          job_session_id: string | null
+          mask_worn: boolean | null
+          resident_area_cleared: boolean | null
           service_request_id: string | null
           site_readiness_report: string | null
           status: string
@@ -4334,10 +4377,19 @@ export type Database = {
           verified_at: string | null
         }
         Insert: {
+          all_items_checked?: boolean | null
+          checklist?: Json | null
+          chemical_dilution_verified?: boolean | null
           created_at?: string | null
           created_by?: string | null
+          full_suit_worn?: boolean | null
+          gloves_worn?: boolean | null
+          goggles_worn?: boolean | null
           id?: string
           items_json: Json
+          job_session_id?: string | null
+          mask_worn?: boolean | null
+          resident_area_cleared?: boolean | null
           service_request_id?: string | null
           site_readiness_report?: string | null
           status?: string
@@ -4345,10 +4397,19 @@ export type Database = {
           verified_at?: string | null
         }
         Update: {
+          all_items_checked?: boolean | null
+          checklist?: Json | null
+          chemical_dilution_verified?: boolean | null
           created_at?: string | null
           created_by?: string | null
+          full_suit_worn?: boolean | null
+          gloves_worn?: boolean | null
+          goggles_worn?: boolean | null
           id?: string
           items_json?: Json
+          job_session_id?: string | null
+          mask_worn?: boolean | null
+          resident_area_cleared?: boolean | null
           service_request_id?: string | null
           site_readiness_report?: string | null
           status?: string
@@ -4356,6 +4417,13 @@ export type Database = {
           verified_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "pest_control_ppe_verifications_job_session_id_fkey"
+            columns: ["job_session_id"]
+            isOneToOne: false
+            referencedRelation: "job_sessions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "pest_control_ppe_verifications_service_request_id_fkey"
             columns: ["service_request_id"]
@@ -4818,6 +4886,13 @@ export type Database = {
             foreignKeyName: "purchase_bill_items_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
+            referencedRelation: "view_inventory_summary"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "purchase_bill_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
             referencedRelation: "view_inventory_velocity"
             referencedColumns: ["product_id"]
           },
@@ -4974,6 +5049,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "purchase_bills_service_purchase_order_id_fkey"
+            columns: ["service_purchase_order_id"]
+            isOneToOne: false
+            referencedRelation: "service_purchase_orders"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "purchase_bills_supplier_id_fkey"
             columns: ["supplier_id"]
             isOneToOne: false
@@ -5076,6 +5158,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "stock_levels"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "purchase_order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "view_inventory_summary"
             referencedColumns: ["product_id"]
           },
           {
@@ -5288,13 +5377,6 @@ export type Database = {
           warehouse_id?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "qr_batch_logs_generated_by_fkey"
-            columns: ["generated_by"]
-            isOneToOne: false
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "qr_batch_logs_society_id_fkey"
             columns: ["society_id"]
@@ -5548,6 +5630,13 @@ export type Database = {
             foreignKeyName: "reconciliation_lines_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
+            referencedRelation: "view_inventory_summary"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "reconciliation_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
             referencedRelation: "view_inventory_velocity"
             referencedColumns: ["product_id"]
           },
@@ -5770,6 +5859,13 @@ export type Database = {
             foreignKeyName: "reorder_rules_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
+            referencedRelation: "view_inventory_summary"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "reorder_rules_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
             referencedRelation: "view_inventory_velocity"
             referencedColumns: ["product_id"]
           },
@@ -5836,6 +5932,13 @@ export type Database = {
             foreignKeyName: "request_items_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
+            referencedRelation: "view_inventory_summary"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "request_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
             referencedRelation: "view_inventory_velocity"
             referencedColumns: ["product_id"]
           },
@@ -5859,6 +5962,7 @@ export type Database = {
           headcount: number | null
           id: string
           indent_id: string | null
+          is_service_request: boolean
           location_id: string | null
           preferred_delivery_date: string | null
           rejected_at: string | null
@@ -5886,6 +5990,7 @@ export type Database = {
           headcount?: number | null
           id?: string
           indent_id?: string | null
+          is_service_request?: boolean
           location_id?: string | null
           preferred_delivery_date?: string | null
           rejected_at?: string | null
@@ -5913,6 +6018,7 @@ export type Database = {
           headcount?: number | null
           id?: string
           indent_id?: string | null
+          is_service_request?: boolean
           location_id?: string | null
           preferred_delivery_date?: string | null
           rejected_at?: string | null
@@ -6189,6 +6295,13 @@ export type Database = {
             foreignKeyName: "rtv_tickets_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
+            referencedRelation: "view_inventory_summary"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "rtv_tickets_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
             referencedRelation: "view_inventory_velocity"
             referencedColumns: ["product_id"]
           },
@@ -6380,6 +6493,13 @@ export type Database = {
             foreignKeyName: "sale_bill_items_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
+            referencedRelation: "view_inventory_summary"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "sale_bill_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
             referencedRelation: "view_inventory_velocity"
             referencedColumns: ["product_id"]
           },
@@ -6419,7 +6539,9 @@ export type Database = {
           last_payment_date: string | null
           notes: string | null
           paid_amount: number | null
+          paid_at: string | null
           payment_status: string
+          request_id: string | null
           status: string
           subtotal: number | null
           tax_amount: number | null
@@ -6446,7 +6568,9 @@ export type Database = {
           last_payment_date?: string | null
           notes?: string | null
           paid_amount?: number | null
+          paid_at?: string | null
           payment_status?: string
+          request_id?: string | null
           status?: string
           subtotal?: number | null
           tax_amount?: number | null
@@ -6473,7 +6597,9 @@ export type Database = {
           last_payment_date?: string | null
           notes?: string | null
           paid_amount?: number | null
+          paid_at?: string | null
           payment_status?: string
+          request_id?: string | null
           status?: string
           subtotal?: number | null
           tax_amount?: number | null
@@ -6494,6 +6620,13 @@ export type Database = {
             columns: ["contract_id"]
             isOneToOne: false
             referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_bills_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "requests"
             referencedColumns: ["id"]
           },
         ]
@@ -6536,6 +6669,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "stock_levels"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "sale_product_rates_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "view_inventory_summary"
             referencedColumns: ["product_id"]
           },
           {
@@ -6658,7 +6798,7 @@ export type Database = {
           {
             foreignKeyName: "service_acknowledgments_spo_id_fkey"
             columns: ["spo_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "service_purchase_orders"
             referencedColumns: ["id"]
           },
@@ -6712,14 +6852,7 @@ export type Database = {
             foreignKeyName: "service_delivery_notes_po_id_fkey"
             columns: ["po_id"]
             isOneToOne: false
-            referencedRelation: "purchase_orders"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "service_delivery_notes_po_id_fkey"
-            columns: ["po_id"]
-            isOneToOne: false
-            referencedRelation: "purchase_orders_with_details"
+            referencedRelation: "service_purchase_orders"
             referencedColumns: ["id"]
           },
           {
@@ -6905,6 +7038,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "service_purchase_orders_indent_id_fkey"
+            columns: ["indent_id"]
+            isOneToOne: false
+            referencedRelation: "indents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_purchase_orders_indent_id_fkey"
+            columns: ["indent_id"]
+            isOneToOne: false
+            referencedRelation: "indents_with_details"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_purchase_orders_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "requests"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "service_purchase_orders_vendor_id_fkey"
             columns: ["vendor_id"]
             isOneToOne: false
@@ -6914,6 +7068,54 @@ export type Database = {
           {
             foreignKeyName: "service_purchase_orders_vendor_id_fkey"
             columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_scorecards"
+            referencedColumns: ["supplier_id"]
+          },
+        ]
+      }
+      service_rates: {
+        Row: {
+          created_at: string | null
+          effective_from: string
+          effective_to: string | null
+          id: string
+          is_active: boolean | null
+          rate: number
+          service_type: string
+          supplier_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          effective_from: string
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean | null
+          rate: number
+          service_type: string
+          supplier_id: string
+        }
+        Update: {
+          created_at?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean | null
+          rate?: number
+          service_type?: string
+          supplier_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_rates_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_rates_supplier_id_fkey"
+            columns: ["supplier_id"]
             isOneToOne: false
             referencedRelation: "vendor_scorecards"
             referencedColumns: ["supplier_id"]
@@ -7174,6 +7376,7 @@ export type Database = {
           is_night_shift: boolean | null
           shift_code: string
           shift_name: string
+          standard_hours: number | null
           start_time: string
         }
         Insert: {
@@ -7187,6 +7390,7 @@ export type Database = {
           is_night_shift?: boolean | null
           shift_code: string
           shift_name: string
+          standard_hours?: number | null
           start_time: string
         }
         Update: {
@@ -7200,6 +7404,7 @@ export type Database = {
           is_night_shift?: boolean | null
           shift_code?: string
           shift_name?: string
+          standard_hours?: number | null
           start_time?: string
         }
         Relationships: []
@@ -7260,6 +7465,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "stock_levels"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "shortage_note_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "view_inventory_summary"
             referencedColumns: ["product_id"]
           },
           {
@@ -7473,6 +7685,13 @@ export type Database = {
             foreignKeyName: "stock_batches_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
+            referencedRelation: "view_inventory_summary"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "stock_batches_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
             referencedRelation: "view_inventory_velocity"
             referencedColumns: ["product_id"]
           },
@@ -7567,6 +7786,13 @@ export type Database = {
             foreignKeyName: "stock_transactions_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
+            referencedRelation: "view_inventory_summary"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "stock_transactions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
             referencedRelation: "view_inventory_velocity"
             referencedColumns: ["product_id"]
           },
@@ -7637,6 +7863,13 @@ export type Database = {
             foreignKeyName: "supplier_products_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
+            referencedRelation: "view_inventory_summary"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "supplier_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
             referencedRelation: "view_inventory_velocity"
             referencedColumns: ["product_id"]
           },
@@ -7695,6 +7928,7 @@ export type Database = {
         Row: {
           address: string | null
           alternate_phone: string | null
+          availability: string | null
           bank_account_number: string | null
           bank_name: string | null
           city: string | null
@@ -7713,6 +7947,7 @@ export type Database = {
           payment_terms: number | null
           phone: string | null
           pincode: string | null
+          rates: string | null
           rating: number | null
           state: string | null
           status: string | null
@@ -7726,6 +7961,7 @@ export type Database = {
         Insert: {
           address?: string | null
           alternate_phone?: string | null
+          availability?: string | null
           bank_account_number?: string | null
           bank_name?: string | null
           city?: string | null
@@ -7744,6 +7980,7 @@ export type Database = {
           payment_terms?: number | null
           phone?: string | null
           pincode?: string | null
+          rates?: string | null
           rating?: number | null
           state?: string | null
           status?: string | null
@@ -7757,6 +7994,7 @@ export type Database = {
         Update: {
           address?: string | null
           alternate_phone?: string | null
+          availability?: string | null
           bank_account_number?: string | null
           bank_name?: string | null
           city?: string | null
@@ -7775,6 +8013,7 @@ export type Database = {
           payment_terms?: number | null
           phone?: string | null
           pincode?: string | null
+          rates?: string | null
           rating?: number | null
           state?: string | null
           status?: string | null
@@ -7979,6 +8218,75 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vendor_scorecards"
             referencedColumns: ["supplier_id"]
+          },
+        ]
+      }
+      visitor_bypass_audit: {
+        Row: {
+          bypass_reason: string
+          bypassed_by_auth_user_id: string | null
+          created_at: string
+          entry_guard_id: string | null
+          flat_id: string | null
+          id: string
+          resident_id: string | null
+          visitor_id: string
+        }
+        Insert: {
+          bypass_reason: string
+          bypassed_by_auth_user_id?: string | null
+          created_at?: string
+          entry_guard_id?: string | null
+          flat_id?: string | null
+          id?: string
+          resident_id?: string | null
+          visitor_id: string
+        }
+        Update: {
+          bypass_reason?: string
+          bypassed_by_auth_user_id?: string | null
+          created_at?: string
+          entry_guard_id?: string | null
+          flat_id?: string | null
+          id?: string
+          resident_id?: string | null
+          visitor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visitor_bypass_audit_entry_guard_id_fkey"
+            columns: ["entry_guard_id"]
+            isOneToOne: false
+            referencedRelation: "security_guards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visitor_bypass_audit_flat_id_fkey"
+            columns: ["flat_id"]
+            isOneToOne: false
+            referencedRelation: "flats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visitor_bypass_audit_resident_id_fkey"
+            columns: ["resident_id"]
+            isOneToOne: false
+            referencedRelation: "resident_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visitor_bypass_audit_resident_id_fkey"
+            columns: ["resident_id"]
+            isOneToOne: false
+            referencedRelation: "residents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visitor_bypass_audit_visitor_id_fkey"
+            columns: ["visitor_id"]
+            isOneToOne: false
+            referencedRelation: "visitors"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -8945,13 +9253,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "qr_batch_logs_generated_by_fkey"
-            columns: ["batch_generated_by"]
-            isOneToOne: false
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "qr_codes_asset_id_fkey"
             columns: ["asset_id"]
             isOneToOne: false
@@ -9033,6 +9334,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "stock_levels"
+            referencedColumns: ["product_id"]
+          },
+          {
+            foreignKeyName: "reconciliation_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "view_inventory_summary"
             referencedColumns: ["product_id"]
           },
           {
@@ -9153,12 +9461,16 @@ export type Database = {
       }
       service_requests_with_details: {
         Row: {
+          after_photo_url: string | null
           asset_code: string | null
           asset_id: string | null
           asset_name: string | null
           assigned_at: string | null
           assigned_to: string | null
+          before_photo_url: string | null
           completed_at: string | null
+          completion_notes: string | null
+          completion_signature_url: string | null
           created_at: string | null
           created_by: string | null
           description: string | null
@@ -9167,6 +9479,7 @@ export type Database = {
           location_id: string | null
           location_name: string | null
           maintenance_schedule_id: string | null
+          ppe_verified: boolean | null
           priority: Database["public"]["Enums"]["service_priority"] | null
           request_number: string | null
           requester_id: string | null
@@ -9174,9 +9487,11 @@ export type Database = {
           resolution_notes: string | null
           scheduled_date: string | null
           scheduled_time: string | null
+          service_code: string | null
           service_id: string | null
           service_name: string | null
           society_id: string | null
+          started_at: string | null
           status: Database["public"]["Enums"]["service_request_status"] | null
           technician_name: string | null
           title: string | null
@@ -9300,6 +9615,16 @@ export type Database = {
         }
         Relationships: []
       }
+      view_inventory_summary: {
+        Row: {
+          category: string | null
+          item_name: string | null
+          product_id: string | null
+          stock_level: number | null
+          stock_status: string | null
+        }
+        Relationships: []
+      }
       view_inventory_velocity: {
         Row: {
           category: string | null
@@ -9340,6 +9665,7 @@ export type Database = {
         }
         Returns: Json
       }
+      check_all_ppe_items: { Args: { checklist: Json }; Returns: boolean }
       check_compliance: { Args: never; Returns: undefined }
       check_geofence: {
         Args: {
@@ -9364,6 +9690,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      create_po_from_supplier_request: {
+        Args: { p_request_id: string }
+        Returns: Json
+      }
       deny_visitor: {
         Args: { p_reason: string; p_user_id: string; p_visitor_id: string }
         Returns: Json
@@ -9382,11 +9712,8 @@ export type Database = {
       detect_inactive_guards: {
         Args: { p_threshold_minutes?: number }
         Returns: {
-          alert_created: boolean
-          error_message: string
-          guard_id: string
-          guard_name: string
-          minutes_inactive: number
+          out_alert_created: boolean
+          out_guard_id: string
         }[]
       }
       detect_incomplete_checklists:
@@ -9442,6 +9769,19 @@ export type Database = {
         }[]
       }
       get_employee_id: { Args: never; Returns: string }
+      get_expiring_chemicals: {
+        Args: { p_days_ahead?: number }
+        Returns: {
+          batch_number: string
+          days_left: number
+          expiry_date: string
+          id: string
+          product_id: string
+          product_name: string
+          severity: string
+          source: string
+        }[]
+      }
       get_guard_checklist_completion: {
         Args: { p_checklist_date: string; p_guard_id: string }
         Returns: {
@@ -9729,6 +10069,16 @@ export type Database = {
         Args: { p_before_photo_url?: string; p_request_id: string }
         Returns: boolean
       }
+      supplier_transition_service_po_status: {
+        Args: {
+          p_grade_verified?: boolean
+          p_headcount_expected?: number
+          p_new_status: string
+          p_notes?: string
+          p_spo_id: string
+        }
+        Returns: Json
+      }
       text_to_bytea: { Args: { data: string }; Returns: string }
       transition_po_status: {
         Args: {
@@ -9773,6 +10123,7 @@ export type Database = {
           po_total: number
         }[]
       }
+      validate_indent_rate: { Args: { p_indent_id: string }; Returns: boolean }
     }
     Enums: {
       alert_type:
@@ -9826,6 +10177,7 @@ export type Database = {
         | "other"
       financial_period_status: "open" | "closing" | "closed"
       financial_period_type: "monthly" | "quarterly" | "yearly"
+      grn_item_quality_status: "accepted" | "rejected" | "partial"
       grn_status:
         | "draft"
         | "inspecting"
@@ -9921,8 +10273,8 @@ export type Database = {
         | "in_progress"
         | "on_hold"
         | "completed"
-        | "closed"
         | "cancelled"
+        | "closed"
       ticket_type: "quality_check" | "quantity_check" | "material_return"
       user_role:
         | "admin"
@@ -10084,9 +10436,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       alert_type: [
@@ -10146,6 +10495,7 @@ export const Constants = {
       ],
       financial_period_status: ["open", "closing", "closed"],
       financial_period_type: ["monthly", "quarterly", "yearly"],
+      grn_item_quality_status: ["accepted", "rejected", "partial"],
       grn_status: [
         "draft",
         "inspecting",
@@ -10252,8 +10602,8 @@ export const Constants = {
         "in_progress",
         "on_hold",
         "completed",
-        "closed",
         "cancelled",
+        "closed",
       ],
       ticket_type: ["quality_check", "quantity_check", "material_return"],
       user_role: [
