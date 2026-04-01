@@ -16,12 +16,16 @@ export interface SupplierBill {
   bill_number: string;
   supplier_invoice_number: string | null;
   purchase_order_id: string | null;
+  service_purchase_order_id?: string | null;
   material_receipt_id: string | null;
   supplier_id: string | null;
+  document_url?: string | null;
   bill_date: string;
   due_date: string | null;
   status: BillStatus;
   payment_status: PaymentStatus;
+  match_status?: string | null;
+  is_reconciled?: boolean | null;
   subtotal: number; // In paise
   tax_amount: number; // In paise
   discount_amount: number; // In paise
@@ -69,6 +73,7 @@ export interface BillItem {
 export interface CreateBillInput {
   supplier_invoice_number?: string;
   purchase_order_id?: string;
+  service_purchase_order_id?: string;
   material_receipt_id?: string;
   supplier_id: string;
   bill_date?: string;
@@ -277,11 +282,93 @@ export function useSupplierBills(filters?: {
     }
   }, []);
 
+  const getAcceptedGRNsForPO = useCallback(async (poId: string) => {
+    const { data, error } = await supabase
+      .from("material_receipts")
+      .select("id, status, received_date, created_at")
+      .eq("purchase_order_id", poId)
+      .in("status", ["accepted", "partial_accepted"])
+      .order("received_date", { ascending: false })
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  }, []);
+
+  const resolveAcceptedGRNForPO = useCallback(async (poId: string) => {
+    const acceptedGRNs = await getAcceptedGRNsForPO(poId);
+
+    if (acceptedGRNs.length === 0) {
+      throw new Error("Cannot generate a bill without an accepted GRN linked to the PO.");
+    }
+
+    if (acceptedGRNs.length > 1) {
+      throw new Error("Multiple accepted GRNs found for this PO. Create the bill against a specific GRN to preserve 3-way match.");
+    }
+
+    return acceptedGRNs[0];
+  }, [getAcceptedGRNsForPO]);
+
+  const ensureBillCanBeApproved = useCallback(async (billId: string) => {
+    const { data, error } = await supabase
+      .from("purchase_bills")
+      .select("match_status, material_receipt_id")
+      .eq("id", billId)
+      .single();
+
+    if (error) throw error;
+
+    if (!data?.material_receipt_id) {
+      throw new Error("Bill must be linked to an accepted GRN before approval.");
+    }
+
+    if (!["matched", "force_matched"].includes(data.match_status || "")) {
+      throw new Error("Bill must complete 3-way match before approval.");
+    }
+  }, []);
+
   // ============================================
   // CREATE BILL
   // ============================================
   const createBill = useCallback(async (input: CreateBillInput): Promise<SupplierBill | null> => {
     try {
+      if (input.purchase_order_id && !input.material_receipt_id) {
+        throw new Error("Bills linked to a PO must reference an accepted GRN.");
+      }
+
+      // Pre-flight check for SPO-linked work
+      if (input.service_purchase_order_id) {
+        const { data: ack, error: ackError } = await supabase
+          .from("service_acknowledgments")
+          .select("status")
+          .eq("spo_id", input.service_purchase_order_id)
+          .eq("status", "acknowledged")
+          .maybeSingle();
+
+        if (ackError) throw ackError;
+        if (!ack) {
+          throw new Error("Service acknowledgment required before billing for SPO-linked work. Please obtain acknowledgment first.");
+        }
+      }
+
+      if (input.material_receipt_id) {
+        const { data: grn, error: grnError } = await supabase
+          .from("material_receipts")
+          .select("purchase_order_id, status")
+          .eq("id", input.material_receipt_id)
+          .single();
+
+        if (grnError) throw grnError;
+
+        if (!["accepted", "partial_accepted"].includes(grn.status)) {
+          throw new Error("Bills can only be created against accepted GRNs.");
+        }
+
+        if (input.purchase_order_id && grn.purchase_order_id !== input.purchase_order_id) {
+          throw new Error("Bill PO and GRN references must point to the same purchase order.");
+        }
+      }
+
       const totalAmount = input.total_amount ?? 
         ((input.subtotal ?? 0) + (input.tax_amount ?? 0) - (input.discount_amount ?? 0));
 
@@ -290,6 +377,7 @@ export function useSupplierBills(filters?: {
         .insert({
           supplier_invoice_number: input.supplier_invoice_number,
           purchase_order_id: input.purchase_order_id,
+          service_purchase_order_id: input.service_purchase_order_id,
           material_receipt_id: input.material_receipt_id,
           supplier_id: input.supplier_id,
           bill_date: input.bill_date || new Date().toISOString().split("T")[0],
@@ -436,103 +524,15 @@ export function useSupplierBills(filters?: {
     }
   ): Promise<SupplierBill | null> => {
     try {
-      // Fetch PO details
-      const { data: po, error: poError } = await supabase
-        .from("purchase_orders")
-        .select("*")
-        .eq("id", poId)
-        .single();
-
-      if (poError) throw poError;
-
-      // PO should be at least acknowledged
-      if (!["acknowledged", "partial_received", "received"].includes(po.status)) {
-        throw new Error("PO must be acknowledged before creating bill");
-      }
-
-      // Fetch PO items
-      const { data: poItems, error: itemsError } = await supabase
-        .from("purchase_order_items")
-        .select("*")
-        .eq("purchase_order_id", poId);
-
-      if (itemsError) throw itemsError;
-
-      if (!poItems || poItems.length === 0) {
-        throw new Error("PO has no items");
-      }
-
-      // Calculate totals from PO
-      const subtotal = po.subtotal || 0;
-      const taxAmount = po.tax_amount || 0;
-      const discountAmount = po.discount_amount || 0;
-      const totalAmount = po.grand_total || (subtotal + taxAmount - discountAmount);
-
-      // Create Bill
-      const { data: bill, error: billError } = await supabase
-        .from("purchase_bills")
-        .insert({
-          supplier_invoice_number: options?.supplier_invoice_number,
-          purchase_order_id: poId,
-          material_receipt_id: null,
-          supplier_id: po.supplier_id,
-          bill_date: options?.bill_date || new Date().toISOString().split("T")[0],
-          due_date: options?.due_date,
-          status: "draft",
-          payment_status: "unpaid",
-          subtotal,
-          tax_amount: taxAmount,
-          discount_amount: discountAmount,
-          total_amount: totalAmount,
-          paid_amount: 0,
-          due_amount: totalAmount,
-          notes: options?.notes || `Bill for PO ${po.po_number}`,
-        })
-        .select()
-        .single();
-
-      if (billError) throw billError;
-
-      // Create Bill items from PO items
-      const billItems = poItems.map((item: any) => {
-        const lineSubtotal = item.ordered_quantity * item.unit_price;
-        const taxAmount = Math.round(lineSubtotal * ((item.tax_rate || 0) / 100));
-        const lineTotal = lineSubtotal + taxAmount - (item.discount_amount || 0);
-
-        return {
-          purchase_bill_id: bill.id,
-          po_item_id: item.id,
-          grn_item_id: null,
-          product_id: item.product_id,
-          item_description: item.item_description,
-          billed_quantity: item.ordered_quantity,
-          unit_of_measure: item.unit_of_measure || "pcs",
-          unit_price: item.unit_price,
-          tax_rate: item.tax_rate || 0,
-          tax_amount: taxAmount,
-          discount_amount: item.discount_amount || 0,
-          line_total: lineTotal,
-          unmatched_qty: item.ordered_quantity,
-          unmatched_amount: lineTotal,
-          notes: item.notes,
-        };
-      });
-
-      const { error: billItemsError } = await supabase
-        .from("purchase_bill_items")
-        .insert(billItems);
-
-      if (billItemsError) throw billItemsError;
-
-      await fetchSupplierBills();
-      return bill as SupplierBill;
+      const resolvedGRN = await resolveAcceptedGRNForPO(poId);
+      return createBillFromGRN(resolvedGRN.id, options);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Failed to create bill from PO";
       console.error("Error creating bill from PO:", err);
       setState((prev) => ({ ...prev, error: errorMessage }));
       return null;
     }
-  }, [fetchSupplierBills]);
+  }, [createBillFromGRN, resolveAcceptedGRNForPO]);
 
   // ============================================
   // UPDATE BILL
@@ -545,6 +545,21 @@ export function useSupplierBills(filters?: {
       const bill = state.bills.find((b) => b.id === billId);
       if (bill && bill.status !== "draft") {
         throw new Error("Only draft bills can be edited");
+      }
+
+      // Pre-flight check for SPO-linked work
+      if (updates.service_purchase_order_id) {
+        const { data: ack, error: ackError } = await supabase
+          .from("service_acknowledgments")
+          .select("status")
+          .eq("spo_id", updates.service_purchase_order_id)
+          .eq("status", "acknowledged")
+          .maybeSingle();
+
+        if (ackError) throw ackError;
+        if (!ack) {
+          throw new Error("Service acknowledgment required before billing for SPO-linked work. Please obtain acknowledgment first.");
+        }
       }
 
       // Recalculate total if amounts changed
@@ -822,8 +837,16 @@ export function useSupplierBills(filters?: {
   // APPROVE BILL
   // ============================================
   const approveBill = useCallback(async (billId: string): Promise<boolean> => {
-    return updateBillStatus(billId, "approved");
-  }, [updateBillStatus]);
+    try {
+      await ensureBillCanBeApproved(billId);
+      return await updateBillStatus(billId, "approved");
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to approve bill";
+      console.error("Error approving bill:", err);
+      setState((prev) => ({ ...prev, error: errorMessage }));
+      return false;
+    }
+  }, [ensureBillCanBeApproved, updateBillStatus]);
 
   // ============================================
   // DISPUTE BILL
@@ -1046,10 +1069,9 @@ export function useSupplierBills(filters?: {
   // ============================================
   const generateBillNumber = useCallback(async (): Promise<string> => {
     const { data, error } = await supabase.rpc('generate_bill_number');
-    if (error) {
+    if (error || !data) {
       console.error('Error generating bill number:', error);
-      // Fallback
-      return `BILL-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
+      throw new Error("Failed to generate bill number from the database sequence.");
     }
     return data as string;
   }, []);
@@ -1082,6 +1104,7 @@ export function useSupplierBills(filters?: {
     // Fetch functions
     fetchSupplierBills,
     fetchBillItems,
+    refresh: fetchSupplierBills,
 
     // CRUD - Bills
     createBill,

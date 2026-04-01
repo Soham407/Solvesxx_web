@@ -107,18 +107,20 @@ export function ServiceAcknowledgmentDialog({
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
-      const { error: insertError } = await supabase
+      const { error: upsertError } = await supabase
         .from("service_acknowledgments")
-        .insert({
+        .upsert({
           spo_id: spo.id,
           acknowledged_by: user?.id ?? null,
           headcount_expected: expectedHeadcount,
           headcount_received: values.headcount_received,
           grade_verified: values.grade_verified,
           notes: values.notes || null,
-        });
+          status: 'confirmed',
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'spo_id' });
 
-      if (insertError) throw insertError;
+      if (upsertError) throw upsertError;
 
       const { error: updateError } = await supabase
         .from("service_purchase_orders")

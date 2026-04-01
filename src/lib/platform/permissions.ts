@@ -18,6 +18,7 @@ export const SETTINGS_PERMISSION_ROUTE_ORDER: Array<{
   { href: "/settings/admins", permission: "platform.admin_accounts.manage" },
   { href: "/settings/permissions", permission: "platform.rbac.manage" },
   { href: "/settings/audit-logs", permission: "platform.audit_logs.view" },
+  { href: "/admin/audit-logs", permission: "platform.audit_logs.view" },
   { href: "/settings/company", permission: "platform.config.manage" },
 ];
 

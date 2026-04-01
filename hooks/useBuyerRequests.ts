@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase as supabaseTyped } from "@/src/lib/supabaseClient";
-const supabase = supabaseTyped as any;
+import { supabase } from "@/src/lib/supabaseClient";
 
 // ============================================
 // TYPES
@@ -26,6 +25,8 @@ export type RequestStatus =
   | 'feedback_pending'
   | 'completed';
 
+const FORWARDABLE_INDENT_STATUSES = new Set(["approved", "po_created"]);
+
 export interface BuyerRequest {
   id: string;
   request_number: string;
@@ -34,18 +35,26 @@ export interface BuyerRequest {
   description: string | null;
   category_id: string | null;
   location_id: string | null;
+  site_location_id?: string | null;
   preferred_delivery_date: string | null;
   status: RequestStatus;
   rejection_reason: string | null;
   created_at: string;
   updated_at: string;
-  // Newly added
-  headcount?: number;
+  service_type?: string | null;
+  service_grade?: string | null;
+  headcount?: number | null;
   shift?: string | null;
-  duration_months?: number;
+  start_date?: string | null;
+  duration_months?: number | null;
+  indent_id?: string | null;
+  supplier_id?: string | null;
+  is_service_request?: boolean;
+  priority?: string | null;
   // Joined data
   category_name?: string;
   location_name?: string;
+  site_location_name?: string;
 }
 
 export interface BuyerRequestItem {
@@ -65,9 +74,14 @@ export interface CreateBuyerRequestInput {
   category_id?: string;
   location_id?: string;
   preferred_delivery_date?: string;
+  service_type?: string;
+  service_grade?: string;
   headcount?: number;
   shift?: string;
+  start_date?: string;
   duration_months?: number;
+  site_location_id?: string;
+  is_service_request?: boolean;
   items: {
     product_id: string;
     quantity: number;
@@ -115,7 +129,8 @@ export function useBuyerRequests() {
         .select(`
           *,
           product_categories (category_name),
-          company_locations (location_name)
+          company_locations!location_id (location_name),
+          site_location:company_locations!site_location_id (location_name)
         `)
         .order("created_at", { ascending: false });
 
@@ -125,6 +140,7 @@ export function useBuyerRequests() {
         ...req,
         category_name: req.product_categories?.category_name,
         location_name: req.company_locations?.location_name,
+        site_location_name: req.site_location?.location_name,
       }));
 
       setRequests(formattedData);
@@ -171,9 +187,14 @@ export function useBuyerRequests() {
           category_id: input.category_id,
           location_id: input.location_id,
           preferred_delivery_date: input.preferred_delivery_date,
-          headcount: input.headcount || 0,
+          service_type: input.service_type || null,
+          service_grade: input.service_grade || null,
+          headcount: typeof input.headcount === "number" ? input.headcount : null,
           shift: input.shift || null,
-          duration_months: input.duration_months || 1,
+          start_date: input.start_date || null,
+          duration_months: typeof input.duration_months === "number" ? input.duration_months : null,
+          site_location_id: input.site_location_id || null,
+          is_service_request: input.is_service_request === true,
           buyer_id: (await supabase.auth.getUser()).data.user?.id,
           status: 'pending'
         })
@@ -183,19 +204,21 @@ export function useBuyerRequests() {
       if (reqError) throw reqError;
 
       // 2. Create items
-      const itemsToInsert = input.items.map(item => ({
-        request_id: request.id,
-        product_id: item.product_id,
-        quantity: item.quantity,
-        unit: item.unit,
-        notes: item.notes
-      }));
+      if (input.items.length > 0) {
+        const itemsToInsert = input.items.map(item => ({
+          request_id: request.id,
+          product_id: item.product_id,
+          quantity: item.quantity,
+          unit: item.unit,
+          notes: item.notes
+        }));
 
-      const { error: itemsError } = await supabase
-        .from("request_items")
-        .insert(itemsToInsert);
+        const { error: itemsError } = await supabase
+          .from("request_items")
+          .insert(itemsToInsert);
 
-      if (itemsError) throw itemsError;
+        if (itemsError) throw itemsError;
+      }
 
       await fetchRequests();
       return request;
@@ -245,9 +268,121 @@ export function useBuyerRequests() {
     }
   };
 
+  const linkRequestToIndent = useCallback(async (
+    requestId: string,
+    input: {
+      indent_id: string;
+      supplier_id: string;
+      status?: RequestStatus;
+    }
+  ) => {
+    try {
+      // 1. Pre-flight Rate Verification
+      const { data: hasRate, error: rateError } = await (supabase as any)
+        .rpc("validate_indent_rate", { p_indent_id: input.indent_id });
+
+      if (rateError) {
+        console.error("Rate verification failed:", rateError);
+        // Fallback to manual check if RPC fails for any reason
+      } else if (hasRate === false) {
+        throw new Error("No active rate contract found for this indent. Please verify rates before forwarding.");
+      }
+
+      const { data: indent, error: indentError } = await supabase
+        .from("indents")
+        .select("id, status")
+        .eq("id", input.indent_id)
+        .single();
+
+      if (indentError) throw indentError;
+      if (!indent || !FORWARDABLE_INDENT_STATUSES.has(indent.status)) {
+        throw new Error("Only approved indents can be forwarded to suppliers.");
+      }
+
+      const { data: request, error: requestError } = await supabase
+        .from("requests")
+        .select("indent_id, status")
+        .eq("id", requestId)
+        .single();
+
+      if (requestError) throw requestError;
+      if (request?.indent_id && request.status !== "indent_rejected") {
+        throw new Error("Request is already linked to an indent.");
+      }
+
+      const { error, count } = await supabase
+        .from("requests")
+        .update({
+          indent_id: input.indent_id,
+          supplier_id: input.supplier_id,
+          status: input.status || "indent_forwarded",
+          rejection_reason: null,
+          rejected_at: null,
+          rejected_by: null,
+          updated_at: new Date().toISOString(),
+        }, { count: 'exact' })
+        .eq("id", requestId)
+        .or("indent_id.is.null,status.eq.indent_rejected");
+
+      if (error) throw error;
+      if (count === 0) {
+        throw new Error("Request is already linked to an indent.");
+      }
+
+      await fetchRequests();
+      return true;
+    } catch (err: any) {
+      console.error("Error linking request to indent:", err);
+      setError(err.message);
+      return false;
+    }
+  }, [fetchRequests]);
+
   useEffect(() => {
     fetchRequests();
   }, [fetchRequests]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("buyer-requests")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "requests" },
+        fetchRequests
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchRequests]);
+
+  const fetchRequestById = useCallback(async (requestId: string): Promise<BuyerRequest | null> => {
+    try {
+      const { data, error } = await supabase
+        .from("requests")
+        .select(`
+          *,
+          product_categories (category_name),
+          company_locations!location_id (location_name),
+          site_location:company_locations!site_location_id (location_name)
+        `)
+        .eq("id", requestId)
+        .single();
+
+      if (error) throw error;
+
+      return {
+        ...data,
+        category_name: data.product_categories?.category_name,
+        location_name: data.company_locations?.location_name,
+        site_location_name: data.site_location?.location_name,
+      };
+    } catch (err: any) {
+      console.error("Error fetching request by ID:", err);
+      return null;
+    }
+  }, []);
 
   return {
     requests,
@@ -255,7 +390,9 @@ export function useBuyerRequests() {
     error,
     refresh: fetchRequests,
     fetchRequestItems,
+    fetchRequestById,
     createRequest,
-    updateRequestStatus
+    updateRequestStatus,
+    linkRequestToIndent,
   };
 }

@@ -96,23 +96,8 @@ export default function ResidentsPage() {
       setError(null);
 
       const { data, error: fetchError } = await supabase
-        .from("residents")
-        .select(`
-          id,
-          full_name,
-          phone,
-          relation,
-          flat_id,
-          flats (
-            id,
-            flat_number,
-            building_id,
-            buildings (
-              id,
-              building_name
-            )
-          )
-        `)
+        .from("resident_directory")
+        .select("id, full_name, flat_number, building_name, is_primary_contact, masked_phone")
         .eq("is_active", true)
         .order("full_name");
 
@@ -122,27 +107,20 @@ export default function ResidentsPage() {
       const uniqueFlats = new Set<string>();
 
       const formattedResidents: Resident[] = (data || []).map((r: any) => {
-        // Handle array or object returns for flats relation
-        const flatData = Array.isArray(r.flats) ? r.flats[0] : r.flats;
-        const buildingData = flatData ? (Array.isArray(flatData.buildings) ? flatData.buildings[0] : flatData.buildings) : null;
-
-        const flatNo = flatData?.flat_number || "N/A";
-        const bldg = buildingData?.building_name || "";
-        const flatIdent = `${bldg}-${flatNo}`;
-        if (flatData?.id) {
-          uniqueFlats.add(flatData.id);
-        }
+        const flatNo = r.flat_number || "N/A";
+        const bldg = r.building_name || "";
+        uniqueFlats.add(`${bldg}-${flatNo}`);
         
-        // We will default to empty vehicles as it's not present in residents table natively (it's in a separate table/relation)
+        // We will default to empty vehicles as it's not present in the resident directory view.
         const vehicles: string[] = []; // Update this to match schema if a vehicles table exists
         vehicleCount += vehicles.length;
 
         return {
           id: r.id,
           full_name: r.full_name,
-          mobile: r.phone || r.alternate_phone || "",
+          mobile: r.masked_phone || "",
           vehicle_numbers: vehicles,
-          relation: r.relation || "Resident",
+          relation: r.is_primary_contact ? "Primary Contact" : "Resident",
           photo_url: undefined, // Update with correct profile photo field if there is one
           flat_number: flatNo,
           building_name: bldg,
@@ -165,7 +143,7 @@ export default function ResidentsPage() {
 
   const handleExportCSV = () => {
     if (residents.length === 0) return;
-    const headers = ["Name", "Mobile", "Flat", "Building", "Relation", "Vehicles"];
+    const headers = ["Name", "Contact", "Flat", "Building", "Relation", "Vehicles"];
     const rows = residents.map(r => [
         `"${r.full_name}"`, 
         `"${r.mobile}"`, 

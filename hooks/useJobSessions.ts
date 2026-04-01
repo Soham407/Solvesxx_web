@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/src/lib/supabaseClient";
+import { supabase as supabaseClient } from "@/src/lib/supabaseClient";
+const supabase = supabaseClient as any;
 import type {
   JobSession,
   JobSessionInsert,
   JobSessionUpdate,
-  JobPhoto,
   JobSessionWithPhotos,
   StartJobSessionForm,
   CompleteJobSessionForm,
@@ -25,6 +25,7 @@ interface UseJobSessionsReturn extends UseJobSessionsState {
   resumeSession: (id: string) => Promise<{ success: boolean; error?: string }>;
   completeSession: (id: string, data: CompleteJobSessionForm) => Promise<{ success: boolean; error?: string }>;
   cancelSession: (id: string, reason?: string) => Promise<{ success: boolean; error?: string }>;
+  completeJob: (id: string, data: CompleteJobSessionForm) => Promise<{ success: boolean; error?: string }>;
   getSessionById: (id: string) => Promise<JobSessionWithPhotos | null>;
   getSessionsByRequest: (serviceRequestId: string) => Promise<JobSessionWithPhotos[]>;
   getSessionsByTechnician: (technicianId: string) => Promise<JobSessionWithPhotos[]>;
@@ -100,6 +101,52 @@ export function useJobSessions(serviceRequestId?: string, technicianId?: string)
     }
   }, [serviceRequestId, technicianId]);
 
+  const getSessionRecord = useCallback(async (id: string) => {
+    const { data, error } = await supabase
+      .from("job_sessions")
+      .select("id, service_request_id, status, start_latitude, start_longitude")
+      .eq("id", id)
+      .single();
+
+    if (error) throw error;
+
+    return data;
+  }, []);
+
+  const getActiveSessionForRequest = useCallback(async (requestId: string) => {
+    const { data, error } = await supabase
+      .from("job_sessions")
+      .select("*")
+      .eq("service_request_id", requestId)
+      .in("status", ["started", "paused"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error && error.code !== "PGRST116") {
+      throw error;
+    }
+
+    return data || null;
+  }, []);
+
+  const getLatestPhotoUrl = useCallback(async (jobSessionId: string, photoType: "before" | "after") => {
+    const { data, error } = await supabase
+      .from("job_photos")
+      .select("photo_url")
+      .eq("job_session_id", jobSessionId)
+      .eq("photo_type", photoType)
+      .order("captured_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error && error.code !== "PGRST116") {
+      throw error;
+    }
+
+    return data?.photo_url || null;
+  }, []);
+
   // Start a new job session
   const startSession = useCallback(
     async (data: StartJobSessionForm): Promise<{ success: boolean; error?: string; data?: JobSession }> => {
@@ -109,14 +156,16 @@ export function useJobSessions(serviceRequestId?: string, technicianId?: string)
         // `pest_control_ppe_verifications` table.
         const { data: serviceRequest, error: serviceError } = await supabase
           .from("service_requests_with_details")
-          .select("service_name")
+          .select("service_name, service_code")
           .eq("id", data.serviceRequestId)
           .maybeSingle();
 
         if (serviceError) throw serviceError;
 
         const serviceName = String(serviceRequest?.service_name || "").toLowerCase();
+        const serviceCode = String(serviceRequest?.service_code || "");
         const isPestControlJob =
+          serviceCode === "PST-CON" ||
           serviceName.includes("pest control") ||
           serviceName.includes("pest") ||
           serviceName.includes("pst-con");
@@ -127,7 +176,7 @@ export function useJobSessions(serviceRequestId?: string, technicianId?: string)
             .select("id")
             .eq("service_request_id", data.serviceRequestId)
             .eq("technician_id", data.technicianId)
-            .eq("status", "verified")
+            .eq("all_items_checked", true)
             .order("verified_at", { ascending: false })
             .limit(1);
 
@@ -141,45 +190,71 @@ export function useJobSessions(serviceRequestId?: string, technicianId?: string)
           }
         }
 
-        const sessionData: JobSessionInsert = {
-          service_request_id: data.serviceRequestId,
-          technician_id: data.technicianId,
-          start_time: new Date().toISOString(),
-          start_latitude: data.startLatitude,
-          start_longitude: data.startLongitude,
-          status: "started",
-        };
+        const { error: startError } = await supabase.rpc("start_service_task", {
+          p_request_id: data.serviceRequestId,
+          p_before_photo_url: null,
+        });
 
-        const { data: newSession, error } = await supabase
-          .from("job_sessions")
-          .insert(sessionData)
-          .select()
-          .single();
+        if (startError) throw startError;
 
-        if (error) throw error;
+        let session = await getActiveSessionForRequest(data.serviceRequestId);
 
-        // Update service request status to in_progress
-        await supabase
-          .from("service_requests")
-          .update({ status: "in_progress" })
-          .eq("id", data.serviceRequestId);
+        if (!session) {
+          const sessionData: JobSessionInsert = {
+            service_request_id: data.serviceRequestId,
+            technician_id: data.technicianId,
+            start_time: new Date().toISOString(),
+            start_latitude: data.startLatitude,
+            start_longitude: data.startLongitude,
+            status: "started",
+          };
+
+          const { data: newSession, error: sessionError } = await supabase
+            .from("job_sessions")
+            .insert(sessionData)
+            .select()
+            .single();
+
+          if (sessionError) throw sessionError;
+          session = newSession;
+        } else if (
+          data.startLatitude !== undefined ||
+          data.startLongitude !== undefined ||
+          session.status !== "started"
+        ) {
+          const { data: updatedSession, error: updateError } = await supabase
+            .from("job_sessions")
+            .update({
+              status: "started",
+              start_latitude: data.startLatitude ?? session.start_latitude,
+              start_longitude: data.startLongitude ?? session.start_longitude,
+            })
+            .eq("id", session.id)
+            .select()
+            .single();
+
+          if (updateError) throw updateError;
+          session = updatedSession;
+        }
 
         fetchSessions();
 
-        return { success: true, data: newSession };
+        return { success: true, data: session || undefined };
       } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : "Failed to start session";
         console.error("Error starting job session:", err);
         return { success: false, error: errorMessage };
       }
     },
-    [fetchSessions]
+    [fetchSessions, getActiveSessionForRequest]
   );
 
   // Pause session
   const pauseSession = useCallback(
     async (id: string): Promise<{ success: boolean; error?: string }> => {
       try {
+        const session = await getSessionRecord(id);
+
         const { error } = await supabase
           .from("job_sessions")
           .update({ status: "paused" })
@@ -187,14 +262,10 @@ export function useJobSessions(serviceRequestId?: string, technicianId?: string)
 
         if (error) throw error;
 
-        // Update service request status to on_hold
-        const session = state.sessions.find((s) => s.id === id);
-        if (session) {
-          await supabase
-            .from("service_requests")
-            .update({ status: "on_hold" })
-            .eq("id", session.service_request_id);
-        }
+        await supabase
+          .from("service_requests")
+          .update({ status: "on_hold" })
+          .eq("id", session.service_request_id);
 
         fetchSessions();
 
@@ -205,13 +276,15 @@ export function useJobSessions(serviceRequestId?: string, technicianId?: string)
         return { success: false, error: errorMessage };
       }
     },
-    [fetchSessions, state.sessions]
+    [fetchSessions, getSessionRecord]
   );
 
   // Resume session
   const resumeSession = useCallback(
     async (id: string): Promise<{ success: boolean; error?: string }> => {
       try {
+        const session = await getSessionRecord(id);
+
         const { error } = await supabase
           .from("job_sessions")
           .update({ status: "started" })
@@ -219,14 +292,10 @@ export function useJobSessions(serviceRequestId?: string, technicianId?: string)
 
         if (error) throw error;
 
-        // Update service request status back to in_progress
-        const session = state.sessions.find((s) => s.id === id);
-        if (session) {
-          await supabase
-            .from("service_requests")
-            .update({ status: "in_progress" })
-            .eq("id", session.service_request_id);
-        }
+        await supabase
+          .from("service_requests")
+          .update({ status: "in_progress" })
+          .eq("id", session.service_request_id);
 
         fetchSessions();
 
@@ -237,13 +306,81 @@ export function useJobSessions(serviceRequestId?: string, technicianId?: string)
         return { success: false, error: errorMessage };
       }
     },
-    [fetchSessions, state.sessions]
+    [fetchSessions, getSessionRecord]
   );
 
   // Complete session
   const completeSession = useCallback(
     async (id: string, data: CompleteJobSessionForm): Promise<{ success: boolean; error?: string }> => {
       try {
+        const session = await getSessionRecord(id);
+        
+        // Enforce PPE verification for pest control jobs
+        const { data: serviceRequest } = await supabase
+          .from("service_requests_with_details")
+          .select("service_name, service_code")
+          .eq("id", session.service_request_id)
+          .maybeSingle();
+
+        const serviceName = String(serviceRequest?.service_name || "").toLowerCase();
+        const serviceCode = String(serviceRequest?.service_code || "");
+        const isPestControlJob =
+          serviceCode === "PST-CON" ||
+          serviceName.includes("pest control") ||
+          serviceName.includes("pest") ||
+          serviceName.includes("pst-con");
+
+        if (isPestControlJob) {
+          const { data: ppeVerifications, error: ppeError } = await supabase
+            .from("pest_control_ppe_verifications")
+            .select("id, all_items_checked")
+            .eq("job_session_id", id)
+            .eq("all_items_checked", true)
+            .maybeSingle();
+
+          if (ppeError) throw ppeError;
+
+          if (!ppeVerifications) {
+            return {
+              success: false,
+              error: "PPE verification required before completing pest control job",
+            };
+          }
+        }
+
+        let afterPhotoUrl = data.afterPhotoUrl || (await getLatestPhotoUrl(id, "after"));
+
+        if (!afterPhotoUrl) {
+          return {
+            success: false,
+            error: "After photo evidence is required before completing a session",
+          };
+        }
+
+        if (data.afterPhotoUrl) {
+          const existingAfterPhoto = await getLatestPhotoUrl(id, "after");
+
+          if (existingAfterPhoto !== data.afterPhotoUrl) {
+            const { error: photoError } = await supabase.from("job_photos").insert({
+              job_session_id: id,
+              photo_type: "after",
+              photo_url: data.afterPhotoUrl,
+              captured_at: new Date().toISOString(),
+            });
+
+            if (photoError) throw photoError;
+            afterPhotoUrl = data.afterPhotoUrl;
+          }
+        }
+
+        const { error: completeError } = await supabase.rpc("complete_service_task", {
+          p_request_id: session.service_request_id,
+          p_after_photo_url: afterPhotoUrl,
+          p_completion_notes: data.remarks || data.workPerformed || null,
+        });
+
+        if (completeError) throw completeError;
+
         const updateData: JobSessionUpdate = {
           status: "completed",
           end_time: new Date().toISOString(),
@@ -269,7 +406,7 @@ export function useJobSessions(serviceRequestId?: string, technicianId?: string)
         return { success: false, error: errorMessage };
       }
     },
-    [fetchSessions]
+    [fetchSessions, getLatestPhotoUrl, getSessionRecord]
   );
 
   // Cancel session
@@ -385,6 +522,9 @@ export function useJobSessions(serviceRequestId?: string, technicianId?: string)
     fetchSessions();
   }, [fetchSessions]);
 
+  // Alias completeSession as completeJob to match PRD/task terminology
+  const completeJob = completeSession;
+
   // Initialize on mount
   useEffect(() => {
     fetchSessions();
@@ -397,6 +537,7 @@ export function useJobSessions(serviceRequestId?: string, technicianId?: string)
     resumeSession,
     completeSession,
     cancelSession,
+    completeJob,
     getSessionById,
     getSessionsByRequest,
     getSessionsByTechnician,

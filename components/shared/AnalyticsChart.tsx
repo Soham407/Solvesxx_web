@@ -24,6 +24,7 @@ interface ChartProps {
   categories: string[]; // Keys for values
   colors?: string[];
   height?: number;
+  valueFormatter?: (value: any) => string;
 }
 
 export function AnalyticsChart({ 
@@ -32,7 +33,8 @@ export function AnalyticsChart({
   index, 
   categories, 
   colors = [COLORS.primary, COLORS.success, COLORS.info, COLORS.warning],
-  height = 300 
+  height = 300,
+  valueFormatter = (val) => val.toString()
 }: ChartProps) {
   const chartData = useMemo(() => data, [data]);
 
@@ -69,8 +71,10 @@ export function AnalyticsChart({
               axisLine={false} 
               tickLine={false} 
               tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+              tickFormatter={valueFormatter}
             />
             <Tooltip 
+              formatter={valueFormatter}
               contentStyle={{ 
                 backgroundColor: "hsl(var(--card))", 
                 borderColor: "hsl(var(--border))",
@@ -109,8 +113,10 @@ export function AnalyticsChart({
               axisLine={false} 
               tickLine={false} 
               tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+              tickFormatter={valueFormatter}
             />
             <Tooltip 
+              formatter={valueFormatter}
               cursor={{ fill: "hsl(var(--muted)/0.1)" }}
               contentStyle={{ 
                 backgroundColor: "hsl(var(--card))", 
@@ -152,6 +158,7 @@ export function AnalyticsChart({
               ))}
             </Pie>
             <Tooltip 
+              formatter={valueFormatter}
               contentStyle={{ 
                 backgroundColor: "hsl(var(--card))", 
                 borderColor: "hsl(var(--border))",

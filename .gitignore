@@ -63,3 +63,11 @@ next-env.d.ts
 role-test.log
 .playwright-mcp/
 .tmp-society-migration/
+nul
+
+# AI orchestrator runtime artifacts
+.ai-orchestrator/__pycache__/
+.ai-orchestrator/outputs/
+.ai-orchestrator/logs/
+.ai-orchestrator/state/
+.ai-orchestrator/reports/

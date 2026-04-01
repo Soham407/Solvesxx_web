@@ -45,7 +45,25 @@ describe("RLS contract: role and policy source", () => {
     ).toBe(true);
   });
 
-  it("keeps the platform alignment migration and super-admin policies in place", async () => {
+  it("keeps the system_config seed migrations restricted to the admin role", async () => {
+    const seedSources = await Promise.all([
+      readRepoFile("supabase/migrations/20260316171650_system_config.sql"),
+      readRepoFile("supabase/migrations/20260316174706_system_config.sql"),
+    ]);
+
+    seedSources.forEach((source) => {
+      expect(
+        sourceContainsAll(source, [
+          "ALTER TABLE system_config ENABLE ROW LEVEL SECURITY;",
+          'CREATE POLICY "system_config_admin_full"',
+          "JOIN public.roles r ON r.id = u.role_id",
+          "r.role_name = 'admin'",
+        ])
+      ).toBe(true);
+    });
+  });
+
+  it("keeps the platform alignment migration and admin-only system_config policy in place", async () => {
     const source = await readRepoFile("supabase/migrations/20260322000004_super_admin_platform_alignment.sql");
 
     expect(
@@ -55,9 +73,25 @@ describe("RLS contract: role and policy source", () => {
         "platform.rbac.manage",
         "platform.audit_logs.view",
         "platform.config.manage",
-        "system_config_super_admin_full",
+        "system_config_admin_full",
+        "public.get_my_app_role() = 'admin'",
         "audit_logs_super_admin_select",
       ])
     ).toBe(true);
+  });
+
+  it("keeps middleware RBAC flowing through the shared path access gate", async () => {
+    const proxySource = await readRepoFile("proxy.ts");
+    const middlewareSource = await readRepoFile("middleware.ts");
+
+    expect(
+      sourceContainsAll(proxySource, [
+        "if (!canAccessPath(role as AppRole, permissions, pathname))",
+        '{ error: "Forbidden - insufficient permissions" }',
+        'dashboardUrl.searchParams.set("error", "forbidden")',
+      ])
+    ).toBe(true);
+
+    expect(sourceContainsAll(middlewareSource, ["return proxy(request);"])).toBe(true);
   });
 });

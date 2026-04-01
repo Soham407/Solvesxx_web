@@ -88,6 +88,7 @@ export interface CreateVisitorDTO {
 export interface VisitorFilters {
   status?: "active" | "completed" | "all";
   type?: string;
+  flatId?: string;
   dateFrom?: string;
   dateTo?: string;
   searchTerm?: string;
@@ -107,6 +108,13 @@ export function useVisitors(initialFilters?: VisitorFilters) {
     deniedEntry: 0,
   });
   const [filters, setFilters] = useState<VisitorFilters>(initialFilters || {});
+
+  // Sync filters with initialFilters if they change
+  useEffect(() => {
+    if (initialFilters) {
+      setFilters(initialFilters);
+    }
+  }, [JSON.stringify(initialFilters)]);
 
   const fetchVisitors = useCallback(async () => {
     setIsLoading(true);
@@ -140,6 +148,10 @@ export function useVisitors(initialFilters?: VisitorFilters) {
 
       if (filters.type) {
         query = query.eq("visitor_type", filters.type);
+      }
+
+      if (filters.flatId) {
+        query = query.eq("flat_id", filters.flatId);
       }
 
       if (filters.dateFrom) {

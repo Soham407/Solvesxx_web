@@ -21,7 +21,17 @@ interface AttendanceState {
   gateLocation: GateLocation | null;
   currentPosition: { latitude: number; longitude: number } | null;
   isClockedIn: boolean;
+  activeShift: {
+    id: string;
+    shift_name: string;
+    start_time: string;
+    end_time: string;
+    duration_hours: number;
+    standard_hours?: number;
+    is_night_shift: boolean;
+  } | null;
   todayAttendance: {
+    log_date: string;
     check_in_time: string | null;
     check_out_time: string | null;
     check_in_selfie_url?: string | null;
@@ -62,6 +72,408 @@ function toRadians(degrees: number): number {
   return degrees * (Math.PI / 180);
 }
 
+export type AttendanceDisplayStatus =
+  | "Present"
+  | "Late"
+  | "On Leave"
+  | "Absent";
+
+export interface PersonalAttendanceHistoryRecord {
+  id: string;
+  rawDate: string;
+  logDate: string;
+  checkIn: string;
+  checkOut: string;
+  checkInTimestamp: string | null;
+  checkOutTimestamp: string | null;
+  shift: string;
+  status: AttendanceDisplayStatus;
+  verification: string;
+  hoursWorked: string;
+}
+
+export interface AdminAttendanceOverviewRecord {
+  id: string;
+  employee: string;
+  employeeId: string;
+  shift: string;
+  shiftName: string;
+  startTime: string;
+  endTime: string;
+  standardHours: number;
+  checkIn: string;
+  checkOut?: string;
+  checkInTimestamp: string | null;
+  checkOutTimestamp: string | null;
+  overtimeHours: number;
+  location: string;
+  verification: string;
+  status: AttendanceDisplayStatus;
+  latitude?: number;
+  longitude?: number;
+}
+
+function mapAttendanceStatus(status?: string | null): AttendanceDisplayStatus {
+  if (status === "late") return "Late";
+  if (
+    status === "on_leave" ||
+    status === "leave" ||
+    status === "sick_leave" ||
+    status === "casual_leave" ||
+    status === "earned_leave"
+  ) {
+    return "On Leave";
+  }
+  if (status === "absent" || status === "absent_breach") return "Absent";
+  return "Present";
+}
+
+function formatAttendanceTime(timestamp?: string | null): string {
+  if (!timestamp) return "-";
+
+  return new Date(timestamp).toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatAttendanceDate(logDate: string): string {
+  return new Date(logDate).toLocaleDateString("en-IN", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function formatHoursWorked(
+  checkInTime?: string | null,
+  checkOutTime?: string | null,
+): string {
+  if (!checkInTime || !checkOutTime) return "-";
+
+  const durationMs =
+    new Date(checkOutTime).getTime() - new Date(checkInTime).getTime();
+  const hours = Math.floor(durationMs / 3600000);
+  const minutes = Math.floor((durationMs % 3600000) / 60000);
+
+  return `${hours}h ${minutes}m`;
+}
+
+function resolveTotalHours(log: {
+  total_hours?: number | string | null;
+  check_in_time?: string | null;
+  check_out_time?: string | null;
+}): number | null {
+  const rawTotalHours = log.total_hours;
+  if (rawTotalHours !== null && rawTotalHours !== undefined) {
+    const parsed = Number(rawTotalHours);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+
+  if (!log.check_in_time || !log.check_out_time) return null;
+
+  const durationMs =
+    new Date(log.check_out_time).getTime() - new Date(log.check_in_time).getTime();
+  const derivedHours = durationMs / 3600000;
+
+  return Number.isFinite(derivedHours) ? derivedHours : null;
+}
+
+function calculateOvertimeHours(
+  totalHours: number | null,
+  standardHours: number,
+): number {
+  if (totalHours === null) return 0;
+  return Math.max(0, Number(totalHours) - standardHours);
+}
+
+function formatShiftLabel(shiftData: any): string {
+  const shifts = shiftData?.shifts;
+  if (!shifts) return "General Shift";
+
+  const shift = Array.isArray(shifts) ? shifts[0] : shifts;
+  if (!shift) return "General Shift";
+
+  const startTime = String(shift.start_time || "").slice(0, 5);
+  const endTime = String(shift.end_time || "").slice(0, 5);
+
+  return `${shift.shift_name} (${startTime}-${endTime})`;
+}
+
+function getPersonalVerificationLabel(log: any): string {
+  const hasSelfie = Boolean(log.check_in_selfie_url);
+  const hasGps =
+    log.check_in_latitude !== null &&
+    log.check_in_latitude !== undefined &&
+    log.check_in_longitude !== null &&
+    log.check_in_longitude !== undefined;
+
+  if (hasSelfie && hasGps) return "Selfie + GPS";
+  if (hasSelfie) return "Selfie Only";
+  if (hasGps) return "GPS Only";
+  if (log.check_in_time) return "Manual";
+  return "-";
+}
+
+function resolveAdminAttendanceVerification(
+  log: any,
+  siteCoords?: {
+    lat: number;
+    lng: number;
+    radiusMeters: number;
+  } | null,
+): Pick<AdminAttendanceOverviewRecord, "location" | "verification"> {
+  const hasGps =
+    log.check_in_latitude !== null &&
+    log.check_in_latitude !== undefined &&
+    log.check_in_longitude !== null &&
+    log.check_in_longitude !== undefined;
+  const hasSelfie = Boolean(log.check_in_selfie_url);
+
+  if (!siteCoords && hasGps) {
+    return {
+      location: "GPS Captured",
+      verification: "Location Not Configured",
+    };
+  }
+
+  if (hasGps && siteCoords) {
+    const distance = haversineDistance(
+      Number(log.check_in_latitude),
+      Number(log.check_in_longitude),
+      siteCoords.lat,
+      siteCoords.lng,
+    );
+
+    if (distance > siteCoords.radiusMeters) {
+      return {
+        location: `Off-Site (${Math.round(distance)}m away)`,
+        verification: hasSelfie ? "Remote + Selfie" : "Remote",
+      };
+    }
+
+    return {
+      location: "GPS Verified",
+      verification: hasSelfie ? "Selfie + GPS" : "GPS Only",
+    };
+  }
+
+  if (log.check_in_time) {
+    return {
+      location: "Manual Entry",
+      verification: "Manual",
+    };
+  }
+
+  return {
+    location: "Pending",
+    verification: "Pending",
+  };
+}
+
+export async function getEmployeeAttendanceHistory(
+  employeeId: string,
+): Promise<PersonalAttendanceHistoryRecord[]> {
+  const today = new Date();
+  const todayStr = today.toISOString().split("T")[0];
+  const since = new Date(today);
+  since.setDate(since.getDate() - 30);
+  const sinceStr = since.toISOString().split("T")[0];
+
+  const [
+    { data: attendanceLogs, error: attendanceError },
+    { data: shiftData, error: shiftError },
+  ] = await Promise.all([
+    supabase
+      .from("attendance_logs")
+      .select(
+        `
+          id,
+          log_date,
+          check_in_time,
+          check_out_time,
+          check_in_selfie_url,
+          check_in_latitude,
+          check_in_longitude,
+          status
+        `,
+      )
+      .eq("employee_id", employeeId)
+      .gte("log_date", sinceStr)
+      .lte("log_date", todayStr)
+      .order("log_date", { ascending: false }),
+    supabase
+      .from("employee_shift_assignments")
+      .select("shifts ( shift_name, start_time, end_time )")
+      .eq("employee_id", employeeId)
+      .eq("is_active", true)
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  if (attendanceError) throw attendanceError;
+  if (shiftError && shiftError.code !== "PGRST116") throw shiftError;
+
+  const shiftLabel = formatShiftLabel(shiftData);
+
+  return (attendanceLogs || []).map((log: any) => ({
+    id: log.id,
+    rawDate: log.log_date,
+    logDate: formatAttendanceDate(log.log_date),
+    checkIn: formatAttendanceTime(log.check_in_time),
+    checkOut: formatAttendanceTime(log.check_out_time),
+    checkInTimestamp: log.check_in_time ?? null,
+    checkOutTimestamp: log.check_out_time ?? null,
+    shift: shiftLabel,
+    status: mapAttendanceStatus(log.status),
+    verification: getPersonalVerificationLabel(log),
+    hoursWorked: formatHoursWorked(log.check_in_time, log.check_out_time),
+  }));
+}
+
+export async function getAdminAttendanceOverview(
+  logDate?: string,
+): Promise<AdminAttendanceOverviewRecord[]> {
+  const targetDate = logDate || new Date().toISOString().split("T")[0];
+
+  const { data: attendanceData, error: attendanceError } = await supabase
+    .from("attendance_logs")
+    .select(
+      `
+        id,
+        employee_id,
+        check_in_time,
+        check_out_time,
+        check_in_latitude,
+        check_in_longitude,
+        check_in_selfie_url,
+        check_in_location_id,
+        status,
+        total_hours,
+        employees:employee_id (
+          first_name,
+          last_name,
+          employee_code
+        )
+      `,
+    )
+    .eq("log_date", targetDate)
+    .order("check_in_time", { ascending: false });
+
+  if (attendanceError) throw attendanceError;
+
+  const employeeIds = (attendanceData || []).map((entry: any) => entry.employee_id);
+
+  let shiftMap: Record<string, { label: string; name: string; hours: number; start: string; end: string }> = {};
+  if (employeeIds.length > 0) {
+    const { data: shiftData, error: shiftError } = await supabase
+      .from("employee_shift_assignments")
+      .select(
+        `
+          employee_id,
+          shifts (
+            shift_name,
+            start_time,
+            end_time,
+            duration_hours
+          )
+        `,
+      )
+      .eq("is_active", true)
+      .in("employee_id", employeeIds);
+
+    if (shiftError) throw shiftError;
+
+    (shiftData || []).forEach((assignment: any) => {
+      const shift = Array.isArray(assignment.shifts) ? assignment.shifts[0] : assignment.shifts;
+      if (shift) {
+        shiftMap[assignment.employee_id] = {
+          label: formatShiftLabel(assignment),
+          name: shift.shift_name,
+          hours: Number(shift.duration_hours) || 8,
+          start: shift.start_time,
+          end: shift.end_time
+        };
+      }
+    });
+  }
+
+  const { data: allLocations, error: locationsError } = await supabase
+    .from("company_locations")
+    .select("id, latitude, longitude, geo_fence_radius")
+    .eq("is_active", true);
+
+  if (locationsError) throw locationsError;
+
+  const locationsMap: Record<
+    string,
+    { lat: number; lng: number; radiusMeters: number }
+  > = {};
+
+  (allLocations || []).forEach((location: any) => {
+    if (
+      location.latitude !== null &&
+      location.latitude !== undefined &&
+      location.longitude !== null &&
+      location.longitude !== undefined
+    ) {
+      locationsMap[location.id] = {
+        lat: Number(location.latitude),
+        lng: Number(location.longitude),
+        radiusMeters: Number(location.geo_fence_radius) || 50,
+      };
+    }
+  });
+
+  return (attendanceData || []).map((log: any) => {
+    const employee = log.employees || {};
+    const fullName =
+      `${employee.first_name || ""} ${employee.last_name || ""}`.trim() ||
+      "Unknown";
+    
+    const shiftInfo = shiftMap[log.employee_id] || {
+      label: "General Shift",
+      name: "General Shift",
+      hours: 8,
+      start: "09:00:00",
+      end: "18:00:00",
+    };
+
+    const verificationDetails = resolveAdminAttendanceVerification(
+      log,
+      log.check_in_location_id
+        ? locationsMap[log.check_in_location_id] || null
+        : null,
+    );
+    const totalHours = resolveTotalHours(log);
+    const overtimeHours = calculateOvertimeHours(totalHours, shiftInfo.hours);
+
+    return {
+      id: log.id,
+      employee: fullName,
+      employeeId: log.employee_id,
+      shift: shiftInfo.label,
+      shiftName: shiftInfo.name,
+      startTime: shiftInfo.start || "09:00:00",
+      endTime: shiftInfo.end || "18:00:00",
+      standardHours: shiftInfo.hours,
+      checkIn: formatAttendanceTime(log.check_in_time),
+      checkOut: log.check_out_time
+        ? formatAttendanceTime(log.check_out_time)
+        : undefined,
+      checkInTimestamp: log.check_in_time ?? null,
+      checkOutTimestamp: log.check_out_time ?? null,
+      overtimeHours,
+      location: verificationDetails.location,
+      verification: verificationDetails.verification,
+      status: mapAttendanceStatus(log.status),
+      latitude: log.check_in_latitude ?? undefined,
+      longitude: log.check_in_longitude ?? undefined,
+    };
+  });
+}
+
 export function useAttendance(employeeId?: string, guardId?: string | null) {
   const [state, setState] = useState<AttendanceState>({
     isWithinRange: false,
@@ -71,6 +483,7 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
     gateLocation: null,
     currentPosition: null,
     isClockedIn: false,
+    activeShift: null,
     todayAttendance: null,
   });
 
@@ -132,42 +545,73 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
     }
   }, []);
 
-  // Fetch today's attendance record
+  // Fetch today's attendance record and active shift
   const fetchTodayAttendance = useCallback(async () => {
     if (!employeeId) return;
 
     try {
       const today = new Date().toISOString().split("T")[0];
-      const { data, error } = await supabase
-        .from("attendance_logs")
-        .select("*")
-        .eq("employee_id", employeeId)
-        .eq("log_date", today)
-        .maybeSingle();
+      
+      const [attendanceRes, shiftRes] = await Promise.all([
+        supabase
+          .from("attendance_logs")
+          .select("*")
+          .eq("employee_id", employeeId)
+          .eq("log_date", today)
+          .maybeSingle(),
+        supabase
+          .from("employee_shift_assignments")
+          .select(`
+            shift_id,
+            shifts (
+              id,
+              shift_name,
+              start_time,
+              end_time,
+              duration_hours,
+              is_night_shift
+            )
+          `)
+          .eq("employee_id", employeeId)
+          .eq("is_active", true)
+          .maybeSingle()
+      ]);
 
-      if (error && error.code !== "PGRST116") {
-        // PGRST116 = no rows found
-        throw error;
+      if (attendanceRes.error && attendanceRes.error.code !== "PGRST116") {
+        throw attendanceRes.error;
       }
+
+      const shiftData = shiftRes.data?.shifts as any;
+      const activeShift = shiftData ? {
+        id: shiftData.id,
+        shift_name: shiftData.shift_name,
+        start_time: shiftData.start_time,
+        end_time: shiftData.end_time,
+        duration_hours: Number(shiftData.duration_hours) || 8,
+        standard_hours: undefined,
+        is_night_shift: !!shiftData.is_night_shift
+      } : null;
 
       setState((prev) => ({
         ...prev,
-        todayAttendance: data
+        activeShift,
+        todayAttendance: attendanceRes.data
           ? {
-              check_in_time: data.check_in_time || null,
-              check_out_time: data.check_out_time || null,
-              check_in_selfie_url: data.check_in_selfie_url ?? null,
-              check_in_latitude: data.check_in_latitude ?? null,
-              check_in_longitude: data.check_in_longitude ?? null,
-              check_out_latitude: data.check_out_latitude ?? null,
-              check_out_longitude: data.check_out_longitude ?? null,
+              log_date: attendanceRes.data.log_date,
+              check_in_time: attendanceRes.data.check_in_time || null,
+              check_out_time: attendanceRes.data.check_out_time || null,
+              check_in_selfie_url: attendanceRes.data.check_in_selfie_url ?? null,
+              check_in_latitude: attendanceRes.data.check_in_latitude ?? null,
+              check_in_longitude: attendanceRes.data.check_in_longitude ?? null,
+              check_out_latitude: attendanceRes.data.check_out_latitude ?? null,
+              check_out_longitude: attendanceRes.data.check_out_longitude ?? null,
             }
           : null,
         isClockedIn:
-          data?.check_in_time && !data?.check_out_time ? true : false,
+          attendanceRes.data?.check_in_time && !attendanceRes.data?.check_out_time ? true : false,
       }));
     } catch (err: unknown) {
-      console.error("Error fetching attendance:", err);
+      console.error("Error fetching attendance/shift:", err);
     }
   }, [employeeId]);
 
@@ -255,10 +699,15 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
         return { success: false, error: "Location requirements not met" };
       }
 
-      // Only enforce geofence when the browser has provided a current position.
-      // When GPS is unavailable or permission is denied, skip the range check so
-      // guards can still clock in (e.g., in testing environments).
-      if (state.currentPosition && !state.isWithinRange) {
+      if (!state.currentPosition) {
+        return {
+          success: false,
+          error:
+            "Live GPS location is required to clock in. Please enable location access and wait for a position fix.",
+        };
+      }
+
+      if (!state.isWithinRange) {
         return { success: false, error: "You must be within the facility area to clock in" };
       }
 
@@ -388,11 +837,12 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
           ...prev,
           isClockedIn: true,
           todayAttendance: {
+            log_date: today,
             check_in_time: now.toISOString(),
             check_out_time: null,
             check_in_selfie_url: selfieUrl,
-            check_in_latitude: state.currentPosition?.latitude,
-            check_in_longitude: state.currentPosition?.longitude,
+            check_in_latitude: state.currentPosition?.latitude ?? null,
+            check_in_longitude: state.currentPosition?.longitude ?? null,
           },
         }));
 
@@ -416,46 +866,71 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
 
   // Clock Out action
   const clockOut = useCallback(async (): Promise<boolean> => {
-    if (!employeeId || !state.gateLocation) {
+    if (!employeeId || !state.gateLocation || !state.todayAttendance) {
       return false;
     }
 
     try {
       const now = new Date();
-      const today = now.toISOString().split("T")[0];
+      // Use log_date from state to ensure we target the correct record even if crossing midnight
+      const targetLogDate = state.todayAttendance.log_date;
 
       // Calculate total hours worked
-      const checkInTime = state.todayAttendance?.check_in_time
+      const checkInTime = state.todayAttendance.check_in_time
         ? new Date(state.todayAttendance.check_in_time)
         : null;
-      const totalHours = checkInTime
-        ? (now.getTime() - checkInTime.getTime()) / (1000 * 60 * 60)
-        : null;
+      
+      let totalHours = 0;
+      if (checkInTime) {
+        totalHours = (now.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
+      }
+      
+      // Calculate overtime hours based on shift duration
+      const standardHours = state.activeShift?.standard_hours ?? state.activeShift?.duration_hours ?? 8;
+      const overtimeHours = Math.max(0, totalHours - standardHours);
+      const baseUpdate = {
+        check_out_time: now.toISOString(),
+        check_out_location_id: state.gateLocation.id,
+        check_out_latitude: state.currentPosition?.latitude ?? null,
+        check_out_longitude: state.currentPosition?.longitude ?? null,
+        total_hours: parseFloat(totalHours.toFixed(2)),
+      };
 
-      const { error } = await supabase
+      const attemptWithOvertime = await supabase
         .from("attendance_logs")
         .update({
-          check_out_time: now.toISOString(),
-          check_out_location_id: state.gateLocation.id,
-          check_out_latitude: state.currentPosition?.latitude ?? null,
-          check_out_longitude: state.currentPosition?.longitude ?? null,
-          total_hours: totalHours ? parseFloat(totalHours.toFixed(2)) : null,
+          ...baseUpdate,
+          overtime_hours: parseFloat(overtimeHours.toFixed(2)),
         })
         .eq("employee_id", employeeId)
-        .eq("log_date", today);
+        .eq("log_date", targetLogDate);
 
-      if (error) throw error;
+      let updateError = attemptWithOvertime.error;
+
+      if (
+        updateError?.code === "42703" &&
+        updateError.message?.includes("attendance_logs.overtime_hours")
+      ) {
+        const fallbackUpdate = await supabase
+          .from("attendance_logs")
+          .update(baseUpdate)
+          .eq("employee_id", employeeId)
+          .eq("log_date", targetLogDate);
+
+        updateError = fallbackUpdate.error;
+      }
+
+      if (updateError) throw updateError;
 
       setState((prev) => ({
         ...prev,
         isClockedIn: false,
-        todayAttendance: {
+        todayAttendance: prev.todayAttendance ? {
           ...prev.todayAttendance,
-          check_in_time: prev.todayAttendance?.check_in_time || null,
           check_out_time: now.toISOString(),
-          check_out_latitude: state.currentPosition?.latitude,
-          check_out_longitude: state.currentPosition?.longitude,
-        },
+          check_out_latitude: state.currentPosition?.latitude ?? null,
+          check_out_longitude: state.currentPosition?.longitude ?? null,
+        } : null,
       }));
 
       // Stop GPS tracking after clock out
@@ -471,53 +946,77 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
     state.gateLocation,
     state.todayAttendance,
     state.currentPosition,
+    state.activeShift,
   ]);
 
   // Auto Punch Out action (triggered by system due to geo-fence breach)
   const autoClockOut = useCallback(
     async (reason: string): Promise<boolean> => {
-      if (!employeeId || !state.gateLocation) {
+      if (!employeeId || !state.gateLocation || !state.todayAttendance) {
         return false;
       }
 
       try {
         const now = new Date();
-        const today = now.toISOString().split("T")[0];
+        const targetLogDate = state.todayAttendance.log_date;
 
         // Calculate total hours
-        const checkInTime = state.todayAttendance?.check_in_time
+        const checkInTime = state.todayAttendance.check_in_time
           ? new Date(state.todayAttendance.check_in_time)
           : null;
-        const totalHours = checkInTime
-          ? (now.getTime() - checkInTime.getTime()) / (1000 * 60 * 60)
-          : null;
+        
+        let totalHours = 0;
+        if (checkInTime) {
+          totalHours = (now.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
+        }
 
-        const { error } = await supabase
+        const standardHours = state.activeShift?.standard_hours ?? state.activeShift?.duration_hours ?? 8;
+        const overtimeHours = Math.max(0, totalHours - standardHours);
+        const baseUpdate = {
+          check_out_time: now.toISOString(),
+          check_out_location_id: state.gateLocation.id,
+          check_out_latitude: state.currentPosition?.latitude ?? null,
+          check_out_longitude: state.currentPosition?.longitude ?? null,
+          total_hours: parseFloat(totalHours.toFixed(2)),
+          is_auto_punch_out: true,
+          status: "absent_breach",
+        };
+
+        const attemptWithOvertime = await supabase
           .from("attendance_logs")
           .update({
-            check_out_time: now.toISOString(),
-            check_out_location_id: state.gateLocation.id,
-            check_out_latitude: state.currentPosition?.latitude ?? null,
-            check_out_longitude: state.currentPosition?.longitude ?? null,
-            total_hours: totalHours ? parseFloat(totalHours.toFixed(2)) : null,
-            is_auto_punch_out: true,
-            status: "absent_breach",
+            ...baseUpdate,
+            overtime_hours: parseFloat(overtimeHours.toFixed(2)),
           })
           .eq("employee_id", employeeId)
-          .eq("log_date", today);
+          .eq("log_date", targetLogDate);
 
-        if (error) throw error;
+        let updateError = attemptWithOvertime.error;
+
+        if (
+          updateError?.code === "42703" &&
+          updateError.message?.includes("attendance_logs.overtime_hours")
+        ) {
+          const fallbackUpdate = await supabase
+            .from("attendance_logs")
+            .update(baseUpdate)
+            .eq("employee_id", employeeId)
+            .eq("log_date", targetLogDate);
+
+          updateError = fallbackUpdate.error;
+        }
+
+        if (updateError) throw updateError;
 
         setState((prev) => ({
           ...prev,
           isClockedIn: false,
-          todayAttendance: {
+          todayAttendance: prev.todayAttendance ? {
             ...prev.todayAttendance,
-            check_in_time: prev.todayAttendance?.check_in_time || null,
             check_out_time: now.toISOString(),
-            check_out_latitude: state.currentPosition?.latitude,
-            check_out_longitude: state.currentPosition?.longitude,
-          },
+            check_out_latitude: state.currentPosition?.latitude ?? null,
+            check_out_longitude: state.currentPosition?.longitude ?? null,
+          } : null,
         }));
 
         stopGpsTracking();
@@ -532,6 +1031,7 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
       state.gateLocation,
       state.todayAttendance,
       state.currentPosition,
+      state.activeShift,
     ],
   );
 

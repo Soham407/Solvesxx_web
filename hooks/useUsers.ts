@@ -89,22 +89,57 @@ export function useUsers() {
     }
   }, []);
 
-  const deactivateUser = async (user: UserMaster) => {
+  const createUser = async (payload: any) => {
+    try {
+      const res = await fetch("/api/admin/create-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Failed to create user");
+      toast.success("User provisioned successfully");
+      fetchUsers();
+      return result; // return password to show once
+    } catch (err: any) {
+      toast.error(err.message);
+      throw err;
+    }
+  };
+
+  const updateUserRole = async (userId: string, roleId: string) => {
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/role`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role_id: roleId }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Failed to update role");
+      toast.success("Role updated successfully");
+      fetchUsers();
+    } catch (err: any) {
+      toast.error(err.message);
+      throw err;
+    }
+  };
+
+  const suspendUser = async (user: UserMaster) => {
     try {
       if (user.is_admin_tier) {
         toast.error("Manage admin accounts from Platform Settings");
         return;
       }
 
-      const { error } = await supabase
-        .from("users")
-        .update({ is_active: false })
-        .eq("id", user.id);
-      if (error) throw error;
-      toast.success("User deactivated");
+      const res = await fetch(`/api/admin/users/${user.id}/suspend`, {
+        method: "POST",
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Failed to suspend user");
+      toast.success("User suspended and sessions invalidated");
       fetchUsers();
-    } catch (_err: unknown) {
-      toast.error("Failed to deactivate user");
+    } catch (err: any) {
+      toast.error(err.message);
     }
   };
 
@@ -115,15 +150,15 @@ export function useUsers() {
         return;
       }
 
-      const { error } = await supabase
-        .from("users")
-        .update({ is_active: true })
-        .eq("id", user.id);
-      if (error) throw error;
-      toast.success("User activated");
+      const res = await fetch(`/api/admin/users/${user.id}/activate`, {
+        method: "POST",
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Failed to activate user");
+      toast.success("User access restored");
       fetchUsers();
-    } catch (_err: unknown) {
-      toast.error("Failed to activate user");
+    } catch (err: any) {
+      toast.error(err.message);
     }
   };
 
@@ -131,5 +166,14 @@ export function useUsers() {
     fetchUsers();
   }, [fetchUsers]);
 
-  return { users, isLoading, error, deactivateUser, activateUser, refresh: fetchUsers };
+  return { 
+    users, 
+    isLoading, 
+    error, 
+    createUser,
+    updateUserRole,
+    suspendUser, 
+    activateUser, 
+    refresh: fetchUsers 
+  };
 }

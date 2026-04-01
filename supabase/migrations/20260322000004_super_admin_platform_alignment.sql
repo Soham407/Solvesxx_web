@@ -196,13 +196,12 @@ ALTER TABLE public.system_config ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "system_config_admin_full" ON public.system_config;
 DROP POLICY IF EXISTS "system_config_read_all" ON public.system_config;
-CREATE POLICY "system_config_super_admin_full" ON public.system_config
+DROP POLICY IF EXISTS "system_config_super_admin_full" ON public.system_config;
+DROP POLICY IF EXISTS "system_config_read_authenticated" ON public.system_config;
+CREATE POLICY "system_config_admin_full" ON public.system_config
   FOR ALL TO authenticated
-  USING (public.get_my_app_role() = 'super_admin')
-  WITH CHECK (public.get_my_app_role() = 'super_admin');
-CREATE POLICY "system_config_read_authenticated" ON public.system_config
-  FOR SELECT TO authenticated
-  USING (true);
+  USING (public.get_my_app_role() = 'admin')
+  WITH CHECK (public.get_my_app_role() = 'admin');
 
 DROP POLICY IF EXISTS "Admins can manage roles" ON public.roles;
 DROP POLICY IF EXISTS "All users can view roles" ON public.roles;

@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import {
   Play,
   CheckCircle,
   Camera,
   Loader2,
-  Image as ImageIcon,
   Clock,
   AlertCircle,
   XCircle,
@@ -18,6 +17,7 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -31,10 +31,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useServiceRequests } from "@/hooks/useServiceRequests";
+import { useJobSessions } from "@/hooks/useJobSessions";
+import { usePestControlPPE, PPEChecklistData } from "@/hooks/usePestControlPPE";
 import type { ServiceRequestWithDetails } from "@/src/types/operations";
 import { supabase } from "@/src/lib/supabaseClient";
 import { toast } from "sonner";
-
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface JobSessionPanelProps {
   serviceRequest: ServiceRequestWithDetails;
@@ -43,13 +45,25 @@ interface JobSessionPanelProps {
   onClose?: () => void;
 }
 
+const CHECKLIST_ITEMS = [
+  { id: "gloves_worn", label: "Gloves worn" },
+  { id: "mask_worn", label: "Mask/Respirator worn" },
+  { id: "goggles_worn", label: "Safety goggles" },
+  { id: "full_suit_worn", label: "Full body suit" },
+  { id: "chemical_dilution_verified", label: "Chemical dilution verified" },
+  { id: "resident_area_cleared", label: "Resident area cleared" },
+];
+
 export function JobSessionPanel({
   serviceRequest,
   technicianId,
   onComplete,
-  onClose,
 }: JobSessionPanelProps) {
-  const { startTask, completeTask, refresh } = useServiceRequests();
+  const { startTask, completeTask, refresh, getRequestById } = useServiceRequests();
+  const { sessions } = useJobSessions(serviceRequest.id);
+  const activeSession = sessions.find(s => s.status === 'started' || s.status === 'paused');
+  const { ppeVerification, submitPPEChecklist } = usePestControlPPE(activeSession?.id, serviceRequest.id);
+  const [requestState, setRequestState] = useState(serviceRequest);
   
   const [isStartModalOpen, setIsStartModalOpen] = useState(false);
   const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
@@ -60,6 +74,35 @@ export function JobSessionPanel({
   const [afterPhoto, setAfterPhoto] = useState<File | null>(null);
   const [completionNotes, setCompletionNotes] = useState("");
   
+  // PPE State
+  const [ppeFormData, setPpeFormData] = useState<PPEChecklistData>({
+    gloves_worn: false,
+    mask_worn: false,
+    goggles_worn: false,
+    full_suit_worn: false,
+    chemical_dilution_verified: false,
+    resident_area_cleared: false,
+  });
+
+  const isPpeVerified = ppeVerification?.all_items_checked === true;
+
+  const serviceName = String(requestState.service_name || "").toLowerCase();
+  const serviceCode = String((requestState as any).service_code || "");
+  const isPestControl = serviceCode === "PST-CON" || serviceName.includes("pest") || serviceName.includes("pst-con");
+
+  useEffect(() => {
+    if (ppeVerification) {
+      setPpeFormData({
+        gloves_worn: ppeVerification.gloves_worn,
+        mask_worn: ppeVerification.mask_worn,
+        goggles_worn: ppeVerification.goggles_worn,
+        full_suit_worn: ppeVerification.full_suit_worn,
+        chemical_dilution_verified: ppeVerification.chemical_dilution_verified,
+        resident_area_cleared: ppeVerification.resident_area_cleared,
+      });
+    }
+  }, [ppeVerification]);
+  
   // Preview
   const [beforePreview, setBeforePreview] = useState<string | null>(null);
   const [afterPreview, setAfterPreview] = useState<string | null>(null);
@@ -67,6 +110,10 @@ export function JobSessionPanel({
   // Separate refs for each modal's file input to prevent cross-triggering
   const beforeFileInputRef = useRef<HTMLInputElement>(null);
   const afterFileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setRequestState(serviceRequest);
+  }, [serviceRequest]);
 
   // Reset state when modals close
   const resetState = () => {
@@ -101,10 +148,10 @@ export function JobSessionPanel({
 
   const uploadEvidence = async (file: File, prefix: string) => {
     const timestamp = Date.now();
-    const fileName = `${serviceRequest.id}/${prefix}_${timestamp}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+    const fileName = `${requestState.id}/${prefix}_${timestamp}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
     
     // Upload to 'service-evidence' bucket
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    const { error: uploadError } = await supabase.storage
       .from('service-evidence')
       .upload(fileName, file, {
         cacheControl: '3600',
@@ -133,9 +180,13 @@ export function JobSessionPanel({
       const photoUrl = await uploadEvidence(beforePhoto, 'start');
       
       // 2. Call RPC
-      const result = await startTask(serviceRequest.id, photoUrl);
+      const result = await startTask(requestState.id, photoUrl);
       
       if (result.success) {
+        const updatedRequest = await getRequestById(requestState.id);
+        if (updatedRequest) {
+          setRequestState(updatedRequest);
+        }
         toast.success("Task started successfully.");
         setIsStartModalOpen(false);
         resetState();
@@ -151,7 +202,48 @@ export function JobSessionPanel({
     }
   };
 
+  const handleTogglePPE = (id: keyof PPEChecklistData) => {
+    if (isPpeVerified) return;
+    setPpeFormData(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
+  };
+
+  const handleVerifyPPE = async () => {
+    if (!technicianId) {
+      toast.error("Technician ID is required for PPE verification");
+      return;
+    }
+
+    const allChecked = Object.values(ppeFormData).every(v => v === true);
+    if (!allChecked) {
+      toast.error("All PPE items must be verified");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const result = await submitPPEChecklist(ppeFormData, technicianId);
+
+      if (result.success) {
+        toast.success("PPE Verification successful");
+      } else {
+        toast.error("Failed to verify PPE: " + result.error);
+      }
+    } catch (err: any) {
+      toast.error("PPE Verification error: " + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleCompleteTask = async () => {
+    if (isPestControl && !isPpeVerified) {
+      toast.error("PPE verification is required for pest control jobs.");
+      return;
+    }
+
     if (!afterPhoto) {
       toast.error("After photo is mandatory to prove completion.");
       return;
@@ -168,9 +260,13 @@ export function JobSessionPanel({
       const photoUrl = await uploadEvidence(afterPhoto, 'complete');
       
       // 2. Call RPC
-      const result = await completeTask(serviceRequest.id, photoUrl, completionNotes);
+      const result = await completeTask(requestState.id, photoUrl, completionNotes);
       
       if (result.success) {
+        const updatedRequest = await getRequestById(requestState.id);
+        if (updatedRequest) {
+          setRequestState(updatedRequest);
+        }
         toast.success("Task completed successfully.");
         setIsCompleteModalOpen(false);
         resetState();
@@ -188,16 +284,18 @@ export function JobSessionPanel({
   };
 
   // Determine UI state
-  const isAssigned = serviceRequest.status === 'assigned';
-  const isInProgress = serviceRequest.status === 'in_progress';
-  const isCompleted = serviceRequest.status === 'completed';
+  const isAssigned = requestState.status === 'assigned';
+  const isInProgress = requestState.status === 'in_progress';
+  const isCompleted = requestState.status === 'completed';
+
+  const allPpeChecked = Object.values(ppeFormData).every(v => v === true);
 
   if (!isAssigned && !isInProgress && !isCompleted) {
     return (
       <Card>
         <CardContent className="pt-6 text-center text-muted-foreground">
           <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
-          <p>Task status: {serviceRequest.status}</p>
+          <p>Task status: {requestState.status}</p>
           <p className="text-xs">Must be assigned to start work.</p>
         </CardContent>
       </Card>
@@ -249,13 +347,13 @@ export function JobSessionPanel({
                 </div>
                 <div>
                   <h4 className="font-bold">Work in Progress</h4>
-                  <p className="text-xs text-muted-foreground">Started at: {serviceRequest.started_at ? new Date(serviceRequest.started_at).toLocaleTimeString() : 'Unknown'}</p>
+                  <p className="text-xs text-muted-foreground">Started at: {requestState.started_at ? new Date(requestState.started_at).toLocaleTimeString() : 'Unknown'}</p>
                 </div>
               </div>
               
-              {serviceRequest.before_photo_url && (
+              {requestState.before_photo_url && (
                 <div className="relative h-32 w-full rounded-md overflow-hidden bg-muted group">
-                   <img src={serviceRequest.before_photo_url} alt="Before Condition" className="h-full w-full object-cover" />
+                   <img src={requestState.before_photo_url} alt="Before Condition" className="h-full w-full object-cover" />
                    <div className="absolute inset-x-0 bottom-0 bg-black/60 p-1 text-center text-xs text-white font-bold">
                      Evidence: Before Condition
                    </div>
@@ -282,19 +380,19 @@ export function JobSessionPanel({
               </div>
               
                <div className="grid grid-cols-2 gap-2">
-                  {serviceRequest.before_photo_url && (
+                  {requestState.before_photo_url && (
                     <div className="relative h-24 w-full rounded-md overflow-hidden bg-muted">
-                      <img src={serviceRequest.before_photo_url} alt="Before" className="h-full w-full object-cover" />
+                      <img src={requestState.before_photo_url} alt="Before" className="h-full w-full object-cover" />
                     </div>
                   )}
-                  {serviceRequest.after_photo_url && (
+                  {requestState.after_photo_url && (
                     <div className="relative h-24 w-full rounded-md overflow-hidden bg-muted">
-                      <img src={serviceRequest.after_photo_url} alt="After" className="h-full w-full object-cover" />
+                      <img src={requestState.after_photo_url} alt="After" className="h-full w-full object-cover" />
                     </div>
                   )}
                </div>
                
-               <p className="text-xs italic bg-background p-2 rounded border">"{serviceRequest.completion_notes}"</p>
+               <p className="text-xs italic bg-background p-2 rounded border">"{requestState.completion_notes}"</p>
             </div>
           )}
 
@@ -357,6 +455,50 @@ export function JobSessionPanel({
           </DialogHeader>
           
           <div className="space-y-4 py-4">
+             {isPestControl && (
+               <div className="space-y-4 p-4 border rounded-lg bg-muted/20">
+                 <div className="flex items-center justify-between">
+                   <h4 className="font-bold text-sm">PPE Checklist</h4>
+                   {isPpeVerified ? (
+                     <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Verified</Badge>
+                   ) : (
+                     <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">Required</Badge>
+                   )}
+                 </div>
+                 
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                   {CHECKLIST_ITEMS.map((item) => (
+                     <div key={item.id} className="flex items-center space-x-2">
+                       <Checkbox 
+                         id={item.id} 
+                         checked={ppeFormData[item.id as keyof PPEChecklistData]} 
+                         onCheckedChange={() => handleTogglePPE(item.id as keyof PPEChecklistData)}
+                         disabled={isPpeVerified || isSubmitting}
+                       />
+                       <Label 
+                         htmlFor={item.id}
+                         className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                       >
+                         {item.label}
+                       </Label>
+                     </div>
+                   ))}
+                 </div>
+                 
+                 {!isPpeVerified && (
+                   <Button 
+                     size="sm" 
+                     className="w-full mt-2" 
+                     onClick={handleVerifyPPE}
+                     disabled={isSubmitting || !allPpeChecked}
+                   >
+                     {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                     Verify PPE Completion
+                   </Button>
+                 )}
+               </div>
+             )}
+
              <Label>Evidence Photo (Mandatory)</Label>
              <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => afterFileInputRef.current?.click()}>
                 {afterPreview ? (
@@ -394,7 +536,7 @@ export function JobSessionPanel({
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCompleteModalOpen(false)} disabled={isSubmitting}>Cancel</Button>
-            <Button onClick={handleCompleteTask} disabled={!afterPhoto || completionNotes.length < 5 || isSubmitting} className="gap-2 bg-green-600 hover:bg-green-700" variant="default">
+            <Button onClick={handleCompleteTask} disabled={!afterPhoto || completionNotes.length < 5 || isSubmitting || (isPestControl && !isPpeVerified)} className="gap-2 bg-green-600 hover:bg-green-700" variant="default">
               {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
               Complete Task
             </Button>

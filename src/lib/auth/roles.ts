@@ -37,10 +37,10 @@ export const ROLE_ACCESS: Record<AppRole, string[]> = {
   service_boy: ["/dashboard", "/service-boy", "/service-requests"],
   resident: ["/resident", "/test-resident", "/society/my-flat"],
   storekeeper: ["/dashboard", "/inventory", "/tickets/quality", "/tickets/returns"],
-  site_supervisor: ["/dashboard", "/society", "/tickets", "/hrms/attendance", "/service-requests"],
+  site_supervisor: ["/dashboard", "/society", "/tickets", "/hrms/attendance", "/service-requests", "/services/plantation"],
   super_admin: ["/"],
   ac_technician: ["/dashboard", "/service-requests", "/services/ac", "/inventory", "/hrms/attendance", "/hrms/leave"],
-  pest_control_technician: ["/dashboard", "/service-requests", "/services/pest-control", "/inventory", "/hrms/attendance", "/hrms/leave"],
+  pest_control_technician: ["/dashboard", "/service-requests", "/services/pest-control", "/services/plantation", "/inventory", "/hrms/attendance", "/hrms/leave"],
 };
 
 export function hasAccess(role: AppRole, pathname: string): boolean {

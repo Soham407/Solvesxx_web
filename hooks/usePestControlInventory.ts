@@ -191,6 +191,91 @@ export function usePestControlInventory() {
   }, [fetchChemicals]);
 
   // ============================================
+  // ISSUE CHEMICAL
+  // ============================================
+  const issueChemical = useCallback(async (input: {
+    chemicalId: string;
+    quantity: number;
+    recipientId?: string;
+    notes?: string;
+  }) => {
+    try {
+      const chem = state.chemicals.find(c => c.id === input.chemicalId);
+      if (!chem) throw new Error("Chemical not found in inventory.");
+
+      // 1. Pre-flight Check: Expiry
+      if (chem.expiry_date && new Date(chem.expiry_date) < new Date()) {
+        return { 
+          success: false, 
+          error: `Cannot issue expired chemical: ${chem.product_name} expired on ${new Date(chem.expiry_date).toLocaleDateString()}` 
+        };
+      }
+
+      // 2. Pre-flight Check: Stock level
+      if (Number(chem.current_stock) < input.quantity) {
+        return { success: false, error: "Insufficient stock." };
+      }
+
+      // 3. Record Stock Transaction
+      const { error: txError } = await supabase
+        .from("stock_transactions")
+        .insert({
+          product_id: chem.product_id,
+          transaction_type: "issue",
+          quantity: -Math.abs(input.quantity),
+          unit_of_measurement: chem.unit,
+          transaction_date: new Date().toISOString().split('T')[0],
+          batch_number: chem.batch_number,
+          notes: input.notes || `Issued to technician ${input.recipientId || ""}`,
+          transaction_number: `TX-PC-${Date.now()}-${Math.floor(Math.random() * 1000)}`
+        });
+
+      if (txError) throw txError;
+
+      // 4. Update Chemical Stock
+      const { error: updateError } = await supabase
+        .from("pest_control_chemicals")
+        .update({ 
+          current_stock: Number(chem.current_stock) - Number(input.quantity),
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", input.chemicalId);
+
+      if (updateError) throw updateError;
+
+      await fetchChemicals();
+      return { success: true };
+    } catch (err: any) {
+      console.error("Error issuing PC chemical:", err);
+      return { success: false, error: err.message || "Failed to issue chemical." };
+    }
+  }, [state.chemicals, fetchChemicals]);
+
+  // ============================================
+  // UPDATE EXPIRY & BATCH
+  // ============================================
+  const updateExpiry = useCallback(async (chemicalId: string, input: { expiry_date: string; batch_number: string }) => {
+    try {
+      const { error } = await supabase
+        .from("pest_control_chemicals")
+        .update({ 
+          expiry_date: input.expiry_date,
+          batch_number: input.batch_number,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", chemicalId);
+
+      if (error) throw error;
+
+      await fetchChemicals();
+      return { success: true };
+    } catch (err: any) {
+      console.error("Error updating chemical expiry:", err);
+      return { success: false, error: err.message || "Failed to update expiry information." };
+    }
+  }, [fetchChemicals]);
+
+  // ============================================
   // INITIAL LOAD
   // ============================================
   useEffect(() => {
@@ -201,19 +286,30 @@ export function usePestControlInventory() {
   // Chemicals expiring within 30 days
   const thirtyDaysFromNow = new Date();
   thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+  
   const expiringChemicals = state.chemicals.filter((c) => {
     if (!c.expiry_date) return false;
     const exp = new Date(c.expiry_date);
-    return exp <= thirtyDaysFromNow;
+    const today = new Date();
+    return exp > today && exp <= thirtyDaysFromNow;
+  });
+
+  // Blocked Chemicals (Already Expired)
+  const blockedChemicals = state.chemicals.filter((c) => {
+    if (!c.expiry_date) return false;
+    return new Date(c.expiry_date) < new Date();
   });
 
   return {
     ...state,
     expiringChemicals,
+    blockedChemicals,
     fetchChemicals,
     fetchPPEVerifications,
     submitPPEVerification,
     updateStock,
+    issueChemical,
+    updateExpiry,
     refresh: () => {
       fetchChemicals();
       fetchPPEVerifications();

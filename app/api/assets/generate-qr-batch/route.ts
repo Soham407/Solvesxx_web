@@ -149,8 +149,8 @@ export async function POST(request: NextRequest) {
       throw insertError;
     }
 
-    // Log batch generation with the authenticated user's ID
-    await supabase.from("qr_batch_logs").insert({
+    // Log batch generation with the authenticated user's auth.users ID
+    const { error: batchLogError } = await supabase.from("qr_batch_logs").insert({
       batch_id: batchId,
       society_id: societyId,
       warehouse_id: warehouseId || null,
@@ -158,6 +158,12 @@ export async function POST(request: NextRequest) {
       generated_at: new Date().toISOString(),
       generated_by: auth.user!.id,
     });
+
+    if (batchLogError) {
+      await supabase.from("qr_codes").delete().eq("batch_id", batchId);
+      console.error("Error writing QR batch log:", batchLogError);
+      throw batchLogError;
+    }
 
     return NextResponse.json({
       success: true,

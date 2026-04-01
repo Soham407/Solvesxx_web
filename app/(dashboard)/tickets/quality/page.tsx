@@ -140,10 +140,9 @@ export default function QualityTicketsPage() {
         
         // Filter items with quality issues
         items.forEach((item, index) => {
-          if (item.quality_status && item.quality_status !== "good" && item.quality_status !== "pending") {
+          if (item.quality_status && item.quality_status !== "accepted") {
             let issueType: QualityTicket["issueType"] = "Partial";
-            if (item.quality_status === "damaged") issueType = "Damaged";
-            else if (item.quality_status === "rejected") issueType = "Wrong Item";
+            if (item.quality_status === "rejected") issueType = "Damaged";
             else if (item.rejected_quantity > 0) issueType = "Shortage";
 
             let status: QualityTicket["status"] = "Under Review";
@@ -171,7 +170,7 @@ export default function QualityTicketsPage() {
 
       // Calculate stats
       const shortage = allTickets.filter(t => t.issueType === "Shortage" || t.qualityStatus === "partial").length;
-      const damaged = allTickets.filter(t => t.issueType === "Damaged" || t.qualityStatus === "damaged").length;
+      const damaged = allTickets.filter(t => t.issueType === "Damaged" || t.qualityStatus === "rejected").length;
       const pending = allTickets.filter(t => t.status === "Under Review" || t.status === "Debit Note Raised").length;
       const resolved = allTickets.filter(t => t.status === "Resolved").length;
       const total = allTickets.length || 1;

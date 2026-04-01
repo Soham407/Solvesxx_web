@@ -86,7 +86,7 @@ export function useEmployeeProfile() {
               .from("security_guards")
               .select("id, guard_code")
               .eq("employee_id", directEmployee.id)
-              .single();
+              .maybeSingle();
 
             const firstName = directEmployee.first_name || "";
             const lastName = directEmployee.last_name || "";
@@ -164,7 +164,7 @@ export function useEmployeeProfile() {
           .from("security_guards")
           .select("id, guard_code")
           .eq("employee_id", userData.employee_id)
-          .single(),
+          .maybeSingle(),
       ]);
 
       const { data: employeeData, error: employeeError } = employeeResult;

@@ -6,8 +6,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ServiceRequest } from "@/src/types/operations";
-import { Calendar, Clock } from "lucide-react";
+import { Calendar, Clock, ShieldCheck, ShieldAlert } from "lucide-react";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 interface RequestKanbanCardProps {
   request: ServiceRequest;
@@ -36,6 +37,10 @@ export function RequestKanbanCard({
     transition,
     opacity: isDragging ? 0.5 : 1,
   };
+
+  const req = request as any;
+  const isPestControl = req.service_code === "PST-CON" || req.service_name?.toLowerCase().includes("pest");
+  const ppeVerified = req.ppe_verified === true;
 
   // Format date
   const formatDate = (dateString: string | null) => {
@@ -71,9 +76,23 @@ export function RequestKanbanCard({
           <CardContent className="p-4 space-y-3">
             {/* Header: Priority & Request Number */}
             <div className="flex items-start justify-between">
-              <Badge variant="outline" className={`text-xs ${priorityColor}`}>
-                {request.priority}
-              </Badge>
+              <div className="flex flex-col gap-1">
+                <Badge variant="outline" className={`text-[10px] h-5 ${priorityColor}`}>
+                  {request.priority}
+                </Badge>
+                {isPestControl && (
+                  <Badge 
+                    variant="outline" 
+                    className={cn(
+                      "text-[10px] h-5 flex items-center gap-1",
+                      ppeVerified ? "bg-green-50 text-green-700 border-green-200" : "bg-red-50 text-red-700 border-red-200"
+                    )}
+                  >
+                    {ppeVerified ? <ShieldCheck className="h-3 w-3" /> : <ShieldAlert className="h-3 w-3" />}
+                    PPE {ppeVerified ? "Verified" : "Pending"}
+                  </Badge>
+                )}
+              </div>
               <span className="text-xs text-muted-foreground font-mono">
                 #{request.request_number}
               </span>

@@ -9,7 +9,8 @@ import {
   Download, 
   AlertTriangle,
   Flame,
-  LayoutGrid
+  LayoutGrid,
+  AlertCircle
 } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
@@ -17,20 +18,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAnalyticsData } from "@/hooks/useAnalyticsData";
 import { AnalyticsChart } from "@/components/shared/AnalyticsChart";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { downloadCSV } from "@/lib/utils/csvExport";
 import { toast } from "sonner";
+import { MonthPicker } from "@/components/shared/MonthPicker";
+import { useState } from "react";
 
 interface InventoryReport {
-  product_id: string;
   item_name: string;
-  category: string;
-  stock_level: number;
-  consumption_rate: number;
-  days_to_stockout: number;
+  received: number;
+  issued: number;
 }
 
 export default function InventoryAnalysisPage() {
-  const { data, isLoading } = useAnalyticsData("inventory");
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const { data, trends, summary, isLoading, error } = useAnalyticsData("inventory", selectedDate);
 
   const columns: ColumnDef<InventoryReport>[] = [
     {
@@ -39,51 +41,74 @@ export default function InventoryAnalysisPage() {
       cell: ({ row }) => <span className="text-sm font-bold text-foreground">{row.getValue("item_name")}</span>,
     },
     {
-      accessorKey: "category",
-      header: "Category",
-      cell: ({ row }) => <span className="text-xs font-medium text-muted-foreground uppercase">{row.getValue("category")}</span>,
+      accessorKey: "received",
+      header: "Units Received",
+      cell: ({ row }) => <span className="text-sm font-medium text-success">+{row.getValue("received")}</span>,
     },
     {
-      accessorKey: "stock_level",
-      header: "Stock Level",
-      cell: ({ row }) => <span className="text-sm font-medium">{row.getValue("stock_level")} units</span>,
+      accessorKey: "issued",
+      header: "Units Issued",
+      cell: ({ row }) => <span className="text-sm font-medium text-critical">-{row.getValue("issued")}</span>,
     },
     {
-      accessorKey: "consumption_rate",
-      header: "Monthly Burn",
-      cell: ({ row }) => <span className="text-sm font-semibold text-critical">-{row.getValue("consumption_rate")}/mo</span>,
-    },
-    {
-      accessorKey: "days_to_stockout",
-      header: "Forecast",
-      cell: ({ row }) => (
-        <Badge variant="outline" className={`${Number(row.getValue("days_to_stockout")) < 7 ? "bg-critical/5 text-critical border-critical/20" : "bg-success/5 text-success border-success/20"} font-bold`}>
-            {row.getValue("days_to_stockout")} days left
-        </Badge>
-      ),
+      id: "net",
+      header: "Net Movement",
+      cell: ({ row }) => {
+        const net = Number(row.getValue("received")) - Number(row.getValue("issued"));
+        return (
+          <Badge variant="outline" className={`${net >= 0 ? "bg-success/5 text-success border-success/20" : "bg-critical/5 text-critical border-critical/20"} font-bold`}>
+              {net > 0 ? "+" : ""}{net} units
+          </Badge>
+        );
+      },
     },
   ];
 
-  const criticalItems = data.filter(item => item.days_to_stockout < 7).length;
-  const avgBurnRate = data.length > 0 ? (data.reduce((acc, curr) => acc + Number(curr.consumption_rate), 0) / data.length).toFixed(1) : "0";
-  const stockOutRisk = data.filter(item => item.stock_level === 0).length;
+  const totalReceived = data.reduce((acc, curr) => acc + Number(curr.received || 0), 0);
+  const totalIssued = data.reduce((acc, curr) => acc + Number(curr.issued || 0), 0);
+  const fastMovingItem = data.length > 0 ? [...data].sort((a, b) => b.issued - a.issued)[0]?.item_name : "None";
 
   return (
     <div className="animate-fade-in space-y-8 pb-20">
       <PageHeader
         title="Inventory Consumption Analytics"
-        description="Predictive stock-out modeling, category burn rates, and automated reorder forecasting."
+        description="Detailed tracking of material inflows and outflows, category burn rates, and reorder patterns for the selected month."
         actions={
-          <div className="flex gap-2">
-             <Button variant="outline" className="gap-2" onClick={() => { const alerts = data.filter(i => i.days_to_stockout < 7); if (alerts.length === 0) { toast.info("No critical stock alerts at this time"); return; } downloadCSV("stock_alerts", alerts); toast.success(`${alerts.length} stock alert(s) exported`); }}>
-               <AlertTriangle className="h-4 w-4" /> Stock Alerts
-            </Button>
-            <Button className="gap-2 shadow-lg shadow-primary/20" onClick={() => { if (data.length === 0) { toast.error("No data to export"); return; } downloadCSV("po_manifest", data); toast.success("PO Manifest downloaded"); }}>
-               <Download className="h-4 w-4" /> PO Manifest (XL)
-            </Button>
+          <div className="flex items-center gap-4">
+            <MonthPicker selectedDate={selectedDate} onDateChange={setSelectedDate} />
+            <div className="flex gap-2 border-l pl-4 ml-2">
+               <Button variant="outline" className="gap-2 relative" onClick={() => {
+                 if (summary?.low_stock_count > 0) {
+                   toast.warning(`${summary.low_stock_count} items are below reorder level`, {
+                     description: "Check inventory management for details."
+                   });
+                 } else {
+                   toast.success("All items are above reorder level");
+                 }
+               }}>
+                 <AlertTriangle className={`h-4 w-4 ${summary?.low_stock_count > 0 ? "text-critical animate-pulse" : ""}`} /> 
+                 Stock Alerts
+                 {summary?.low_stock_count > 0 && (
+                   <Badge variant="destructive" className="ml-1 h-5 w-5 flex items-center justify-center p-0 text-[10px]">
+                     {summary.low_stock_count}
+                   </Badge>
+                 )}
+              </Button>
+              <Button className="gap-2 shadow-lg shadow-primary/20" onClick={() => { if (data.length === 0) { toast.error("No data to export"); return; } downloadCSV("inventory_movement", data); toast.success("Movement report downloaded"); }}>
+                 <Download className="h-4 w-4" /> Download Report
+              </Button>
+            </div>
           </div>
         }
       />
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error fetching inventory data</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
       <div className="grid gap-6 md:grid-cols-3">
         <Card className="border-none shadow-card ring-1 ring-border p-6 bg-linear-to-br from-primary/5 to-transparent">
@@ -91,11 +116,11 @@ export default function InventoryAnalysisPage() {
                  <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
                     <Package className="h-5 w-5" />
                  </div>
-                 <Badge variant="outline" className="text-critical border-critical/20 bg-critical/5 font-bold">{criticalItems} Critical</Badge>
+                 <Badge variant="outline" className="text-success border-success/20 bg-success/5 font-bold">Inflow</Badge>
              </div>
              <div className="flex flex-col text-left">
-                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Total SKU Count</span>
-                <span className="text-2xl font-bold  text-primary mt-1">{data.length} Items</span>
+                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Total Received</span>
+                <span className="text-2xl font-bold  text-primary mt-1">{totalReceived} Units</span>
              </div>
         </Card>
         <Card className="border-none shadow-card ring-1 ring-border p-6 bg-linear-to-br from-critical/5 to-transparent">
@@ -103,11 +128,11 @@ export default function InventoryAnalysisPage() {
                  <div className="h-10 w-10 rounded-xl bg-critical/10 text-critical flex items-center justify-center">
                     <Flame className="h-5 w-5" />
                  </div>
-                 <Badge variant="outline" className="text-critical border-critical/20 bg-critical/5 font-bold">Fast Moving</Badge>
+                 <Badge variant="outline" className="text-critical border-critical/20 bg-critical/5 font-bold">Outflow</Badge>
              </div>
              <div className="flex flex-col text-left">
-                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Avg. Monthly Burn</span>
-                <span className="text-2xl font-bold  text-critical mt-1">{avgBurnRate} items/mo</span>
+                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Total Issued</span>
+                <span className="text-2xl font-bold  text-critical mt-1">{totalIssued} Units</span>
              </div>
         </Card>
         <Card className="border-none shadow-card ring-1 ring-border p-6 bg-linear-to-br from-warning/5 to-transparent">
@@ -115,11 +140,11 @@ export default function InventoryAnalysisPage() {
                  <div className="h-10 w-10 rounded-xl bg-warning/10 text-warning flex items-center justify-center">
                     <TrendingDown className="h-5 w-5" />
                  </div>
-                 <Badge variant="outline" className="text-warning border-warning/20 bg-warning/5 font-bold">Risk Zone</Badge>
+                 <Badge variant="outline" className="text-warning border-warning/20 bg-warning/5 font-bold">Fast Moving</Badge>
              </div>
              <div className="flex flex-col text-left">
-                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Stock Out Risk</span>
-                <span className="text-2xl font-bold  text-warning mt-1">{stockOutRisk} SKUs</span>
+                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Highest Burn Item</span>
+                <span className="text-2xl font-bold  text-warning mt-1 truncate">{fastMovingItem}</span>
              </div>
         </Card>
       </div>
@@ -128,8 +153,8 @@ export default function InventoryAnalysisPage() {
           <Card className="border-none shadow-card ring-1 ring-border">
               <CardHeader className="flex flex-row items-center justify-between">
                   <div className="flex flex-col gap-1 text-left">
-                    <CardTitle className="text-sm font-bold">Category Burn Chart</CardTitle>
-                    <span className="text-[10px] text-muted-foreground uppercase font-bold">Consumption Intensity</span>
+                    <CardTitle className="text-sm font-bold">Movement Comparison</CardTitle>
+                    <span className="text-[10px] text-muted-foreground uppercase font-bold">Received vs Issued</span>
                   </div>
                   <LayoutGrid className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
@@ -139,9 +164,9 @@ export default function InventoryAnalysisPage() {
                         type="bar" 
                         data={data} 
                         index="item_name" 
-                        categories={["consumption_rate"]} 
+                        categories={["received", "issued"]} 
                         height={250}
-                        colors={["#ef4444"]}
+                        colors={["#22c55e", "#ef4444"]}
                       />
                   )}
               </CardContent>
@@ -149,8 +174,8 @@ export default function InventoryAnalysisPage() {
           <Card className="border-none shadow-card ring-1 ring-border">
               <CardHeader className="flex flex-row items-center justify-between">
                   <div className="flex flex-col gap-1 text-left">
-                    <CardTitle className="text-sm font-bold">Reorder Heatmap</CardTitle>
-                    <span className="text-[10px] text-muted-foreground uppercase font-bold">Days to Depletion</span>
+                    <CardTitle className="text-sm font-bold">Monthly Movement Trend</CardTitle>
+                    <span className="text-[10px] text-muted-foreground uppercase font-bold">Received vs Issued</span>
                   </div>
                   <TrendingDown className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
@@ -158,11 +183,11 @@ export default function InventoryAnalysisPage() {
                    {isLoading ? <Skeleton className="h-[200px] w-full" /> : (
                       <AnalyticsChart 
                         type="area" 
-                        data={data} 
-                        index="item_name" 
-                        categories={["days_to_stockout"]} 
+                        data={trends} 
+                        index="month" 
+                        categories={["received", "issued"]} 
                         height={250}
-                        colors={["#3b82f6"]}
+                        colors={["#22c55e", "#ef4444"]}
                       />
                   )}
               </CardContent>

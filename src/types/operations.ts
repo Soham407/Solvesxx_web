@@ -163,6 +163,7 @@ export interface CompleteJobSessionForm {
   remarks?: string;
   endLatitude?: number;
   endLongitude?: number;
+  afterPhotoUrl?: string;
 }
 
 export interface AddJobPhotoForm {
@@ -196,6 +197,7 @@ export interface ServiceRequestFilters {
   status?: ServiceRequestStatus | ServiceRequestStatus[];
   priority?: ServicePriority;
   assignedTo?: string;
+  requesterId?: string;
   assetId?: string;
   serviceId?: string;
   locationId?: string;

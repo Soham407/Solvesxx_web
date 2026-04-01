@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase as supabaseClient } from "@/src/lib/supabaseClient";
-const supabase = supabaseClient as any;
+import { supabase } from "@/src/lib/supabaseClient";
 
 // ============================================
 // TYPES
@@ -22,6 +21,8 @@ export interface Indent {
   id: string;
   indent_number: string;
   requester_id: string;
+  service_request_id?: string | null;
+  supplier_id?: string | null;
   department: string | null;
   location_id: string | null;
   society_id: string | null;
@@ -79,6 +80,8 @@ export interface IndentItem {
 
 export interface CreateIndentInput {
   requester_id: string;
+  service_request_id?: string;
+  supplier_id?: string;
   department?: string;
   location_id?: string;
   society_id?: string;
@@ -261,6 +264,21 @@ export function useIndents(filters?: { status?: IndentStatus; department?: strin
     }
   }, []);
 
+  const fetchIndentStatus = useCallback(async (indentId: string): Promise<IndentStatus | null> => {
+    const { data, error } = await supabase
+      .from("indents")
+      .select("status")
+      .eq("id", indentId)
+      .single();
+
+    if (error) {
+      console.error("Error fetching indent status:", error);
+      throw error;
+    }
+
+    return (data?.status as IndentStatus | undefined) ?? null;
+  }, []);
+
   // ============================================
   // CREATE INDENT
   // ============================================
@@ -270,6 +288,8 @@ export function useIndents(filters?: { status?: IndentStatus; department?: strin
         .from("indents")
         .insert({
           requester_id: input.requester_id,
+          service_request_id: input.service_request_id,
+          supplier_id: input.supplier_id,
           department: input.department,
           location_id: input.location_id,
           society_id: input.society_id,
@@ -305,9 +325,14 @@ export function useIndents(filters?: { status?: IndentStatus; department?: strin
     updates: Partial<CreateIndentInput>
   ): Promise<Indent | null> => {
     try {
-      // Verify indent is in draft status
-      const indent = state.indents.find((i) => i.id === indentId);
-      if (indent && indent.status !== "draft") {
+      const cachedStatus = state.indents.find((indent) => indent.id === indentId)?.status;
+      const indentStatus = cachedStatus ?? await fetchIndentStatus(indentId);
+
+      if (!indentStatus) {
+        throw new Error("Indent not found");
+      }
+
+      if (indentStatus !== "draft") {
         throw new Error("Only draft indents can be edited");
       }
 
@@ -328,7 +353,7 @@ export function useIndents(filters?: { status?: IndentStatus; department?: strin
       setState((prev) => ({ ...prev, error: errorMessage }));
       return null;
     }
-  }, [state.indents, fetchIndents]);
+  }, [state.indents, fetchIndentStatus, fetchIndents]);
 
   // ============================================
   // DELETE INDENT
@@ -525,11 +550,12 @@ export function useIndents(filters?: { status?: IndentStatus; department?: strin
     approvedQuantities?: Record<string, number> // itemId -> approved quantity
   ): Promise<boolean> => {
     try {
-      const indent = state.indents.find((i) => i.id === indentId);
-      if (!indent) throw new Error("Indent not found");
+      const indentStatus = state.indents.find((indent) => indent.id === indentId)?.status
+        ?? await fetchIndentStatus(indentId);
+      if (!indentStatus) throw new Error("Indent not found");
 
-      if (!canTransition(indent.status, "approved")) {
-        throw new Error(`Cannot approve indent from status: ${indent.status}`);
+      if (!canTransition(indentStatus, "approved")) {
+        throw new Error(`Cannot approve indent from status: ${indentStatus}`);
       }
 
       // Update approved quantities if provided — use parallel writes to avoid N+1
@@ -564,7 +590,7 @@ export function useIndents(filters?: { status?: IndentStatus; department?: strin
       setState((prev) => ({ ...prev, error: errorMessage }));
       return false;
     }
-  }, [state.indents, fetchIndents]);
+  }, [state.indents, fetchIndentStatus, fetchIndents]);
 
   // ============================================
   // REJECT INDENT
@@ -748,6 +774,17 @@ export function useIndents(filters?: { status?: IndentStatus; department?: strin
   // ============================================
   useEffect(() => {
     fetchIndents();
+  }, [fetchIndents]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("indents")
+      .on("postgres_changes", { event: "*", schema: "public", table: "indents" }, fetchIndents)
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [fetchIndents]);
 
   // ============================================

@@ -8,20 +8,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Send, FileText, Upload, Receipt } from "lucide-react";
+import { AlertCircle, ArrowLeft, Send, FileText, Upload, Receipt, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/use-toast";
 import { formatCurrency } from "@/src/lib/utils/currency";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export default function NewSupplierBillPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { pos, bills, submitBill, isLoading } = useSupplierPortal();
-  const { uploadBillDocument, generateBillNumber } = useSupplierBills();
+  const { pos, bills, submitBill, isLoading, serviceOrders, serviceAcknowledgments } = useSupplierPortal();
+  const { uploadBillDocument } = useSupplierBills();
 
-  const [selectedPoId, setSelectedPoId] = useState("");
+  const [selectedId, setSelectedId] = useState("");
+  const [billType, setBillType] = useState<"po" | "spo">("po");
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
   const [notes, setNotes] = useState("");
@@ -32,25 +34,37 @@ export default function NewSupplierBillPage() {
   // Only show POs that are dispatched or received AND not already billed
   const eligiblePOs = useMemo(() => {
     const billedPOIds = new Set((bills || []).map(b => b.purchase_order_id).filter(Boolean));
-    return pos.filter(p => ['dispatched', 'received'].includes(p.status) && !billedPOIds.has(p.id));
+    return (pos || []).filter(p => ['dispatched', 'received'].includes(p.status) && !billedPOIds.has(p.id));
   }, [pos, bills]);
 
+  // Show SPOs that are not already billed
+  const eligibleSPOs = useMemo(() => {
+    const billedSPOIds = new Set((bills || []).map(b => b.service_purchase_order_id).filter(Boolean));
+    return (serviceOrders || []).filter(s => !billedSPOIds.has(s.id));
+  }, [serviceOrders, bills]);
+
   const selectedPO = useMemo(() => {
-    return pos.find(p => p.id === selectedPoId);
-  }, [selectedPoId, pos]);
+    return billType === "po" ? pos.find(p => p.id === selectedId) : null;
+  }, [selectedId, pos, billType]);
+
+  const selectedSPO = useMemo(() => {
+    return billType === "spo" ? serviceOrders.find(s => s.id === selectedId) : null;
+  }, [selectedId, serviceOrders, billType]);
+
+  const isAckMissing = useMemo(() => {
+    if (billType !== "spo" || !selectedId) return false;
+    return !serviceAcknowledgments.some(ack => ack.spo_id === selectedId && ack.status === 'acknowledged');
+  }, [billType, selectedId, serviceAcknowledgments]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedPoId || !invoiceNumber) return;
+    if (!selectedId || !invoiceNumber || isAckMissing) return;
 
     try {
       setIsSubmitting(true);
 
-      // Generate bill number via hook (no inline Supabase in pages)
-      const billNumber = await generateBillNumber();
-
-      const billData = {
-        purchase_order_id: selectedPoId,
+      const billData = billType === "po" ? {
+        purchase_order_id: selectedId,
         supplier_invoice_number: invoiceNumber,
         bill_date: invoiceDate,
         total_amount: selectedPO?.grand_total || 0,
@@ -59,19 +73,29 @@ export default function NewSupplierBillPage() {
         discount_amount: selectedPO?.discount_amount || 0,
         notes: notes,
         supplier_id: selectedPO?.supplier_id,
-        bill_number: billNumber
+      } : {
+        service_purchase_order_id: selectedId,
+        supplier_invoice_number: invoiceNumber,
+        bill_date: invoiceDate,
+        total_amount: selectedSPO?.total_amount || 0,
+        subtotal: selectedSPO?.total_amount || 0,
+        tax_amount: 0,
+        discount_amount: 0,
+        notes: notes,
+        supplier_id: selectedSPO?.vendor_id,
       };
 
       const result = await submitBill(billData);
       const success = result?.success ?? false;
       const newBillId = result?.billId;
+      const supplierId = billType === "po" ? selectedPO?.supplier_id : selectedSPO?.vendor_id;
 
       if (success) {
         // Upload document if provided
-        if (uploadedFile && selectedPO?.supplier_id && newBillId) {
+        if (uploadedFile && supplierId && newBillId) {
           setIsUploading(true);
           try {
-            const uploaded = await uploadBillDocument(newBillId, selectedPO.supplier_id, uploadedFile);
+            const uploaded = await uploadBillDocument(newBillId, supplierId, uploadedFile);
             if (!uploaded) {
               toast({ title: "Bill submitted", description: "Bill submitted but document upload failed. Please re-upload from the bills list.", variant: "default" });
             }
@@ -100,31 +124,65 @@ export default function NewSupplierBillPage() {
         </Link>
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Submit Invoice</h1>
-          <p className="text-muted-foreground">Attach your invoice details for finalized shipments.</p>
+          <p className="text-muted-foreground">Attach your invoice details for finalized shipments or services.</p>
         </div>
       </div>
+
+      {isAckMissing && (
+        <Alert variant="destructive" className="border-critical/50 bg-critical/5">
+          <AlertCircle className="h-5 w-5 text-critical" />
+          <AlertTitle className="text-critical">Acknowledgment Required</AlertTitle>
+          <AlertDescription className="flex flex-col gap-2">
+            <p>This job requires a signed acknowledgment before billing. Please obtain acknowledgment first.</p>
+            <Link href="/supplier/service-orders" className="text-sm font-medium underline flex items-center gap-1">
+              Go to Service Acknowledgments <ExternalLink className="h-3 w-3" />
+            </Link>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>PO Selection</CardTitle>
-            <CardDescription>Select the purchase order you are billing for.</CardDescription>
+            <CardTitle>Reference Selection</CardTitle>
+            <CardDescription>Select what you are billing for.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-2">
-              <Label htmlFor="po">Reference Purchase Order</Label>
-              <Select value={selectedPoId} onValueChange={setSelectedPoId} required>
-                <SelectTrigger id="po">
-                  <SelectValue placeholder="Choose a dispatched PO" />
+              <Label>Billing Type</Label>
+              <Select value={billType} onValueChange={(v: any) => { setBillType(v); setSelectedId(""); }}>
+                <SelectTrigger>
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {eligiblePOs.map((po) => (
-                    <SelectItem key={po.id} value={po.id}>
-                      {po.po_number} ({formatCurrency(po.grand_total)})
-                    </SelectItem>
-                  ))}
-                  {eligiblePOs.length === 0 && (
-                    <div className="p-2 text-xs text-muted-foreground italic">No dispatched POs available</div>
+                  <SelectItem value="po">Material Goods (PO)</SelectItem>
+                  <SelectItem value="spo">Services (SPO)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="ref">Reference {billType === "po" ? "PO" : "SPO"}</Label>
+              <Select value={selectedId} onValueChange={setSelectedId} required>
+                <SelectTrigger id="ref">
+                  <SelectValue placeholder={`Choose a ${billType === "po" ? "dispatched PO" : "service order"}`} />
+                </SelectTrigger>
+                <SelectContent>
+                  {billType === "po" ? (
+                    eligiblePOs.map((po) => (
+                      <SelectItem key={po.id} value={po.id}>
+                        {po.po_number} ({formatCurrency(po.grand_total)})
+                      </SelectItem>
+                    ))
+                  ) : (
+                    eligibleSPOs.map((spo) => (
+                      <SelectItem key={spo.id} value={spo.id}>
+                        {spo.spo_number} ({formatCurrency(spo.total_amount)})
+                      </SelectItem>
+                    ))
+                  )}
+                  {((billType === "po" && eligiblePOs.length === 0) || (billType === "spo" && eligibleSPOs.length === 0)) && (
+                    <div className="p-2 text-xs text-muted-foreground italic">No available orders</div>
                   )}
                 </SelectContent>
               </Select>
@@ -139,6 +197,23 @@ export default function NewSupplierBillPage() {
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Expected Amount:</span>
                   <span className="font-bold">{formatCurrency(selectedPO.grand_total)}</span>
+                </div>
+              </div>
+            )}
+
+            {selectedSPO && (
+              <div className="p-4 bg-muted/30 rounded-lg space-y-2 border border-dashed border-muted-foreground/30">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Service Type:</span>
+                  <span>{selectedSPO.service_type}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Period:</span>
+                  <span>{new Date(selectedSPO.start_date).toLocaleDateString()} onwards</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Total Value:</span>
+                  <span className="font-bold">{formatCurrency(selectedSPO.total_amount)}</span>
                 </div>
               </div>
             )}
@@ -215,7 +290,7 @@ export default function NewSupplierBillPage() {
           <Link href="/supplier/bills">
             <Button type="button" variant="outline">Cancel</Button>
           </Link>
-          <Button type="submit" className="gap-2" disabled={isSubmitting || isUploading || !selectedPoId}>
+          <Button type="submit" className="gap-2" disabled={isSubmitting || isUploading || !selectedId || isAckMissing}>
             {isUploading ? "Uploading document..." : isSubmitting ? "Submitting..." : (
               <>
                 <Send className="h-4 w-4" /> Submit for Review

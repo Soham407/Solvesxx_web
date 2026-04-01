@@ -12,6 +12,7 @@ export type POStatus =
   | "draft"
   | "sent_to_vendor"
   | "acknowledged"
+  | "dispatched"
   | "partial_received"
   | "received"
   | "cancelled";
@@ -109,11 +110,18 @@ interface UsePurchaseOrdersState {
   error: string | null;
 }
 
+export const PO_RECEIPT_READY_STATUSES: readonly POStatus[] = [
+  "acknowledged",
+  "dispatched",
+  "partial_received",
+];
+
 // Status transition rules
 const STATUS_TRANSITIONS: Record<POStatus, POStatus[]> = {
   draft: ["sent_to_vendor", "cancelled"],
   sent_to_vendor: ["acknowledged", "cancelled"],
-  acknowledged: ["partial_received", "received"],
+  acknowledged: ["dispatched", "partial_received", "received"],
+  dispatched: ["partial_received", "received"],
   partial_received: ["received"],
   received: [], // Terminal state
   cancelled: [], // Terminal state
@@ -124,6 +132,7 @@ export const PO_STATUS_CONFIG: Record<POStatus, { label: string; className: stri
   draft: { label: "Draft", className: "bg-muted text-muted-foreground border-border" },
   sent_to_vendor: { label: "Sent to Vendor", className: "bg-info/10 text-info border-info/20" },
   acknowledged: { label: "Acknowledged", className: "bg-primary/10 text-primary border-primary/20" },
+  dispatched: { label: "Dispatched", className: "bg-indigo/10 text-indigo border-indigo/20" },
   partial_received: { label: "Partial Received", className: "bg-warning/10 text-warning border-warning/20" },
   received: { label: "Received", className: "bg-success/10 text-success border-success/20" },
   cancelled: { label: "Cancelled", className: "bg-critical/10 text-critical border-critical/20" },
@@ -1157,7 +1166,7 @@ export function usePurchaseOrders(filters?: { status?: POStatus; supplierId?: st
 
   const getActivePOs = useCallback((): PurchaseOrder[] => {
     return state.purchaseOrders.filter((p) => 
-      p.status && ["sent_to_vendor", "acknowledged", "partial_received"].includes(p.status)
+      p.status && ["sent_to_vendor", ...PO_RECEIPT_READY_STATUSES].includes(p.status)
     );
   }, [state.purchaseOrders]);
 

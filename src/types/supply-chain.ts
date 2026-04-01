@@ -38,7 +38,7 @@ export type SaleProductRateUpdate = Database['public']['Tables']['sale_product_r
 // ===== EXTENDED TYPES (with new columns after migration) =====
 
 /** Extended Supplier type with all Phase D columns */
-export interface SupplierExtended extends Supplier {
+export type SupplierExtended = Supplier & {
   // Business info
   supplier_type?: SupplierType | null;
   alternate_phone?: string | null;
@@ -59,6 +59,8 @@ export interface SupplierExtended extends Supplier {
   // Business terms
   payment_terms?: number | null;  // Days
   credit_limit?: number | null;
+  rates?: string | null;
+  availability?: string | null;
 
   // Status & verification
   status?: SupplierStatus | null;
@@ -76,7 +78,7 @@ export interface SupplierExtended extends Supplier {
   // Audit
   created_by?: string | null;
   updated_by?: string | null;
-}
+};
 
 /** Extended Supplier Product type with all Phase D columns */
 export interface SupplierProductExtended extends SupplierProduct {
@@ -253,6 +255,8 @@ export interface CreateSupplierForm {
   ifsc_code?: string;
   payment_terms?: number;
   credit_limit?: number;
+  rates?: string;
+  availability?: string;
   status?: SupplierStatus;
 }
 

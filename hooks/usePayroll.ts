@@ -175,79 +175,43 @@ export const MONTH_NAMES = [
 // SALARY CALCULATION HELPERS
 // ============================================
 
-// Professional Tax calculation (simplified - Karnataka rates)
-function calculateProfessionalTax(grossSalary: number): number {
-  if (grossSalary <= 15000) return 0;
-  if (grossSalary <= 25000) return 200;
-  return 200; // Flat 200 for > 25000 in many states
+function createEmptyAttendanceData(): AttendanceData {
+  return {
+    present_days: 0,
+    absent_days: 0,
+    leave_days: 0,
+    overtime_hours: 0,
+  };
 }
 
-// Calculate salary for an employee
-// NOTE: Kept for UI preview/display purposes only. The authoritative calculation
-// is now performed server-side by the database function `calculate_employee_salary`.
-export function calculateSalary(
-  employee: EmployeeSalaryInfo,
-  attendance: AttendanceData,
-  totalWorkingDays: number
-): Partial<Payslip> {
-  // Pro-rate basic based on attendance
-  const proRatedBasic = (employee.basic_salary * attendance.present_days) / totalWorkingDays;
-  
-  // Calculate overtime
-  const overtimeAmount = attendance.overtime_hours * employee.overtime_rate;
-  
-  // Calculate gross (using fixed allowances, not pro-rated for simplicity)
-  const grossSalary =
-    proRatedBasic +
-    employee.hra +
-    employee.special_allowance +
-    employee.travel_allowance +
-    employee.medical_allowance +
-    overtimeAmount;
-  
-  // Calculate deductions
-  const pfDeduction = Math.round(proRatedBasic * 0.12); // 12% of basic
-  const esicDeduction = grossSalary <= 21000 ? Math.round(grossSalary * 0.0075) : 0; // 0.75% if gross <= 21000
-  const professionalTax = calculateProfessionalTax(grossSalary);
-  
-  const totalDeductions = pfDeduction + esicDeduction + professionalTax;
-  
-  // Calculate net payable
-  const netPayable = grossSalary - totalDeductions;
-  
-  // Employer contributions
-  const employerPf = Math.round(proRatedBasic * 0.12); // 12% employer PF
-  const employerEsic = grossSalary <= 21000 ? Math.round(grossSalary * 0.0325) : 0; // 3.25% employer ESIC
-  
-  return {
-    present_days: attendance.present_days,
-    absent_days: attendance.absent_days,
-    leave_days: attendance.leave_days,
-    overtime_hours: attendance.overtime_hours,
-    basic_salary: employee.basic_salary,
-    pro_rated_basic: Math.round(proRatedBasic * 100) / 100,
-    hra: employee.hra,
-    special_allowance: employee.special_allowance,
-    travel_allowance: employee.travel_allowance,
-    medical_allowance: employee.medical_allowance,
-    overtime_amount: Math.round(overtimeAmount * 100) / 100,
-    bonus: 0,
-    other_earnings: 0,
-    gross_salary: Math.round(grossSalary * 100) / 100,
-    pf_deduction: pfDeduction,
-    esic_deduction: esicDeduction,
-    professional_tax: professionalTax,
-    tds: 0, // Simplified - would need more complex calculation
-    loan_recovery: 0,
-    advance_recovery: 0,
-    other_deductions: 0,
-    total_deductions: totalDeductions,
-    net_payable: Math.round(netPayable * 100) / 100,
-    employer_pf: employerPf,
-    employer_esic: employerEsic,
-    bank_account_number: employee.bank_account_number,
-    bank_ifsc: employee.bank_ifsc,
-  };
+function summarizeAttendanceLogs(
+  logs: Array<{
+    status: string | null;
+    total_hours: number | null;
+    standard_hours: number | null;
+  }>,
+): AttendanceData {
+  const summary = createEmptyAttendanceData();
+
+  logs.forEach((log) => {
+    if (log.status === "present") {
+      summary.present_days += 1;
+    } else if (log.status === "absent" || log.status === "absent_breach") {
+      summary.absent_days += 1;
+    } else if (
+      ["leave", "sick_leave", "casual_leave", "earned_leave", "on_leave"].includes(
+        log.status || "",
+      )
+    ) {
+      summary.leave_days += 1;
+    }
+
+    const standardHours = log.standard_hours ?? 8;
+    const workedHours = log.total_hours ?? 0;
+    summary.overtime_hours += Math.max(0, workedHours - standardHours);
+  });
+
+  return summary;
 }
 
 // ============================================
@@ -689,40 +653,7 @@ export function usePayroll(selectedCycleId?: string) {
     endDate: string
   ): Promise<AttendanceData | null> => {
     try {
-      // Call the get_attendance_summary database function
-      // Note: RPC function may not be in TypeScript types until regenerated
-      const { data, error } = await (supabase.rpc as CallableFunction)(
-        "get_attendance_summary",
-        {
-          p_employee_id: employeeId,
-          p_start_date: startDate,
-          p_end_date: endDate,
-        }
-      );
-
-      if (error) {
-        // If the function doesn't exist yet (migration not run), fall back to manual calculation
-        console.warn("Attendance function not available, using manual calculation:", error);
-        return await getEmployeeAttendanceFallback(employeeId, startDate, endDate);
-      }
-
-      if (!data || data.length === 0) {
-        // No attendance records found
-        return {
-          present_days: 0,
-          absent_days: 0,
-          leave_days: 0,
-          overtime_hours: 0,
-        };
-      }
-
-      const summary = data[0];
-      return {
-        present_days: summary.present_days || 0,
-        absent_days: summary.absent_days || 0,
-        leave_days: summary.leave_days || 0,
-        overtime_hours: summary.overtime_hours || 0,
-      };
+      return await getEmployeeAttendanceFallback(employeeId, startDate, endDate);
     } catch (err: unknown) {
       console.error("Error fetching employee attendance:", err);
       return null;
@@ -736,35 +667,35 @@ export function usePayroll(selectedCycleId?: string) {
     endDate: string
   ): Promise<AttendanceData> => {
     try {
-      const { data, error } = await supabase
-        .from("attendance_logs")
-        .select("status, overtime_hours")
-        .eq("employee_id", employeeId)
-        .gte("date", startDate)
-        .lte("date", endDate);
+      const [attendanceResult, shiftResult] = await Promise.all([
+        supabase
+          .from("attendance_logs")
+          .select("status, total_hours")
+          .eq("employee_id", employeeId)
+          .gte("log_date", startDate)
+          .lte("log_date", endDate),
+        supabase
+          .from("employee_shift_assignments")
+          .select("shifts(duration_hours)")
+          .eq("employee_id", employeeId)
+          .eq("is_active", true)
+          .maybeSingle(),
+      ]);
 
-      if (error) throw error;
+      if (attendanceResult.error) throw attendanceResult.error;
+      if (shiftResult.error) throw shiftResult.error;
 
-      const logs = data || [];
-      const result: AttendanceData = {
-        present_days: 0,
-        absent_days: 0,
-        leave_days: 0,
-        overtime_hours: 0,
-      };
+      const rawShift = shiftResult.data?.shifts;
+      const shift = Array.isArray(rawShift) ? rawShift[0] : rawShift;
+      const standardHours = Number(shift?.duration_hours) || 8;
 
-      logs.forEach((log: any) => {
-        if (log.status === "present") {
-          result.present_days++;
-        } else if (log.status === "absent") {
-          result.absent_days++;
-        } else if (["leave", "sick_leave", "casual_leave", "earned_leave"].includes(log.status)) {
-          result.leave_days++;
-        }
-        result.overtime_hours += log.overtime_hours || 0;
-      });
-
-      return result;
+      return summarizeAttendanceLogs(
+        (attendanceResult.data || []).map((row: any) => ({
+          status: row.status ?? null,
+          total_hours: row.total_hours ?? null,
+          standard_hours: standardHours,
+        })),
+      );
     } catch (rpcError) {
       console.error('Attendance data fetch failed:', rpcError);
       throw new Error('Failed to fetch attendance data. Ensure the attendance_logs table is properly configured.');
@@ -780,48 +711,62 @@ export function usePayroll(selectedCycleId?: string) {
     const result = new Map<string, AttendanceData>();
 
     try {
-      // Try the batch function first
-      // Note: RPC function may not be in TypeScript types until regenerated
-      const { data, error } = await (supabase.rpc as CallableFunction)(
-        "get_batch_attendance_summary",
-        {
-          p_employee_ids: employeeIds,
-          p_start_date: startDate,
-          p_end_date: endDate,
-        }
-      );
-
-      if (error) {
-        // Fallback: query individually
-        console.warn("Batch attendance function not available, using individual queries:", error);
-        for (const employeeId of employeeIds) {
-          const attendance = await getEmployeeAttendanceFallback(employeeId, startDate, endDate);
-          result.set(employeeId, attendance);
-        }
+      if (employeeIds.length === 0) {
         return result;
       }
 
-      // Map the batch results
-      (data || []).forEach((row: any) => {
-        result.set(row.employee_id, {
-          present_days: row.present_days || 0,
-          absent_days: row.absent_days || 0,
-          leave_days: row.leave_days || 0,
-          overtime_hours: row.overtime_hours || 0,
-        });
+      const [attendanceResult, shiftResult] = await Promise.all([
+        supabase
+          .from("attendance_logs")
+          .select("employee_id, status, total_hours")
+          .in("employee_id", employeeIds)
+          .gte("log_date", startDate)
+          .lte("log_date", endDate),
+        supabase
+          .from("employee_shift_assignments")
+          .select("employee_id, shifts(duration_hours)")
+          .in("employee_id", employeeIds)
+          .eq("is_active", true),
+      ]);
+
+      if (attendanceResult.error) throw attendanceResult.error;
+      if (shiftResult.error) throw shiftResult.error;
+
+      const standardHoursByEmployee = new Map<string, number>();
+      (shiftResult.data || []).forEach((assignment: any) => {
+        const rawShift = assignment.shifts;
+        const shift = Array.isArray(rawShift) ? rawShift[0] : rawShift;
+        standardHoursByEmployee.set(
+          assignment.employee_id,
+          Number(shift?.duration_hours) || 8,
+        );
       });
 
-      // Fill in any missing employees with zero values
-      for (const employeeId of employeeIds) {
-        if (!result.has(employeeId)) {
-          result.set(employeeId, {
-            present_days: 0,
-            absent_days: 0,
-            leave_days: 0,
-            overtime_hours: 0,
-          });
-        }
-      }
+      const groupedLogs = new Map<
+        string,
+        Array<{
+          status: string | null;
+          total_hours: number | null;
+          standard_hours: number | null;
+        }>
+      >();
+
+      (attendanceResult.data || []).forEach((row: any) => {
+        const employeeLogs = groupedLogs.get(row.employee_id) || [];
+        employeeLogs.push({
+          status: row.status ?? null,
+          total_hours: row.total_hours ?? null,
+          standard_hours: standardHoursByEmployee.get(row.employee_id) ?? 8,
+        });
+        groupedLogs.set(row.employee_id, employeeLogs);
+      });
+
+      employeeIds.forEach((employeeId) => {
+        result.set(
+          employeeId,
+          summarizeAttendanceLogs(groupedLogs.get(employeeId) || []),
+        );
+      });
 
       return result;
     } catch (err: unknown) {
@@ -829,7 +774,7 @@ export function usePayroll(selectedCycleId?: string) {
       // Return empty map on error
       return result;
     }
-  }, [getEmployeeAttendanceFallback]);
+  }, []);
 
   // ============================================
   // EFFECTS

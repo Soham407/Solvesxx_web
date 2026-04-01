@@ -620,6 +620,31 @@ export function useReconciliation(filters?: {
     [getPOItems, getGRNItems, getBillItems]
   );
 
+  const runReconciliationMatch = useCallback(async (reconciliationId: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { data, error } = await supabase.rpc('execute_reconciliation_match' as any, {
+        p_reconciliation_id: reconciliationId,
+        p_user_id: user.id,
+      });
+
+      if (error) throw error;
+
+      const rpcResult = data as any;
+      if (!rpcResult?.success) {
+        throw new Error(rpcResult?.error || "Reconciliation matching failed");
+      }
+
+      return { success: true as const, result: rpcResult };
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to execute reconciliation match";
+      console.error("Error executing reconciliation match:", err);
+      return { success: false as const, error: errorMessage };
+    }
+  }, []);
+
   // ============================================
   // CREATE RECONCILIATION
   // ============================================
@@ -694,17 +719,10 @@ export function useReconciliation(filters?: {
 
         if (error) throw error;
 
-        // Execute matching, line creation, and residual updates via database RPC
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error('Not authenticated');
-
-        const { data: result, error: rpcError } = await supabase.rpc('execute_reconciliation_match' as any, {
-          p_reconciliation_id: data.id,
-          p_user_id: user.id,
-        });
-        if (rpcError) throw rpcError;
-        const rpcResult = result as any;
-        if (!rpcResult?.success) throw new Error(rpcResult?.error || 'Reconciliation matching failed');
+        const matchResult = await runReconciliationMatch(data.id);
+        if (!matchResult.success) {
+          throw new Error(matchResult.error || "Reconciliation matching failed");
+        }
 
         // Re-fetch the reconciliation after RPC to get updated status/amounts
         const { data: updatedRec, error: refetchError } = await supabase
@@ -723,7 +741,7 @@ export function useReconciliation(filters?: {
         return null;
       }
     },
-    [fetchReconciliations]
+    [fetchReconciliations, runReconciliationMatch]
   );
 
   // ============================================
@@ -1140,6 +1158,42 @@ export function useReconciliation(filters?: {
     [state.reconciliations, fetchReconciliations]
   );
 
+  const autoSyncReconciliations = useCallback(async () => {
+    const targets = state.reconciliations.filter(
+      (reconciliation) => reconciliation.status === "pending" || reconciliation.status === "discrepancy"
+    );
+
+    let processed = 0;
+    let failed = 0;
+
+    for (const reconciliation of targets) {
+      const result = await runReconciliationMatch(reconciliation.id);
+      if (result.success) {
+        processed += 1;
+      } else {
+        failed += 1;
+      }
+    }
+
+    await fetchReconciliations();
+
+    if (state.selectedReconciliation) {
+      await fetchReconciliationLines(state.selectedReconciliation.id);
+    }
+
+    return {
+      processed,
+      failed,
+      total: targets.length,
+    };
+  }, [
+    fetchReconciliationLines,
+    fetchReconciliations,
+    runReconciliationMatch,
+    state.reconciliations,
+    state.selectedReconciliation,
+  ]);
+
   // ============================================
   // DISPUTE RECONCILIATION
   // ============================================
@@ -1333,6 +1387,8 @@ export function useReconciliation(filters?: {
     resolveLineDiscrepancy,
     resolveDiscrepancy,
     disputeReconciliation,
+    runReconciliationMatch,
+    autoSyncReconciliations,
     updateReconciliationStatus,
 
     // Queries

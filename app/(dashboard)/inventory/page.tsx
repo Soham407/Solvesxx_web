@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useInventory } from "@/hooks/useInventory";
+import { useChemicals } from "@/hooks/useChemicals";
 import { useWarehouses } from "@/hooks/useWarehouses";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,10 +20,15 @@ import {
   ArrowRight,
   Boxes,
   Plus,
-  RefreshCw
+  RefreshCw,
+  FlaskConical,
+  Clock,
+  ShieldCheck
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const stockLevelColumns = [
+// ... (rest of columns)
   {
     accessorKey: "product_name",
     header: "Product",
@@ -89,12 +95,26 @@ export default function InventoryDashboardPage() {
   const { 
     stockLevels, 
     stats, 
-    isLoading, 
+    isLoading: isInventoryLoading, 
     setFilters, 
-    refresh 
+    refresh: refreshInventory 
   } = useInventory();
+
+  const {
+    chemicals,
+    expiringChemicals,
+    isLoading: isChemicalsLoading,
+    issueChemical,
+    refresh: refreshChemicals
+  } = useChemicals();
   
+  const isLoading = isInventoryLoading || isChemicalsLoading;
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>("all");
+
+  const refresh = () => {
+    refreshInventory();
+    refreshChemicals();
+  };
 
   const handleWarehouseChange = (value: string) => {
     setSelectedWarehouse(value);
@@ -175,12 +195,12 @@ export default function InventoryDashboardPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Out of Stock</CardTitle>
+            <CardTitle className="text-sm font-medium">Expiring Chemicals</CardTitle>
             <AlertTriangle className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-destructive">{stats?.outOfStockItems || 0}</div>
-            <p className="text-xs text-muted-foreground">Immediate attention needed</p>
+            <div className="text-2xl font-bold text-destructive">{expiringChemicals.length}</div>
+            <p className="text-xs text-muted-foreground">Action required</p>
           </CardContent>
         </Card>
       </div>
@@ -189,6 +209,14 @@ export default function InventoryDashboardPage() {
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">Stock Overview</TabsTrigger>
+          <TabsTrigger value="chemicals">
+            Chemicals
+            {expiringChemicals.length > 0 && (
+              <Badge variant="destructive" className="ml-2">
+                {expiringChemicals.length}
+              </Badge>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="alerts">
             Reorder Alerts
             {lowStockItems.length > 0 && (
@@ -217,6 +245,83 @@ export default function InventoryDashboardPage() {
               />
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="chemicals" className="space-y-4">
+          <div className="grid gap-6 md:grid-cols-3">
+            {isChemicalsLoading ? (
+              <div className="col-span-3 flex justify-center py-20">
+                <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : chemicals.length > 0 ? (
+              chemicals.map((chem) => {
+                const isExpired = chem.severity === 'expired';
+                const isExpiringSoon = chem.severity === 'critical' || chem.severity === 'warning';
+                
+                return (
+                  <Card key={`${chem.product_id}-${chem.batch_number}`} className={cn("border-none shadow-card ring-1 ring-border p-4", isExpired && "opacity-80 bg-critical/5")}>
+                    <CardHeader className="p-0 mb-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <CardTitle className="text-sm font-bold flex items-center gap-2">
+                            {chem.product_name}
+                            {isExpired ? (
+                              <Badge variant="destructive" className="text-[8px] h-4 uppercase">Expired</Badge>
+                            ) : isExpiringSoon ? (
+                              <Badge variant="outline" className="text-[8px] h-4 uppercase border-warning text-warning">Expiring Soon</Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[8px] h-4 uppercase border-success text-success">Valid</Badge>
+                            )}
+                          </CardTitle>
+                          <CardDescription className="text-[10px] font-mono">{chem.product_code} {chem.batch_number && `| Batch: ${chem.batch_number}`}</CardDescription>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-0 space-y-3">
+                      <div className="flex justify-between text-xs font-bold">
+                        <span>Current Stock</span>
+                        <span>{chem.current_stock} {chem.unit}</span>
+                      </div>
+                      
+                      <div className="flex items-center justify-between pt-2">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                            <Clock className="h-3 w-3" />
+                            Expiry: {chem.expiry_date ? new Date(chem.expiry_date).toLocaleDateString() : "N/A"}
+                          </div>
+                          <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                            <ShieldCheck className="h-3 w-3" />
+                            Source: {chem.source}
+                          </div>
+                        </div>
+                        
+                        <Button 
+                          size="sm" 
+                          variant={isExpired ? "secondary" : "default"}
+                          className="h-8 text-[10px] font-bold uppercase tracking-wider"
+                          disabled={isExpired || Number(chem.current_stock) <= 0}
+                          title={isExpired ? "Item expired — cannot issue" : ""}
+                          onClick={() => issueChemical({
+                            productId: chem.product_id,
+                            batchNumber: chem.batch_number || undefined,
+                            quantity: 1 // Default to 1 for quick issuance
+                          })}
+                        >
+                          {isExpired ? "Blocked" : "Issue"}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            ) : (
+              <Card className="border-none shadow-card ring-1 ring-border col-span-3 py-20 text-center">
+                <FlaskConical className="h-12 w-12 mx-auto text-muted-foreground/30 mb-4" />
+                <CardTitle className="text-lg font-bold">No Chemical Inventory</CardTitle>
+                <CardDescription>No chemical products with expiry tracking found.</CardDescription>
+              </Card>
+            )}
+          </div>
         </TabsContent>
 
         <TabsContent value="alerts" className="space-y-4">

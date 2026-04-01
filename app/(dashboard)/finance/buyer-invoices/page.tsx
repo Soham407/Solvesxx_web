@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { useBuyerInvoices, INVOICE_STATUS_CONFIG, PAYMENT_STATUS_CONFIG } from "@/hooks/useBuyerInvoices";
 import { formatCurrency } from "@/src/lib/utils/currency";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 
 export default function BuyerInvoicesPage() {
   const { invoices, isLoading, error } = useBuyerInvoices();
@@ -99,10 +100,9 @@ export default function BuyerInvoicesPage() {
             <DropdownMenuItem 
               className="gap-2 font-bold text-primary"
               onClick={() => {
-                const confirmed = window.confirm(`Initiating Razorpay checkout for Invoice ${row.original.invoice_number} (Amount: ${formatCurrency(row.original.total_amount)}). Proceed?`);
-                if (confirmed) {
-                  alert("Gateway initialization successful. Redirecting to secure checkout...");
-                }
+                toast.error("Online checkout is not configured in this environment.", {
+                  description: `No payment was initiated for Invoice ${row.original.invoice_number}.`,
+                });
               }}
             >
                <DollarSign className="h-4 w-4" /> Pay Online

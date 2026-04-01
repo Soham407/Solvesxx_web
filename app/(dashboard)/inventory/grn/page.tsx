@@ -84,8 +84,9 @@ import {
   QUALITY_STATUS_CONFIG,
   QualityStatus
 } from "@/hooks/useGRN";
+import { supabase } from "@/src/lib/supabaseClient";
 import { formatCurrency } from "@/src/lib/utils/currency";
-import { usePurchaseOrders } from "@/hooks/usePurchaseOrders";
+import { PO_RECEIPT_READY_STATUSES, usePurchaseOrders } from "@/hooks/usePurchaseOrders";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/components/ui/use-toast";
 import { useWarehouses } from "@/hooks/useWarehouses";
@@ -120,6 +121,8 @@ function GRNPageContent() {
     startInspection,
     completeQualityCheck,
     recordItemReceipt,
+    updateGRNItemQuality,
+    addToStock,
   } = useGRN({ 
     status: statusFilter === "all" ? undefined : statusFilter,
     searchTerm: searchTerm || undefined
@@ -209,7 +212,7 @@ function GRNPageContent() {
     setSelectedGRN(grn);
     await fetchGRNItems(grn.id);
     setDetailSheetOpen(true);
-    setInspectionMode(false);
+    setInspectionMode(grn.status === "inspecting");
   };
 
   // Handle Inspection Start
@@ -262,6 +265,38 @@ function GRNPageContent() {
     }
   };
 
+  // Handle Adding item to stock
+  const handleAddToStock = async (item: GRNItem) => {
+    try {
+      if (!selectedGRN) return;
+      if (!selectedGRN.warehouse_id) {
+        toast({
+          title: "Warehouse Missing",
+          description: "Please assign a warehouse to this GRN before adding to stock.",
+          variant: "destructive",
+        });
+        return;
+      }
+      setIsProcessing(true);
+
+      const success = await addToStock(item, selectedGRN.warehouse_id);
+
+      if (success) {
+        toast({
+          title: "Added to Stock",
+          description: `${item.product_name} has been added to inventory.`,
+        });
+      }
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message || "Failed to add to stock",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
   // Table Columns
   const columns: ColumnDef<MaterialReceipt>[] = [
     {
@@ -532,6 +567,7 @@ function GRNPageContent() {
                         <TableHead className="font-black text-[10px] uppercase text-center">Received</TableHead>
                         <TableHead className="font-black text-[10px] uppercase text-center">Accepted/Rejected</TableHead>
                         <TableHead className="font-black text-[10px] uppercase">Quality</TableHead>
+                        <TableHead className="font-black text-[10px] uppercase">Stock Action</TableHead>
                         {inspectionMode && <TableHead className="font-black text-[10px] uppercase">Actions</TableHead>}
                       </TableRow>
                     </TableHeader>
@@ -573,31 +609,61 @@ function GRNPageContent() {
                               </div>
                             </TableCell>
                             <TableCell>
-                              <Badge 
-                                variant="outline" 
-                                className={cn(
-                                  "font-bold text-[10px] uppercase h-5",
-                                  QUALITY_STATUS_CONFIG[item.quality_status]?.className
-                                )}
-                              >
-                                {QUALITY_STATUS_CONFIG[item.quality_status]?.label}
-                              </Badge>
-                            </TableCell>
-                            {inspectionMode && (
-                              <TableCell>
-                                <Button 
-                                  size="sm" 
-                                  variant="outline" 
-                                  className="h-8 w-8 p-0"
-                                  onClick={() => {
-                                    // Open a localized sub-dialog for full line detail if needed
-                                    // For now just toggle logic
-                                  }}
+                              {inspectionMode ? (
+                                <Select 
+                                  value={item.quality_status} 
+                                  onValueChange={(val: QualityStatus) => updateGRNItemQuality(item.id, val)}
                                 >
-                                  <Edit className="h-3.5 w-3.5" />
-                                </Button>
-                              </TableCell>
-                            )}
+                                  <SelectTrigger className={cn("h-7 text-[10px] font-bold uppercase", QUALITY_STATUS_CONFIG[item.quality_status]?.className)}>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="accepted">Accepted</SelectItem>
+                                    <SelectItem value="partial">Partial</SelectItem>
+                                    <SelectItem value="rejected">Rejected</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <Badge 
+                                  variant="outline" 
+                                  className={cn(
+                                    "font-bold text-[10px] uppercase h-5",
+                                    QUALITY_STATUS_CONFIG[item.quality_status]?.className
+                                  )}
+                                >
+                                  {QUALITY_STATUS_CONFIG[item.quality_status]?.label}
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                disabled={
+                                  item.quality_status === "rejected" || 
+                                  (item.quality_status === "partial" && (item.accepted_quantity || 0) <= 0) ||
+                                  selectedGRN.status === "draft" || 
+                                  selectedGRN.status === "inspecting" || 
+                                  isProcessing
+                                }
+                                onClick={() => handleAddToStock(item)}
+                                className={cn(
+                                  "h-8 gap-1 font-bold text-[10px] uppercase",
+                                  item.quality_status === "rejected" || (item.quality_status === "partial" && (item.accepted_quantity || 0) <= 0) 
+                                    ? "opacity-50 grayscale" 
+                                    : "text-primary hover:text-primary hover:bg-primary/5"
+                                )}
+                                title={
+                                  item.quality_status === "rejected" 
+                                    ? "Rejected items cannot be added to stock" 
+                                    : (item.quality_status === "partial" && (item.accepted_quantity || 0) <= 0)
+                                      ? "No accepted quantity available to add to stock"
+                                      : "Add accepted quantity to warehouse stock"
+                                }
+                              >
+                                <Plus className="h-3 w-3" /> Add to Stock
+                              </Button>
+                            </TableCell>
                           </TableRow>
                         );
                       })}
@@ -625,7 +691,7 @@ function GRNPageContent() {
               <Truck className="h-5 w-5 text-primary" /> Create Material Receipt
             </DialogTitle>
             <DialogDescription>
-              Select an acknowledged Purchase Order to begin receiving goods.
+              Select an acknowledged or dispatched Purchase Order to begin receiving goods.
             </DialogDescription>
           </DialogHeader>
 
@@ -635,11 +701,11 @@ function GRNPageContent() {
                 <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Step 1: Select Purchase Order</Label>
                 <Select onValueChange={setSelectedPOId}>
                   <SelectTrigger className="h-12 border-2 focus:ring-primary shadow-sm">
-                    <SelectValue placeholder="Search Acknowledged POs" />
+                    <SelectValue placeholder="Search Ready-for-Receipt POs" />
                   </SelectTrigger>
                   <SelectContent>
                     {purchaseOrders
-                      .filter(po => ["acknowledged", "partial_received"].includes(po.status || ""))
+                      .filter(po => po.status && PO_RECEIPT_READY_STATUSES.includes(po.status))
                       .map(po => (
                         <SelectItem key={po.id} value={po.id}>
                           <div className="flex flex-col text-left py-0.5">
@@ -649,7 +715,7 @@ function GRNPageContent() {
                         </SelectItem>
                       ))
                     }
-                    {purchaseOrders.filter(po => ["acknowledged", "partial_received"].includes(po.status || "")).length === 0 && (
+                    {purchaseOrders.filter(po => po.status && PO_RECEIPT_READY_STATUSES.includes(po.status)).length === 0 && (
                       <div className="p-4 text-center text-sm text-muted-foreground">
                         No active POs found ready for receipt.
                       </div>
@@ -660,7 +726,7 @@ function GRNPageContent() {
                 <div className="p-4 rounded-xl bg-amber-500/5 border border-amber-500/20 flex gap-3 mt-4">
                   <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
                   <p className="text-xs text-amber-800 font-medium leading-relaxed">
-                    Only Acknowledged or Partially Received POs can be selected.
+                    Only acknowledged, dispatched, or partially received POs can be selected.
                   </p>
                 </div>
               </div>

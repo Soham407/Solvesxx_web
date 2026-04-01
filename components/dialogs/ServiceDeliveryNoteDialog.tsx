@@ -1,9 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { supabase } from "@/src/lib/supabaseClient";
+import { cn } from "@/lib/utils";
+import { useToast } from "@/components/ui/use-toast";
 import {
   Dialog,
   DialogContent,
@@ -18,10 +21,21 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Plus, Trash2, Users, Loader2, Download, CheckCircle2 } from "lucide-react";
+import { Plus, Trash2, Users, Loader2, Download, CheckCircle2, AlertCircle } from "lucide-react";
 import { useServiceDeliveryNotes } from "@/hooks/useServiceDeliveryNotes";
+import { useEmployees } from "@/hooks/useEmployees";
+import { usePersonnelDispatches } from "@/hooks/usePersonnelDispatches";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const personnelSchema = z.object({
+  employee_id: z.string().min(1, "Select an employee"),
   name: z.string().min(2, "Name is required"),
   id_proof_type: z.string().min(1, "ID type is required"),
   id_proof_number: z.string().min(1, "ID number is required"),
@@ -52,16 +66,21 @@ export function ServiceDeliveryNoteDialog({
   poNumber,
   onSuccess,
 }: ServiceDeliveryNoteDialogProps) {
+  const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createdSDN, setCreatedSDN] = useState<any>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [conflicts, setConflicts] = useState<Record<number, string>>({});
+  
   const { createNote } = useServiceDeliveryNotes(poId);
+  const { employees } = useEmployees();
+  const { createDispatch } = usePersonnelDispatches(poId);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       delivery_date: new Date().toISOString().split("T")[0],
-      personnel: [{ name: "", id_proof_type: "Aadhaar", id_proof_number: "", qualification: "", contact: "" }],
+      personnel: [{ employee_id: "", name: "", id_proof_type: "Aadhaar", id_proof_number: "", qualification: "", contact: "" }],
       remarks: "",
     },
   });
@@ -71,20 +90,81 @@ export function ServiceDeliveryNoteDialog({
     name: "personnel",
   });
 
+  const watchPersonnel = form.watch("personnel");
+  const watchDate = form.watch("delivery_date");
+
+  // Check for overlaps when employee or date changes
+  useEffect(() => {
+    const checkAllOverlaps = async () => {
+      const newConflicts: Record<number, string> = {};
+      
+      for (let i = 0; i < watchPersonnel.length; i++) {
+        const p = watchPersonnel[i];
+        if (p.employee_id && watchDate) {
+          // We use createDispatch's logic or a separate check
+          // For simplicity, we just use a direct query here or assume the hook will handle it
+          // But the task says "highlight ... before the user submits"
+          const { data: overlaps } = await (supabase as any)
+            .from("personnel_dispatches")
+            .select(`
+              start_date, 
+              end_date, 
+              deployment_site:company_locations!deployment_site_id (name)
+            `)
+            .eq("employee_id", p.employee_id)
+            .not("status", "in", "('cancelled', 'completed', 'withdrawn')")
+            .or(`start_date.lte.${watchDate},end_date.gte.${watchDate},end_date.is.null`)
+            .limit(1);
+
+          if (overlaps && overlaps.length > 0) {
+            const o = overlaps[0];
+            newConflicts[i] = `Already deployed at ${o.deployment_site?.name || "another site"} (${o.start_date} to ${o.end_date || 'Open'})`;
+          }
+        }
+      }
+      setConflicts(newConflicts);
+    };
+
+    if (open) checkAllOverlaps();
+  }, [watchPersonnel, watchDate, open]);
+
   const handleSubmit = async (values: FormValues) => {
+    if (Object.keys(conflicts).length > 0) {
+      toast({
+        title: "Deployment Conflict",
+        description: "Please resolve the overlapping deployments before submitting.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
+    // 1. Create the delivery note
     const result = await createNote({
       po_id: poId,
       delivery_date: values.delivery_date,
       personnel_details: values.personnel,
       remarks: values.remarks,
     });
-    setIsSubmitting(false);
+    
+    // 2. Also create personnel_dispatches entries for each employee
     if (result.success) {
+      for (const p of values.personnel) {
+        await createDispatch({
+          service_po_id: poId,
+          supplier_id: (result.data as any)?.supplier_id || "", // Fallback if missing
+          employee_id: p.employee_id,
+          start_date: values.delivery_date,
+          personnel: [p],
+          notes: values.remarks,
+        });
+      }
+      
       setCreatedSDN(result.data);
       form.reset();
       onSuccess?.();
     }
+    setIsSubmitting(false);
   };
 
   const handleDownloadPDF = async () => {
@@ -151,7 +231,9 @@ export function ServiceDeliveryNoteDialog({
             <Users className="h-5 w-5 text-primary" />
             Upload Delivery Note
           </DialogTitle>
-          <p className="text-xs text-muted-foreground">PO: <span className="font-mono font-bold">{poNumber}</span></p>
+          <p className="text-xs text-muted-foreground">
+            Service Order: <span className="font-mono font-bold">{poNumber}</span>
+          </p>
         </DialogHeader>
 
         {/* Success State */}
@@ -221,7 +303,16 @@ export function ServiceDeliveryNoteDialog({
                   size="sm"
                   variant="outline"
                   className="h-7 gap-1 text-xs"
-                  onClick={() => append({ name: "", id_proof_type: "Aadhaar", id_proof_number: "", qualification: "", contact: "" })}
+                  onClick={() =>
+                    append({
+                      employee_id: "",
+                      name: "",
+                      id_proof_type: "Aadhaar",
+                      id_proof_number: "",
+                      qualification: "",
+                      contact: "",
+                    })
+                  }
                 >
                   <Plus className="h-3.5 w-3.5" /> Add Person
                 </Button>
@@ -246,6 +337,37 @@ export function ServiceDeliveryNoteDialog({
                         )}
                       </div>
                       <div className="grid grid-cols-2 gap-2">
+                        <div className="col-span-2">
+                          <Label className="text-[10px] font-bold uppercase mb-1">Select Employee *</Label>
+                          <Select
+                            value={form.watch(`personnel.${index}.employee_id`)}
+                            onValueChange={(val) => {
+                              const emp = employees.find(e => e.id === val);
+                              form.setValue(`personnel.${index}.employee_id`, val);
+                              if (emp) {
+                                form.setValue(`personnel.${index}.name`, emp.full_name || "");
+                                form.setValue(`personnel.${index}.contact`, emp.phone || "");
+                              }
+                            }}
+                          >
+                            <SelectTrigger className={cn("h-8 text-sm", conflicts[index] && "border-destructive ring-destructive")}>
+                              <SelectValue placeholder="Select existing employee" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {employees.map((emp) => (
+                                <SelectItem key={emp.id} value={emp.id}>
+                                  {emp.full_name} ({emp.employee_code})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {conflicts[index] && (
+                            <div className="flex items-center gap-1 mt-1 text-[10px] text-destructive font-semibold">
+                              <AlertCircle className="h-3 w-3" />
+                              {conflicts[index]}
+                            </div>
+                          )}
+                        </div>
                         <div>
                           <Input
                             placeholder="Full Name *"

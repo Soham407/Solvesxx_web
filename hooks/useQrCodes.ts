@@ -24,6 +24,21 @@ interface UseQrCodesReturn extends UseQrCodesState {
   scanQrCode: (qrId: string, location?: { latitude: number; longitude: number }) => Promise<QrScanResult>;
   recordScan: (scanData: QrScanInsert) => Promise<{ success: boolean; error?: string }>;
   getScanHistory: (qrId: string) => Promise<QrScan[]>;
+  generateBatch: (input: {
+    count: number;
+    societyId: string;
+    warehouseId?: string | null;
+    prefix?: string;
+  }) => Promise<{
+    success: boolean;
+    error?: string;
+    data?: {
+      batchId: string;
+      count: number;
+      qrCodes: QrCode[];
+      downloadUrl: string;
+    };
+  }>;
   generateQrUrl: (qrId: string) => string;
   clearScanResult: () => void;
   refresh: () => void;
@@ -215,6 +230,56 @@ export function useQrCodes(societyId?: string): UseQrCodesReturn {
     []
   );
 
+  const generateBatch = useCallback(
+    async (input: {
+      count: number;
+      societyId: string;
+      warehouseId?: string | null;
+      prefix?: string;
+    }) => {
+      try {
+        const response = await fetch("/api/assets/generate-qr-batch", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            count: input.count,
+            societyId: input.societyId,
+            warehouseId: input.warehouseId || undefined,
+            prefix: input.prefix,
+          }),
+        });
+
+        const payload = await response.json();
+
+        if (!response.ok) {
+          throw new Error(payload.error || "Failed to generate QR codes");
+        }
+
+        setState((prev) => ({
+          ...prev,
+          qrCodes: [...(payload.qrCodes || []), ...prev.qrCodes],
+        }));
+
+        return {
+          success: true as const,
+          data: {
+            batchId: payload.batchId,
+            count: payload.count,
+            qrCodes: payload.qrCodes || [],
+            downloadUrl: payload.downloadUrl,
+          },
+        };
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : "Failed to generate QR codes";
+        console.error("Error generating QR batch:", err);
+        return { success: false as const, error: errorMessage };
+      }
+    },
+    []
+  );
+
   // Generate QR code URL for scanning
   const generateQrUrl = useCallback((qrId: string): string => {
     const baseUrl = QR_CODE_CONFIG.BASE_URL || "";
@@ -242,6 +307,7 @@ export function useQrCodes(societyId?: string): UseQrCodesReturn {
     scanQrCode,
     recordScan,
     getScanHistory,
+    generateBatch,
     generateQrUrl,
     clearScanResult,
     refresh,

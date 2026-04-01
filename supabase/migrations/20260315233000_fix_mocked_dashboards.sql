@@ -2,14 +2,14 @@
 
 -- 1. Alter requests table
 ALTER TABLE requests
-ADD COLUMN headcount INTEGER DEFAULT 0,
-ADD COLUMN shift VARCHAR(50),
-ADD COLUMN duration_months INTEGER DEFAULT 1;
+ADD COLUMN IF NOT EXISTS headcount INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS shift VARCHAR(50),
+ADD COLUMN IF NOT EXISTS duration_months INTEGER DEFAULT 1;
 
 -- 2. Alter horticulture_zones table
 ALTER TABLE horticulture_zones
-ADD COLUMN soil_health INTEGER DEFAULT 98,
-ADD COLUMN greenery_density INTEGER DEFAULT 84;
+ADD COLUMN IF NOT EXISTS soil_health INTEGER DEFAULT 98,
+ADD COLUMN IF NOT EXISTS greenery_density INTEGER DEFAULT 84;
 
 -- 3. Create horticulture_seasonal_plans table
 CREATE TABLE IF NOT EXISTS horticulture_seasonal_plans (

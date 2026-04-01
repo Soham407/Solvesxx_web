@@ -173,13 +173,49 @@ export function useMaintenanceSchedules(assetId?: string): UseMaintenanceSchedul
   const markAsPerformed = useCallback(
     async (id: string, performedDate?: string): Promise<{ success: boolean; error?: string }> => {
       try {
-        // Get the current schedule to calculate next due date
-        const schedule = state.schedules.find((s) => s.id === id);
+        const { data: schedule, error: scheduleError } = await supabase
+          .from("maintenance_schedules")
+          .select("id, frequency, custom_interval_days, last_performed_date")
+          .eq("id", id)
+          .single();
+
+        if (scheduleError) throw scheduleError;
         if (!schedule) {
           return { success: false, error: "Schedule not found" };
         }
 
-        const performedAt = performedDate || new Date().toISOString().split("T")[0];
+        const { data: completedRequest, error: requestError } = await supabase
+          .from("service_requests")
+          .select("id, completed_at, status")
+          .eq("maintenance_schedule_id", id)
+          .eq("status", "completed")
+          .order("completed_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (requestError && requestError.code !== "PGRST116") throw requestError;
+
+        const completedDate =
+          performedDate ||
+          completedRequest?.completed_at?.split("T")[0] ||
+          null;
+
+        if (!completedDate) {
+          return {
+            success: false,
+            error: "Complete the linked service request before marking maintenance as performed",
+          };
+        }
+
+        if (
+          schedule.last_performed_date &&
+          completedDate <= schedule.last_performed_date
+        ) {
+          return {
+            success: false,
+            error: "This maintenance cycle has already been recorded",
+          };
+        }
 
         // Calculate next due date based on frequency
         const intervalDays =
@@ -187,13 +223,13 @@ export function useMaintenanceSchedules(assetId?: string): UseMaintenanceSchedul
           MAINTENANCE_FREQUENCY_DAYS[schedule.frequency] ||
           30;
 
-        const nextDueDate = new Date(performedAt);
+        const nextDueDate = new Date(completedDate);
         nextDueDate.setDate(nextDueDate.getDate() + intervalDays);
 
         const { error } = await supabase
           .from("maintenance_schedules")
           .update({
-            last_performed_date: performedAt,
+            last_performed_date: completedDate,
             next_due_date: nextDueDate.toISOString().split("T")[0],
           })
           .eq("id", id);
@@ -210,7 +246,7 @@ export function useMaintenanceSchedules(assetId?: string): UseMaintenanceSchedul
         return { success: false, error: errorMessage };
       }
     },
-    [state.schedules, fetchSchedules, fetchDueSchedules]
+    [fetchSchedules, fetchDueSchedules]
   );
 
   // Get schedules by asset

@@ -88,7 +88,7 @@ export function SocietyManagerDashboard() {
 
     setIsResolving(alertId);
     const resolutionNote = `Resolved by ${managerName || "Society Manager"}`;
-    const result = await resolveAlert(alertId, employeeId, resolutionNote);
+    const result = await resolveAlert(alertId, resolutionNote);
     setIsResolving(null);
     
     if (result.success) {

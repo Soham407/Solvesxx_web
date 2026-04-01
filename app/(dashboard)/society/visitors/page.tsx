@@ -35,12 +35,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useAuth } from "@/hooks/useAuth";
 import { useVisitors, Visitor } from "@/hooks/useVisitors";
 import { VisitorRegistrationDialog } from "@/components/society/VisitorRegistrationDialog";
 import { VisitorAvatar } from "@/components/society/VisitorAvatar";
 import { FamilyDirectory } from "@/components/visitors/FamilyDirectory";
 
 export default function VisitorManagementPage() {
+  const { role } = useAuth();
   const {
     visitors,
     activeVisitors,
@@ -63,6 +65,11 @@ export default function VisitorManagementPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isRegistrationOpen, setIsRegistrationOpen] = useState(false);
   const [printVisitor, setPrintVisitor] = useState<Visitor | null>(null);
+  const canManageFrequentVisitors =
+    role === "admin" ||
+    role === "super_admin" ||
+    role === "society_manager" ||
+    role === "security_supervisor";
 
   // Handle search
   const handleSearch = (e: React.FormEvent) => {
@@ -213,10 +220,12 @@ export default function VisitorManagementPage() {
                     <AlertCircle className="h-4 w-4 mr-2 text-critical" /> View Denial Reason
                   </DropdownMenuItem>
                 )}
-                <DropdownMenuItem onClick={() => markAsFrequent(row.original.id, !row.original.is_frequent_visitor)}>
-                  <Users className="h-4 w-4 mr-2" />
-                  {row.original.is_frequent_visitor ? "Remove from Daily Helpers" : "Add to Daily Helpers"}
-                </DropdownMenuItem>
+                {canManageFrequentVisitors && (
+                  <DropdownMenuItem onClick={() => markAsFrequent(row.original.id, !row.original.is_frequent_visitor)}>
+                    <Users className="h-4 w-4 mr-2" />
+                    {row.original.is_frequent_visitor ? "Remove from Daily Helpers" : "Add to Daily Helpers"}
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onClick={() => setPrintVisitor(row.original)}>
                   <Printer className="h-4 w-4 mr-2" /> Print Pass
                 </DropdownMenuItem>

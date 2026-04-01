@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { Bell, CheckCheck, AlertCircle, Info, AlertTriangle, Zap } from "lucide-react";
+import { useState, type ElementType } from "react";
+import { useRouter } from "next/navigation";
+import { Bell, CheckCheck, AlertCircle, Info, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -14,8 +14,9 @@ import {
 import { useNotifications, NotificationPriority } from "@/hooks/useNotifications";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
+import { toast } from "sonner";
 
-const PRIORITY_ICON: Record<NotificationPriority, React.ElementType> = {
+const PRIORITY_ICON: Record<NotificationPriority, ElementType> = {
   low: Info,
   normal: Info,
   high: AlertTriangle,
@@ -30,13 +31,35 @@ const PRIORITY_COLOR: Record<NotificationPriority, string> = {
 };
 
 export function NotificationBell() {
-  const { notifications, unreadCount, isLoading, markAsRead, markAllRead } = useNotifications();
+  const router = useRouter();
+  const { notifications, unreadCount, isLoading, error, markAsRead, markAllRead } =
+    useNotifications();
   const [open, setOpen] = useState(false);
 
-  const handleNotificationClick = (id: string, actionUrl?: string | null) => {
-    markAsRead(id);
-    if (actionUrl) {
-      window.location.href = actionUrl;
+  const handleNotificationClick = async (
+    id: string,
+    isRead: boolean,
+    actionUrl?: string | null
+  ) => {
+    try {
+      if (!isRead) {
+        await markAsRead(id);
+      }
+
+      if (actionUrl?.startsWith("/") && !actionUrl.startsWith("//")) {
+        setOpen(false);
+        router.push(actionUrl);
+      }
+    } catch (_error) {
+      toast.error("Failed to update that notification.");
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    try {
+      await markAllRead();
+    } catch (_error) {
+      toast.error("Failed to mark all notifications as read.");
     }
   };
 
@@ -71,7 +94,9 @@ export function NotificationBell() {
               variant="ghost"
               size="sm"
               className="h-7 gap-1 text-xs text-primary"
-              onClick={markAllRead}
+              onClick={() => {
+                void handleMarkAllRead();
+              }}
             >
               <CheckCheck className="h-3.5 w-3.5" /> Mark All Read
             </Button>
@@ -81,6 +106,12 @@ export function NotificationBell() {
         <ScrollArea className="max-h-96">
           {isLoading ? (
             <div className="p-6 text-center text-sm text-muted-foreground">Loading...</div>
+          ) : error && notifications.length === 0 ? (
+            <div className="p-8 text-center">
+              <AlertCircle className="h-8 w-8 text-critical/70 mx-auto mb-2" />
+              <p className="text-sm font-medium">Unable to load notifications</p>
+              <p className="text-[11px] text-muted-foreground mt-1">{error}</p>
+            </div>
           ) : notifications.length === 0 ? (
             <div className="p-8 text-center">
               <Bell className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
@@ -96,9 +127,15 @@ export function NotificationBell() {
                     <button
                       className={cn(
                         "w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors flex gap-3",
-                        !notification.is_read && "bg-primary/3"
+                        !notification.is_read && "bg-primary/10"
                       )}
-                      onClick={() => handleNotificationClick(notification.id, notification.action_url)}
+                      onClick={() => {
+                        void handleNotificationClick(
+                          notification.id,
+                          notification.is_read,
+                          notification.action_url
+                        );
+                      }}
                     >
                       <div className={cn("mt-0.5 shrink-0", iconColor)}>
                         <Icon className="h-4 w-4" />

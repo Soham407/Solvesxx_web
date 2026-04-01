@@ -104,7 +104,7 @@ async function waitForPanicAlertResolved(alertId: string, timeout = 20_000) {
     .poll(async () => {
       const { data, error } = await client
         .from("panic_alerts")
-        .select("is_resolved, resolution_notes")
+        .select("is_resolved, resolution_notes, resolved_by")
         .eq("id", alertId)
         .single();
 
@@ -112,9 +112,13 @@ async function waitForPanicAlertResolved(alertId: string, timeout = 20_000) {
         throw error;
       }
 
-      return data;
+      return {
+        is_resolved: data.is_resolved,
+        has_resolved_by:
+          typeof data.resolved_by === "string" && data.resolved_by.length > 0,
+      };
     }, { timeout })
-    .toMatchObject({ is_resolved: true });
+    .toMatchObject({ is_resolved: true, has_resolved_by: true });
 }
 
 async function waitForResidentExists(fullName: string, timeout = 20_000) {
@@ -195,6 +199,7 @@ test.describe("Society Security Interaction Pack", () => {
 
     await expect(page.getByRole("button", { name: /register new visitor/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /sos .*hold 3s to trigger/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /open shift console/i })).toBeVisible();
 
     await page.getByRole("link", { name: /daily checklist/i }).click();
     await expect(page).toHaveURL(/\/society\/checklists$/);
@@ -252,6 +257,25 @@ test.describe("Society Security Interaction Pack", () => {
         return data?.id ?? null;
       })
       .not.toBeNull();
+  });
+
+  test("guard station can log visitor exit from the active visitor panel", async ({ page }) => {
+    const activeVisitor = await insertVisitor({
+      visitor_name: `Guard Exit ${token("visitor")}`,
+      approved_by_resident: true,
+      exit_time: null,
+    });
+
+    await loginAndOpen(page, "security_guard", "/guard");
+
+    await expect(page.getByText(activeVisitor.visitor_name).first()).toBeVisible({ timeout: 20_000 });
+    await page.getByLabel(`Log Exit for ${activeVisitor.visitor_name}`).click();
+    await waitForVisitorField(
+      activeVisitor.id,
+      "exit_time",
+      (value) => typeof value === "string" && value.length > 0,
+      30_000,
+    );
   });
 
   test("resident quick actions support invite, notifications, and complaints", async ({ page }) => {

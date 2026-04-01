@@ -1,0 +1,772 @@
+{
+  "tasks": [
+    {
+      "id": "AUTH-001",
+      "module": "auth",
+      "status": "done",
+      "lane": "core",
+      "priority": 1,
+      "goal": "Done.",
+      "inputs": [
+        "middleware.ts"
+      ],
+      "pipeline": [
+        "codex_fix",
+        "gemini_review"
+      ],
+      "evidence_required": [
+        "changed_files",
+        "open_risks"
+      ]
+    },
+    {
+      "id": "PROC-001",
+      "module": "procurement",
+      "status": "done",
+      "lane": "operations",
+      "priority": 2,
+      "goal": "Done.",
+      "inputs": [
+        "hooks/useSupplierPortal.ts"
+      ],
+      "pipeline": [
+        "codex_fix",
+        "gemini_test",
+        "gemini_review"
+      ],
+      "evidence_required": [
+        "changed_files",
+        "test_output",
+        "db_impact",
+        "open_risks"
+      ]
+    },
+    {
+      "id": "SEC-001",
+      "module": "security",
+      "status": "done",
+      "lane": "security",
+      "priority": 3,
+      "goal": "Done.",
+      "inputs": [
+        "hooks/useAttendance.ts"
+      ],
+      "pipeline": [
+        "claude_audit",
+        "codex_fix",
+        "gemini_test",
+        "gemini_review"
+      ],
+      "evidence_required": [
+        "changed_files",
+        "test_output",
+        "db_impact",
+        "open_risks"
+      ]
+    },
+    {
+      "id": "VISITOR-001",
+      "module": "visitors",
+      "status": "done",
+      "lane": "operations",
+      "priority": 4,
+      "goal": "Done.",
+      "inputs": [
+        "hooks/useVisitors.ts"
+      ],
+      "pipeline": [
+        "claude_audit",
+        "codex_fix",
+        "gemini_test",
+        "gemini_review"
+      ],
+      "evidence_required": [
+        "changed_files",
+        "test_output",
+        "db_impact",
+        "open_risks"
+      ]
+    },
+    {
+      "id": "RESIDENT-001",
+      "module": "residents",
+      "status": "done",
+      "lane": "core",
+      "priority": 5,
+      "goal": "Done.",
+      "inputs": [
+        "hooks/useResidents.ts"
+      ],
+      "pipeline": [
+        "claude_audit",
+        "codex_fix",
+        "gemini_test",
+        "gemini_review"
+      ],
+      "evidence_required": [
+        "changed_files",
+        "test_output",
+        "db_impact",
+        "open_risks"
+      ]
+    },
+    {
+      "id": "FIN-001",
+      "module": "finance",
+      "status": "done",
+      "lane": "finance",
+      "priority": 6,
+      "goal": "Done.",
+      "inputs": [
+        "hooks/useFinance.ts"
+      ],
+      "pipeline": [
+        "claude_audit",
+        "codex_fix",
+        "gemini_test",
+        "gemini_review"
+      ],
+      "evidence_required": [
+        "changed_files",
+        "test_output",
+        "db_impact",
+        "open_risks"
+      ]
+    },
+    {
+      "id": "HR-001",
+      "module": "hrms",
+      "status": "done",
+      "lane": "operations",
+      "priority": 7,
+      "goal": "Done.",
+      "inputs": [
+        "hooks/useAttendance.ts"
+      ],
+      "pipeline": [
+        "claude_audit",
+        "codex_fix",
+        "gemini_test",
+        "gemini_review"
+      ],
+      "evidence_required": [
+        "changed_files",
+        "test_output",
+        "db_impact",
+        "open_risks"
+      ]
+    },
+    {
+      "id": "ASSET-001",
+      "module": "assets",
+      "status": "done",
+      "lane": "operations",
+      "priority": 8,
+      "goal": "Done.",
+      "inputs": [
+        "hooks/useAssets.ts"
+      ],
+      "pipeline": [
+        "claude_audit",
+        "codex_fix",
+        "gemini_test",
+        "gemini_review"
+      ],
+      "evidence_required": [
+        "changed_files",
+        "test_output",
+        "db_impact",
+        "open_risks"
+      ]
+    },
+    {
+      "id": "SUPPLIER-001",
+      "module": "supplier",
+      "status": "done",
+      "lane": "operations",
+      "priority": 9,
+      "goal": "Done.",
+      "inputs": [
+        "hooks/useSupplierPortal.ts"
+      ],
+      "pipeline": [
+        "claude_audit",
+        "codex_fix",
+        "gemini_test",
+        "gemini_review"
+      ],
+      "evidence_required": [
+        "changed_files",
+        "test_output",
+        "db_impact",
+        "open_risks"
+      ]
+    },
+    {
+      "id": "SERVICE-001",
+      "module": "service-delivery",
+      "status": "done",
+      "lane": "operations",
+      "priority": 10,
+      "goal": "Done.",
+      "inputs": [
+        "hooks/useJobSessions.ts"
+      ],
+      "pipeline": [
+        "claude_audit",
+        "codex_fix",
+        "gemini_test",
+        "gemini_review"
+      ],
+      "evidence_required": [
+        "changed_files",
+        "test_output",
+        "db_impact",
+        "open_risks"
+      ]
+    },
+    {
+      "id": "NOTIFY-001",
+      "module": "notifications",
+      "status": "done",
+      "lane": "core",
+      "priority": 11,
+      "goal": "Done.",
+      "inputs": [
+        "hooks/useNotifications.ts"
+      ],
+      "pipeline": [
+        "claude_audit",
+        "codex_fix",
+        "gemini_test",
+        "gemini_review"
+      ],
+      "evidence_required": [
+        "changed_files",
+        "test_output",
+        "open_risks"
+      ]
+    },
+    {
+      "id": "REPORT-001",
+      "module": "analytics",
+      "status": "done",
+      "lane": "reporting",
+      "priority": 12,
+      "goal": "Done.",
+      "inputs": [
+        "hooks/useAnalytics.ts"
+      ],
+      "pipeline": [
+        "claude_audit",
+        "codex_fix",
+        "gemini_test",
+        "gemini_review"
+      ],
+      "evidence_required": [
+        "changed_files",
+        "test_output",
+        "open_risks"
+      ]
+    },
+    {
+      "id": "WAITLIST-001",
+      "module": "waitlist",
+      "status": "done",
+      "lane": "admin",
+      "priority": 13,
+      "goal": "Done.",
+      "inputs": [
+        "hooks/useWaitlist.ts"
+      ],
+      "pipeline": [
+        "codex_fix",
+        "gemini_test",
+        "gemini_review"
+      ],
+      "evidence_required": [
+        "changed_files",
+        "test_output",
+        "open_risks"
+      ]
+    },
+    {
+      "id": "AUDIT-001",
+      "module": "audit-logs",
+      "status": "done",
+      "lane": "admin",
+      "priority": 14,
+      "goal": "Done.",
+      "inputs": [
+        "hooks/useAuditLogs.ts"
+      ],
+      "pipeline": [
+        "codex_fix",
+        "gemini_test",
+        "gemini_review"
+      ],
+      "evidence_required": [
+        "changed_files",
+        "test_output",
+        "open_risks"
+      ]
+    },
+    {
+      "id": "CONFIG-001",
+      "module": "system-config",
+      "status": "done",
+      "lane": "admin",
+      "priority": 15,
+      "goal": "Done.",
+      "inputs": [
+        "hooks/useSystemConfig.ts"
+      ],
+      "pipeline": [
+        "codex_fix",
+        "gemini_test",
+        "gemini_review"
+      ],
+      "evidence_required": [
+        "changed_files",
+        "test_output",
+        "open_risks"
+      ]
+    },
+    {
+      "id": "PLANTATION-001",
+      "module": "plantation",
+      "status": "done",
+      "lane": "services",
+      "priority": 16,
+      "goal": "Build the complete Plantation Services module from scratch. (1) Create migration: tables horticulture_zones (id, name, location_id, area_sqft, plant_types TEXT[], created_at), horticulture_seasonal_plans (id, zone_id, season TEXT, plan_description TEXT, start_date DATE, end_date DATE, status TEXT default 'planned', created_by UUID, created_at), horticulture_tasks (id, plan_id, zone_id, task_name TEXT, task_type TEXT, assigned_to UUID refs employees, scheduled_date DATE, completed_date DATE, status TEXT default 'pending', notes TEXT, photo_evidence TEXT[], created_at). Add RLS: admin/site_supervisor can insert/update all; technician can update only assigned tasks (assigned_to = auth.uid()-mapped employee). (2) Create hooks/usePlantation.ts using useSupabaseQuery/useSupabaseMutation pattern. Export: { zones, plans, tasks, isLoading, createZone, createPlan, createTask, updateTaskStatus, uploadEvidence, refresh }. (3) Create app/(dashboard)/services/plantation/page.tsx - tabs: Zones (list with plant types), Seasonal Plans (per zone), Tasks (kanban by status: pending/in-progress/completed). Task cards show assigned technician, scheduled date, photo upload button. Use PageHeader, DataTable, shadcn Card/Badge. (4) Unhide plantation nav item in AppSidebar.tsx (currently commented out). (5) Add plantation route to ROLE_ACCESS for roles: admin, site_supervisor, pest_control_technician (technicians handle plantation tasks too per PRD).",
+      "inputs": [
+        "app/(dashboard)/services/plantation",
+        "hooks/usePlantation.ts",
+        "components/layout/AppSidebar.tsx",
+        "src/lib/auth/roles.ts",
+        "supabase/migrations/"
+      ],
+      "pipeline": [
+        "codex_fix",
+        "gemini_test",
+        "gemini_review"
+      ],
+      "evidence_required": [
+        "changed_files",
+        "test_output",
+        "db_impact",
+        "open_risks"
+      ],
+      "retry_count": 0,
+      "updated_at": "2026-04-01T15:02:51",
+      "completed_at": "2026-04-01T15:02:51"
+    },
+    {
+      "id": "SERVICE-DEPLOY-001",
+      "module": "service-deployment",
+      "status": "done",
+      "lane": "operations",
+      "priority": 17,
+      "goal": "RETRY 3/4 \u2014 Fix these blockers from the previous review:\n\n6. **Missing evidence gate items**\n*   **Schema Verification**: **COMPLETE**. Columns `headcount`, `shift`, and `duration_months` confirmed in `20260315233000_fix_mocked_dashboards.sql`.\n*   **Workflow Completion**: **COMPLETE**. The transition from `indent_accepted` to `po_issued` is now automated.\n*   **RBAC Parity**: **COMPLETE**. `super_admin` access verified for administrative paths.\n\n\n[STDERR]\nYOLO mode is enabled. All tool calls will be automatically approved.\nLoaded cached credentials.\nYOLO mode is enabled. All tool calls will be automatically approved.\n[MCP error] Error during discovery for MCP server 'pencil': MCP error -32000: Connection closed McpError: MCP error -32000: Connection closed\n    at McpError.fromError (file:///C:/Users/soham/AppData/Roaming/npm/node_modules/@google/gemini-cli/node_modules/@modelcontextprotocol/sdk/dist/esm/types.js:2035:16)\n    at Client._onclose (file:///C:/Users/soham/AppData/Roaming/npm/node_modules/@google/gemini-cli/node_modules/@modelcontextprotocol/sdk/dist/esm/shared/protocol.js:263:32)\n    at _transport.onclose (file:///C:/Users/soham/AppData/Roaming/npm/node_modules/@google/gemini-cli/node_modules/@modelcontextprotocol/sdk/dist/esm/shared/protocol.js:223:18)\n    at ChildProcess.<anonymous> (file:///C:/Users/soham/AppData/Roaming/npm/node_modules/@google/gemini-cli/node_modules/@modelcontextprotocol/sdk/dist/esm/client/stdio.js:85:31)\n    at ChildProcess.emit (node:events:508:20)\n    at cp.emit (C:\\Users\\soham\\AppData\\Roaming\\npm\\node_modules\\@google\\gemini-cli\\node_modules\\cross-spawn\\lib\\enoent.js:34:29)\n    at maybeClose (node:internal/child_process:1084:16)\n    at Socket.<anonymous> (node:internal/child_process:456:11)\n    at Socket.emit (node:events:508:20)\n    at Pipe.<anonymous> (node:net:346:12) {\n  code: -32000,\n  data: undefined\n}\nScheduling MCP context refresh...\nExecuting MCP context refresh...\nMCP context refresh complete.",
+      "inputs": [
+        "app/(dashboard)/buyer/requests/new",
+        "app/(dashboard)/inventory/indents",
+        "hooks/useBuyerRequests.ts",
+        "hooks/useIndents.ts",
+        "hooks/useSupplierPortal.ts",
+        "supabase/migrations/"
+      ],
+      "pipeline": [
+        "claude_audit",
+        "codex_fix",
+        "gemini_test",
+        "gemini_review"
+      ],
+      "evidence_required": [
+        "changed_files",
+        "test_output",
+        "db_impact",
+        "open_risks"
+      ],
+      "retry_count": 3,
+      "updated_at": "2026-03-31T14:22:23",
+      "completed_at": "2026-03-31T14:22:23"
+    },
+    {
+      "id": "SALE-BILL-001",
+      "module": "finance",
+      "status": "done",
+      "lane": "finance",
+      "priority": 18,
+      "goal": "Build Admin Sale Bill generation workflow per SCOPE.md section 5.2. Currently buyers can view invoices but nobody generates them. (1) Create app/(dashboard)/finance/sale-bills/page.tsx for Admin/Account role: lists all sale_bills with columns: bill_number, buyer_name, amount, status (unpaid/paid/overdue), due_date. Include 'Generate Bill' button that opens a dialog. (2) The Generate Bill dialog lets Admin select: buyer (from buyers table), linked_request_id (accepted buyer request), line items (products/services with qty and rate using sale_product_rates), due_date. On submit, insert into sale_bills table (check if table exists, create migration if not: id, bill_number from sequence, buyer_id, request_id, line_items JSONB, subtotal, tax_amount, total_amount, status TEXT default 'unpaid', due_date DATE, paid_at TIMESTAMPTZ, created_by UUID, created_at). (3) Create or extend useSaleBills hook with: { bills, isLoading, createBill, markPaid, refresh }. (4) Verify app/(dashboard)/buyer/invoices/page.tsx reads from the same sale_bills table filtered by buyer_id \u2014 fix it if it reads from a different table or uses mock data. (5) Add 'Mark as Paid' action on the admin page that updates status to paid and sets paid_at. (6) Wire nav item under Finance for Admin/Account roles.",
+      "inputs": [
+        "app/(dashboard)/finance/sale-bills",
+        "app/(dashboard)/buyer/invoices",
+        "hooks/useSaleBills.ts",
+        "hooks/useFinance.ts",
+        "components/layout/AppSidebar.tsx",
+        "supabase/migrations/"
+      ],
+      "pipeline": [
+        "claude_audit",
+        "codex_fix",
+        "gemini_test",
+        "gemini_review"
+      ],
+      "evidence_required": [
+        "changed_files",
+        "test_output",
+        "db_impact",
+        "open_risks"
+      ],
+      "updated_at": "2026-03-31T14:57:10",
+      "completed_at": "2026-03-31T14:57:10"
+    },
+    {
+      "id": "PPE-CHECKLIST-001",
+      "module": "pest-control",
+      "status": "done",
+      "lane": "services",
+      "priority": 19,
+      "goal": "Enforce PPE checklist gate on pest control jobs per PRD. The pest_control_ppe_verifications table exists but is not wired to the job session flow. (1) In app/(dashboard)/service-requests/[id]/page.tsx, when the service type is pest control (service_code = 'PST-CON'), show a PPE Verification section before the technician can upload 'After' photo or mark the job complete. PPE checklist items: Gloves worn (yes/no), Mask/Respirator worn (yes/no), Safety goggles (yes/no), Full body suit (yes/no), Chemical dilution verified (yes/no), Resident area cleared (yes/no). (2) Create or extend usePestControlPPE hook that reads/writes to pest_control_ppe_verifications table (columns: id, job_session_id, technician_id, checklist JSONB, all_items_checked BOOLEAN generated, verified_at TIMESTAMPTZ). (3) Block job completion in useJobSessions.completeJob(): if service is pest control and no PPE verification record exists with all_items_checked=true, throw an error 'PPE verification required before completing pest control job'. (4) Display PPE badge on the job card (green if verified, red if not) in the service requests board view.",
+      "inputs": [
+        "app/(dashboard)/service-requests/[id]",
+        "hooks/useJobSessions.ts",
+        "hooks/usePestControlPPE.ts",
+        "supabase/migrations/"
+      ],
+      "pipeline": [
+        "codex_fix",
+        "gemini_test",
+        "gemini_review"
+      ],
+      "evidence_required": [
+        "changed_files",
+        "test_output",
+        "open_risks"
+      ],
+      "updated_at": "2026-03-31T15:24:31",
+      "completed_at": "2026-03-31T15:24:31"
+    },
+    {
+      "id": "RESIDENT-DASHBOARD-001",
+      "module": "residents",
+      "status": "done",
+      "lane": "core",
+      "priority": 20,
+      "goal": "Fix ResidentDashboard mock data and complete the resident module UI. (1) Read components/dashboards/ResidentDashboard.tsx \u2014 identify every hardcoded array, placeholder number, or TODO comment. Replace each one with real data from existing hooks: useResident (resident profile), useVisitors (filtered by resident flat/unit), useServiceRequests (raised by this resident). (2) KPI cards should show: Active Visitors Today (count from visitors where date=today and flat=resident flat), Pending Approvals (visitors with status=pending), My Service Requests (count open service requests by this resident), Upcoming Visitors (pre-registered for next 7 days). Use DashboardKPIGrid component. (3) Add a 'My Visitors' section showing the last 10 visitor records for this resident's flat using a DataTable. (4) Add a 'Pre-register Visitor' button that opens the existing visitor registration dialog filtered to this resident's unit. (5) Remove any hardcoded test data, mock arrays, or placeholder strings.",
+      "inputs": [
+        "components/dashboards/ResidentDashboard.tsx",
+        "hooks/useResident.ts",
+        "hooks/useVisitors.ts",
+        "hooks/useServiceRequests.ts",
+        "components/shared/DashboardKPIGrid.tsx"
+      ],
+      "pipeline": [
+        "codex_fix",
+        "gemini_test",
+        "gemini_review"
+      ],
+      "evidence_required": [
+        "changed_files",
+        "test_output",
+        "open_risks"
+      ],
+      "updated_at": "2026-03-31T15:34:50",
+      "completed_at": "2026-03-31T15:34:50"
+    },
+    {
+      "id": "DESIGNATION-001",
+      "module": "company",
+      "status": "done",
+      "lane": "admin",
+      "priority": 21,
+      "goal": "Fix Designation Master architectural violation and complete CRUD. (1) Read app/(dashboard)/company/designations/page.tsx \u2014 it uses inline Supabase queries directly in the page component which violates CLAUDE.md rule. (2) Create hooks/useDesignations.ts using useSupabaseQuery/useSupabaseMutation pattern. Export: { designations, isLoading, error, createDesignation, updateDesignation, deleteDesignation, refresh }. Table is 'designations' with columns: id, name, department, level (junior/senior/lead/head), created_at. (3) Refactor the page to import and use useDesignations hook \u2014 remove all inline supabase.from() calls. (4) Add Create/Edit dialog using React Hook Form + Zod with fields: name (required), department (text), level (select). (5) Add delete confirmation dialog. (6) Ensure the DataTable has search/filter by department.",
+      "inputs": [
+        "app/(dashboard)/company/designations",
+        "hooks/useDesignations.ts"
+      ],
+      "pipeline": [
+        "codex_fix",
+        "gemini_test",
+        "gemini_review"
+      ],
+      "evidence_required": [
+        "changed_files",
+        "test_output",
+        "open_risks"
+      ],
+      "updated_at": "2026-03-31T15:51:13",
+      "completed_at": "2026-03-31T15:51:13"
+    },
+    {
+      "id": "USER-PROVISIONING-001",
+      "module": "company",
+      "status": "done",
+      "lane": "admin",
+      "priority": 22,
+      "goal": "Build User Provisioning UI for Admin/Super Admin per SCOPE.md section 11.1 and 11.2. Currently app/(dashboard)/company/users/page.tsx only lists users with no create/edit capability. (1) Add 'Create User' button that opens a dialog with fields: full_name, email, role (select from roles table), employee_id (optional, link to employees table), password (auto-generated, shown once). On submit, call a Supabase Edge Function or admin API route app/api/admin/create-user/route.ts that uses the service role client to call supabase.auth.admin.createUser({ email, password, user_metadata: { role, full_name } }) and then inserts into the employees/residents/suppliers table based on role. (2) Add 'Edit Role' action on existing users \u2014 opens dialog to change role assignment (updates user_metadata and the relevant profile table). (3) Add 'Suspend/Activate' toggle \u2014 sets user banned_until in auth.users via admin API. (4) Extend useUsers hook (or create it if missing) with: createUser, updateUserRole, suspendUser, activateUser methods. All mutations go through the API route, not direct client calls \u2014 service role key must never be exposed to browser.",
+      "inputs": [
+        "app/(dashboard)/company/users",
+        "app/api/admin/create-user",
+        "hooks/useUsers.ts"
+      ],
+      "pipeline": [
+        "claude_audit",
+        "codex_fix",
+        "gemini_test",
+        "gemini_review"
+      ],
+      "evidence_required": [
+        "changed_files",
+        "test_output",
+        "db_impact",
+        "open_risks"
+      ],
+      "updated_at": "2026-03-31T16:09:32",
+      "completed_at": "2026-03-31T16:09:32"
+    },
+    {
+      "id": "ANALYTICS-001",
+      "module": "analytics",
+      "status": "done",
+      "lane": "reporting",
+      "priority": 23,
+      "goal": "Complete analytics and reports pages with real data per SCOPE.md section 11.2 (Admin Reports). (1) Read app/(dashboard)/reports/financial/page.tsx, reports/attendance/page.tsx, reports/services/page.tsx, reports/inventory/page.tsx \u2014 identify every hardcoded chart data array or mock stat. (2) Replace financial report charts with real data: monthly revenue from sale_bills grouped by month, monthly supplier costs from purchase_bills grouped by month, margin = revenue - costs. Use Recharts BarChart/LineChart. (3) Replace attendance report with real data from attendance table: present/absent/late counts per day for the selected month date range. (4) Replace service report with real data from job_sessions: jobs completed per service type per month, average completion time. (5) Replace inventory report with real data from stock_transactions: items issued vs received per month. (6) All charts must use formatCurrency() for monetary values. Add date range filter (month picker) to each report page. Wire data through useAnalyticsData hook if it exists, or create it.",
+      "inputs": [
+        "app/(dashboard)/reports",
+        "hooks/useAnalyticsData.ts"
+      ],
+      "pipeline": [
+        "claude_audit",
+        "codex_fix",
+        "gemini_test",
+        "gemini_review"
+      ],
+      "evidence_required": [
+        "changed_files",
+        "test_output",
+        "open_risks"
+      ],
+      "updated_at": "2026-03-31T17:20:28",
+      "completed_at": "2026-03-31T17:20:28"
+    },
+    {
+      "id": "SVCACK-GATE-001",
+      "module": "supplier-billing",
+      "status": "done",
+      "lane": "finance",
+      "priority": 24,
+      "goal": "Enforce Service Acknowledgment gate on Supplier Bills for SPO-linked work. Supabase CLI is available \u2014 use `supabase migration new` to create migrations and `supabase db push` to apply them. (1) Read supabase/migrations/ for service_acknowledgments and supplier_bills tables to understand current schema. (2) Create a new migration that adds a DB-level trigger: before a row is inserted into supplier_bills where po_id is NOT NULL (i.e., linked to a service purchase order), check that a corresponding service_acknowledgments record exists with status='acknowledged'. If not, RAISE EXCEPTION 'Service acknowledgment required before billing for SPO-linked work'. (3) Read hooks/useSupplierBills.ts \u2014 add a pre-flight check in the createBill mutation that queries service_acknowledgments and returns a user-friendly error message if the gate would fail, so the UI shows a clear error before even hitting the DB. (4) In app/(dashboard)/supplier/bills/new/page.tsx, if the SPO-linked gate check fails, show a prominent warning banner: 'This job requires a signed acknowledgment before billing. Please obtain acknowledgment first.' with a link to the service acknowledgments page. (5) Write a test in tests/unit/ that verifies the gate logic.",
+      "inputs": [
+        "supabase/migrations/",
+        "hooks/useSupplierBills.ts",
+        "app/(dashboard)/supplier/bills/new/page.tsx"
+      ],
+      "pipeline": [
+        "claude_audit",
+        "codex_fix",
+        "gemini_test",
+        "gemini_review"
+      ],
+      "evidence_required": [
+        "changed_files",
+        "test_output",
+        "db_impact",
+        "open_risks"
+      ],
+      "updated_at": "2026-04-01T06:53:21",
+      "completed_at": "2026-04-01T06:53:21"
+    },
+    {
+      "id": "GRN-QUALITY-001",
+      "module": "inventory",
+      "status": "done",
+      "lane": "operations",
+      "priority": 25,
+      "goal": "Block stock addition for rejected GRN line items. Supabase CLI is available \u2014 use `supabase migration new` and `supabase db push`. (1) Read supabase/migrations/ for grn_items and stock_transactions tables. Check whether grn_items has a quality_status column (accepted/rejected/partial). If not, create a migration to add quality_status ENUM ('accepted', 'rejected', 'partial') with default 'accepted'. (2) Create a DB trigger on stock_transactions INSERT: if the transaction references a grn_item_id and that grn_item has quality_status='rejected', RAISE EXCEPTION 'Cannot add rejected material to stock'. (3) Read hooks/useGRN.ts \u2014 add a `updateGRNItemQuality(itemId, status)` mutation. (4) In app/(dashboard)/inventory/grn/page.tsx, add a quality status selector per GRN line item (accepted/rejected/partial). Rejected items should show a red badge and be excluded from the 'Add to Stock' action \u2014 grey out or hide the button for rejected rows. (5) Write tests verifying the gate in tests/unit/.",
+      "inputs": [
+        "supabase/migrations/",
+        "hooks/useGRN.ts",
+        "app/(dashboard)/inventory/grn/page.tsx"
+      ],
+      "pipeline": [
+        "claude_audit",
+        "codex_fix",
+        "gemini_test",
+        "gemini_review"
+      ],
+      "evidence_required": [
+        "changed_files",
+        "test_output",
+        "db_impact",
+        "open_risks"
+      ],
+      "updated_at": "2026-04-01T08:07:40",
+      "completed_at": "2026-04-01T08:07:40"
+    },
+    {
+      "id": "PPE-DB-GATE-001",
+      "module": "pest-control",
+      "status": "done",
+      "lane": "services",
+      "priority": 26,
+      "goal": "Add DB-level enforcement preventing pest control job completion without verified PPE. Supabase CLI is available \u2014 use `supabase migration new` and `supabase db push`. (1) Read supabase/migrations/ for pest_control_ppe_verifications and job_sessions tables. (2) Create a migration with a trigger on job_sessions UPDATE: when status changes to 'completed' and the session's service has service_code='PST-CON', check that pest_control_ppe_verifications has a row with job_session_id = NEW.id AND all_items_checked = true. If not, RAISE EXCEPTION 'PPE verification required before completing pest control job'. (3) Read hooks/useJobSessions.ts \u2014 in the completeJob() function, add a pre-flight query: fetch pest_control_ppe_verifications for the session; if missing or all_items_checked=false, return an error object with message 'PPE verification required before completing pest control job' before attempting the DB update. (4) Create hooks/usePestControlPPE.ts that reads/writes pest_control_ppe_verifications. Export { ppeVerification, isLoading, submitPPEChecklist }. PPE checklist items: gloves_worn, mask_worn, goggles_worn, full_suit_worn, chemical_dilution_verified, resident_area_cleared (all boolean). (5) In app/(dashboard)/service-requests/[id]/page.tsx, when service_code='PST-CON', show the PPE checklist section (using usePestControlPPE) before the 'Complete Job' button. Block the button until all_items_checked=true. Show a green badge 'PPE Verified' or red badge 'PPE Required'.",
+      "inputs": [
+        "supabase/migrations/",
+        "hooks/useJobSessions.ts",
+        "app/(dashboard)/service-requests/[id]/page.tsx"
+      ],
+      "pipeline": [
+        "claude_audit",
+        "codex_fix",
+        "gemini_test",
+        "gemini_review"
+      ],
+      "evidence_required": [
+        "changed_files",
+        "test_output",
+        "db_impact",
+        "open_risks"
+      ],
+      "updated_at": "2026-04-01T08:20:33",
+      "completed_at": "2026-04-01T08:20:33"
+    },
+    {
+      "id": "FEEDBACK-GATE-001",
+      "module": "buyer-feedback",
+      "status": "done",
+      "lane": "services",
+      "priority": 27,
+      "goal": "Require buyer feedback before a service request reaches terminal 'closed' status. Supabase CLI is available \u2014 use `supabase migration new` and `supabase db push`. (1) Read supabase/migrations/ for service_requests and buyer_feedback tables. Check if buyer_feedback has a service_request_id FK. (2) Create a migration with a trigger on service_requests UPDATE: when status changes to 'closed', check that buyer_feedback has a row for this service_request_id. If not, RAISE EXCEPTION 'Buyer feedback required before closing service request'. (3) Read hooks/useServiceRequests.ts \u2014 in closeServiceRequest() (or equivalent), add pre-flight check: if no feedback row exists for this request, return error 'Buyer feedback required before closing this request'. (4) In app/(dashboard)/service-requests/[id]/page.tsx, show a 'Submit Feedback' section (rating 1-5 stars + comment textarea) after job completion, before the 'Close Request' button. Use existing useBuyerFeedback hook if it exists, or create it. Block the Close button until feedback is submitted. (5) Write tests in tests/unit/ verifying the gate.",
+      "inputs": [
+        "supabase/migrations/",
+        "hooks/useServiceRequests.ts",
+        "app/(dashboard)/service-requests/[id]/page.tsx"
+      ],
+      "pipeline": [
+        "claude_audit",
+        "codex_fix",
+        "gemini_test",
+        "gemini_review"
+      ],
+      "evidence_required": [
+        "changed_files",
+        "test_output",
+        "db_impact",
+        "open_risks"
+      ],
+      "updated_at": "2026-04-01T08:50:59",
+      "completed_at": "2026-04-01T08:50:59"
+    },
+    {
+      "id": "OT-SHIFTS-001",
+      "module": "hrms",
+      "status": "done",
+      "lane": "hrms",
+      "priority": 28,
+      "goal": "Fix overtime calculation to use employee shift standard_hours instead of hardcoded 8 hours per day. Supabase CLI is available \u2014 use `supabase migration new` and `supabase db push`. (1) Read supabase/migrations/ for the payroll calculation function. Find where OT hours are computed \u2014 likely `GREATEST(0, worked_hours - 8)`. (2) Read supabase/migrations/ for employee_shifts or shifts table to find the standard_hours column. (3) Create a migration that updates the payroll calculation function: replace the hardcoded `8` with a lookup: JOIN employees e ON e.id = attendance.employee_id JOIN shifts s ON s.id = e.shift_id, then use `s.standard_hours` (default 8 if NULL). Also handle night shifts that span midnight: if shift end_time < start_time, the worked hours calculation should account for the midnight crossing. (4) Read hooks/usePayroll.ts and hooks/useAttendance.ts \u2014 update any client-side OT display logic to match. (5) In app/(dashboard)/hrms/attendance/page.tsx, show the employee's shift name and standard hours alongside the OT column so supervisors can verify the calculation. (6) Write tests in tests/unit/ for the OT calculation with different shift configs.",
+      "inputs": [
+        "supabase/migrations/",
+        "hooks/usePayroll.ts",
+        "hooks/useAttendance.ts",
+        "app/(dashboard)/hrms/attendance/page.tsx"
+      ],
+      "pipeline": [
+        "claude_audit",
+        "codex_fix",
+        "gemini_test",
+        "gemini_review"
+      ],
+      "evidence_required": [
+        "changed_files",
+        "test_output",
+        "db_impact",
+        "open_risks"
+      ],
+      "updated_at": "2026-04-01T13:23:08",
+      "completed_at": "2026-04-01T13:23:08"
+    },
+    {
+      "id": "CHEM-EXPIRY-001",
+      "module": "inventory",
+      "status": "done",
+      "lane": "operations",
+      "priority": 29,
+      "goal": "Block issuance of expired chemicals from inventory. Supabase CLI is available \u2014 use `supabase migration new` and `supabase db push`. (1) Read supabase/migrations/ for chemical_inventory or chemicals table \u2014 confirm expiry_date column exists. If missing, create a migration adding expiry_date DATE and batch_number TEXT columns. (2) Create a migration with a trigger on stock_transactions INSERT where transaction_type='issue': if the issued item is a chemical (category='chemical' or item_type='chemical') and its expiry_date < CURRENT_DATE, RAISE EXCEPTION 'Cannot issue expired chemical: [item name] expired on [date]'. (3) Create a DB function `get_expiring_chemicals(days_ahead INT)` that returns chemicals expiring within the given number of days. (4) Create or extend hooks/useChemicals.ts (or useInventory.ts) to expose: { expiringChemicals, blockedChemicals, issueChemical, updateExpiry }. Pre-flight check in issueChemical: if expiry_date < today, return error with message. (5) In the inventory issue UI (app/(dashboard)/inventory/ relevant page), show an expiry badge on chemical items: green if >30 days, yellow if 1-30 days, red if expired. Expired items should have the Issue button disabled with tooltip 'Item expired \u2014 cannot issue'. (6) Write tests in tests/unit/.",
+      "inputs": [
+        "supabase/migrations/",
+        "hooks/useInventory.ts",
+        "app/(dashboard)/inventory/"
+      ],
+      "pipeline": [
+        "claude_audit",
+        "codex_fix",
+        "gemini_test",
+        "gemini_review"
+      ],
+      "evidence_required": [
+        "changed_files",
+        "test_output",
+        "db_impact",
+        "open_risks"
+      ],
+      "updated_at": "2026-04-01T10:35:19",
+      "completed_at": "2026-04-01T10:35:19"
+    },
+    {
+      "id": "SINGLE-DEPLOY-001",
+      "module": "hrms",
+      "status": "done",
+      "lane": "hrms",
+      "priority": 30,
+      "goal": "Prevent overlapping employee deployments with a DB unique constraint. Supabase CLI is available \u2014 use `supabase migration new` and `supabase db push`. (1) Read supabase/migrations/ for personnel_dispatches or employee_deployments table \u2014 understand the schema (employee_id, site_id, start_date, end_date, status). (2) Create a migration adding an EXCLUSION constraint (using btree_gist extension) or a trigger that prevents two active deployments for the same employee overlapping in time: `EXCLUDE USING gist (employee_id WITH =, daterange(start_date, end_date, '[)') WITH &&) WHERE (status NOT IN ('cancelled', 'completed'))`. If gist extension is unavailable, implement as a BEFORE INSERT/UPDATE trigger with an explicit overlap check query. (3) Read hooks/usePersonnelDispatches.ts \u2014 in the createDispatch mutation, add pre-flight overlap check: query active deployments for the employee in the given date range; if any exist, return error 'Employee [name] is already deployed from [start] to [end] at [site]'. (4) In app/(dashboard)/supplier/service-orders/page.tsx or the dispatch UI, highlight conflicting deployments in red and show the conflict details before the user submits. (5) Write tests in tests/unit/ verifying the overlap detection.",
+      "inputs": [
+        "supabase/migrations/",
+        "hooks/usePersonnelDispatches.ts",
+        "app/(dashboard)/supplier/service-orders/page.tsx"
+      ],
+      "pipeline": [
+        "claude_audit",
+        "codex_fix",
+        "gemini_test",
+        "gemini_review"
+      ],
+      "evidence_required": [
+        "changed_files",
+        "test_output",
+        "db_impact",
+        "open_risks"
+      ],
+      "updated_at": "2026-04-01T13:35:11",
+      "completed_at": "2026-04-01T13:35:11"
+    },
+    {
+      "id": "RATE-VERIFY-001",
+      "module": "procurement",
+      "status": "done",
+      "lane": "operations",
+      "priority": 31,
+      "goal": "Enforce rate verification before admin forwards a service indent to suppliers. Supabase CLI is available \u2014 use `supabase migration new` and `supabase db push`. (1) Read supabase/migrations/ for service_indents and rate_contracts (or supplier_rates) tables. Check if there is a status flow where admin 'forwards' the indent. (2) Create a migration adding a DB-level check: create a function `validate_indent_rate(indent_id UUID)` that returns TRUE if there is an active rate_contract for the service and supplier combination on the indent, FALSE otherwise. Add a trigger on service_indents UPDATE when status transitions to 'forwarded': call validate_indent_rate and RAISE EXCEPTION 'No active rate contract found for this service. Verify rates before forwarding.' if it returns FALSE. (3) Read hooks/useSupplierPortal.ts or hooks/useIndents (whichever handles indent forwarding) \u2014 in the forwardIndent mutation, add pre-flight check using the same logic. Return descriptive error if no rate contract found. (4) In app/(dashboard)/supplier/indents/page.tsx, when admin clicks 'Forward to Supplier', show a rate verification summary card: list the applicable rate contract (service name, rate, validity dates). If no contract found, show warning banner 'No active rate contract \u2014 please set up rates before forwarding' and disable the Forward button. (5) Write tests in tests/unit/.",
+      "inputs": [
+        "supabase/migrations/",
+        "hooks/useSupplierPortal.ts",
+        "app/(dashboard)/supplier/indents/page.tsx"
+      ],
+      "pipeline": [
+        "claude_audit",
+        "codex_fix",
+        "gemini_test",
+        "gemini_review"
+      ],
+      "evidence_required": [
+        "changed_files",
+        "test_output",
+        "db_impact",
+        "open_risks"
+      ],
+      "updated_at": "2026-04-01T13:52:10",
+      "completed_at": "2026-04-01T13:52:10"
+    }
+  ]
+}

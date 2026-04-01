@@ -23,23 +23,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Home } from "lucide-react";
+import { Home, Eye, EyeOff, Copy, Check, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { useRoles } from "@/hooks/useRoles";
+import { useEmployees } from "@/hooks/useEmployees";
+import { useUsers } from "@/hooks/useUsers";
 
-const schema = z
-  .object({
-    full_name: z.string().min(2, "Full name is required"),
-    email: z.string().email("Enter a valid email"),
-    phone: z.string().optional(),
-    role_id: z.string().min(1, "Role is required"),
-    temp_password: z.string().min(8, "Password must be at least 8 characters"),
-    confirm_password: z.string().min(1, "Please confirm the password"),
-  })
-  .refine((d) => d.temp_password === d.confirm_password, {
-    message: "Passwords do not match",
-    path: ["confirm_password"],
-  });
+const schema = z.object({
+  full_name: z.string().min(2, "Full name is required"),
+  email: z.string().email("Enter a valid email"),
+  phone: z.string().optional(),
+  role_id: z.string().min(1, "Role is required"),
+  employee_id: z.string().optional(),
+});
 
 type FormValues = z.infer<typeof schema>;
 
@@ -62,10 +58,11 @@ export function ProvisionUserDialog({
   onSuccess,
 }: ProvisionUserDialogProps) {
   const { roles: allRoles, isLoading: rolesLoading } = useRoles();
-  // Exclude admin-tier roles — the API blocks them too, but better to not show them at all
-  // Exclude admin-tier and resident roles — residents are provisioned from Resident Directory
+  const { employees, isLoading: employeesLoading } = useEmployees();
+  const { createUser } = useUsers();
+
   const roles = allRoles.filter(
-    (r) => r.roleKey !== "admin" && r.roleKey !== "super_admin" && r.roleKey !== "resident"
+    (r) => r.roleKey !== "admin" && r.roleKey !== "super_admin"
   );
 
   const [apiError, setApiError] = useState<string | null>(null);
@@ -73,10 +70,12 @@ export function ProvisionUserDialog({
   const [selectedResidentId, setSelectedResidentId] = useState<string>("");
   const [unlinkedResidents, setUnlinkedResidents] = useState<UnlinkedResident[]>([]);
   const [residentsLoading, setResidentsLoading] = useState(false);
+  const [generatedPassword, setGeneratedPassword] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const isResidentRole = selectedRoleKey === "resident";
 
-  // Fetch unlinked residents when resident role is selected
   useEffect(() => {
     if (!isResidentRole) return;
     setResidentsLoading(true);
@@ -106,37 +105,20 @@ export function ProvisionUserDialog({
     }
 
     try {
-      const res = await fetch("/api/users/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          full_name: values.full_name,
-          email: values.email,
-          phone: values.phone || null,
-          role_id: values.role_id,
-          temp_password: values.temp_password,
-          resident_id: isResidentRole ? selectedResidentId : undefined,
-        }),
+      const result = await createUser({
+        ...values,
+        resident_id: isResidentRole ? selectedResidentId : undefined,
       });
 
-      const result = await res.json();
-
-      if (!res.ok) {
-        setApiError(result.error || "Failed to create user");
-        return;
+      if (result.password) {
+        setGeneratedPassword(result.password);
+      } else {
+        onOpenChange(false);
+        onSuccess();
+        reset();
       }
-
-      toast.success("User provisioned", {
-        description: `${values.full_name} can now log in with the temporary password.`,
-      });
-
-      reset();
-      setSelectedRoleKey(null);
-      setSelectedResidentId("");
-      onOpenChange(false);
-      onSuccess();
-    } catch {
-      setApiError("An unexpected error occurred. Please try again.");
+    } catch (err: any) {
+      setApiError(err.message || "An unexpected error occurred.");
     }
   };
 
@@ -146,6 +128,8 @@ export function ProvisionUserDialog({
       setApiError(null);
       setSelectedRoleKey(null);
       setSelectedResidentId("");
+      setGeneratedPassword(null);
+      setShowPassword(false);
     }
     onOpenChange(open);
   };
@@ -157,13 +141,70 @@ export function ProvisionUserDialog({
     setSelectedResidentId("");
   };
 
+  const copyToClipboard = () => {
+    if (generatedPassword) {
+      navigator.clipboard.writeText(generatedPassword);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      toast.success("Password copied to clipboard");
+    }
+  };
+
+  if (generatedPassword) {
+    return (
+      <Dialog open={open} onOpenChange={handleClose}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-success" /> User Provisioned
+            </DialogTitle>
+            <DialogDescription>
+              The account has been created successfully. Copy the temporary password below.
+              It will not be shown again.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-4">
+            <div className="bg-muted p-4 rounded-lg border flex items-center justify-between gap-2">
+              <code className="text-lg font-mono font-bold">
+                {showPassword ? generatedPassword : "••••••••••••••••"}
+              </code>
+              <div className="flex items-center gap-1">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+                <Button size="icon" variant="ghost" onClick={copyToClipboard}>
+                  {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+
+            <Alert className="bg-warning/10 border-warning/20">
+              <AlertDescription className="text-xs text-warning-foreground font-medium">
+                The user must change this password upon their first login. Ensure you communicate this password securely.
+              </AlertDescription>
+            </Alert>
+
+            <Button className="w-full" onClick={() => handleClose(false)}>
+              Close and Continue
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[480px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Provision New User</DialogTitle>
           <DialogDescription>
-            Create a system account. The user must change the temporary password on their first login.
+            Create a system account. A temporary password will be generated for you to share.
           </DialogDescription>
         </DialogHeader>
 
@@ -194,16 +235,6 @@ export function ProvisionUserDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="phone">Phone</Label>
-            <Input
-              id="phone"
-              type="tel"
-              placeholder="+91 98765 43210"
-              {...register("phone")}
-            />
-          </div>
-
-          <div className="space-y-1.5">
             <Label htmlFor="role_id">Role <span className="text-destructive">*</span></Label>
             <Select onValueChange={handleRoleChange} disabled={rolesLoading}>
               <SelectTrigger id="role_id">
@@ -222,7 +253,23 @@ export function ProvisionUserDialog({
             )}
           </div>
 
-          {/* Resident profile linking — only shown when Resident role is selected */}
+          <div className="space-y-1.5">
+            <Label htmlFor="employee_id">Link Existing Employee (Optional)</Label>
+            <Select onValueChange={(val) => setValue("employee_id", val)}>
+              <SelectTrigger id="employee_id">
+                <SelectValue placeholder={employeesLoading ? "Loading…" : "Select employee"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">None / Create New</SelectItem>
+                {employees.map((emp) => (
+                  <SelectItem key={emp.id} value={emp.id}>
+                    {emp.full_name} ({emp.employee_code})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {isResidentRole && (
             <div className="space-y-1.5">
               <Label htmlFor="resident_id">
@@ -232,7 +279,7 @@ export function ProvisionUserDialog({
                 <Alert className="border-warning/30 bg-warning/10">
                   <Home className="h-4 w-4 text-warning" />
                   <AlertDescription className="text-warning text-xs">
-                    No unlinked resident profiles found. Create a resident record first from Society &amp; Residents → Residents.
+                    No unlinked resident profiles found.
                   </AlertDescription>
                 </Alert>
               ) : (
@@ -257,36 +304,6 @@ export function ProvisionUserDialog({
               )}
             </div>
           )}
-
-          <div className="space-y-1.5">
-            <Label htmlFor="temp_password">
-              Temporary Password <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id="temp_password"
-              type="password"
-              placeholder="Min. 8 characters"
-              {...register("temp_password")}
-            />
-            {errors.temp_password && (
-              <p className="text-destructive text-xs">{errors.temp_password.message}</p>
-            )}
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="confirm_password">
-              Confirm Password <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id="confirm_password"
-              type="password"
-              placeholder="Re-enter password"
-              {...register("confirm_password")}
-            />
-            {errors.confirm_password && (
-              <p className="text-destructive text-xs">{errors.confirm_password.message}</p>
-            )}
-          </div>
 
           {apiError && (
             <p className="text-destructive text-sm font-medium">{apiError}</p>

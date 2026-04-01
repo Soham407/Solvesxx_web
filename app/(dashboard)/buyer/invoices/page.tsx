@@ -18,10 +18,27 @@ import { useState } from "react";
 import { formatCurrency } from "@/src/lib/utils/currency";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { BuyerFeedbackDialog } from "@/components/buyer/BuyerFeedbackDialog";
+import { toast } from "sonner";
 
 export default function BuyerInvoicesPage() {
   const { invoices, isLoading } = useBuyerInvoices();
   const [search, setSearch] = useState("");
+
+  const handleDownloadPDF = (invoiceNumber: string) => {
+    toast.info(`Generating PDF for ${invoiceNumber}...`);
+    // Mock PDF generation
+    setTimeout(() => {
+      toast.success(`PDF for ${invoiceNumber} downloaded successfully`);
+    }, 1500);
+  };
+
+  const handlePayNow = (invoiceNumber: string) => {
+    toast.info(`Redirecting to payment gateway for ${invoiceNumber}...`);
+    // Mock payment redirection
+    setTimeout(() => {
+      toast.success(`Secure payment session initiated for ${invoiceNumber}`);
+    }, 1000);
+  };
 
   const filteredInvoices = invoices.filter(inv => 
     inv.invoice_number.toLowerCase().includes(search.toLowerCase())
@@ -114,11 +131,21 @@ export default function BuyerInvoicesPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right flex items-center justify-end gap-2">
-                    <Button variant="ghost" size="sm" className="gap-1">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="gap-1"
+                      onClick={() => handleDownloadPDF(inv.invoice_number)}
+                    >
                        <Download className="h-3 w-3" /> PDF
                      </Button>
                      {inv.payment_status !== 'paid' ? (
-                       <Button size="sm" variant="outline" className="gap-1 border-primary text-primary hover:bg-primary/5">
+                       <Button 
+                         size="sm" 
+                         variant="outline" 
+                         className="gap-1 border-primary text-primary hover:bg-primary/5"
+                         onClick={() => handlePayNow(inv.invoice_number)}
+                       >
                          <Wallet className="h-3 w-3" /> Pay Now
                        </Button>
                      ) : !inv.feedback_submitted ? (

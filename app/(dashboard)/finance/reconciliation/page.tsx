@@ -43,10 +43,12 @@ export default function ReconciliationHubPage() {
     selectReconciliation, 
     selectedReconciliation,
     resolveDiscrepancy,
-    fetchReconciliations
+    fetchReconciliations,
+    autoSyncReconciliations,
   } = useReconciliation();
 
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const handleResolveManual = async (id: string) => {
     const success = await resolveDiscrepancy(id, {
@@ -56,6 +58,30 @@ export default function ReconciliationHubPage() {
     if (success) {
       toast.success("Reconciliation resolved");
       fetchReconciliations();
+    }
+  };
+
+  const handleAutoSync = async () => {
+    setIsSyncing(true);
+    try {
+      const result = await autoSyncReconciliations();
+      if (result.total === 0) {
+        toast.info("No pending reconciliations required syncing.");
+        return;
+      }
+
+      if (result.failed > 0) {
+        toast.error("Reconciliation auto-sync completed with failures.", {
+          description: `${result.processed} synced, ${result.failed} failed.`,
+        });
+        return;
+      }
+
+      toast.success("Reconciliation auto-sync completed.", {
+        description: `${result.processed} record(s) re-matched.`,
+      });
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -187,8 +213,12 @@ export default function ReconciliationHubPage() {
             <Button variant="outline" className="gap-2">
                <History className="h-4 w-4" /> View Audit Logs
             </Button>
-            <Button className="gap-2 shadow-lg shadow-primary/20 bg-primary">
-               <Scale className="h-4 w-4" /> Trigger Auto-Sync
+            <Button
+              className="gap-2 shadow-lg shadow-primary/20 bg-primary"
+              onClick={handleAutoSync}
+              disabled={isSyncing}
+            >
+               {isSyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Scale className="h-4 w-4" />} Trigger Auto-Sync
             </Button>
           </div>
         }

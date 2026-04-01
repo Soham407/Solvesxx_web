@@ -1,22 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Wrench,
-  Camera,
   Play,
-  Pause,
   CheckCircle,
   Clock,
   MapPin,
   AlertCircle,
   QrCode,
   RefreshCw,
-  User,
   Timer,
-  Package,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -30,14 +26,14 @@ import { useEmployeeProfile } from "@/hooks/useEmployeeProfile";
 import { useServiceRequests } from "@/hooks/useServiceRequests";
 import { useJobSessions } from "@/hooks/useJobSessions";
 import { JobSessionPanel } from "@/components/jobs";
-import { QrScanner, QrScanResult } from "@/components/qr-codes";
+import { QrScanner } from "@/components/qr-codes";
 import { PriorityBadge, RequestStatusBadge } from "@/components/assets/AssetStatusBadge";
-import type { ServiceRequestWithDetails, QrScanResult as QrScanResultType } from "@/src/types/operations";
+import type { ServiceRequestWithDetails } from "@/src/types/operations";
 
 export default function ServiceBoyPage() {
   const [showScanner, setShowScanner] = useState(false);
-  const [scanResult, setScanResult] = useState<QrScanResultType | null>(null);
   const [selectedRequest, setSelectedRequest] = useState<ServiceRequestWithDetails | null>(null);
+  const [showJobPanel, setShowJobPanel] = useState(false);
 
   const { employeeId, fullName, isLoading: profileLoading, error: profileError } = useEmployeeProfile();
 
@@ -51,12 +47,7 @@ export default function ServiceBoyPage() {
 
   const {
     activeSession,
-    sessions,
     isLoading: sessionsLoading,
-    startSession,
-    pauseSession,
-    resumeSession,
-    completeSession,
     refresh: refreshSessions,
   } = useJobSessions(undefined, employeeId || undefined);
 
@@ -71,43 +62,15 @@ export default function ServiceBoyPage() {
     return new Date(r.completed_at).toDateString() === today;
   });
 
-  const handleScanComplete = (qrId: string) => {
+  const handleScanComplete = (_qrId: string) => {
     // In real app, this would scan and get asset info
     // For now, just close the scanner
     setShowScanner(false);
   };
 
-  const handleStartJob = async (request: ServiceRequestWithDetails) => {
-    if (!employeeId) return;
-
-    // Get GPS coords
-    let coords: { latitude?: number; longitude?: number } = {};
-    if (navigator.geolocation) {
-      try {
-        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: true,
-            timeout: 10000,
-          });
-        });
-        coords = {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        };
-      } catch (e) {
-        console.warn("Could not get GPS location:", e);
-      }
-    }
-
-    await startSession({
-      serviceRequestId: request.id!, // View column can be null but in practice won't be
-      technicianId: employeeId!, // Already validated in handleStartJob guard
-      startLatitude: coords.latitude,
-      startLongitude: coords.longitude,
-    });
-
-    refreshRequests();
-    refreshSessions();
+  const handleStartJob = (request: ServiceRequestWithDetails) => {
+    setSelectedRequest(request);
+    setShowJobPanel(true);
   };
 
   const handleRefresh = () => {
@@ -309,8 +272,29 @@ export default function ServiceBoyPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Request Detail Dialog */}
-      <Dialog open={!!selectedRequest} onOpenChange={() => setSelectedRequest(null)}>
+      {/* Job Session Dialog */}
+      <Dialog open={showJobPanel} onOpenChange={setShowJobPanel}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Job Session</DialogTitle>
+          </DialogHeader>
+          {selectedRequest && employeeId && (
+            <JobSessionPanel
+              serviceRequest={selectedRequest}
+              technicianId={employeeId}
+              onComplete={() => {
+                setShowJobPanel(false);
+                setSelectedRequest(null);
+                refreshRequests();
+                refreshSessions();
+              }}
+              onClose={() => setShowJobPanel(false)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!selectedRequest && !showJobPanel} onOpenChange={() => setSelectedRequest(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>{selectedRequest?.title || "Service Request"}</DialogTitle>
@@ -348,8 +332,7 @@ export default function ServiceBoyPage() {
                 <Button
                   className="w-full gap-2"
                   onClick={() => {
-                    handleStartJob(selectedRequest);
-                    setSelectedRequest(null);
+                    setShowJobPanel(true);
                   }}
                 >
                   <Play className="h-4 w-4" />

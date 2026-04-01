@@ -1,9 +1,10 @@
-// @ts-nocheck
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/src/lib/supabaseClient";
+import { supabase as supabaseClient } from "@/src/lib/supabaseClient";
 import { useToast } from "@/components/ui/use-toast";
+
+const supabase = supabaseClient as any;
 
 export type DispatchStatus = "dispatched" | "confirmed" | "active" | "withdrawn";
 
@@ -20,8 +21,11 @@ export interface PersonnelDispatch {
   dispatch_number: string;
   service_po_id: string;
   supplier_id: string;
+  employee_id?: string | null;
   personnel_json: PersonnelMember[];
   dispatch_date: string;
+  start_date: string;
+  end_date: string | null;
   deployment_site_id: string | null;
   status: DispatchStatus;
   confirmed_by: string | null;
@@ -34,6 +38,7 @@ export interface PersonnelDispatch {
   po_number?: string;
   supplier_name?: string;
   site_name?: string;
+  employee_name?: string;
 }
 
 export const DISPATCH_STATUS_CONFIG: Record<DispatchStatus, { label: string; className: string }> = {
@@ -55,9 +60,10 @@ export function usePersonnelDispatches(poId?: string) {
         .from("personnel_dispatches")
         .select(`
           *,
-          purchase_orders!service_po_id (po_number),
-          suppliers!supplier_id (supplier_name),
-          company_locations!deployment_site_id (name)
+          purchase_order:purchase_orders!service_po_id (po_number),
+          supplier:suppliers!supplier_id (supplier_name),
+          deployment_site:company_locations!deployment_site_id (name),
+          employee:employees!employee_id (first_name, last_name)
         `)
         .order("created_at", { ascending: false });
 
@@ -70,9 +76,10 @@ export function usePersonnelDispatches(poId?: string) {
 
       const mapped = (data || []).map((d: any) => ({
         ...d,
-        po_number: d.purchase_orders?.po_number,
-        supplier_name: d.suppliers?.supplier_name,
-        site_name: d.locations?.name,
+        po_number: d.purchase_order?.po_number,
+        supplier_name: d.supplier?.supplier_name,
+        site_name: d.deployment_site?.name,
+        employee_name: d.employee ? `${d.employee.first_name} ${d.employee.last_name}` : null,
       }));
 
       setDispatches(mapped);
@@ -86,18 +93,50 @@ export function usePersonnelDispatches(poId?: string) {
   const createDispatch = async (input: {
     service_po_id: string;
     supplier_id: string;
-    personnel: PersonnelMember[];
-    dispatch_date?: string;
+    employee_id: string;
+    start_date: string;
+    end_date?: string | null;
+    personnel?: PersonnelMember[];
     deployment_site_id?: string;
     notes?: string;
   }) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
+
+      // Pre-flight overlap check
+      const { data: overlaps, error: checkError } = await supabase
+        .from("personnel_dispatches")
+        .select(`
+          id, 
+          start_date, 
+          end_date, 
+          deployment_site:company_locations!deployment_site_id (name),
+          employee:employees!employee_id (first_name, last_name)
+        `)
+        .eq("employee_id", input.employee_id)
+        .not("status", "in", "('cancelled', 'completed', 'withdrawn')")
+        .or(`start_date.lte.${input.end_date || '9999-12-31'},end_date.gte.${input.start_date},end_date.is.null`)
+        .limit(1);
+
+      if (checkError) throw checkError;
+
+      if (overlaps && overlaps.length > 0) {
+        const o = overlaps[0];
+        const empName = o.employee ? `${o.employee.first_name} ${o.employee.last_name}` : "Employee";
+        const siteName = o.deployment_site?.name || "another site";
+        const msg = `${empName} is already deployed from ${o.start_date} to ${o.end_date || 'Open'} at ${siteName}`;
+        toast({ title: "Deployment Conflict", description: msg, variant: "destructive" });
+        return { success: false, error: msg };
+      }
+
       const { error } = await supabase.from("personnel_dispatches").insert({
         service_po_id: input.service_po_id,
         supplier_id: input.supplier_id,
-        personnel_json: input.personnel,
-        dispatch_date: input.dispatch_date || new Date().toISOString().split("T")[0],
+        employee_id: input.employee_id,
+        personnel_json: input.personnel || [],
+        dispatch_date: input.start_date,
+        start_date: input.start_date,
+        end_date: input.end_date || null,
         deployment_site_id: input.deployment_site_id || null,
         status: "dispatched",
         notes: input.notes || null,
@@ -105,13 +144,13 @@ export function usePersonnelDispatches(poId?: string) {
         dispatch_number: "",
       });
       if (error) throw error;
-      toast({ title: "Dispatch Created", description: `${input.personnel.length} personnel dispatched.` });
+      toast({ title: "Dispatch Created", description: "Personnel deployment scheduled." });
       fetchDispatches();
       return { success: true };
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to create dispatch";
       toast({ title: "Error", description: msg, variant: "destructive" });
-      return { success: false };
+      return { success: false, error: msg };
     }
   };
 

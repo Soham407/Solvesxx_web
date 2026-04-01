@@ -1,8 +1,8 @@
-// @ts-nocheck
 "use client";
 
 import { useState, useCallback } from "react";
-import { supabase } from "@/src/lib/supabaseClient";
+import { supabase as supabaseClient } from "@/src/lib/supabaseClient";
+const supabase = supabaseClient as any;
 import { useToast } from "@/components/ui/use-toast";
 
 export interface BuyerFeedback {
@@ -19,7 +19,8 @@ export interface BuyerFeedback {
 }
 
 export interface SubmitFeedbackDTO {
-  requestId: string;
+  requestId?: string;
+  serviceRequestId?: string;
   overall_rating: number;
   quality_rating?: number;
   delivery_rating?: number;
@@ -41,7 +42,8 @@ export function useBuyerFeedback() {
       const { error: insertError } = await supabase
         .from("buyer_feedback")
         .insert({
-          request_id: dto.requestId,
+          request_id: dto.requestId || null,
+          service_request_id: dto.serviceRequestId || null,
           overall_rating: dto.overall_rating,
           quality_rating: dto.quality_rating || null,
           delivery_rating: dto.delivery_rating || null,
@@ -53,13 +55,15 @@ export function useBuyerFeedback() {
 
       if (insertError) throw insertError;
 
-      // Update request status to 'completed'
-      const { error: updateError } = await supabase
-        .from("requests")
-        .update({ status: "completed" })
-        .eq("id", dto.requestId);
+      // Update request status to 'completed' for regular requests only
+      if (dto.requestId) {
+        const { error: updateError } = await supabase
+          .from("requests")
+          .update({ status: "completed" })
+          .eq("id", dto.requestId);
 
-      if (updateError) throw updateError;
+        if (updateError) throw updateError;
+      }
 
       toast({
         title: "Feedback Submitted",
@@ -80,9 +84,18 @@ export function useBuyerFeedback() {
       .from("buyer_feedback")
       .select("*")
       .eq("request_id", requestId)
-      .single();
+      .maybeSingle();
     return data || null;
   }, []);
 
-  return { isSubmitting, submitFeedback, getFeedbackForRequest };
+  const getFeedbackForServiceRequest = useCallback(async (serviceRequestId: string): Promise<BuyerFeedback | null> => {
+    const { data } = await supabase
+      .from("buyer_feedback")
+      .select("*")
+      .eq("service_request_id", serviceRequestId)
+      .maybeSingle();
+    return data || null;
+  }, []);
+
+  return { isSubmitting, submitFeedback, getFeedbackForRequest, getFeedbackForServiceRequest };
 }

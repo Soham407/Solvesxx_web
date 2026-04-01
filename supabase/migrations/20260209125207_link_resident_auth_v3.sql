@@ -1,27 +1,31 @@
--- Migration to create a resident auth user and link it to the existing resident record
--- This fixes the authentication loop issue on the resident dashboard
-
--- Step 1: Create a test resident user in auth.users
--- Note: In production, users should sign up through the normal auth flow
--- This is just for testing/development purposes
-
--- We'll use a function to create the user with a hashed password
--- Password will be: resident123
+-- Dev/test fixture only: links the seeded resident row to a seeded auth user.
+-- Real resident provisioning must happen through the application's admin API flow.
+-- This migration now no-ops unless the known fixture resident row is present, so
+-- environments without the demo resident do not get a stray resident@test.com account.
 
 DO $$
 DECLARE
   new_user_id uuid;
   resident_email text := 'resident@test.com';
   existing_resident_id uuid := '22222222-2222-2222-2222-222222222222';
+  has_fixture_resident boolean := false;
 BEGIN
-  -- Check if user already exists
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.residents
+    WHERE id = existing_resident_id
+  ) INTO has_fixture_resident;
+
+  IF NOT has_fixture_resident THEN
+    RAISE NOTICE 'Skipping resident test auth seed because fixture resident % is missing.', existing_resident_id;
+    RETURN;
+  END IF;
+
   SELECT id INTO new_user_id
   FROM auth.users
   WHERE email = resident_email;
 
-  -- If user doesn't exist, create it
   IF new_user_id IS NULL THEN
-    -- Insert into auth.users
     INSERT INTO auth.users (
       instance_id,
       id,
@@ -47,7 +51,6 @@ BEGIN
       'authenticated',
       'authenticated',
       resident_email,
-      -- Password hash for 'resident123' (you should change this in production)
       crypt('resident123', gen_salt('bf')),
       NOW(),
       NOW(),
@@ -63,7 +66,6 @@ BEGIN
     )
     RETURNING id INTO new_user_id;
 
-    -- Also insert into auth.identities
     INSERT INTO auth.identities (
       id,
       provider_id,
@@ -93,24 +95,23 @@ BEGIN
     RAISE NOTICE 'User already exists with ID: %', new_user_id;
   END IF;
 
-  -- Step 2: Update the resident record to link it to the auth user
-  UPDATE residents
-  SET 
+  UPDATE public.residents
+  SET
     auth_user_id = new_user_id,
     email = resident_email
-  WHERE id = existing_resident_id;
+  WHERE id = existing_resident_id
+    AND auth_user_id IS NULL;
 
-  RAISE NOTICE 'Linked resident % to auth user %', existing_resident_id, new_user_id;
+  RAISE NOTICE 'Linked fixture resident % to auth user %', existing_resident_id, new_user_id;
 END $$;
 
--- Verify the update
-SELECT 
+SELECT
   r.id,
   r.resident_code,
   r.full_name,
   r.email,
   r.auth_user_id,
-  u.email as auth_email
-FROM residents r
+  u.email AS auth_email
+FROM public.residents r
 LEFT JOIN auth.users u ON r.auth_user_id = u.id
 WHERE r.id = '22222222-2222-2222-2222-222222222222';;

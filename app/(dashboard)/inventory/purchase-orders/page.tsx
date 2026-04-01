@@ -83,6 +83,7 @@ import {
   PurchaseOrder, 
   POItem, 
   POStatus, 
+  PO_RECEIPT_READY_STATUSES,
   PO_STATUS_CONFIG,
 } from "@/hooks/usePurchaseOrders";
 import { formatCurrency } from "@/src/lib/utils/currency";
@@ -95,6 +96,7 @@ const STATUS_OPTIONS: { value: POStatus | "all"; label: string }[] = [
   { value: "draft", label: "Draft" },
   { value: "sent_to_vendor", label: "Sent to Vendor" },
   { value: "acknowledged", label: "Acknowledged" },
+  { value: "dispatched", label: "Dispatched" },
   { value: "partial_received", label: "Partial Received" },
   { value: "received", label: "Received" },
   { value: "cancelled", label: "Cancelled" },
@@ -156,7 +158,7 @@ export default function POTrackingPage() {
     return {
       draft: all.filter(po => po.status === "draft").length,
       inApproval: all.filter(po => po.status === "sent_to_vendor").length,
-      active: all.filter(po => ["acknowledged", "partial_received"].includes(po.status || "")).length,
+      active: all.filter(po => po.status && PO_RECEIPT_READY_STATUSES.includes(po.status)).length,
       delayed: all.filter(po => {
         if (!po.expected_delivery_date || po.status === "received" || po.status === "cancelled") return false;
         return new Date(po.expected_delivery_date) < new Date();
@@ -437,7 +439,7 @@ export default function POTrackingPage() {
                 </DropdownMenuItem>
               )}
               
-              {["acknowledged", "partial_received"].includes(status) && (
+              {PO_RECEIPT_READY_STATUSES.includes(status) && (
                 <DropdownMenuItem onClick={() => handleRecordReceipt(po)} className="gap-2 text-success">
                   <PackageCheck className="h-3.5 w-3.5" /> Record Receipt
                 </DropdownMenuItem>
@@ -988,7 +990,7 @@ export default function POTrackingPage() {
                     <BadgeCheck className="h-4 w-4" /> Mark Acknowledged
                   </Button>
                 )}
-                {["acknowledged", "partial_received"].includes(selectedPO.status || "") && (
+                {selectedPO.status && PO_RECEIPT_READY_STATUSES.includes(selectedPO.status) && (
                   <Button onClick={() => handleRecordReceipt(selectedPO)} className="flex-1 gap-2">
                     <PackageCheck className="h-4 w-4" /> Record Receipt
                   </Button>

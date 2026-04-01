@@ -2,13 +2,13 @@
 
 > **Purpose:** Living scratchpad for cross-session continuity. Update this at the END of every session.
 > Do NOT duplicate PHASES.md (status ledger) or CONTEXT.md (architecture reference).
-> Last Updated: 2026-03-18 (Phases 1–3 Hardening Plan fully executed)
+> Last Updated: 2026-03-31 (SALE-BILL-001 Sale Bill Generation built)
 
 ---
 
 ## Current Status
 
-**Sprint:** Phases 1–3 complete — all 11 hardening/quality/polish items ✅ DONE.
+**Sprint:** SALE-BILL-001 complete — Admin sale bill generation and buyer society filtering ✅ DONE.
 
 **Overall health:** All 14 role dashboards ✅, all PRD gaps closed ✅, zero known mocks ✅, RLS verified ✅, 184 FK indexes applied ✅, pre-commit type-check active ✅, E2E tests wired ✅.
 
@@ -18,9 +18,10 @@
 
 | Date | What | Key Files |
 |------|------|-----------|
-| 2026-03-18 | **Phases 1–3 Hardening Plan (11 items)** — Security advisor RLS fixes, 184 FK indexes, Husky pre-commit tsc, useSupabaseQuery/useSupabaseMutation shared utils, Playwright E2E (3 flows), RLS smoke test SQL, empty state audit (all clean), Next.js metadata for 8 modules, responsive grid fixes (10 pages), DashboardKPIGrid shared component | `supabase/migrations/20260318000004_rls_advisor_fixes.sql`, `supabase/migrations/20260318000005_advisor_indexes.sql`, `.husky/pre-commit`, `tsconfig.check.json`, `hooks/lib/useSupabaseQuery.ts`, `hooks/lib/useSupabaseMutation.ts`, `playwright.config.ts`, `e2e/*.spec.ts`, `supabase/scripts/rls_smoke_test.sql`, `app/(dashboard)/*/layout.tsx` (8 new), `components/shared/DashboardKPIGrid.tsx`, `CLAUDE.md` |
-| 2026-03-18 | Hardening pass — fixed duplicate migration timestamps (000010/000011), removed ComingSoon dead imports, synced hook/migration counts | `supabase/migrations/`, `components/dashboards/ServiceBoyDashboard.tsx`, `components/dashboards/SocietyManagerDashboard.tsx` |
-| 2026-03-16 | Storekeeper + Site Supervisor dashboards + full context audit | `components/dashboards/StorekeeperDashboard.tsx`, `components/dashboards/SiteSupervisorDashboard.tsx` |
+| 2026-03-31 | **SALE-BILL-001 Sale Bill Generation** — Built Admin generation workflow, request linkage, and buyer society filtering. | `app/(dashboard)/finance/sale-bills/page.tsx`, `hooks/useSaleBills.ts`, `hooks/useBuyerInvoices.ts`, `supabase/migrations/20260401000008_sale_bills_enhancements.sql` |
+| 2026-03-30 | **SEC-001 Guard / Security Hardening** — Panic alert resolution audit fields, shift status in `/guard`, GPS clock-in enforcement. | `supabase/migrations/20260330000001_sec_001_guard_security_fixes.sql`, `components/dashboards/GuardDashboard.tsx`, `hooks/useAttendance.ts` |
+| 2026-03-30 | **HR-001 HRMS Audit Fixes** — Payroll attendance logic, BGV status tracking, auto punch-out cron hardening. | `supabase/migrations/20260330000006_hr_001_hrms_audit_fixes.sql`, `hooks/usePayroll.ts`, `hooks/useAttendance.ts` |
+| 2026-03-30 | **ASSET-001 Asset Workflow Hardening** — Batch QR generation, maintenance → service request linkage, job session sync. | `supabase/migrations/20260330000007_asset_001_asset_flow_fixes.sql`, `app/(dashboard)/assets/qr-codes/page.tsx`, `hooks/useMaintenanceSchedules.ts` |
 
 ---
 
@@ -36,9 +37,9 @@
 
 > Open architectural/design choices that haven't been resolved yet.
 
+- **sale_invoice_seq**: Added a PostgreSQL sequence for sale bill invoice numbers (INV-YYYY-NNNN). This ensures uniqueness across multiple admin sessions.
+- **buyer_society_filtering**: For the 'buyer' role, we now resolve `society_id` via `residents -> flats -> buildings -> societies` join. This is the authoritative path for residents.
 - **auth_rls_initplan**: 112 RLS policies still call `auth.uid()` directly instead of `(SELECT auth.uid())`. This causes a subplan re-evaluation per row. Fixing requires reading and regenerating all affected policies — deferred as a separate pass when performance becomes a concern.
-- **DashboardKPIGrid**: Applied to BuyerDashboard + SupplierDashboard only. HOD/SecuritySupervisor use compact horizontal layout, MD/SiteSupervisor/Storekeeper use solid-color icon boxes — different enough to not force-fit the component.
-- **Playwright credentials**: `e2e/*.spec.ts` reads credentials from env vars (`E2E_ADMIN_EMAIL`, etc.) with sensible fallback defaults. Set these in `.env.local` before running `npm run test:e2e`.
 
 ---
 
@@ -52,7 +53,7 @@ _(none)_
 
 > List files actively being edited in the current session. Clear when session ends.
 
-_(none — no active session)_
+_(none — session complete)_
 
 ---
 
@@ -67,4 +68,4 @@ _(none — no active session)_
 2. Clear "Key Files Being Modified"
 3. Record any new "Active Decisions" or "Blockers"
 4. Update the "Last Updated" date at the top
-5. Update `PHASES.md` for any status changes
+5. Update `PHASES.md` for any status changes on status ledger.

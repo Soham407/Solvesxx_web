@@ -92,6 +92,13 @@ describe("platform permissions", () => {
     expect(canAccessPath("buyer", [], "/supplier/indents")).toBe(false);
   });
 
+  it("keeps the admin service indent route restricted to admin-tier roles", () => {
+    expect(canAccessPath("admin", [], "/admin/service-indents")).toBe(true);
+    expect(canAccessPath("super_admin", [], "/admin/service-indents")).toBe(true);
+    expect(canAccessPath("buyer", [], "/admin/service-indents")).toBe(false);
+    expect(canAccessPath("account", [], "/admin/service-indents")).toBe(false);
+  });
+
   it("treats /settings as a permission-gated hub route", () => {
     expect(canAccessPath("super_admin", [], "/settings")).toBe(false);
     expect(canAccessPath("super_admin", ["platform.audit_logs.view"], "/settings")).toBe(true);

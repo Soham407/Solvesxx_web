@@ -145,12 +145,12 @@ export function useAssets(initialFilters?: AssetFilters): UseAssetsReturn {
   const createAsset = useCallback(
     async (data: AssetInsert): Promise<{ success: boolean; error?: string; data?: Asset }> => {
       try {
-        // The trigger will generate the asset_code, so we need to provide a placeholder
-        // or let the trigger handle it
-        const insertData = {
-          ...data,
-          asset_code: data.asset_code || "PENDING", // Will be replaced by trigger
-        };
+        const insertData = { ...data } as AssetInsert & { asset_code?: string | null };
+
+        // Let the database trigger generate the code when the caller did not provide one.
+        if (!insertData.asset_code) {
+          delete insertData.asset_code;
+        }
 
         const { data: newAsset, error } = await supabase
           .from("assets")

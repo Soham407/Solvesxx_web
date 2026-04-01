@@ -13,6 +13,7 @@ import {
   Clock,
   ExternalLink,
   Plus,
+  RefreshCw,
   Loader2,
   AlertCircle
 } from "lucide-react";
@@ -257,32 +258,67 @@ export default function PestControlPage() {
             <TabsContent value="chemicals" className="pt-6">
                  <div className="grid gap-6 md:grid-cols-3">
                     {chemicals.length > 0 ? (
-                        chemicals.map((chem) => (
-                            <Card key={chem.id} className="border-none shadow-card ring-1 ring-border p-4">
-                                <CardHeader className="p-0 mb-4">
-                                    <div className="flex justify-between items-start">
-                                        <div>
-                                            <CardTitle className="text-sm font-bold">{chem.product_name}</CardTitle>
-                                            <CardDescription className="text-[10px] font-mono">{chem.product_code}</CardDescription>
+                        chemicals.map((chem) => {
+                            const isExpired = chem.expiry_date && new Date(chem.expiry_date) < new Date();
+                            const isExpiringSoon = chem.expiry_date && 
+                                new Date(chem.expiry_date) <= new Date(new Date().setDate(new Date().getDate() + 30)) &&
+                                !isExpired;
+                            
+                            return (
+                                <Card key={chem.id} className={cn("border-none shadow-card ring-1 ring-border p-4", isExpired && "opacity-80 bg-critical/5")}>
+                                    <CardHeader className="p-0 mb-4">
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                                                    {chem.product_name}
+                                                    {isExpired ? (
+                                                        <Badge variant="destructive" className="text-[8px] h-4 uppercase">Expired</Badge>
+                                                    ) : isExpiringSoon ? (
+                                                        <Badge variant="outline" className="text-[8px] h-4 uppercase border-warning text-warning">Expiring Soon</Badge>
+                                                    ) : chem.expiry_date ? (
+                                                        <Badge variant="outline" className="text-[8px] h-4 uppercase border-success text-success">Valid</Badge>
+                                                    ) : null}
+                                                </CardTitle>
+                                                <CardDescription className="text-[10px] font-mono">{chem.product_code} {chem.batch_number && `| Batch: ${chem.batch_number}`}</CardDescription>
+                                            </div>
+                                            <Badge variant={chem.current_stock <= chem.reorder_level ? "destructive" : "secondary"} className="text-[10px]">
+                                                {chem.current_stock <= chem.reorder_level ? "Low Stock" : "Healthy"}
+                                            </Badge>
                                         </div>
-                                        <Badge variant={chem.current_stock <= chem.reorder_level ? "destructive" : "secondary"} className="text-[10px]">
-                                            {chem.current_stock <= chem.reorder_level ? "Low Stock" : "Healthy"}
-                                        </Badge>
-                                    </div>
-                                </CardHeader>
-                                <CardContent className="p-0 space-y-3">
-                                    <div className="flex justify-between text-xs font-bold">
-                                        <span>Current Level</span>
-                                        <span>{chem.current_stock} / {chem.reorder_level * 5} {chem.unit}</span>
-                                    </div>
-                                    <Progress value={(chem.current_stock / (chem.reorder_level * 5)) * 100} className="h-2" />
-                                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                                        <Clock className="h-3 w-3" />
-                                        Last restocked: {chem.last_restocked_at ? new Date(chem.last_restocked_at).toLocaleDateString() : "Never"}
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        ))
+                                    </CardHeader>
+                                    <CardContent className="p-0 space-y-3">
+                                        <div className="flex justify-between text-xs font-bold">
+                                            <span>Current Level</span>
+                                            <span>{chem.current_stock} / {chem.reorder_level * 5} {chem.unit}</span>
+                                        </div>
+                                        <Progress value={(Number(chem.current_stock) / (chem.reorder_level * 5)) * 100} className="h-2" />
+                                        
+                                        <div className="flex items-center justify-between pt-2">
+                                            <div className="flex flex-col gap-1">
+                                                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                                                    <Clock className="h-3 w-3" />
+                                                    Expiry: {chem.expiry_date ? new Date(chem.expiry_date).toLocaleDateString() : "No date set"}
+                                                </div>
+                                                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                                                    <RefreshCw className="h-3 w-3" />
+                                                    Stock: {chem.last_restocked_at ? new Date(chem.last_restocked_at).toLocaleDateString() : "Never"}
+                                                </div>
+                                            </div>
+                                            
+                                            <Button 
+                                                size="sm" 
+                                                variant={isExpired ? "secondary" : "default"}
+                                                className="h-8 text-[10px] font-bold uppercase tracking-wider"
+                                                disabled={isExpired || Number(chem.current_stock) <= 0}
+                                                title={isExpired ? "Item expired — cannot issue" : ""}
+                                            >
+                                                {isExpired ? "Blocked" : "Issue"}
+                                            </Button>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            );
+                        })
                     ) : (
                         <Card className="border-none shadow-card ring-1 ring-border col-span-3 py-20">
                             <CardContent className="flex flex-col items-center justify-center text-center">

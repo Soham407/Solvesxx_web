@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
 import { useToast } from "@/components/ui/use-toast";
+import { getCurrentEmployeeId } from "@/src/lib/security/getCurrentEmployeeId";
 
 /**
  * Panic Alert History Hook
@@ -45,7 +46,8 @@ export interface PanicAlert {
     location_code: string;
   };
   resolver?: {
-    full_name: string;
+    first_name: string | null;
+    last_name: string | null;
   };
 }
 
@@ -93,7 +95,7 @@ export function usePanicAlertHistory(initialFilters?: AlertFilters) {
             employee:employees(first_name, last_name, phone)
           ),
           location:company_locations(location_name, location_code),
-          resolver:users(full_name)
+          resolver:employees!panic_alerts_resolved_by_fkey(first_name, last_name)
         `)
         .order("alert_time", { ascending: false });
 
@@ -125,7 +127,7 @@ export function usePanicAlertHistory(initialFilters?: AlertFilters) {
       if (fetchError) throw fetchError;
 
       // Map Supabase response to PanicAlert interface with proper typing
-      const typedData: PanicAlert[] = (data || []).map((row) => ({
+      const typedData: PanicAlert[] = ((data || []) as any[]).map((row) => ({
         id: row.id,
         guard_id: row.guard_id,
         alert_type: row.alert_type as AlertType,
@@ -201,14 +203,14 @@ export function usePanicAlertHistory(initialFilters?: AlertFilters) {
   // Resolve an alert (PRD: Resolution notes)
   const resolveAlert = async (alertId: string, resolutionNotes: string) => {
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      
+      const resolvedBy = await getCurrentEmployeeId();
+
       const { error: updateError } = await supabase
         .from("panic_alerts")
         .update({
           is_resolved: true,
           resolved_at: new Date().toISOString(),
-          resolved_by: userData?.user?.id,
+          resolved_by: resolvedBy,
           resolution_notes: resolutionNotes,
         })
         .eq("id", alertId);

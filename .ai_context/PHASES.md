@@ -1,6 +1,6 @@
 # FacilityPro — Implementation Phases & Module Status
 
-> **Last Updated:** 2026-03-18 (Phases 1–3 hardening complete: RLS advisor fixes, 184 FK indexes, Husky pre-commit, shared hook utils, Playwright E2E, RLS smoke test, metadata, responsive fixes, DashboardKPIGrid)
+> **Last Updated:** 2026-03-30 (Resident module hardening: privacy-safe resident directory view wired into `/society/residents`, resident provisioning route added for unlinked resident rows, `must_change_password` regression coverage added; HRMS audit fixes hardened attendance reads, payroll attendance summaries, and auto punch-out cron audit fields; ASSET-001 now routes maintenance schedules through service requests, syncs job sessions to the evidence RPCs, and restores the `/scan/[id]` QR landing page; SUPPLIER-001 hardens the supplier portal with auto-created POs on indent acceptance, supplier-scoped service orders and acknowledgments, and self-service supplier profile/rates/availability editing)
 
 > **Purpose:** This file is the single source of truth for what is built, what's partially built, and what's missing.
 > Paste the relevant section when starting a new AI session.
@@ -52,22 +52,24 @@ All master data tables, auth, and app shell are complete.
 
 | Module | Route | Status | Notes |
 |--------|-------|--------|-------|
-| Buyer Order Request | `/buyer/requests/new` | ✅ FULL | `useBuyerRequests` hook, multi-step form |
+| Buyer Order Request | `/buyer/requests/new` | ✅ FULL | `useBuyerRequests` hook, material requests plus service deployment step with service type, grade/role, headcount, shift, start date, duration, and site location |
 | Buyer Request List | `/buyer/requests` | ✅ FULL | DataTable with status badges. "Leave Feedback" button for `feedback_pending` rows → `BuyerFeedbackDialog` |
 | Buyer Request Detail | `/buyer/requests/[id]` | ✅ FULL | Full lifecycle view |
 | Admin Request Review | `/inventory/indents` | ✅ FULL | Accept/Pending/Reject actions |
 | Indent Generation | `/inventory/indents` | ✅ FULL | `useIndents` hook (24KB) |
+| Service Indent Generation | `/admin/service-indents` | ✅ FULL | Accepted service requests can now be matched to a supplier from `vendor_wise_services`, converted into an indent, and linked back to the originating buyer request |
 | Indent Forward to Supplier | Via indent actions | ✅ FULL | Status transition workflow |
 | Purchase Orders | `/inventory/purchase-orders` | ✅ FULL | `usePurchaseOrders` hook (40KB), full lifecycle |
 | GRN (Goods Received Notes) | `/inventory/grn` | ✅ FULL | `useGRN` hook (32KB), quality/quantity checks |
 | Supplier Bills | `/finance/supplier-bills` | ✅ FULL | `useSupplierBills` hook (34KB), approval workflow, real bill number generation via `generate_bill_number()` RPC, PO deduplication (eligible POs exclude those already billed), document upload to `bill-documents` storage |
 | Sale Bills / Buyer Invoices | `/finance/buyer-invoices` | ✅ FULL | `useBuyerInvoices` hook (30KB) |
 | Reconciliation | `/finance/reconciliation` | ✅ FULL | `useReconciliation` hook (48KB), PO↔GRN↔Bill matching |
-| Supplier Portal Dashboard | `/supplier` | ✅ FULL | `useSupplierPortal` hook, real data |
-| Supplier Indent View | `/supplier/indents` | ✅ FULL | Accept/reject workflow |
+| Supplier Portal Dashboard | `/supplier` | ✅ FULL | `useSupplierPortal` hook, real data, quick path into supplier self-service profile |
+| Supplier Indent View | `/supplier/indents` | ✅ FULL | Accept/reject workflow for both material and service indents. Service rows render grade, headcount, shift, start date, and site location |
 | Supplier PO View | `/supplier/purchase-orders` | ✅ FULL | Acknowledge/dispatch actions |
 | Supplier Bills | `/supplier/bills` | ✅ FULL | Submit/track bills, real bill number generation, document upload to storage |
-| Supplier Service Orders | `/supplier/service-orders` | ✅ FULL | `useServicePurchaseOrders` hook. "Upload Delivery Note" button per SPO row → `ServiceDeliveryNoteDialog` |
+| Supplier Service Orders | `/supplier/service-orders` | ✅ FULL | `useSupplierPortal` hook. Supplier sees only own SPOs, can acknowledge sent SPOs, upload delivery notes, and read deployment acknowledgments |
+| Supplier Profile | `/supplier/profile` | ✅ FULL | Self-service supplier details, banking, rates, availability, payment terms, and credit limit via `useSupplierPortal` |
 | Warehouses | `/inventory/warehouses` | ✅ FULL | `useWarehouses` hook |
 | Return To Vendor (RTV) | `/tickets/returns` | ✅ FULL | `useRTVTickets` hook, full lifecycle |
 
@@ -85,8 +87,8 @@ All master data tables, auth, and app shell are complete.
 | Geo-fencing Attendance | Via HRMS attendance | ✅ FULL | Haversine distance check, `useAttendance` (19KB) |
 | Inactivity Alerts | Edge functions | ✅ FULL | `check-guard-inactivity` + `inactivity-monitor` edge functions |
 | Emergency Contacts | `/society/emergency` | ✅ FULL | `useEmergencyContacts` hook |
-| Family/Resident Directory | `/society/residents` | ✅ FULL | `useResident` hook (9KB), flat/building lookup |
-| Resident Dashboard | `/test-resident` | ✅ FULL | Dynamically fetches logged-in user's resident record via `useResidentProfile` — `MOCK_RESIDENT_ID` removed |
+| Family/Resident Directory | `/society/residents` | ✅ FULL | Listing now reads from the privacy-safe `resident_directory` view instead of raw `residents`; existing unlinked resident rows can be provisioned via `/api/residents/unlinked` |
+| Resident Dashboard | `/test-resident` | ✅ FULL | `useResidentProfile` resolves strictly through `residents.auth_user_id = auth.uid()`; dead email fallback removed |
 | Guard Dashboard Widget | `/dashboard` (guard role) | ✅ FULL | `GuardDashboard` component (51KB) |
 | Society Manager Dashboard | `/dashboard` (manager role) | ✅ FULL | `SocietyManagerDashboard` component (26KB) |
 
@@ -100,7 +102,7 @@ All master data tables, auth, and app shell are complete.
 |--------|-------|--------|-------|
 | AC Services Dashboard | `/services/ac` | ✅ FULL | `useServiceRequests` + `useTechnicians` + `useInventory`, DataTable, photo upload |
 | Pest Control Dashboard | `/services/pest-control` | ✅ FULL | `usePestControlInventory` (expiry_date, batch_number, expiringChemicals). Expiry warning banner for chemicals expiring within 30 days. "Spill Kits" tab with `useSpillKits` |
-| Plantation Dashboard | `/services/plantation` | ✅ FULL | `usePlantationOps` for tasks/zones. Soil health, greenery density, and seasonal planner dynamically connected. |
+| Plantation Dashboard | `/services/plantation` | ✅ FULL | `usePlantation` for tasks/zones. Soil health, greenery density, and seasonal planner dynamically connected. |
 | Printing & Advertising | `/services/printing` | ✅ FULL | `usePrintingMaster` for ad-spaces, `useServiceRequests`, `IDPrintingModule` for ID cards. "Book Space" button per available ad space → `AdBookingDialog` via `useAdBookings` |
 | Security Command Center | `/services/security` | ✅ FULL | `useSecurityGuards` hook (12KB), grade filter, GPS tracking, live guard list |
 | Service Boy Interface | `/service-boy` | ✅ FULL | `useJobSessions` + `useJobSessionSubscription`, GPS, before/after photos |
@@ -110,13 +112,13 @@ All master data tables, auth, and app shell are complete.
 
 | Module | Route | Status | Notes |
 |--------|-------|--------|-------|
-| Attendance | `/hrms/attendance` | ✅ FULL | `useAttendance` (19KB), selfie, geo-fence check. "Shift Compliance" tab with per-employee late minutes vs shift start |
+| Attendance | `/hrms/attendance` | ✅ FULL | `useAttendance` (19KB), selfie, geo-fence check, and hook-backed history/admin attendance reads. "Shift Compliance" tab with per-employee late minutes vs shift start |
 | Employee Documents | `/hrms/documents` | ✅ FULL | `useEmployeeDocuments` (21KB), Aadhar/PAN/PSARA uploads |
 | Employee Profiles | `/hrms/profiles` | ✅ FULL | `useEmployeeProfile` hook |
 | Specialized Profiles | `/hrms/specialized-profiles` | ✅ FULL | For technicians, guards etc. |
 | Shifts | `/hrms/shifts` | ✅ FULL | `useShifts` hook (9KB) |
 | Leave Management | `/hrms/leave` | ✅ FULL | `useLeaveApplications` (12KB), apply/approve/reject |
-| Payroll | `/hrms/payroll` | ✅ FULL | `usePayroll` (29KB), salary calc, payslip generation |
+| Payroll | `/hrms/payroll` | ✅ FULL | `usePayroll` (29KB), authoritative `generate_payroll_cycle()` RPC for payslip generation, `log_date`-backed attendance summaries |
 | Recruitment | `/hrms/recruitment` | ✅ FULL | `useCandidates` (20KB), pipeline (Applicant→Interview→BGV→Hired). BGV panel with `useBackgroundVerifications` for candidates at `background_check` stage (police, address, education, employment tracking) |
 | Holidays | `/hrms/holidays` | ✅ FULL | `useHolidays` hook |
 | Events | `/hrms/events` | ✅ FULL | `useCompanyEvents` hook |
@@ -130,8 +132,8 @@ All master data tables, auth, and app shell are complete.
 |--------|-------|--------|-------|
 | Reconciliation Engine | `/finance/reconciliation` | ✅ FULL | 48KB hook, PO↔GRN↔Bill matching |
 | Supplier Bills Lifecycle | `/finance/supplier-bills` | ✅ FULL | Approval/rejection workflow |
-| Buyer Invoices | `/finance/buyer-invoices` | ✅ FULL | Invoice generation, payment tracking |
-| Buyer Billing (Sale Bills) | `/finance/buyer-billing` | ✅ FULL | Sale bill generation |
+| Buyer Invoices | `/finance/buyer-invoices` | ✅ FULL | Invoice generation, payment tracking, and automatic society filtering for buyers |
+| Buyer Billing (Sale Bills) | `/finance/sale-bills` | ✅ FULL | Admin generation workflow, request linkage, and payment management |
 | Service Purchase Orders (SPO) | `/inventory/service-purchase-orders` | ✅ FULL | `useServicePurchaseOrders` hook |
 | Financial Closure | `/finance/closure` | ✅ FULL | `useFinancialClosure` hook |
 | Compliance Tracking | `/finance/compliance` | ✅ FULL | `useCompliance` hook, doc expiry alerts |
@@ -186,7 +188,7 @@ All located in `components/dashboards/`. Accessible via `/dashboard` with admin 
 |------|-------|--------|-------|
 | Buyer Dashboard | `/buyer` (page.tsx) | ✅ FULL | Fully dynamic. "Ongoing Services" and "Ending Soon" use computed boundaries. Active services list uses actual `headcount`, `shift`, and `duration_months`. Buttons are wired with base interaction. |
 | Buyer Requests List | `/buyer/requests` | ✅ FULL | DataTable with all statuses. "Leave Feedback" button for `feedback_pending` rows |
-| Buyer New Request | `/buyer/requests/new` | ✅ FULL | Multi-step request creation form |
+| Buyer New Request | `/buyer/requests/new` | ✅ FULL | Multi-step request creation form for material requests and service deployments |
 | Buyer Request Detail | `/buyer/requests/[id]` | ✅ FULL | Full lifecycle view |
 | Buyer Invoices | `/buyer/invoices` | ✅ FULL | `useBuyerInvoices` hook, payment tracking |
 
@@ -209,8 +211,8 @@ All located in `components/dashboards/`. Accessible via `/dashboard` with admin 
 | Asset List | `/assets` | ✅ FULL | `useAssets` hook |
 | Asset Detail | `/assets/[id]` | ✅ FULL | Detail view with history |
 | Asset Categories | `/assets/categories` | ✅ FULL | `useAssetCategories` hook |
-| Asset Maintenance | `/assets/maintenance` | ✅ FULL | `useMaintenanceSchedules` hook |
-| QR Codes | `/assets/qr-codes` | ✅ FULL | `useQrCodes` hook, generate + print |
+| Asset Maintenance | `/assets/maintenance` | ✅ FULL | `useMaintenanceSchedules` hook. Due schedules can now create linked service requests, and `markAsPerformed` only advances after a completed linked request |
+| QR Codes | `/assets/qr-codes` | ✅ FULL | `useQrCodes` hook, batch generation routed through the hook layer, `/scan/[id]` records scans and resolves linked assets |
 
 ---
 
@@ -232,7 +234,7 @@ All located in `components/dashboards/`. Accessible via `/dashboard` with admin 
 |---------|--------|-------|
 | Notification Bell | ✅ FULL | `useNotifications` hook ✅, `NotificationBell.tsx` component ✅ (badge, dropdown, mark-all-read, Realtime). Wired into `TopNav.tsx` line 195 |
 | Guard Mobile PWA | ✅ FULL | `public/manifest.json` ✅, `<link rel="manifest">` in layout ✅. `next-pwa` installed, `withPWA` in `next.config.ts`, service worker generated on prod build |
-| Auto-Punch-Out Cron | ✅ FULL | `auto_punch_out_idle_employees()` pg_cron job via migration `20260316000002_auto_punch_out.sql` |
+| Auto-Punch-Out Cron | ✅ FULL | `auto_punch_out_idle_employees()` pg_cron job, forward-fixed by `20260330000006_hr_001_hrms_audit_fixes.sql` to set `is_auto_punch_out`, `absent_breach`, `total_hours`, and idempotent scheduling |
 | Chemical Expiry Cron | ✅ FULL | `detect_chemical_expiry()` pg_cron job via migration `20260316000006_chemical_expiry.sql` |
 
 ---
@@ -313,8 +315,26 @@ All items from `previousplan.md` Sprints 1–5 completed:
 | `20260316000010_service_acknowledgments.sql` | service_acknowledgments table (SPO headcount/grade verification) + RLS |
 | `20260316000011_notifications.sql` | notifications table + RLS |
 | `20260316000011_system_config.sql` | system_config key-value table (guard_inactivity_threshold_minutes default 30) |
+| `20260330000006_hr_001_hrms_audit_fixes.sql` | auto punch-out cron forward-fix (`pg_cron` guard, `attendance_logs.notes`, `is_auto_punch_out`, `absent_breach`, `total_hours`) |
+| `20260331000001_service_deployment_indent_flow.sql` | request service deployment fields (`service_type`, `service_grade`, `start_date`, `site_location_id`) plus indent linkage fields (`service_request_id`, `supplier_id`) |
 
 ---
+
+### Completed This Session (2026-03-31)
+- ✅ Service deployment buyer flow extended with grade/role, headcount, shift, start date, duration, and site location capture
+- ✅ Admin service-indent handoff page added at `/admin/service-indents`
+- ✅ `useIndents` and `useBuyerRequests` linked service requests to supplier-scoped indents
+- ✅ Supplier indent portal now renders service deployment details and accepts/rejects service indents without invoking the material-only PO RPC
+
+### Session: 2026-03-31 - SALE-BILL-001 Sale Bill Generation
+- **What was done**: Built the Admin sale bill generation workflow. Added `request_id` and `paid_at` columns to `sale_bills`. Created `useSaleBills` Admin hook and `finance/sale-bills` management page.
+- **Key implementation**:
+  1. **Sale Bills Page** — Admin interface at `/finance/sale-bills` with a functional "Generate Bill" dialog that links to accepted requests and societies.
+  2. **useSaleBills Hook** — Admin-scoped hook with `createBill` (header + items) and `markPaid` (updates `paid_at`).
+  3. **Buyer RLS & Filtering** — Added a migration to fix buyer RLS on `sale_bills` and updated `useBuyerInvoices` to automatically filter by the buyer's society.
+  4. **Invoice Number Sequence** — Added `sale_invoice_seq` and a trigger to auto-generate unique invoice numbers for sale bills.
+- **Files modified**: `app/(dashboard)/finance/sale-bills/page.tsx`, `hooks/useSaleBills.ts`, `hooks/useBuyerInvoices.ts`, `components/layout/AppSidebar.tsx`, `supabase/migrations/20260401000008_sale_bills_enhancements.sql`, `.ai_context/PHASES.md`
+- **Status**: SALE-BILL-001 complete. Admin can now generate bills and buyers can see their own invoices.
 
 ## Recent Session Handoffs
 
@@ -389,3 +409,25 @@ All items from `previousplan.md` Sprints 1–5 completed:
 - **Key decisions**: Buyer dashboard uses existing hooks (`useBuyerRequests`, `useBuyerInvoices`). Some metrics are mocked for demo purposes.
 - **Files modified**: `.ai_context/*`, `app/(dashboard)/buyer/page.tsx`
 - **Status**: Context files complete. Buyer dashboard functional but has mocked areas (see Known Mock Data section above).
+
+### Session: 2026-03-29 - Procurement Workflow Hardening
+- **What was done**: Aligned `dispatched` as a first-class PO status across admin hooks, receipt pages, and the server-side PO transition RPCs. Updated GRN completion to move linked buyer requests from `po_received` or `po_dispatched` to `material_received` once material passes receipt checks.
+- **Key decisions**: Kept the change set focused on the verified breakpoints. Did not redesign the broader indent-generation or supplier-indent data-model gaps because those require a larger workflow change.
+- **Files modified**: `hooks/usePurchaseOrders.ts`, `app/(dashboard)/inventory/purchase-orders/page.tsx`, `hooks/useGRN.ts`, `app/(dashboard)/inventory/grn/page.tsx`, `supabase/migrations/20260329000001_fix_procurement_po_dispatched_flow.sql`, `tests/unit/procurement-po-status-guards.test.ts`
+- **Status**: The dispatch-to-receipt handoff no longer stalls on an unrecognized PO status, and accepted GRNs now expose the buyer acknowledgment step through `material_received`.
+
+### Session: 2026-03-30 - SEC-001 Guard / Security Hardening
+- **What was done**: Patched the guard/security breakpoints from the SEC-001 audit. Panic alert resolution now stores `resolved_by` as `employees.id`, `/guard` now exposes live shift status with a direct path into the attendance console, and guard clock-in refuses to proceed without a live GPS fix.
+- **Database hardening**: Added `20260330000001_sec_001_guard_security_fixes.sql` to recreate the live panic-alert update policy with `WITH CHECK`, tighten `validate_clock_in_geofence()` for self-service guard inserts, realign `detect_inactive_guards()` with `gps_tracking.employee_id -> security_guards.id`, and schedule `detect_stationary_guards()` via `pg_cron`.
+- **Tests updated**: Added `tests/unit/security-guard-module.contract.test.ts` and tightened `e2e/society-security-interactions.spec.ts` so panic-alert resolution must persist `resolved_by`.
+
+### Session: 2026-03-30 - HR-001 HRMS Audit Fixes
+- **What was done**: Removed the misleading client-side payroll calculator export, fixed payroll attendance summaries to use the real `log_date` column without missing RPC fallbacks, moved HRMS attendance page reads behind `useAttendance`, and verified recruitment remains wired to `background_verifications`.
+- **Database hardening**: Added `20260330000006_hr_001_hrms_audit_fixes.sql` to guard `pg_cron`, add `attendance_logs.notes` if missing, and make scheduled auto punch-out persist `is_auto_punch_out`, `status = 'absent_breach'`, and `total_hours`.
+- **Tests updated**: Added `tests/unit/hrms-module.contract.test.ts` to lock the attendance, payroll, BGV, and auto punch-out fixes in place.
+
+### Session: 2026-03-30 - ASSET-001 Asset Workflow Hardening
+- **What was done**: Closed the ASSET-001 split-path regressions across assets, QR, maintenance, and service execution. Batch QR generation now logs against `auth.users`, the asset list opens a real QR dialog, and `/scan/[id]` records scans and resolves the linked asset.
+- **Database hardening**: Added `20260330000007_asset_001_asset_flow_fixes.sql` so `start_service_task` always opens or reuses a `job_sessions` row and `complete_service_task` always closes the session while persisting the required after-photo evidence.
+- **Maintenance path**: The maintenance page now creates linked service requests from due schedules, and `markAsPerformed` only advances `last_performed_date` / `next_due_date` after a completed linked service request exists.
+- **Tests updated**: Added `tests/unit/asset-module.contract.test.ts` and extended `tests/api/generate-qr-batch.contract.spec.ts`.

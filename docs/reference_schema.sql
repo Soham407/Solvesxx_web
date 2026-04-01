@@ -512,6 +512,7 @@ CREATE TABLE attendance_logs (
     check_in_location_id UUID REFERENCES company_locations(id),
     check_out_location_id UUID REFERENCES company_locations(id),
     total_hours DECIMAL(5, 2),
+    overtime_hours DECIMAL(5, 2),
     status VARCHAR(20), -- present, absent, half_day, on_leave
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,

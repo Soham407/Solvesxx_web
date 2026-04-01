@@ -277,13 +277,21 @@ export function useResident(residentId?: string) {
 
   // Toggle frequent visitor status (Phase 1B)
   const toggleFrequentVisitor = useCallback(async (visitorId: string, isFrequent: boolean) => {
+    if (!state.resident?.flat?.id) {
+      return { success: false, error: "Resident details not loaded" };
+    }
+
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("visitors")
         .update({ is_frequent_visitor: isFrequent })
-        .eq("id", visitorId);
+        .eq("id", visitorId)
+        .eq("flat_id", state.resident.flat.id)
+        .select("id")
+        .single();
 
       if (error) throw error;
+      if (!data) throw new Error("Visitor not found or update not permitted");
       
       fetchVisitors();
       return { success: true };
@@ -291,7 +299,7 @@ export function useResident(residentId?: string) {
       console.error("Error toggling frequent status:", err);
       return { success: false, error: err.message };
     }
-  }, [fetchVisitors]);
+  }, [fetchVisitors, state.resident?.flat?.id]);
 
   // Refresh all data
   const refresh = useCallback(() => {

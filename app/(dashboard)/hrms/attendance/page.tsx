@@ -28,7 +28,6 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/src/lib/supabaseClient";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,6 +39,12 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/hooks/useAuth";
 import { useEmployeeProfile } from "@/hooks/useEmployeeProfile";
+import {
+  getAdminAttendanceOverview,
+  getEmployeeAttendanceHistory,
+  type AdminAttendanceOverviewRecord,
+  type PersonalAttendanceHistoryRecord,
+} from "@/hooks/useAttendance";
 
 // Roles that get the full admin attendance management view
 const ATTENDANCE_MANAGER_ROLES = new Set([
@@ -69,27 +74,7 @@ function haversineDistance(
   return R * c;
 }
 
-interface AttendanceRecord {
-  id: string;
-  employee: string;
-  employeeId: string;
-  shift: string;
-  checkIn: string;
-  checkOut?: string;
-  location: string;
-  verification:
-    | "Selfie + GPS"
-    | "GPS Only"
-    | "Remote"
-    | "Remote + Selfie"
-    | "Manual"
-    | "Failed"
-    | "Pending"
-    | "Location Not Configured";
-  status: "Present" | "Late" | "On Leave" | "Absent";
-  latitude?: number;
-  longitude?: number;
-}
+type AttendanceRecord = AdminAttendanceOverviewRecord;
 
 interface AttendanceStats {
   onDuty: number;
@@ -100,17 +85,7 @@ interface AttendanceStats {
 
 // ─── Personal (guard/employee) view ────────────────────────────────────────
 
-interface PersonalRecord {
-  id: string;
-  rawDate: string; // YYYY-MM-DD for filtering
-  logDate: string;
-  checkIn: string;
-  checkOut: string;
-  shift: string;
-  status: "Present" | "Late" | "On Leave" | "Absent";
-  verification: string;
-  hoursWorked: string;
-}
+type PersonalRecord = PersonalAttendanceHistoryRecord;
 
 interface PersonalStats {
   presentDays: number;
@@ -136,6 +111,9 @@ function MyAttendanceView({ employeeId }: { employeeId: string }) {
     try {
       setIsLoading(true);
       setError(null);
+      const mapped = await getEmployeeAttendanceHistory(employeeId);
+      setRecords(mapped);
+      /*
 
       // Last 30 days, never beyond today
       const today = new Date();
@@ -144,8 +122,7 @@ function MyAttendanceView({ employeeId }: { employeeId: string }) {
       since.setDate(since.getDate() - 30);
       const sinceStr = since.toISOString().split("T")[0];
 
-      const { data, error: fetchError } = await supabase
-        .from("attendance_logs")
+      attendance history query moved to hooks/useAttendance.ts
         .select(`
           id,
           log_date,
@@ -165,8 +142,7 @@ function MyAttendanceView({ employeeId }: { employeeId: string }) {
       if (fetchError) throw fetchError;
 
       // Fetch shift for this employee
-      const { data: shiftData } = await supabase
-        .from("employee_shift_assignments")
+      shift lookup moved to hooks/useAttendance.ts
         .select(`shifts ( shift_name, start_time, end_time )`)
         .eq("employee_id", employeeId)
         .eq("is_active", true)
@@ -238,6 +214,7 @@ function MyAttendanceView({ employeeId }: { employeeId: string }) {
       });
 
       setRecords(mapped);
+      */
 
       const total = mapped.length;
       const present = mapped.filter(
@@ -534,11 +511,13 @@ function AdminAttendanceView() {
     try {
       setIsLoading(true);
       setError(null);
+      const records = await getAdminAttendanceOverview();
+      setData(records);
+      /*
 
       const today = new Date().toISOString().split("T")[0];
 
-      const { data: attendanceData, error: attendanceError } = await supabase
-        .from("attendance_logs")
+      admin attendance query moved to hooks/useAttendance.ts
         .select(`
           id,
           employee_id,
@@ -564,8 +543,7 @@ function AdminAttendanceView() {
       let shiftMap: Record<string, string> = {};
 
       if (employeeIds.length > 0) {
-        const { data: shiftData, error: shiftError } = await supabase
-          .from("employee_shift_assignments")
+        admin shift lookup moved to hooks/useAttendance.ts
           .select(`
             employee_id,
             shifts (
@@ -587,8 +565,7 @@ function AdminAttendanceView() {
         }
       }
 
-      const { data: allLocations } = await supabase
-        .from("company_locations")
+      company location lookup moved to hooks/useAttendance.ts
         .select("id, latitude, longitude, geo_fence_radius")
         .eq("is_active", true);
 
@@ -681,18 +658,19 @@ function AdminAttendanceView() {
       );
 
       setData(records);
+      */
 
       const onDuty = records.filter(
-        (r) => r.status === "Present" && !r.checkOut
+        (r) => r.status === "Present" && !r.checkOutTimestamp
       ).length;
       const absent = records.filter((r) => r.status === "Absent").length;
       const late = records.filter((r) => r.status === "Late").length;
 
       const punchInTimes = records
-        .filter((r) => r.checkIn !== "-")
+        .filter((r) => r.checkInTimestamp)
         .map((r) => {
-          const [hours, minutes] = r.checkIn.split(":").map(Number);
-          return hours * 60 + minutes;
+          const checkInDate = new Date(r.checkInTimestamp as string);
+          return checkInDate.getHours() * 60 + checkInDate.getMinutes();
         });
 
       const avgPunchIn =
@@ -737,7 +715,7 @@ function AdminAttendanceView() {
           <div className="flex flex-col text-left">
             <span className="font-bold text-sm">{row.original.employee}</span>
             <span className="text-[10px] text-muted-foreground uppercase font-bold">
-              {row.original.shift}
+              {row.original.shiftName} ({row.original.standardHours}h)
             </span>
           </div>
         </div>
@@ -761,6 +739,22 @@ function AdminAttendanceView() {
           </span>
         </div>
       ),
+    },
+    {
+      accessorKey: "overtimeHours",
+      header: "OT Hours",
+      cell: ({ row }) => {
+        const ot = row.original.overtimeHours;
+        if (ot <= 0) return <span className="text-xs text-muted-foreground">-</span>;
+        return (
+          <Badge
+            variant="outline"
+            className="bg-primary/10 text-primary border-primary/20 font-bold text-[10px] h-5"
+          >
+            +{ot.toFixed(2)}h
+          </Badge>
+        );
+      },
     },
     {
       accessorKey: "location",
@@ -1003,8 +997,8 @@ function AdminAttendanceView() {
                 </div>
               ) : (
                 data.map((record: any) => {
-                  const shiftStart = "09:00";
-                  const punchIn = record.punch_in || record.checkIn || null;
+                  const shiftStart = record.startTime || "09:00:00";
+                  const punchIn = record.checkInTimestamp || null;
                   let lateMinutes = 0;
                   let onTime = true;
 

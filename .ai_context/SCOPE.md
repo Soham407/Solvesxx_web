@@ -405,7 +405,7 @@ Rejected → Generate Return Ticket → Close on replacement or credit note
 | Screen | Description |
 |--------|-------------|
 | Buyer Dashboard | Active subscriptions, pending requests, expiring services, pending bills |
-| New Order / Service Request | Select service category, grade/role, headcount, shift, duration |
+| New Order / Service Request | Material request or service deployment with service type, grade/role, headcount, shift, start date, duration, and site location |
 | Active Services | List of ongoing deployments with full details |
 | Order History | Past completed requests with status and feedback |
 | Bills & Payments | View and pay Sale Bills |
@@ -716,6 +716,10 @@ phone            VARCHAR(20)
 email            VARCHAR(100)
 address          TEXT
 gst_number       VARCHAR(20)
+payment_terms    INTEGER
+credit_limit     DECIMAL(12,2)
+rates            TEXT
+availability     TEXT
 is_active        BOOLEAN
 created_at       TIMESTAMP
 ```
@@ -737,9 +741,15 @@ order_type     ENUM('material','service')
 status         ENUM('pending','accepted','rejected','indent_generated',
                     'po_issued','dispatched','delivered','billed','paid','end')
 notes          TEXT
+service_type   TEXT
+service_grade  TEXT
 headcount      INT
 shift          VARCHAR(50)
+start_date     DATE
 duration_months INT
+site_location_id UUID → company_locations.id
+supplier_id    UUID → suppliers.id
+indent_id      UUID → indents.id
 created_at     TIMESTAMP
 updated_at     TIMESTAMP
 ```
@@ -758,6 +768,7 @@ rate         DECIMAL(10,2)
 ```sql
 id             UUID PRIMARY KEY
 order_id       UUID → orders.id
+service_request_id UUID → orders.id
 supplier_id    UUID → suppliers.id
 status         ENUM('drafted','forwarded','accepted','rejected')
 forwarded_at   TIMESTAMP
@@ -859,6 +870,8 @@ selfie_url   TEXT
 latitude     DECIMAL(10,7)
 longitude    DECIMAL(10,7)
 status       ENUM('present','absent','half_day','leave')
+notes        TEXT
+is_auto_punch_out BOOLEAN
 ```
 
 ### 14.18 leaves

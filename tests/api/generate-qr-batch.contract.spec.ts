@@ -14,6 +14,7 @@ describe("API contract: QR batch generation", () => {
         "societyId must be a valid UUID",
         'QR_MANAGEMENT_ROLES = ["admin", "account", "security_supervisor"]',
         "Society ID or Batch ID is required",
+        'await supabase.from("qr_codes").delete().eq("batch_id", batchId)',
         "downloadUrl: `/api/assets/qr-batch/${batchId}/download`",
       ])
     ).toBe(true);

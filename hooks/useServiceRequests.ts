@@ -13,6 +13,7 @@ import type {
 } from "@/src/types/operations";
 import { PAGINATION } from "@/src/lib/constants";
 import { sanitizeLikeInput } from "@/lib/sanitize";
+import { closeServiceRequestAction } from "@/lib/service-request-actions";
 
 interface UseServiceRequestsState {
   requests: ServiceRequestWithDetails[];
@@ -29,6 +30,7 @@ interface UseServiceRequestsReturn extends UseServiceRequestsState {
   updateRequest: (id: string, data: ServiceRequestUpdate) => Promise<{ success: boolean; error?: string }>;
   assignRequest: (id: string, technicianId: string) => Promise<{ success: boolean; error?: string }>;
   completeRequest: (id: string, resolutionNotes?: string) => Promise<{ success: boolean; error?: string }>;
+  closeRequest: (id: string) => Promise<{ success: boolean; error?: string }>;
   cancelRequest: (id: string, reason?: string) => Promise<{ success: boolean; error?: string }>;
   startTask: (id: string, beforePhotoUrl?: string) => Promise<{ success: boolean; error?: string }>;
   completeTask: (id: string, afterPhotoUrl: string, notes?: string) => Promise<{ success: boolean; error?: string }>;
@@ -56,6 +58,13 @@ export function useServiceRequests(initialFilters?: ServiceRequestFilters): UseS
 
   const [filters, setFiltersState] = useState<ServiceRequestFilters>(initialFilters || {});
 
+  // Sync filters with initialFilters if they change
+  useEffect(() => {
+    if (initialFilters) {
+      setFiltersState(initialFilters);
+    }
+  }, [JSON.stringify(initialFilters)]);
+
   // Fetch requests with filters and pagination
   const fetchRequests = useCallback(async () => {
     try {
@@ -78,6 +87,9 @@ export function useServiceRequests(initialFilters?: ServiceRequestFilters): UseS
       }
       if (filters.assignedTo) {
         query = query.eq("assigned_to", filters.assignedTo);
+      }
+      if (filters.requesterId) {
+        query = query.eq("requester_id", filters.requesterId);
       }
       if (filters.assetId) {
         query = query.eq("asset_id", filters.assetId);
@@ -145,12 +157,12 @@ export function useServiceRequests(initialFilters?: ServiceRequestFilters): UseS
 
       const requests = allRequests || [];
       const completedToday = requests.filter(
-        (r) => r.status === "completed" && r.completed_at?.startsWith(today)
+        (r) => (r.status === "completed" || r.status === "closed") && r.completed_at?.startsWith(today)
       ).length;
 
       // Calculate average resolution time for completed requests
       const completedWithTimes = requests.filter(
-        (r) => r.status === "completed" && r.created_at && r.completed_at
+        (r) => (r.status === "completed" || r.status === "closed") && r.created_at && r.completed_at
       );
       const avgResolutionTime =
         completedWithTimes.length > 0
@@ -273,16 +285,72 @@ export function useServiceRequests(initialFilters?: ServiceRequestFilters): UseS
   const completeRequest = useCallback(
     async (id: string, resolutionNotes?: string): Promise<{ success: boolean; error?: string }> => {
       try {
-        const { error } = await supabase
-          .from("service_requests")
-          .update({
-            status: "completed",
-            completed_at: new Date().toISOString(),
-            resolution_notes: resolutionNotes,
-          })
-          .eq("id", id);
+        const { data: request, error: requestError } = await supabase
+          .from("service_requests_with_details")
+          .select("after_photo_url, completion_notes, status, service_name")
+          .eq("id", id)
+          .single();
 
-        if (error) throw error;
+        if (requestError) throw requestError;
+
+        if (request.status === "completed") {
+          return { success: true };
+        }
+
+        // Enforce PPE verification for pest control jobs
+        const serviceName = String(request.service_name || "").toLowerCase();
+        const serviceCode = String((request as any).service_code || "");
+        const isPestControlJob =
+          serviceCode === "PST-CON" ||
+          serviceName.includes("pest control") ||
+          serviceName.includes("pest") ||
+          serviceName.includes("pst-con");
+
+        if (isPestControlJob) {
+          const { data: ppeVerifications, error: ppeError } = await supabase
+            .from("pest_control_ppe_verifications")
+            .select("id, all_items_checked")
+            .eq("service_request_id", id)
+            .eq("all_items_checked", true)
+            .order("verified_at", { ascending: false })
+            .limit(1);
+
+          if (ppeError) throw ppeError;
+
+          if (!ppeVerifications?.length) {
+            return {
+              success: false,
+              error: "PPE verification required before completing pest control job. Use the job session panel to complete the checklist.",
+            };
+          }
+        }
+
+        const afterPhotoUrl = request.after_photo_url?.trim();
+
+        if (!afterPhotoUrl) {
+          return {
+            success: false,
+            error:
+              "After photo evidence is required before completing this request. Use the job session panel to upload evidence first.",
+          };
+        }
+
+        const { error: completionError } = await supabase.rpc("complete_service_task", {
+          p_request_id: id,
+          p_after_photo_url: afterPhotoUrl,
+          p_completion_notes: resolutionNotes || request.completion_notes || null,
+        });
+
+        if (completionError) throw completionError;
+
+        if (resolutionNotes) {
+          const { error: notesError } = await supabase
+            .from("service_requests")
+            .update({ resolution_notes: resolutionNotes })
+            .eq("id", id);
+
+          if (notesError) throw notesError;
+        }
 
         fetchRequests();
         fetchStats();
@@ -323,6 +391,40 @@ export function useServiceRequests(initialFilters?: ServiceRequestFilters): UseS
   const completeTask = useCallback(
     async (id: string, afterPhotoUrl: string, notes?: string): Promise<{ success: boolean; error?: string }> => {
       try {
+        // Enforce PPE verification for pest control jobs
+        const { data: serviceRequest } = await supabase
+          .from("service_requests_with_details")
+          .select("service_name, service_code")
+          .eq("id", id)
+          .maybeSingle();
+
+        const serviceName = String(serviceRequest?.service_name || "").toLowerCase();
+        const serviceCode = String((serviceRequest as any)?.service_code || "");
+        const isPestControlJob =
+          serviceCode === "PST-CON" ||
+          serviceName.includes("pest control") ||
+          serviceName.includes("pest") ||
+          serviceName.includes("pst-con");
+
+        if (isPestControlJob) {
+          const { data: ppeVerifications, error: ppeError } = await supabase
+            .from("pest_control_ppe_verifications")
+            .select("id, all_items_checked")
+            .eq("service_request_id", id)
+            .eq("all_items_checked", true)
+            .order("verified_at", { ascending: false })
+            .limit(1);
+
+          if (ppeError) throw ppeError;
+
+          if (!ppeVerifications?.length) {
+            return {
+              success: false,
+              error: "PPE verification required before completing pest control job",
+            };
+          }
+        }
+
         const { error } = await supabase.rpc("complete_service_task", {
           p_request_id: id,
           p_after_photo_url: afterPhotoUrl,
@@ -339,6 +441,21 @@ export function useServiceRequests(initialFilters?: ServiceRequestFilters): UseS
         console.error("Error completing service task:", err);
         return { success: false, error: errorMessage };
       }
+    },
+    [fetchRequests, fetchStats]
+  );
+
+  // Close request (Requires buyer feedback)
+  const closeRequest = useCallback(
+    async (id: string): Promise<{ success: boolean; error?: string }> => {
+      const result = await closeServiceRequestAction(id, supabase);
+      
+      if (result.success) {
+        fetchRequests();
+        fetchStats();
+      }
+      
+      return result;
     },
     [fetchRequests, fetchStats]
   );
@@ -428,6 +545,7 @@ export function useServiceRequests(initialFilters?: ServiceRequestFilters): UseS
     updateRequest,
     assignRequest,
     completeRequest,
+    closeRequest,
     startTask,
     completeTask,
     cancelRequest,

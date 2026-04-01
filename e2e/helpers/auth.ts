@@ -4,6 +4,8 @@ import type { AppRole } from "../../src/lib/auth/roles";
 import type { RoleJourneyCheck, RoleTestConfig } from "../role-matrix";
 import { getRoleTestConfig } from "../role-matrix";
 
+const LOGIN_BUTTON_NAME = /^(?:sign in|enter workspace)$/i;
+
 function escapeRegex(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -103,7 +105,7 @@ export async function loginAsRole(page: Page, configOrRole: RoleTestConfig | App
   await gotoWithRetry(page, "/login", { waitUntil: "domcontentloaded" });
   await page.getByLabel(/corporate email|email/i).fill(config.email);
   await page.getByLabel(/password/i).fill(config.password);
-  await page.getByRole("button", { name: /^sign in$/i }).click();
+  await page.getByRole("button", { name: LOGIN_BUTTON_NAME }).click();
 
   await waitForPath(page, config.expectedLandingPath, 30_000);
 }
@@ -157,7 +159,7 @@ export async function expectRedirectToLogin(page: Page, path: string, timeout = 
     { timeout }
   );
   await expect(page.getByPlaceholder("name@company.com")).toBeVisible({ timeout });
-  await expect(page.getByRole("button", { name: /^sign in$/i })).toBeVisible({ timeout });
+  await expect(page.getByRole("button", { name: LOGIN_BUTTON_NAME })).toBeVisible({ timeout });
 }
 
 export async function expectSidebarLinkVisible(page: Page, label: string) {

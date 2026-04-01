@@ -1,9 +1,10 @@
-// @ts-nocheck
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/src/lib/supabaseClient";
+import { supabase as supabaseClient } from "@/src/lib/supabaseClient";
 import { useToast } from "@/components/ui/use-toast";
+
+const supabase = supabaseClient as any;
 
 export interface PersonnelDetail {
   name: string;
@@ -53,9 +54,9 @@ export function useServiceDeliveryNotes(poId?: string) {
         .from("service_delivery_notes")
         .select(`
           *,
-          purchase_orders!po_id (
-            po_number,
-            suppliers:supplier_id (supplier_name)
+          service_purchase_order:service_purchase_orders!service_delivery_notes_po_id_fkey (
+            spo_number,
+            supplier:vendor_id (supplier_name)
           )
         `)
         .order("created_at", { ascending: false });
@@ -69,8 +70,8 @@ export function useServiceDeliveryNotes(poId?: string) {
 
       const mapped = (data || []).map((row: any) => ({
         ...row,
-        po_number: row.purchase_orders?.po_number,
-        supplier_name: row.purchase_orders?.suppliers?.supplier_name,
+        po_number: row.service_purchase_order?.spo_number,
+        supplier_name: row.service_purchase_order?.supplier?.supplier_name,
       }));
 
       setNotes(mapped);
@@ -99,6 +100,21 @@ export function useServiceDeliveryNotes(poId?: string) {
         .single();
 
       if (insertError) throw insertError;
+
+      const { data: transitionResult, error: transitionError } = await supabase.rpc(
+        "supplier_transition_service_po_status",
+        {
+          p_spo_id: dto.po_id,
+          p_new_status: "delivery_note_uploaded",
+        }
+      );
+
+      if (transitionError) throw transitionError;
+
+      const rpcResult = transitionResult as any;
+      if (!rpcResult?.success) {
+        throw new Error(rpcResult?.error || "Failed to advance service order after delivery note upload");
+      }
 
       toast({ title: "Delivery Note Submitted", description: "Awaiting admin verification." });
       fetchNotes();

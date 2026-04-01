@@ -56,28 +56,6 @@ export function useResidentProfile() {
 
       if (residentError) {
         if (residentError.code === "PGRST116") {
-          // No resident found, fallback to email lookup for backward compatibility
-          if (user.email) {
-            const { data: emailData, error: emailError } = await supabase
-              .from("residents")
-              .select("id, resident_code, full_name, flat_id")
-              .eq("email", user.email)
-              .eq("is_active", true)
-              .single();
-
-            if (!emailError && emailData) {
-              setProfile({
-                residentId: emailData.id,
-                residentCode: emailData.resident_code,
-                fullName: emailData.full_name,
-                flatId: emailData.flat_id,
-                isLoading: false,
-                error: null,
-              });
-              return;
-            }
-          }
-
           setProfile((prev) => ({
             ...prev,
             isLoading: false,

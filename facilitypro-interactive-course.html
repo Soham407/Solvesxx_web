@@ -1,0 +1,2145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FacilityPro Interactive Course</title>
+  <meta name="description" content="A self-contained interactive course that explains how this codebase works." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400;1,9..40,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --color-bg: #faf7f2;
+      --color-bg-warm: #f5f0e8;
+      --color-bg-code: #1e1e2e;
+      --color-text: #2c2a28;
+      --color-text-secondary: #6b6560;
+      --color-text-muted: #9e9790;
+      --color-border: #e5dfd6;
+      --color-border-light: #eeebe5;
+      --color-surface: #ffffff;
+      --color-surface-warm: #fdf9f3;
+      --color-accent: #d94f30;
+      --color-accent-hover: #c4432a;
+      --color-accent-light: #fdeee9;
+      --color-accent-muted: #e8836c;
+      --color-success: #2d8b55;
+      --color-success-light: #e8f5ee;
+      --color-error: #c93b3b;
+      --color-error-light: #fde8e8;
+      --color-info: #2a7b9b;
+      --color-info-light: #e4f2f7;
+      --color-actor-1: #d94f30;
+      --color-actor-2: #2a7b9b;
+      --color-actor-3: #7b6daa;
+      --color-actor-4: #d4a843;
+      --color-actor-5: #2d8b55;
+      --font-display: "Bricolage Grotesque", Georgia, serif;
+      --font-body: "DM Sans", -apple-system, sans-serif;
+      --font-mono: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+      --text-xs: 0.75rem;
+      --text-sm: 0.875rem;
+      --text-base: 1rem;
+      --text-lg: 1.125rem;
+      --text-xl: 1.25rem;
+      --text-2xl: 1.5rem;
+      --text-3xl: 1.875rem;
+      --text-4xl: 2.25rem;
+      --text-5xl: 3rem;
+      --text-6xl: 3.75rem;
+      --leading-tight: 1.15;
+      --leading-snug: 1.3;
+      --leading-normal: 1.6;
+      --leading-loose: 1.8;
+      --space-1: 0.25rem;
+      --space-2: 0.5rem;
+      --space-3: 0.75rem;
+      --space-4: 1rem;
+      --space-5: 1.25rem;
+      --space-6: 1.5rem;
+      --space-8: 2rem;
+      --space-10: 2.5rem;
+      --space-12: 3rem;
+      --space-16: 4rem;
+      --space-20: 5rem;
+      --space-24: 6rem;
+      --content-width: 800px;
+      --content-width-wide: 1080px;
+      --nav-height: 64px;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-full: 9999px;
+      --shadow-sm: 0 1px 2px rgba(44, 42, 40, 0.05);
+      --shadow-md: 0 4px 12px rgba(44, 42, 40, 0.08);
+      --shadow-lg: 0 8px 24px rgba(44, 42, 40, 0.1);
+      --shadow-xl: 0 16px 48px rgba(44, 42, 40, 0.12);
+      --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+      --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+      --duration-fast: 150ms;
+      --duration-normal: 300ms;
+      --duration-slow: 500ms;
+      --stagger-delay: 120ms;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: var(--font-body);
+      color: var(--color-text);
+      background:
+        radial-gradient(circle at top left, rgba(217, 79, 48, 0.08), transparent 28%),
+        radial-gradient(circle at 85% 10%, rgba(42, 123, 155, 0.1), transparent 26%),
+        linear-gradient(180deg, var(--color-bg) 0%, #fffdf9 36%, var(--color-bg-warm) 100%);
+      min-height: 100vh;
+      scroll-snap-type: y proximity;
+      overflow-x: hidden;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(44, 42, 40, 0.018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(44, 42, 40, 0.018) 1px, transparent 1px);
+      background-size: 28px 28px;
+      mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.7), transparent 92%);
+      z-index: -1;
+    }
+    a { color: inherit; }
+    button, input { font: inherit; }
+
+    .topbar { position: sticky; top: 0; z-index: 30; backdrop-filter: blur(18px); background: rgba(250, 247, 242, 0.86); border-bottom: 1px solid var(--color-border-light); }
+    .topbar-inner { display: grid; grid-template-columns: auto 1fr auto; gap: var(--space-4); align-items: center; min-height: var(--nav-height); padding: 0 var(--space-4); }
+    .brand-chip { display: inline-flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-full); background: var(--color-surface); box-shadow: var(--shadow-sm); }
+    .brand-mark { width: 12px; height: 12px; border-radius: 50%; background: linear-gradient(135deg, var(--color-accent), #f1b47c); box-shadow: 0 0 0 6px rgba(217, 79, 48, 0.08); }
+    .brand-text { display: flex; flex-direction: column; line-height: 1.05; }
+    .brand-text strong { font-family: var(--font-display); font-weight: 800; letter-spacing: -0.02em; }
+    .brand-text span { color: var(--color-text-muted); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.08em; }
+    .progress-wrap { display: grid; gap: var(--space-2); }
+    .progress-bar { height: 8px; border-radius: var(--radius-full); background: rgba(44, 42, 40, 0.08); overflow: hidden; }
+    .progress-bar > span { display: block; height: 100%; width: 0%; border-radius: inherit; background: linear-gradient(90deg, var(--color-accent), #ef9a63); transition: width var(--duration-normal) var(--ease-out); }
+    .progress-label { font-size: var(--text-xs); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.12em; }
+    .module-nav { display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: center; }
+    .module-nav button { appearance: none; border: 1px solid transparent; background: transparent; color: var(--color-text-secondary); border-radius: var(--radius-full); padding: var(--space-2) var(--space-3); cursor: pointer; transition: transform var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out); }
+    .module-nav button:hover { transform: translateY(-1px); background: rgba(217, 79, 48, 0.08); color: var(--color-text); }
+    .module-nav button.active { background: var(--color-accent-light); color: var(--color-accent); border-color: rgba(217, 79, 48, 0.18); }
+    .course-shell { width: min(100%, 1400px); margin: 0 auto; }
+    .hero { min-height: calc(100dvh - var(--nav-height)); padding: var(--space-16) var(--space-6) var(--space-12); display: grid; place-items: center; scroll-snap-align: start; }
+    .hero-card { width: min(100%, 1180px); display: grid; gap: var(--space-10); padding: var(--space-8); border: 1px solid var(--color-border-light); border-radius: 32px; background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(253,249,243,0.95)); box-shadow: var(--shadow-xl); }
+    .hero-grid { display: grid; gap: var(--space-8); grid-template-columns: 1.1fr 0.9fr; align-items: center; }
+    .kicker { font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.16em; color: var(--color-accent); font-weight: 700; }
+    .hero h1, .module h2, .section-title { font-family: var(--font-display); line-height: var(--leading-tight); letter-spacing: -0.03em; margin: 0; }
+    .hero h1 { font-size: clamp(2.8rem, 6vw, 5.2rem); max-width: 11ch; }
+    .hero p { margin: 0; color: var(--color-text-secondary); font-size: var(--text-lg); line-height: var(--leading-loose); max-width: 62ch; }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-6); }
+    .pill { display: inline-flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); border-radius: var(--radius-full); border: 1px solid var(--color-border); background: rgba(255,255,255,0.8); font-size: var(--text-sm); color: var(--color-text-secondary); }
+    .pill strong { color: var(--color-text); }
+    .button-primary, .button-secondary { appearance: none; border: 0; border-radius: var(--radius-full); padding: 0.95rem 1.25rem; cursor: pointer; font-weight: 700; transition: transform var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out); }
+    .button-primary { background: linear-gradient(135deg, var(--color-accent), #ef8d59); color: white; box-shadow: 0 14px 26px rgba(217, 79, 48, 0.22); }
+    .button-secondary { background: white; border: 1px solid var(--color-border); color: var(--color-text); }
+    .button-primary:hover, .button-secondary:hover { transform: translateY(-1px); }
+
+    .hero-visual { position: relative; min-height: 420px; border-radius: 28px; background: linear-gradient(180deg, #fff, #fbf2ea); border: 1px solid var(--color-border-light); box-shadow: var(--shadow-lg); overflow: hidden; display: grid; gap: var(--space-4); padding: var(--space-5); }
+    .hero-visual::before, .hero-visual::after { content: ""; position: absolute; inset: auto; border-radius: 50%; filter: blur(6px); }
+    .hero-visual::before { width: 220px; height: 220px; top: -60px; right: -50px; background: rgba(217, 79, 48, 0.12); }
+    .hero-visual::after { width: 180px; height: 180px; bottom: -70px; left: -40px; background: rgba(42, 123, 155, 0.12); }
+
+    .section-grid { display: grid; gap: var(--space-8); grid-template-columns: 1fr 1fr; }
+    .screen-card, .visual-card, .quiz-card, .translation-block, .callout {
+      border: 1px solid var(--color-border-light);
+      border-radius: 24px;
+      background: rgba(255,255,255,0.9);
+      box-shadow: var(--shadow-md);
+    }
+
+    .reveal { opacity: 0; transform: translateY(18px); transition: opacity var(--duration-slow) var(--ease-out), transform var(--duration-slow) var(--ease-out); }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+
+    .module {
+      min-height: 100dvh;
+      padding: calc(var(--nav-height) + var(--space-12)) var(--space-6) var(--space-16);
+      scroll-snap-align: start;
+    }
+    .module:nth-of-type(even) {
+      background: rgba(255, 255, 255, 0.34);
+    }
+    .module-content {
+      width: min(100%, var(--content-width-wide));
+      margin: 0 auto;
+      display: grid;
+      gap: var(--space-8);
+    }
+    .module-header {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: var(--space-5);
+      align-items: start;
+    }
+    .module-number {
+      font-family: var(--font-display);
+      font-size: clamp(3rem, 8vw, 5rem);
+      line-height: 0.9;
+      font-weight: 800;
+      color: rgba(217, 79, 48, 0.18);
+      letter-spacing: -0.05em;
+    }
+    .module h2 {
+      font-size: clamp(2rem, 4vw, 3.25rem);
+      margin: 0;
+    }
+    .module-lead {
+      margin: var(--space-3) 0 0;
+      max-width: 72ch;
+      font-size: var(--text-lg);
+      line-height: var(--leading-loose);
+      color: var(--color-text-secondary);
+    }
+    .module-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+      margin-top: var(--space-4);
+    }
+    .section-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-2) var(--space-3);
+      border-radius: var(--radius-full);
+      border: 1px solid var(--color-border);
+      background: rgba(255, 255, 255, 0.78);
+      color: var(--color-text-secondary);
+      font-size: var(--text-xs);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+    .metaphor {
+      margin: 0;
+      padding: var(--space-4) var(--space-5);
+      border-radius: 20px;
+      border: 1px solid rgba(217, 79, 48, 0.12);
+      background: linear-gradient(180deg, rgba(253, 238, 233, 0.88), rgba(255, 255, 255, 0.9));
+      color: var(--color-text);
+      line-height: var(--leading-normal);
+    }
+
+    .hero-copy { display: grid; gap: var(--space-3); }
+    .hero-copy .hero-kicker { font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.18em; color: var(--color-accent); font-weight: 700; }
+    .hero-copy .hero-subtitle { margin: 0; max-width: 64ch; color: var(--color-text-secondary); font-size: var(--text-lg); line-height: var(--leading-loose); }
+    .hero-stat-grid {
+      display: grid;
+      gap: var(--space-3);
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .stat-card, .screen-card, .visual-card, .callout, .quiz-card, .translation-block {
+      border: 1px solid var(--color-border-light);
+      border-radius: 24px;
+      background: rgba(255, 255, 255, 0.94);
+      box-shadow: var(--shadow-md);
+    }
+    .stat-card {
+      padding: var(--space-4);
+      min-height: 130px;
+      display: grid;
+      align-content: space-between;
+      gap: var(--space-3);
+    }
+    .stat-card strong {
+      display: block;
+      font-family: var(--font-display);
+      font-size: var(--text-2xl);
+      line-height: 1;
+      margin-top: var(--space-1);
+    }
+    .stat-card span {
+      color: var(--color-text-secondary);
+      font-size: var(--text-sm);
+      line-height: var(--leading-normal);
+    }
+    .stat-card small {
+      color: var(--color-text-muted);
+      font-size: var(--text-xs);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    .screen-grid {
+      display: grid;
+      gap: var(--space-4);
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .screen-card {
+      padding: var(--space-5);
+      min-height: 200px;
+      display: grid;
+      gap: var(--space-3);
+      align-content: start;
+    }
+    .screen-card h3 {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: var(--text-2xl);
+      line-height: var(--leading-snug);
+    }
+    .screen-card p {
+      margin: 0;
+      color: var(--color-text-secondary);
+      line-height: var(--leading-normal);
+    }
+    .screen-card .screen-note {
+      font-size: var(--text-xs);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--color-text-muted);
+    }
+
+    .visual-card {
+      padding: var(--space-5);
+      overflow: hidden;
+    }
+    .visual-card h3 {
+      margin: 0 0 var(--space-4);
+      font-family: var(--font-display);
+      font-size: var(--text-2xl);
+    }
+
+    .file-tree {
+      display: grid;
+      gap: var(--space-3);
+    }
+    .file-row {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: var(--space-3);
+      align-items: center;
+      padding: var(--space-3) var(--space-4);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid var(--color-border-light);
+    }
+    .file-row code {
+      font-family: var(--font-mono);
+      font-size: var(--text-sm);
+      color: var(--color-accent);
+    }
+    .file-row span {
+      color: var(--color-text-secondary);
+      font-size: var(--text-sm);
+      line-height: var(--leading-normal);
+    }
+
+    .translation-block {
+      padding: var(--space-5);
+    }
+    .translation-head {
+      display: flex;
+      justify-content: space-between;
+      gap: var(--space-4);
+      align-items: end;
+      margin-bottom: var(--space-4);
+    }
+    .translation-head h3 {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: var(--text-2xl);
+    }
+    .translation-head .tag {
+      font-size: var(--text-xs);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--color-text-muted);
+    }
+    .translation-grid {
+      display: grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      gap: var(--space-4);
+    }
+    .code-pane {
+      background: var(--color-bg-code);
+      color: #e7e9ff;
+      border-radius: 20px;
+      padding: var(--space-4);
+      overflow: hidden;
+    }
+    .code-pane .code-label {
+      color: #a6accd;
+      font-size: var(--text-xs);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      margin-bottom: var(--space-3);
+    }
+    .code-pane pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: var(--font-mono);
+      font-size: var(--text-sm);
+      line-height: 1.65;
+    }
+    .english-pane {
+      padding: var(--space-4);
+      border-radius: 20px;
+      border: 1px solid var(--color-border-light);
+      background: rgba(255, 255, 255, 0.74);
+    }
+    .english-pane ol {
+      margin: 0;
+      padding-left: 1.2rem;
+      display: grid;
+      gap: var(--space-3);
+    }
+    .english-pane li {
+      display: grid;
+      gap: var(--space-1);
+    }
+    .english-pane p {
+      margin: 0;
+      color: var(--color-text-secondary);
+      line-height: var(--leading-normal);
+    }
+    .line-tag {
+      font-size: var(--text-xs);
+      font-family: var(--font-mono);
+      color: var(--color-accent);
+      font-weight: 600;
+    }
+
+    .callout-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--space-4);
+    }
+    .callout {
+      padding: var(--space-5);
+      display: grid;
+      gap: var(--space-3);
+    }
+    .callout h4 {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: var(--text-xl);
+    }
+    .callout p {
+      margin: 0;
+      color: var(--color-text-secondary);
+      line-height: var(--leading-normal);
+    }
+    .callout.info { border-color: rgba(42, 123, 155, 0.18); background: linear-gradient(180deg, rgba(228, 242, 247, 0.8), rgba(255, 255, 255, 0.92)); }
+    .callout.success { border-color: rgba(45, 139, 85, 0.18); background: linear-gradient(180deg, rgba(232, 245, 238, 0.8), rgba(255, 255, 255, 0.92)); }
+    .callout.warning { border-color: rgba(212, 168, 67, 0.2); background: linear-gradient(180deg, rgba(251, 244, 225, 0.85), rgba(255, 255, 255, 0.92)); }
+
+    .quiz-card {
+      padding: var(--space-5);
+      display: grid;
+      gap: var(--space-4);
+    }
+    .quiz-head {
+      display: flex;
+      justify-content: space-between;
+      gap: var(--space-4);
+      align-items: center;
+    }
+    .quiz-head h3 {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: var(--text-2xl);
+    }
+    .quiz-question-block {
+      display: grid;
+      gap: var(--space-3);
+      padding: var(--space-4);
+      border-radius: 20px;
+      border: 1px solid var(--color-border-light);
+      background: rgba(255, 255, 255, 0.78);
+    }
+    .quiz-question {
+      margin: 0;
+      font-size: var(--text-lg);
+      line-height: var(--leading-normal);
+    }
+    .quiz-options {
+      display: grid;
+      gap: var(--space-2);
+    }
+    .quiz-option {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      width: 100%;
+      text-align: left;
+      padding: var(--space-3) var(--space-4);
+      border-radius: 16px;
+      border: 2px solid var(--color-border);
+      background: white;
+      cursor: pointer;
+      transition: transform var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out);
+    }
+    .quiz-option:hover { transform: translateY(-1px); border-color: var(--color-accent-muted); }
+    .quiz-option.selected { border-color: var(--color-accent); background: var(--color-accent-light); }
+    .quiz-option.correct { border-color: var(--color-success); background: var(--color-success-light); }
+    .quiz-option.incorrect { border-color: var(--color-error); background: var(--color-error-light); }
+    .quiz-option-radio {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 2px solid var(--color-border);
+      transition: all var(--duration-fast) var(--ease-out);
+      flex: 0 0 auto;
+    }
+    .quiz-option.selected .quiz-option-radio {
+      border-color: var(--color-accent);
+      background: var(--color-accent);
+      box-shadow: inset 0 0 0 3px white;
+    }
+    .quiz-feedback {
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+      transition: max-height var(--duration-normal) var(--ease-out), opacity var(--duration-normal) var(--ease-out);
+    }
+    .quiz-feedback.show {
+      max-height: 180px;
+      opacity: 1;
+      padding: var(--space-3);
+      border-radius: 14px;
+      margin-top: var(--space-2);
+    }
+    .quiz-feedback.success { background: var(--color-success-light); color: var(--color-success); }
+    .quiz-feedback.error { background: var(--color-error-light); color: var(--color-error); }
+    .quiz-feedback.warning { background: var(--color-info-light); color: var(--color-info); }
+    .quiz-actions {
+      display: flex;
+      gap: var(--space-3);
+      flex-wrap: wrap;
+    }
+    .quiz-check-btn, .quiz-reset-btn, .flow-next {
+      appearance: none;
+      border: 0;
+      border-radius: var(--radius-full);
+      padding: 0.9rem 1.15rem;
+      cursor: pointer;
+      font-weight: 700;
+      transition: transform var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out);
+    }
+    .quiz-check-btn, .flow-next {
+      background: linear-gradient(135deg, var(--color-accent), #ef8d59);
+      color: white;
+      box-shadow: 0 14px 26px rgba(217, 79, 48, 0.18);
+    }
+    .quiz-reset-btn {
+      background: white;
+      border: 1px solid var(--color-border);
+      color: var(--color-text);
+    }
+    .quiz-check-btn:hover, .quiz-reset-btn:hover, .flow-next:hover { transform: translateY(-1px); }
+
+    .flow-scene {
+      position: relative;
+      padding: var(--space-5);
+      border-radius: 26px;
+      border: 1px solid var(--color-border-light);
+      background: linear-gradient(180deg, rgba(255,255,255,0.92), rgba(253,249,243,0.95));
+      overflow: hidden;
+    }
+    .flow-rail {
+      position: absolute;
+      left: var(--space-5);
+      right: var(--space-5);
+      top: 56%;
+      height: 3px;
+      border-radius: var(--radius-full);
+      background: linear-gradient(90deg, rgba(44,42,40,0.08), rgba(217,79,48,0.2), rgba(44,42,40,0.08));
+    }
+    .flow-packet {
+      position: absolute;
+      top: calc(56% - 14px);
+      left: var(--space-5);
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, #fff, var(--color-accent));
+      box-shadow: 0 8px 18px rgba(217, 79, 48, 0.25);
+      transform: translateX(var(--flow-offset, 0px));
+      transition: transform 420ms var(--ease-out), opacity 420ms var(--ease-out);
+    }
+    .flow-step-list {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(var(--step-count, 4), minmax(0, 1fr));
+      gap: var(--space-3);
+      align-items: start;
+    }
+    .flow-step {
+      min-height: 150px;
+      padding: var(--space-4);
+      border-radius: 20px;
+      border: 1px solid var(--color-border-light);
+      background: rgba(255, 255, 255, 0.85);
+      display: grid;
+      gap: var(--space-3);
+      align-content: start;
+      transform: translateY(0) scale(0.98);
+      opacity: 0.72;
+      transition: transform var(--duration-normal) var(--ease-out), opacity var(--duration-normal) var(--ease-out), border-color var(--duration-normal) var(--ease-out), box-shadow var(--duration-normal) var(--ease-out);
+    }
+    .flow-step.active {
+      transform: translateY(-4px) scale(1);
+      opacity: 1;
+      border-color: rgba(217, 79, 48, 0.22);
+      box-shadow: 0 18px 30px rgba(217, 79, 48, 0.12);
+    }
+    .flow-step .step-label {
+      font-size: var(--text-xs);
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--color-text-muted);
+    }
+    .flow-step h4 {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: var(--text-xl);
+    }
+    .flow-step p {
+      margin: 0;
+      color: var(--color-text-secondary);
+      line-height: var(--leading-normal);
+    }
+    .flow-controls {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: var(--space-4);
+    }
+
+    .chat-window {
+      display: grid;
+      gap: var(--space-3);
+      padding: var(--space-5);
+      border-radius: 28px;
+      border: 1px solid var(--color-border-light);
+      background:
+        radial-gradient(circle at top right, rgba(42, 123, 155, 0.08), transparent 28%),
+        linear-gradient(180deg, rgba(255,255,255,0.96), rgba(247,242,236,0.98));
+    }
+    .chat-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--space-3);
+    }
+    .chat-title {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: var(--text-2xl);
+    }
+    .chat-stage {
+      display: grid;
+      gap: var(--space-3);
+    }
+    .chat-message {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: var(--space-3);
+      align-items: start;
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity var(--duration-normal) var(--ease-out), transform var(--duration-normal) var(--ease-out);
+    }
+    .chat-message.visible { opacity: 1; transform: translateY(0); }
+    .chat-avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 16px;
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      color: white;
+      box-shadow: var(--shadow-sm);
+    }
+    .chat-bubble {
+      padding: var(--space-3) var(--space-4);
+      border-radius: 22px;
+      background: white;
+      border: 1px solid var(--color-border-light);
+      box-shadow: var(--shadow-sm);
+    }
+    .chat-bubble p {
+      margin: 0;
+      line-height: var(--leading-normal);
+      color: var(--color-text-secondary);
+    }
+    .chat-meta {
+      margin-bottom: var(--space-2);
+      display: flex;
+      justify-content: space-between;
+      gap: var(--space-3);
+      align-items: center;
+      font-size: var(--text-xs);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--color-text-muted);
+    }
+    .typing-indicator {
+      display: inline-flex;
+      gap: 5px;
+      align-items: center;
+      padding: var(--space-2) var(--space-3);
+      border-radius: var(--radius-full);
+      background: rgba(42, 123, 155, 0.08);
+      color: var(--color-info);
+      font-size: var(--text-xs);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+    .typing-indicator span {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      opacity: 0.4;
+      animation: pulseDots 1.4s infinite ease-in-out;
+    }
+    .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+    .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes pulseDots {
+      0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+      40% { transform: translateY(-4px); opacity: 1; }
+    }
+
+    .metric-grid {
+      display: grid;
+      gap: var(--space-4);
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .metric-card {
+      padding: var(--space-5);
+      display: grid;
+      gap: var(--space-2);
+    }
+    .metric-card strong {
+      font-family: var(--font-display);
+      font-size: clamp(2rem, 5vw, 3rem);
+      line-height: 1;
+    }
+    .metric-card span {
+      color: var(--color-text-secondary);
+      line-height: var(--leading-normal);
+    }
+    .metric-card small {
+      color: var(--color-text-muted);
+      font-size: var(--text-xs);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    .term {
+      border-bottom: 1px dashed currentColor;
+      cursor: pointer;
+      color: inherit;
+    }
+    .term-tooltip {
+      position: fixed;
+      z-index: 9999;
+      max-width: min(320px, calc(100vw - 18px));
+      padding: var(--space-3) var(--space-4);
+      border-radius: 14px;
+      background: var(--color-bg-code);
+      color: #e7e9ff;
+      box-shadow: var(--shadow-xl);
+      font-size: var(--text-sm);
+      line-height: var(--leading-normal);
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
+      pointer-events: none;
+    }
+    .term-tooltip.visible { opacity: 1; transform: translateY(0); }
+    .term-tooltip.flip { transform: translateY(-8px); }
+    .term-tooltip::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 100%;
+      transform: translateX(-50%);
+      border: 8px solid transparent;
+      border-top-color: var(--color-bg-code);
+    }
+    .term-tooltip.flip::after {
+      top: auto;
+      bottom: 100%;
+      border-top-color: transparent;
+      border-bottom-color: var(--color-bg-code);
+    }
+
+    .footer-note {
+      padding: 0 var(--space-6) var(--space-12);
+      text-align: center;
+      color: var(--color-text-muted);
+      font-size: var(--text-sm);
+    }
+
+    @media (max-width: 1080px) {
+      .hero-grid, .translation-grid, .section-grid, .callout-grid { grid-template-columns: 1fr; }
+      .screen-grid, .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .topbar-inner { grid-template-columns: 1fr; justify-items: stretch; padding: var(--space-3); }
+      .module-nav { justify-content: flex-start; }
+    }
+    @media (max-width: 720px) {
+      .hero { padding-inline: var(--space-4); }
+      .hero-card, .module-content { gap: var(--space-6); }
+      .module { padding-inline: var(--space-4); }
+      .module-header { grid-template-columns: 1fr; }
+      .module-number { font-size: 4rem; }
+      .screen-grid, .metric-grid, .hero-stat-grid { grid-template-columns: 1fr; }
+      .translation-head, .chat-header, .quiz-head { flex-direction: column; align-items: flex-start; }
+      .quiz-actions { flex-direction: column; }
+      .flow-step-list { grid-template-columns: 1fr; }
+      .flow-packet, .flow-rail { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="course-shell">
+    <header class="topbar">
+      <div class="topbar-inner">
+        <div class="brand-chip">
+          <span class="brand-mark"></span>
+          <span class="brand-text"><strong>FacilityPro</strong><span>Interactive course</span></span>
+        </div>
+        <div class="progress-wrap">
+          <div class="progress-label" id="progressLabel">0% complete</div>
+          <div class="progress-bar"><span id="progressBar"></span></div>
+        </div>
+        <nav class="module-nav" id="moduleNav" aria-label="Course navigation"></nav>
+      </div>
+    </header>
+
+    <main id="course"></main>
+  </div>
+
+  <script>
+  (() => {
+    const course = document.getElementById("course");
+    const nav = document.getElementById("moduleNav");
+    const progressBar = document.getElementById("progressBar");
+    const progressLabel = document.getElementById("progressLabel");
+
+    const glossary = {
+      nextjs: "Next.js is the framework that turns React components into pages, routes, and server logic.",
+      react: "React is the UI library that builds screens from reusable pieces.",
+      supabase: "Supabase is the backend service here: it stores data, handles auth, and exposes database queries.",
+      auth: "Authentication proves who a user is.",
+      role: "A role is a job label that controls what a user can see and do.",
+      portal: "A portal is a role-specific area of the app.",
+      proxy: "A proxy is a gatekeeper that can redirect, block, or pass a request before the page loads.",
+      routeguard: "A route guard is UI logic that protects a screen after it loads.",
+      hook: "A hook is a reusable React function that packages state and side effects.",
+      database: "A database is the organized storage place for app data.",
+      view: "A database view is a saved question that behaves like a read-only table.",
+      kanban: "A Kanban board is a column-based way to track work as it moves through stages.",
+      storage: "Storage is the place where files like photos are kept.",
+      ledger: "A ledger is a running record of money moving in and out.",
+      notification: "A notification is a message sent to another person or device.",
+      session: "A session is the current signed-in state for a user.",
+      api: "An API is the program doorway that one part of the system uses to ask another for work.",
+      sidebar: "A sidebar is the navigation column that stays beside the main page.",
+      breadcrumb: "Breadcrumbs are the small trail that shows where you are in the app.",
+      row: "A row is one record in a database table, like one card in a filing cabinet.",
+      redirect: "A redirect sends a user to a different page automatically.",
+      rls: "Row-level security is a database rule that limits which rows a user can touch."
+    };
+
+    function escapeHTML(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function term(label, key = label.toLowerCase()) {
+      const definition = glossary[key] || key;
+      return `<span class="term" data-definition="${escapeHTML(definition)}">${escapeHTML(label)}</span>`;
+    }
+
+    function renderPills(pills) {
+      return pills.map((pill) => `<span class="section-badge">${pill}</span>`).join("");
+    }
+
+    function renderStatCards(cards) {
+      return `
+        <div class="hero-stat-grid reveal">
+          ${cards.map((card) => `
+            <article class="stat-card">
+              <small>${card.small}</small>
+              <div>
+                <strong>${card.value}</strong>
+                <span>${card.text}</span>
+              </div>
+            </article>
+          `).join("")}
+        </div>
+      `;
+    }
+
+    function renderMetricGrid(cards) {
+      return `
+        <div class="metric-grid">
+          ${cards.map((card) => `
+            <article class="metric-card">
+              <small>${card.small}</small>
+              <strong>${card.value}</strong>
+              <span>${card.text}</span>
+            </article>
+          `).join("")}
+        </div>
+      `;
+    }
+
+    function renderScreenCards(cards) {
+      return `
+        <div class="screen-grid">
+          ${cards.map((card) => `
+            <article class="screen-card reveal">
+              <div class="screen-note">${card.note}</div>
+              <h3>${card.title}</h3>
+              <p>${card.body}</p>
+            </article>
+          `).join("")}
+        </div>
+      `;
+    }
+
+    function renderCallouts(callouts) {
+      return `
+        <div class="callout-grid">
+          ${callouts.map((callout) => `
+            <aside class="callout ${callout.tone || "info"} reveal">
+              <div class="section-badge">${callout.label || "Aha"}</div>
+              <h4>${callout.title}</h4>
+              <p>${callout.body}</p>
+            </aside>
+          `).join("")}
+        </div>
+      `;
+    }
+
+    function renderFileTree(title, items) {
+      return `
+        <div class="visual-card reveal">
+          <h3>${title}</h3>
+          <div class="file-tree">
+            ${items.map((item) => `
+              <div class="file-row">
+                <code>${item.path}</code>
+                <span>${item.note}</span>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderTranslationBlock(block) {
+      return `
+        <section class="translation-block reveal">
+          <div class="translation-head">
+            <div>
+              <div class="tag">${block.tag}</div>
+              <h3>${block.title}</h3>
+            </div>
+          </div>
+          <div class="translation-grid">
+            <div class="code-pane">
+              <div class="code-label">Code</div>
+              <pre><code>${escapeHTML(block.codeLines.join("\n"))}</code></pre>
+            </div>
+            <div class="english-pane">
+              <ol>
+                ${block.english.map((line, index) => `
+                  <li>
+                    <div class="line-tag">Line ${index + 1}</div>
+                    <p>${line}</p>
+                  </li>
+                `).join("")}
+              </ol>
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
+    function renderQuizBlock(sectionId, quiz) {
+      return `
+        <section class="quiz-card reveal" id="${sectionId}-quiz">
+          <div class="quiz-head">
+            <div>
+              <div class="section-badge">Quiz</div>
+              <h3>${quiz.title}</h3>
+            </div>
+            <p class="module-lead" style="max-width: 40ch; margin: 0;">${quiz.lead}</p>
+          </div>
+          ${quiz.questions.map((question) => `
+            <div class="quiz-question-block" data-answer="${question.answer}" data-explanation="${escapeHTML(question.explanation)}">
+              <p class="quiz-question">${question.prompt}</p>
+              <div class="quiz-options">
+                ${question.options.map((option, optionIndex) => `
+                  <button class="quiz-option" type="button" data-value="${optionIndex}" onclick="selectOption(this)">
+                    <span class="quiz-option-radio"></span>
+                    <span>${option}</span>
+                  </button>
+                `).join("")}
+              </div>
+              <div class="quiz-feedback" aria-live="polite"></div>
+            </div>
+          `).join("")}
+          <div class="quiz-actions">
+            <button class="quiz-check-btn" type="button" onclick="checkQuiz('${sectionId}')">Check answers</button>
+            <button class="quiz-reset-btn" type="button" onclick="resetQuiz('${sectionId}')">Try again</button>
+          </div>
+        </section>
+      `;
+    }
+
+    function renderFlowScene(sceneId, steps) {
+      return `
+        <div class="flow-scene reveal" data-flow-scene="${sceneId}" data-flow-index="0" style="--step-count:${steps.length};">
+          <div class="flow-rail"></div>
+          <div class="flow-packet"></div>
+          <div class="flow-step-list">
+            ${steps.map((step, index) => `
+              <article class="flow-step${index === 0 ? " active" : ""}" data-step-index="${index}">
+                <div class="step-label">${step.label}</div>
+                <h4>${step.title}</h4>
+                <p>${step.body}</p>
+              </article>
+            `).join("")}
+          </div>
+          <div class="flow-controls">
+            <button class="flow-next" type="button" onclick="advanceFlow(this)">Next step</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderChat(chatId, chat) {
+      return `
+        <div class="chat-window reveal" data-chat-scene="${chatId}">
+          <div class="chat-header">
+            <div>
+              <div class="section-badge">Group chat animation</div>
+              <h3 class="chat-title">${chat.title}</h3>
+            </div>
+            <button class="button-secondary" type="button" onclick="replayChat(this)">Replay</button>
+          </div>
+          <p class="module-lead">${chat.lead}</p>
+          <div class="typing-indicator" data-chat-status><span></span><span></span><span></span> typing</div>
+          <div class="chat-stage">
+            ${chat.messages.map((message, index) => `
+              <div class="chat-message" data-chat-message data-order="${index}">
+                <div class="chat-avatar" style="background:${message.color};">${message.initials}</div>
+                <div class="chat-bubble">
+                  <div class="chat-meta">
+                    <span>${message.speaker}</span>
+                    <span>${message.role}</span>
+                  </div>
+                  <p>${message.text}</p>
+                </div>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderHero(hero) {
+      return `
+        <section class="hero reveal" id="overview" data-section data-section-index="0" data-title="Overview">
+          <div class="hero-card">
+            <div class="hero-grid">
+              <div class="hero-copy">
+                <div class="hero-kicker">Interactive course</div>
+                <h1>${hero.title}</h1>
+                <p class="hero-subtitle">${hero.subtitle}</p>
+                <div class="hero-actions">
+                  <button class="button-primary" type="button" onclick="scrollToSection('login')">Start at login</button>
+                  <button class="button-secondary" type="button" onclick="scrollToSection('access-control')">Jump to access control</button>
+                </div>
+                <div class="module-meta">
+                  ${renderPills(hero.pills)}
+                </div>
+              </div>
+              <div class="hero-visual">
+                ${renderStatCards(hero.stats)}
+                ${renderFileTree(hero.mapTitle, hero.mapRows)}
+              </div>
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
+    function renderModule(module, index) {
+      return `
+        <section class="module reveal" id="${module.id}" data-section data-section-index="${index + 1}" data-title="${module.title}">
+          <div class="module-content">
+            <div class="module-header">
+              <div class="module-number">${module.number}</div>
+              <div>
+                <div class="module-meta">
+                  <span class="section-badge">${module.kicker}</span>
+                  ${renderPills(module.pills || [])}
+                </div>
+                <h2>${module.title}</h2>
+                <p class="module-lead">${module.intro}</p>
+              </div>
+            </div>
+
+            <p class="metaphor">${module.metaphor}</p>
+
+            ${module.visual}
+            ${renderScreenCards(module.cards)}
+            ${renderCallouts(module.callouts)}
+            ${renderTranslationBlock(module.translation)}
+            ${renderQuizBlock(module.id, module.quiz)}
+          </div>
+        </section>
+      `;
+    }
+
+    const hero = {
+      title: `FacilityPro is a building ops app with many doors, and the code knows who opens each one.`,
+      subtitle: `It uses ${term("Next.js", "nextjs")} for page structure, ${term("React", "react")} for the moving pieces, and ${term("Supabase", "supabase")} for sign-in, data, and files. This course shows how one login can steer someone into the right ${term("portal", "portal")} while the same backend keeps requests, stock, residents, and finance in sync.`,
+      pills: [
+        "Role-based portals",
+        "Live Supabase data",
+        "Real file snippets",
+        "No known mock areas"
+      ],
+      stats: [
+        { small: "Stack", value: "Next.js + React", text: "Pages, routes, layouts, and interactive components." },
+        { small: "Backend", value: "Supabase", text: "Auth, database queries, storage, and live updates." },
+        { small: "Scope", value: "6 core flows", text: "Login, access, requests, inventory, security, finance." },
+        { small: "Trust", value: "Real files", text: "The course is built from the repo's actual code." }
+      ],
+      mapTitle: "What this course traces",
+      mapRows: [
+        { path: "app/login/page.tsx", note: "the front door and role redirect" },
+        { path: "proxy.ts", note: "server-side gatekeeper" },
+        { path: "hooks/useServiceRequests.ts", note: "work-order creation and refresh" },
+        { path: "hooks/useReorderAlerts.ts", note: "low-stock alert logic" },
+        { path: "hooks/usePanicAlert.ts", note: "emergency hold-to-trigger flow" },
+        { path: "hooks/useFinance.ts", note: "payments, methods, and bill updates" }
+      ]
+    };
+
+    const modules = [];
+
+    modules.push({
+      id: "login",
+      number: "01",
+      kicker: "Front door",
+      title: "The login screen is a traffic cop",
+      intro: `One sign-in decides who you are, which ${term("portal", "portal")} you get, and whether you have to change your password first.`,
+      metaphor: `Think of the login page like a lobby receptionist. It checks the badge, reads the rulebook, and opens the right door without making the visitor wander the building.`,
+      pills: ["Auth lookup", "Password reset", "Role redirect"],
+      visual: `
+        <div class="visual-card reveal">
+          <h3>Who gets sent where</h3>
+          <div class="screen-grid">
+            <article class="screen-card">
+              <div class="screen-note">Buyer</div>
+              <h3>/buyer</h3>
+              <p>Sees requests, invoices, and the buyer portal.</p>
+            </article>
+            <article class="screen-card">
+              <div class="screen-note">Resident</div>
+              <h3>/resident</h3>
+              <p>Gets the apartment-facing portal and society tools.</p>
+            </article>
+            <article class="screen-card">
+              <div class="screen-note">Security</div>
+              <h3>/guard</h3>
+              <p>Opens the station view for visitors and emergency tasks.</p>
+            </article>
+          </div>
+        </div>
+      `,
+      cards: [
+        {
+          note: "Step 1",
+          title: "Sign in is only the beginning",
+          body: `The form asks ${term("Supabase auth", "supabase")} to prove that the email and password belong together.`
+        },
+        {
+          note: "Step 2",
+          title: "The user row tells the story",
+          body: `After sign-in, the page reads the ${term("database", "database")} row and checks <code>roles(role_name)</code> plus <code>must_change_password</code>.`
+        },
+        {
+          note: "Step 3",
+          title: "The redirect map sends them home",
+          body: `If the role is <code>buyer</code>, the app goes to <code>/buyer</code>; if it is <code>resident</code>, it goes to <code>/resident</code>; everyone else lands in <code>/dashboard</code>.`
+        }
+      ],
+      callouts: [
+        {
+          tone: "info",
+          label: "Aha",
+          title: "Login bugs usually live in data",
+          body: "If the wrong room opens, inspect the role row and redirect map before rewriting the form itself."
+        },
+        {
+          tone: "warning",
+          label: "Debug move",
+          title: "Password changes happen first",
+          body: "The app forces a reset before role redirect, so a stale password can look like a navigation bug."
+        }
+      ],
+      translation: {
+        title: "Real code from app/login/page.tsx",
+        tag: "Role redirect logic",
+        codeLines: [
+          'if (authRow?.must_change_password) {',
+          '  router.push("/change-password");',
+          '  return;',
+          '}',
+          '',
+          'const userRole = authRow?.roles?.role_name;',
+          '',
+          'const roleRedirects: Record<string, string> = {',
+          '  buyer: "/buyer",',
+          '  supplier: "/supplier",',
+          '  vendor: "/supplier",',
+          '  resident: "/resident",',
+          '  delivery_boy: "/delivery",',
+          '  security_guard: "/guard",',
+          '  security_supervisor: "/guard",',
+          '};',
+          '',
+          'router.push(roleRedirects[userRole] ?? "/dashboard");'
+        ],
+        english: [
+          "If the person still has to reset their password, stop here and send them to the reset page.",
+          "Otherwise, read the role name from the user record.",
+          "Use that role name like a routing key to choose the right portal.",
+          "When there is no special role match, fall back to the main dashboard."
+        ]
+      },
+      quiz: {
+        title: "Two quick checks",
+        lead: "Can you trace a sign-in to the correct destination without guessing?",
+        questions: [
+          {
+            prompt: "A buyer signs in but lands on the dashboard. What would you inspect first?",
+            answer: 0,
+            options: [
+              "The redirect map in app/login/page.tsx",
+              "The top navigation icons",
+              "The storage bucket for profile photos"
+            ],
+            explanation: "The login page decides the destination with a redirect map. If the wrong portal opens, that map or the role row is the first place to look."
+          },
+          {
+            prompt: "Why does the app check must_change_password before role redirect?",
+            answer: 1,
+            options: [
+              "To make the UI slower on purpose",
+              "To force a password reset before granting normal access",
+              "To avoid using Supabase at all"
+            ],
+            explanation: "A password reset is a safety gate. The app wants that rule to happen before any normal portal opens."
+          }
+        ]
+      }
+    });
+
+    modules.push({
+      id: "finance",
+      number: "06",
+      kicker: "Control room",
+      title: "Dashboards, money, and the big picture",
+      intro: `The dashboard shell wraps pages with auth, the ${term("sidebar", "sidebar")}, breadcrumbs, and the route guard. Underneath that, the finance hook keeps payment records and bill balances in sync.`,
+      metaphor: `Think of this as a control room. The gauges are on the wall, but the pipes and valves are the real system that make the numbers move.`,
+      pills: ["Payments", "Bill balances", "Architecture"],
+      visual: `
+        <div class="visual-card reveal">
+          <h3>Architecture and metrics</h3>
+          ${renderMetricGrid([
+            { small: "Payments", value: "2 tables", text: "The hook reads payments and payment methods together." },
+            { small: "Balance", value: "Sale or purchase", text: "Each payment updates the linked bill totals." },
+            { small: "Layout", value: "Shell", text: "Sidebar, top bar, breadcrumbs, and route protection surround the page." }
+          ])}
+          <div style="height: var(--space-4);"></div>
+          ${renderFileTree("Where the dashboard logic lives", [
+            { path: "app/(dashboard)/layout.tsx", note: "wraps the page in sidebar, top nav, breadcrumbs, and RouteGuard" },
+            { path: "components/layout/AppSidebar.tsx", note: "filters the menu by role and feature freeze" },
+            { path: "hooks/useAuth.tsx", note: "loads role, permissions, and active state" },
+            { path: "hooks/useFinance.ts", note: "reads payments, methods, and bill records" }
+          ])}
+        </div>
+      `,
+      cards: [
+        {
+          note: "Finance hook",
+          title: "Payments and methods are fetched together",
+          body: "The hook reads the latest payments and active payment methods so the UI can choose and show them together."
+        },
+        {
+          note: "Ledger",
+          title: "Recording a transaction updates the bill",
+          body: "A payment does not just appear in the ledger; it also reduces the linked bill balance and updates its status."
+        },
+        {
+          note: "Shell",
+          title: "Every page sits inside the same layout",
+          body: "The dashboard layout adds sidebar, top navigation, breadcrumbs, error handling, and route protection around children."
+        }
+      ],
+      callouts: [
+        {
+          tone: "info",
+          label: "Aha",
+          title: "Dashboards mirror state, they do not create truth",
+          body: "If a number looks wrong, trace the write path first. The chart is usually only reflecting a bad source value."
+        },
+        {
+          tone: "success",
+          label: "Architecture",
+          title: "Access control lives close to the edges",
+          body: "Proxy, RouteGuard, and the sidebar all collaborate so people only see the tools their role can use."
+        }
+      ],
+      translation: {
+        title: "Real code from hooks/useFinance.ts",
+        tag: "Payments and bill balance updates",
+        codeLines: [
+          "const [paymentsRes, methodsRes] = await Promise.all([",
+          "  supabase.from('payments').select('*').order('created_at', { ascending: false }),",
+          "  supabase.from('payment_methods').select('*').eq('is_active', true)",
+          "]);",
+          "",
+          "const table = data.referenceType === 'sale_bill' ? 'sale_bills' : 'purchase_bills';",
+          "",
+          "const { data: bill } = await supabase.from(table).select('paid_amount, total_amount').eq('id', data.referenceId).single();",
+          "",
+          "if (bill) {",
+          "  const newPaidAmount = (bill.paid_amount || 0) + data.amount;",
+          "  const newDueAmount = Math.max(0, bill.total_amount - newPaidAmount);",
+          "  const newStatus = newDueAmount === 0 ? 'paid' : 'partially_paid';",
+          "",
+          "  await supabase.from(table).update({",
+          "    paid_amount: newPaidAmount,",
+          "    due_amount: newDueAmount,",
+          "    payment_status: newStatus,",
+          "    last_payment_date: data.date",
+          "  }).eq('id', data.referenceId);",
+          "}"
+        ],
+        english: [
+          "Read payments and active payment methods at the same time.",
+          "Choose the matching bill table based on whether the payment belongs to a sale bill or a purchase bill.",
+          "Recalculate the paid amount, due amount, and status, then write the new totals back to the database."
+        ]
+      },
+      quiz: {
+        title: "Follow the money and the layout",
+        lead: "The important part is not only what the numbers say, but where they came from.",
+        questions: [
+          {
+            prompt: "A finance dashboard number looks wrong. Where should you investigate first?",
+            answer: 1,
+            options: [
+              "Only the chart colors",
+              "The write path and underlying payment/bill data",
+              "The browser zoom level"
+            ],
+            explanation: "Dashboards reflect data. If the metric is wrong, the cause is usually in the write/update path underneath."
+          },
+          {
+            prompt: "Why does the dashboard layout matter to the user experience?",
+            answer: 0,
+            options: [
+              "It keeps the whole portal consistent with sidebar, breadcrumbs, and route protection",
+              "It removes the need for data fetching",
+              "It makes the finance tables slower on purpose"
+            ],
+            explanation: "The layout is the shell that holds the portal together and keeps the user oriented and protected."
+          }
+        ]
+      }
+    });
+
+    modules.push({
+      id: "security",
+      number: "05",
+      kicker: "Guard station",
+      title: "Visitors, panic, and the human side",
+      intro: `The guard tools are built around speed with guardrails. A visitor check-in writes an entry time, and a panic alert uses a 3-second hold so nobody fires it by accident.`,
+      metaphor: `Think of it like a concierge desk with an emergency pull cord. Daily work is smooth, but the emergency action has deliberate friction so it is harder to trigger by mistake.`,
+      pills: ["Emergency hold", "Visitor arrival", "Supervisor alerts"],
+      visual: `
+        <div class="visual-card reveal">
+          <h3>Group chat: guard station</h3>
+          ${renderChat("guard-chat", {
+            title: "Guard, resident, system, supervisor",
+            lead: "This chat shows how one visitor check-in turns into a resident notification and a safe emergency channel.",
+            messages: [
+              { initials: "G", speaker: "Guard", role: "Front desk", color: "#d94f30", text: "Visitor Arjun is here for Flat 1204." },
+              { initials: "S", speaker: "System", role: "Database", color: "#2a7b9b", text: "entry_time updated and resident notification sent." },
+              { initials: "R", speaker: "Resident", role: "Owner", color: "#2d8b55", text: "Approved. Please let him in." },
+              { initials: "M", speaker: "Supervisor", role: "Escalation", color: "#7b6daa", text: "If the panic button is held long enough, the emergency message goes out." }
+            ]
+          })}
+        </div>
+      `,
+      cards: [
+        {
+          note: "Panic",
+          title: "The emergency button is held, not tapped",
+          body: "A 3-second hold prevents accidental panic triggers when the guard is moving fast."
+        },
+        {
+          note: "Visitors",
+          title: "Check-in changes the row",
+          body: "Once a visitor is approved, the hook writes entry_time and links the guard, location, and resident."
+        },
+        {
+          note: "Notification",
+          title: "The system whispers to the right people",
+          body: "Residents and supervisors get notified without blocking the guard from continuing the front-desk flow."
+        }
+      ],
+      callouts: [
+        {
+          tone: "warning",
+          label: "Aha",
+          title: "Friction can be a safety feature",
+          body: "Fast is good for normal work, but the emergency path should be a little harder to trigger."
+        },
+        {
+          tone: "info",
+          label: "Debug clue",
+          title: "Notification failures should not stop check-in",
+          body: "The code treats arrival notifications as non-blocking, so the visitor record still updates even if messaging fails."
+        }
+      ],
+      translation: {
+        title: "Real code from hooks/usePanicAlert.ts",
+        tag: "Hold-to-trigger emergency flow",
+        codeLines: [
+          'const HOLD_DURATION_MS = 3000; // 3 seconds to trigger',
+          '',
+          'const startHold = useCallback(() => {',
+          '  holdStartRef.current = Date.now();',
+          '  setState((prev) => ({ ...prev, isHolding: true, holdProgress: 0 }));',
+          '',
+          '  // Update progress every 50ms',
+          '  holdIntervalRef.current = setInterval(() => {',
+          '    if (!holdStartRef.current) return;',
+          '',
+          '    const elapsed = Date.now() - holdStartRef.current;',
+          '    const progress = Math.min((elapsed / HOLD_DURATION_MS) * 100, 100);',
+          '',
+          '    setState((prev) => ({ ...prev, holdProgress: progress }));',
+          '  }, 50);',
+          '}, []);'
+        ],
+        english: [
+          "The emergency button requires a full three-second hold before it counts.",
+          "When the hold begins, the app starts counting time and resets the visual progress bar.",
+          "Every 50 milliseconds, it updates the progress until the hold is long enough."
+        ]
+      },
+      quiz: {
+        title: "Emergency flows should feel safe",
+        lead: "The trick is to keep the everyday path fast while making the emergency path deliberate.",
+        questions: [
+          {
+            prompt: "Why does the panic button require a 3-second hold?",
+            answer: 2,
+            options: [
+              "To make the UI more decorative",
+              "To reduce the database size",
+              "To prevent accidental triggers during fast movement"
+            ],
+            explanation: "The hold duration is a safety layer. It adds friction so a stray tap does not send an emergency alert."
+          },
+          {
+            prompt: "When a visitor is checked in, what should happen next?",
+            answer: 0,
+            options: [
+              "The row updates and the resident gets notified",
+              "The whole app reloads and forgets the visitor",
+              "The system deletes the entry if the resident is offline"
+            ],
+            explanation: "The visitor record should update first, and the notification is a follow-up that should not block the check-in."
+          }
+        ]
+      }
+    });
+
+    modules.push({
+      id: "inventory",
+      number: "04",
+      kicker: "Stockroom",
+      title: "Low stock becomes an alert",
+      intro: `Inventory is not watched item by item. The app asks the ${term("stock_levels view", "view")} which items need reorder, then converts those rows into alerts for managers.`,
+      metaphor: `Picture a pantry clerk with a clipboard. Instead of opening every shelf every time, they keep one list of what is running low and only ring the bell when the shelf is almost empty.`,
+      pills: ["Low stock", "Supplier pressure", "PO placeholder"],
+      visual: `
+        <div class="visual-card reveal">
+          <h3>Alert stack</h3>
+          ${renderMetricGrid([
+            { small: "Critical", value: "0", text: "Items that hit zero stock become out_of_stock and critical." },
+            { small: "High", value: "Low", text: "Items below reorder level become low_stock and high priority." },
+            { small: "Orders", value: "Manual", text: "Purchase order creation is still a placeholder in this hook." }
+          ])}
+          <div style="height: var(--space-4);"></div>
+          ${renderFileTree("How stock data is turned into alerts", [
+            { path: "stock_levels", note: "a view that already knows which rows need reorder" },
+            { path: "sendReorderAlertNotification", note: "notifies managers and admins" },
+            { path: "createPurchaseOrderFromAlert", note: "acknowledges alerts, but PO creation is not finished yet" }
+          ])}
+        </div>
+      `,
+      cards: [
+        {
+          note: "View",
+          title: "A saved question powers the alert feed",
+          body: "The hook asks stock_levels for rows where needs_reorder is true instead of scanning everything manually."
+        },
+        {
+          note: "Severity",
+          title: "Zero stock is the red flag",
+          body: "If total_quantity reaches zero, the alert becomes critical; otherwise it is high."
+        },
+        {
+          note: "Purchase order",
+          title: "The automatic PO path is still a placeholder",
+          body: "The hook can acknowledge alerts today, but it still tells the user to create orders manually."
+        }
+      ],
+      callouts: [
+        {
+          tone: "success",
+          label: "Aha",
+          title: "A view is a saved question",
+          body: "You do not need another table when the app just wants a clearer answer to the same inventory question."
+        },
+        {
+          tone: "warning",
+          label: "Edge case",
+          title: "No supplier found means no auto-notification",
+          body: "If no manager or admin user is available, the hook quietly marks the alert as notified to avoid spamming."
+        }
+      ],
+      translation: {
+        title: "Real code from hooks/useReorderAlerts.ts",
+        tag: "Low-stock alert logic",
+        codeLines: [
+          'let query = supabase',
+          '  .from("stock_levels")',
+          '  .select("*")',
+          '  .eq("needs_reorder", true);',
+          '',
+          'const alerts: ReorderAlert[] = (stockData || []).map((stock: StockLevel) => ({',
+          "  id: `${stock.product_id || 'unknown'}-${stock.warehouse_id || 'unknown'}`," ,
+          '  productId: stock.product_id ?? null,',
+          '  productName: stock.product_name ?? null,',
+          '  currentStock: Number(stock.total_quantity) || 0,',
+          '  reorderLevel: stock.reorder_level ? Number(stock.reorder_level) : 0,',
+          '  suggestedQuantity: calculateSuggestedQuantity(stock),',
+          '  alertType: Number(stock.total_quantity) === 0 ? "out_of_stock" : "low_stock",',
+          '  priority: Number(stock.total_quantity) === 0 ? "critical" : "high",',
+          '}));'
+        ],
+        english: [
+          "Ask the stock_levels view for rows that already need reorder.",
+          "Turn every row into an alert record with product and warehouse details.",
+          "If quantity is zero, label it out_of_stock and critical; otherwise use low_stock and high."
+        ]
+      },
+      quiz: {
+        title: "What does low stock mean here?",
+        lead: "Inventory questions are about reading signals, not memorizing field names.",
+        questions: [
+          {
+            prompt: "A product hits zero stock. What priority should the alert get?",
+            answer: 1,
+            options: [
+              "Low",
+              "Critical",
+              "Skipped"
+            ],
+            explanation: "Zero stock is the strongest signal, so the hook marks it critical."
+          },
+          {
+            prompt: "Why use a view like stock_levels instead of scanning raw tables manually?",
+            answer: 2,
+            options: [
+              "Because views cannot be read",
+              "Because views are slower in every case",
+              "Because the view already packages the answer the UI needs"
+            ],
+            explanation: "A view is a ready-made question. It gives the UI the answer shape it wants without rebuilding it every time."
+          }
+        ]
+      }
+    });
+
+    modules.push({
+      id: "requests",
+      number: "03",
+      kicker: "Work orders",
+      title: "Requests become work",
+      intro: `A service request starts as a row, turns into a card, and moves across a ${term("Kanban", "kanban")} board. The ${term("hook", "hook")} fetches the data; the board makes it easy to move the work.`,
+      metaphor: `This behaves like a mailroom. One note is written, stamped, routed to the right desk, and then marked again when the job is done.`,
+      pills: ["Request creation", "Drag and drop", "Evidence photos"],
+      visual: `
+        <div class="visual-card reveal">
+          <h3>Data flow</h3>
+          ${renderFlowScene("request-flow", [
+            { label: "1 / User", title: "A user clicks log new request", body: "The form submits a new request and the app gives it a safe fallback number if needed." },
+            { label: "2 / Hook", title: "The hook writes the row", body: "The insert goes into service_requests and starts with status open." },
+            { label: "3 / Board", title: "The board refetches", body: "service_requests_with_details is read again so the new card appears in the right column." },
+            { label: "4 / Field work", title: "Evidence gets attached", body: "Before and after photos turn the task into a real job record." }
+          ])}
+        </div>
+      `,
+      cards: [
+        {
+          note: "Create",
+          title: "A missing trigger still gets a number",
+          body: "If the automatic request number did not arrive, the hook creates a fallback ID so the row can still be saved."
+        },
+        {
+          note: "Board",
+          title: "Status columns make work visible",
+          body: "Open, assigned, in_progress, on_hold, completed, and cancelled are easy to scan because the board groups them into columns."
+        },
+        {
+          note: "Job session",
+          title: "Before and after photos matter",
+          body: "A job session turns a vague promise into evidence, so the system can show what changed."
+        }
+      ],
+      callouts: [
+        {
+          tone: "warning",
+          label: "Aha",
+          title: "Writes need a refetch",
+          body: "If the insert succeeds but the board looks old, the issue is usually the refresh path, not the save path."
+        },
+        {
+          tone: "info",
+          label: "Practical",
+          title: "UI state is not the database",
+          body: "The card can disappear from one column and appear in another only after the new data is read back from Supabase."
+        }
+      ],
+      translation: {
+        title: "Real code from hooks/useServiceRequests.ts",
+        tag: "Create request flow",
+        codeLines: [
+          'const fallbackRequestNumber = `REQ-${Date.now()}-${Math.random()',
+          '  .toString(36)',
+          '  .slice(2, 8)',
+          '  .toUpperCase()}`;',
+          'const insertData = {',
+          '  ...data,',
+          '  created_by: data.created_by ?? user.id,',
+          '  request_number: fallbackRequestNumber,',
+          '  requester_id: data.requester_id ?? user.id,',
+          '  status: "open" as const,',
+          '};',
+          '',
+          'const { data: newRequest, error } = await supabase',
+          '  .from("service_requests")',
+          '  .insert(insertData)',
+          '  .select()',
+          '  .single();'
+        ],
+        english: [
+          "If the database trigger did not generate a request number, build one from the current time and a random suffix.",
+          "Copy the request data, fill in the creator and requester if they were missing, and start the request in the open state.",
+          "Insert the row into service_requests and read the saved result back immediately."
+        ]
+      },
+      quiz: {
+        title: "Trace the work order",
+        lead: "These questions test whether you can follow the request after it leaves the form.",
+        questions: [
+          {
+            prompt: "A new request is saved, but the board still looks old. What is the most likely missing step?",
+            answer: 0,
+            options: [
+              "Refetching the requests after insert",
+              "Deleting the sidebar",
+              "Changing the font size"
+            ],
+            explanation: "The database write can succeed, but the UI still needs a fresh read to show the new card."
+          },
+          {
+            prompt: "Why does the hook create a fallback request number?",
+            answer: 2,
+            options: [
+              "To make the request harder to find later",
+              "Because Supabase never stores rows",
+              "So the request can still be identified even if the auto-trigger is missing"
+            ],
+            explanation: "The fallback keeps the record usable even when the automatic number generator did not run."
+          }
+        ]
+      }
+    });
+
+    modules.push({
+      id: "access-control",
+      number: "02",
+      kicker: "Gatekeeper",
+      title: "Proxy first, UI second",
+      intro: `Access in this app is layered. The ${term("proxy", "proxy")} checks requests before the page loads, and the ${term("route guard", "routeguard")} catches anything that slips past inside the browser.`,
+      metaphor: `Imagine one security desk at the building entrance and a second desk on each floor. If either desk sees the wrong badge, the visitor is turned back to a safe area.`,
+      pills: ["401 / 403", "Role prefixes", "Feature freeze"],
+      visual: `
+        <div class="visual-card reveal">
+          <h3>Access map</h3>
+          ${renderFileTree("Files that enforce the gate", [
+            { path: "proxy.ts", note: "redirects guests, blocks forbidden paths, and forces password resets" },
+            { path: "src/lib/auth/roles.ts", note: "maps each role to path prefixes" },
+            { path: "components/shared/RouteGuard.tsx", note: "shows a safe UI fallback when access fails" },
+            { path: "hooks/useAuth.tsx", note: "loads role and permissions from the users table" },
+            { path: "components/layout/AppSidebar.tsx", note: "filters navigation to match the current role" }
+          ])}
+        </div>
+      `,
+      cards: [
+        {
+          note: "Proxy",
+          title: "The server gate runs first",
+          body: "Before the page renders, the proxy checks for a session, a forced password change, and route permission."
+        },
+        {
+          note: "Role map",
+          title: "Roles open prefixes, not random pages",
+          body: "Each role is tied to a list of path prefixes, so permissions stay understandable and easy to debug."
+        },
+        {
+          note: "RouteGuard",
+          title: "The browser gets a backup guard",
+          body: "If the page loads but the user should not be there, the UI swaps in an access denied or feature-frozen card."
+        }
+      ],
+      callouts: [
+        {
+          tone: "success",
+          label: "Aha",
+          title: "Defense in depth is intentional",
+          body: "The same rule appears twice on purpose: once at the server edge, once in the screen layer."
+        },
+        {
+          tone: "info",
+          label: "Debug clue",
+          title: "API calls need explicit 401 or 403 responses",
+          body: "Silent failures are bad here. The proxy returns a clear status so the client knows why access stopped."
+        }
+      ],
+      translation: {
+        title: "Real code from proxy.ts",
+        tag: "Access and redirect logic",
+        codeLines: [
+          'if (!user) {',
+          '  if (isApiRoute) {',
+          '    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });',
+          '  }',
+          '',
+          '  const loginUrl = new URL("/login", request.url);',
+          '  loginUrl.searchParams.set("redirectTo", pathname);',
+          '  return NextResponse.redirect(loginUrl);',
+          '}',
+          '',
+          'if (!canAccessPath(role as AppRole, permissions, pathname)) {',
+          '  if (isApiRoute) {',
+          '    return NextResponse.json(',
+          '      { error: "Forbidden - insufficient permissions" },',
+          '      { status: 403 }',
+          '    );',
+          '  }',
+          '',
+          '  const dashboardUrl = new URL("/dashboard", request.url);',
+          '  dashboardUrl.searchParams.set("error", "forbidden");',
+          '  return NextResponse.redirect(dashboardUrl);',
+          '}'
+        ],
+        english: [
+          "If nobody is signed in, API routes get a 401 and pages get sent to login.",
+          "The login URL remembers where the person wanted to go so it can send them back later.",
+          "If the role does not match the path, API routes get a 403 and pages fall back to the dashboard."
+        ]
+      },
+      quiz: {
+        title: "Where does the gate live?",
+        lead: "Think like a debugger: which layer blocks the wrong page first?",
+        questions: [
+          {
+            prompt: "Why keep both proxy.ts and RouteGuard?",
+            answer: 2,
+            options: [
+              "To duplicate the UI and make development harder",
+              "To avoid needing roles at all",
+              "To protect both page loading and screen rendering"
+            ],
+            explanation: "The server gate protects the request before HTML arrives, and the UI guard protects the view after the page loads."
+          },
+          {
+            prompt: "A forbidden API request should return what?",
+            answer: 1,
+            options: [
+              "A blank response with no status",
+              "A clear 403 error",
+              "A redirect to the browser back button"
+            ],
+            explanation: "The proxy is explicit on purpose. Forbidden work should say 403 so the client knows access was denied."
+          }
+        ]
+      }
+    });
+
+    function renderCourse() {
+      course.innerHTML = [
+        renderHero(hero),
+        ...modules.map((module, index) => renderModule(module, index)),
+        `<div class="footer-note reveal">Open the quizzes, replay the animations, and use the glossary tooltips to decode the jargon without leaving the page.</div>`
+      ].join("");
+    }
+
+    function renderNav() {
+      nav.innerHTML = modules.map((module) => `
+        <button type="button" data-target="${module.id}" onclick="scrollToSection('${module.id}')">
+          ${module.number}. ${module.kicker}
+        </button>
+      `).join("");
+    }
+
+    let activeSectionIndex = 0;
+    let sectionEls = [];
+    let navButtons = [];
+    let activeTooltip = null;
+
+    function updateProgress(index) {
+      const total = Math.max(sectionEls.length - 1, 1);
+      const percent = Math.round((index / total) * 100);
+      const title = sectionEls[index]?.dataset.title || "Overview";
+      progressBar.style.width = `${percent}%`;
+      progressLabel.textContent = `${percent}% complete · ${title}`;
+      navButtons.forEach((button, navIndex) => {
+        button.classList.toggle("active", navIndex === index - 1);
+      });
+      activeSectionIndex = index;
+    }
+
+    function scrollToSection(id) {
+      const target = document.getElementById(id);
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
+    window.scrollToSection = scrollToSection;
+
+    function initRevealObserver() {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("visible");
+          }
+        });
+      }, { threshold: 0.18 });
+
+      document.querySelectorAll(".reveal").forEach((element) => observer.observe(element));
+    }
+
+    function initSectionObserver() {
+      sectionEls = Array.from(document.querySelectorAll("[data-section]"));
+      navButtons = Array.from(nav.querySelectorAll("button"));
+
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          const index = Number(entry.target.dataset.sectionIndex || 0);
+          updateProgress(index);
+        });
+      }, { threshold: 0.4 });
+
+      sectionEls.forEach((section) => observer.observe(section));
+      updateProgress(0);
+    }
+
+    function renderFlowState(scene, index) {
+      const steps = Array.from(scene.querySelectorAll(".flow-step"));
+      const packet = scene.querySelector(".flow-packet");
+      const activeIndex = Math.max(0, Math.min(index, steps.length - 1));
+      scene.dataset.flowIndex = String(activeIndex);
+
+      steps.forEach((step, stepIndex) => step.classList.toggle("active", stepIndex === activeIndex));
+
+      if (!packet || !steps[activeIndex]) return;
+
+      const sceneRect = scene.getBoundingClientRect();
+      const stepRect = steps[activeIndex].getBoundingClientRect();
+      const packetWidth = packet.getBoundingClientRect().width || 28;
+      const offset = stepRect.left - sceneRect.left + (stepRect.width / 2) - (packetWidth / 2);
+      scene.style.setProperty("--flow-offset", `${offset}px`);
+    }
+
+    function syncFlowScenes() {
+      document.querySelectorAll("[data-flow-scene]").forEach((scene) => {
+        renderFlowState(scene, Number(scene.dataset.flowIndex || 0));
+      });
+    }
+
+    window.advanceFlow = function advanceFlow(button) {
+      const scene = button.closest("[data-flow-scene]");
+      if (!scene) return;
+      const current = Number(scene.dataset.flowIndex || 0);
+      const count = scene.querySelectorAll(".flow-step").length;
+      renderFlowState(scene, (current + 1) % count);
+    };
+
+    function clearChatTimers(scene) {
+      (scene._chatTimers || []).forEach((timer) => clearTimeout(timer));
+      scene._chatTimers = [];
+    }
+
+    function playChat(scene) {
+      clearChatTimers(scene);
+      const messages = Array.from(scene.querySelectorAll("[data-chat-message]"));
+      messages.forEach((message) => message.classList.remove("visible"));
+      const timers = [];
+      messages.forEach((message, index) => {
+        timers.push(setTimeout(() => {
+          message.classList.add("visible");
+        }, 240 + (index * 520)));
+      });
+      scene._chatTimers = timers;
+      scene.dataset.played = "1";
+    }
+
+    window.replayChat = function replayChat(button) {
+      const scene = button.closest("[data-chat-scene]");
+      if (!scene) return;
+      playChat(scene);
+    };
+
+    function initChatScenes() {
+      const scenes = Array.from(document.querySelectorAll("[data-chat-scene]"));
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && entry.target.dataset.played !== "1") {
+            playChat(entry.target);
+          }
+        });
+      }, { threshold: 0.35 });
+
+      scenes.forEach((scene) => observer.observe(scene));
+    }
+
+    window.selectOption = function selectOption(button) {
+      const block = button.closest(".quiz-question-block");
+      if (!block) return;
+      block.querySelectorAll(".quiz-option").forEach((option) => {
+        option.classList.remove("selected", "correct", "incorrect");
+      });
+      button.classList.add("selected");
+      const feedback = block.querySelector(".quiz-feedback");
+      if (feedback) {
+        feedback.className = "quiz-feedback";
+        feedback.textContent = "";
+      }
+    };
+
+    window.checkQuiz = function checkQuiz(sectionId) {
+      const container = document.getElementById(`${sectionId}-quiz`);
+      if (!container) return;
+
+      container.querySelectorAll(".quiz-question-block").forEach((block) => {
+        const feedback = block.querySelector(".quiz-feedback");
+        const selected = block.querySelector(".quiz-option.selected");
+        const correctIndex = Number(block.dataset.answer);
+        const explanation = block.dataset.explanation || "";
+        const options = Array.from(block.querySelectorAll(".quiz-option"));
+
+        options.forEach((option, index) => {
+          option.classList.remove("correct", "incorrect");
+          if (index === correctIndex) {
+            option.classList.add("correct");
+          }
+        });
+
+        if (!selected) {
+          if (feedback) {
+            feedback.textContent = "Pick an answer first.";
+            feedback.className = "quiz-feedback show warning";
+          }
+          return;
+        }
+
+        const selectedIndex = Number(selected.dataset.value);
+        options.forEach((option) => {
+          option.disabled = true;
+        });
+
+        if (selectedIndex === correctIndex) {
+          selected.classList.add("correct");
+          if (feedback) {
+            feedback.innerHTML = `<strong>Exactly.</strong> ${explanation}`;
+            feedback.className = "quiz-feedback show success";
+          }
+        } else {
+          selected.classList.add("incorrect");
+          if (feedback) {
+            feedback.innerHTML = `<strong>Not quite.</strong> ${explanation}`;
+            feedback.className = "quiz-feedback show error";
+          }
+        }
+      });
+    };
+
+    window.resetQuiz = function resetQuiz(sectionId) {
+      const container = document.getElementById(`${sectionId}-quiz`);
+      if (!container) return;
+
+      container.querySelectorAll(".quiz-question-block").forEach((block) => {
+        block.querySelectorAll(".quiz-option").forEach((option) => {
+          option.classList.remove("selected", "correct", "incorrect");
+          option.disabled = false;
+        });
+        const feedback = block.querySelector(".quiz-feedback");
+        if (feedback) {
+          feedback.className = "quiz-feedback";
+          feedback.textContent = "";
+        }
+      });
+    };
+
+    function positionTooltip(termElement, tooltip) {
+      const rect = termElement.getBoundingClientRect();
+      const tooltipWidth = Math.min(320, window.innerWidth - 18);
+      let left = rect.left + rect.width / 2 - tooltipWidth / 2;
+      left = Math.max(8, Math.min(left, window.innerWidth - tooltipWidth - 8));
+      let top = rect.top - 12;
+      const flip = top < 10;
+      if (flip) {
+        top = rect.bottom + 12;
+        tooltip.classList.add("flip");
+      } else {
+        tooltip.classList.remove("flip");
+      }
+      tooltip.style.width = `${tooltipWidth}px`;
+      tooltip.style.left = `${left}px`;
+      tooltip.style.top = `${top}px`;
+    }
+
+    function closeTooltip() {
+      if (activeTooltip) {
+        activeTooltip.remove();
+        activeTooltip = null;
+      }
+    }
+
+    function initTooltips() {
+      document.querySelectorAll(".term").forEach((termElement) => {
+        termElement.tabIndex = 0;
+        termElement.setAttribute("role", "button");
+
+        const show = () => {
+          closeTooltip();
+          const tooltip = document.createElement("div");
+          tooltip.className = "term-tooltip";
+          tooltip.textContent = termElement.dataset.definition || "";
+          document.body.appendChild(tooltip);
+          positionTooltip(termElement, tooltip);
+          requestAnimationFrame(() => tooltip.classList.add("visible"));
+          activeTooltip = tooltip;
+        };
+
+        termElement.addEventListener("mouseenter", show);
+        termElement.addEventListener("focus", show);
+        termElement.addEventListener("mouseleave", closeTooltip);
+        termElement.addEventListener("blur", closeTooltip);
+        termElement.addEventListener("click", (event) => {
+          event.stopPropagation();
+          if (activeTooltip) {
+            closeTooltip();
+          } else {
+            show();
+          }
+        });
+      });
+
+      document.addEventListener("click", () => closeTooltip());
+      window.addEventListener("scroll", () => {
+        if (activeTooltip) {
+          const currentTerm = document.activeElement?.closest?.(".term");
+          if (currentTerm) positionTooltip(currentTerm, activeTooltip);
+        }
+      }, { passive: true });
+      window.addEventListener("resize", () => {
+        if (activeTooltip) {
+          const currentTerm = document.activeElement?.closest?.(".term");
+          if (currentTerm) positionTooltip(currentTerm, activeTooltip);
+        }
+        syncFlowScenes();
+      }, { passive: true });
+    }
+
+    function initKeyboardNav() {
+      window.addEventListener("keydown", (event) => {
+        const forward = ["ArrowRight", "ArrowDown", "PageDown"];
+        const backward = ["ArrowLeft", "ArrowUp", "PageUp"];
+
+        if (forward.includes(event.key)) {
+          event.preventDefault();
+          const nextIndex = Math.min(activeSectionIndex + 1, sectionEls.length - 1);
+          sectionEls[nextIndex]?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+
+        if (backward.includes(event.key)) {
+          event.preventDefault();
+          const prevIndex = Math.max(activeSectionIndex - 1, 0);
+          sectionEls[prevIndex]?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+
+        if (event.key === "Home") {
+          event.preventDefault();
+          sectionEls[0]?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+
+        if (event.key === "End") {
+          event.preventDefault();
+          sectionEls[sectionEls.length - 1]?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      });
+    }
+
+    renderCourse();
+    renderNav();
+    sectionEls = Array.from(document.querySelectorAll("[data-section]"));
+    navButtons = Array.from(nav.querySelectorAll("button"));
+    initRevealObserver();
+    initSectionObserver();
+    initTooltips();
+    syncFlowScenes();
+    initChatScenes();
+    initKeyboardNav();
+    window.addEventListener("load", () => {
+      syncFlowScenes();
+    });
+  })();
+  </script>
+</body>
+</html>

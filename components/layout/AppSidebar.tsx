@@ -61,6 +61,8 @@ interface NavGroup {
   adminOnly?: boolean;
 }
 
+const ADMIN_ONLY_NAV_PATHS = new Set(["/admin/config", "/admin/service-indents", "/admin/material-indents", "/admin/waitlist", "/admin/audit-logs"]);
+
 const navigation: NavGroup[] = [
   {
     title: "Overview",
@@ -132,7 +134,10 @@ const navigation: NavGroup[] = [
         children: [
           { title: "Product & Supplier Master", href: "/inventory/products" },
           { title: "Stock & Warehouses", href: "/inventory/warehouses" },
+          { title: "Material Receipts (GRN)", href: "/inventory/grn" },
           { title: "Purchase Orders", href: "/inventory/purchase-orders" },
+          { title: "Buyer Request Review", href: "/inventory/requests" },
+          { title: "Material Forwarding", href: "/admin/material-indents" },
           { title: "Requests & Approvals", href: "/inventory/indents/create" },
           { title: "Mapping & Rates", href: "/inventory/supplier-products" },
         ],
@@ -147,6 +152,7 @@ const navigation: NavGroup[] = [
           { title: "Service Mapping", href: "/services/masters/service-tasks" },
           { title: "Security Ops", href: "/services/security" },
           { title: "HVAC & AC", href: "/services/ac" },
+          { title: "Plantation Services", href: "/services/plantation" },
           { title: "Printing & Ads", href: "/services/printing" },
         ],
       },
@@ -183,6 +189,7 @@ const navigation: NavGroup[] = [
         icon: Receipt,
         children: [
           { title: "Billing & Receipts", href: "/finance/buyer-billing" },
+          { title: "Sale Bills", href: "/finance/sale-bills" },
           { title: "3-Way Reconciliation", href: "/finance/reconciliation" },
           { title: "Supplier Payouts", href: "/finance/supplier-bills" },
           { title: "Universal Ledger", href: "/finance/payments" },
@@ -243,6 +250,7 @@ const navigation: NavGroup[] = [
           { title: "Pending Indents",   href: "/supplier/indents" },
           { title: "Purchase Orders",   href: "/supplier/purchase-orders" },
           { title: "Service Orders",    href: "/supplier/service-orders" },
+          { title: "My Profile",        href: "/supplier/profile" },
           { title: "My Bills",          href: "/supplier/bills" },
         ],
       },
@@ -272,9 +280,12 @@ const navigation: NavGroup[] = [
         icon: Settings,
         children: [
           { title: "Admin Management", href: "/settings/admins" },
+          { title: "Service Indents", href: "/admin/service-indents" },
+          { title: "Material Indents", href: "/admin/material-indents" },
+          { title: "Waitlist", href: "/admin/waitlist" },
           { title: "Role & Permissions", href: "/settings/permissions" },
-          { title: "Audit Logs", href: "/settings/audit-logs" },
-          { title: "System Configuration", href: "/settings/company" },
+          { title: "Audit Logs", href: "/admin/audit-logs" },
+          { title: "System Configuration", href: "/admin/config" },
         ],
       },
     ],
@@ -331,6 +342,14 @@ export function AppSidebar({ collapsed, onToggle, className, isMobile }: AppSide
     // If role is not yet loaded, show nothing or admin view (role truth: show only authorized)
     if (!role && !FEATURE_FUTURE_PHASE) return [];
 
+    const hasChildAccess = (href: string) => {
+      if (ADMIN_ONLY_NAV_PATHS.has(href)) {
+        return role === "admin" || role === "super_admin";
+      }
+
+      return canAccessPath(role!, permissions, href);
+    };
+
     let filtered = navigation;
     
     // First apply Phase freeze (if any)
@@ -362,14 +381,14 @@ export function AppSidebar({ collapsed, onToggle, className, isMobile }: AppSide
           .filter(item => {
             // For items with children, show if any child is accessible
             if (item.children && item.children.length > 0) {
-              return item.children.some(child => canAccessPath(role!, permissions, child.href));
+              return item.children.some(child => hasChildAccess(child.href));
             }
             return canAccessPath(role!, permissions, item.href);
           })
           .map(item => ({
             ...item,
             children: item.children?.filter(
-              child => canAccessPath(role!, permissions, child.href)
+              child => hasChildAccess(child.href)
             ),
           }))
           .filter(item => (item.children && item.children.length > 0) || !item.children),

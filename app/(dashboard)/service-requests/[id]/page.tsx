@@ -46,8 +46,13 @@ import { cn } from "@/lib/utils";
 import { useServiceRequests } from "@/hooks/useServiceRequests";
 import { useJobSessions } from "@/hooks/useJobSessions";
 import { useEmployeeProfile } from "@/hooks/useEmployeeProfile";
+import { useBuyerFeedback, type BuyerFeedback } from "@/hooks/useBuyerFeedback";
 import { JobSessionPanel } from "@/components/jobs";
+import { PestControlPPEGate } from "@/components/pest-control/PestControlPPEGate";
 import type { ServiceRequestWithDetails, JobSessionWithPhotos } from "@/src/types/operations";
+import { toast } from "sonner";
+import { Textarea } from "@/components/ui/textarea";
+import { Star } from "lucide-react";
 import {
   SERVICE_REQUEST_STATUS_LABELS,
   SERVICE_REQUEST_STATUS_COLORS,
@@ -124,10 +129,15 @@ export default function ServiceRequestDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [showJobPanel, setShowJobPanel] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
+  const [feedback, setFeedback] = useState<BuyerFeedback | null>(null);
+  const [rating, setRating] = useState(0);
+  const [comments, setComments] = useState("");
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
 
-  const { getRequestById, assignRequest, completeRequest, cancelRequest, refresh } = useServiceRequests();
+  const { getRequestById, completeRequest, closeRequest, cancelRequest, refresh } = useServiceRequests();
   const { sessions, isLoading: isSessionsLoading, refresh: refreshSessions } = useJobSessions(requestId);
-  const { employeeId, fullName: currentUserName } = useEmployeeProfile();
+  const { employeeId } = useEmployeeProfile();
+  const { submitFeedback, getFeedbackForServiceRequest } = useBuyerFeedback();
 
   // Fetch request details
   useEffect(() => {
@@ -141,6 +151,16 @@ export default function ServiceRequestDetailPage() {
         const result = await getRequestById(requestId);
         if (result) {
           setRequest(result);
+          
+          // If completed, fetch feedback
+          if (result.status === "completed" || result.status === "closed") {
+            const fb = await getFeedbackForServiceRequest(requestId);
+            setFeedback(fb);
+            if (fb) {
+              setRating(fb.overall_rating);
+              setComments(fb.comments || "");
+            }
+          }
         } else {
           setError("Service request not found");
         }
@@ -192,12 +212,67 @@ export default function ServiceRequestDetailPage() {
   const handleComplete = async () => {
     if (!request?.id) return;
     try {
-      await completeRequest(request.id);
+      const result = await completeRequest(request.id);
+
+      if (!result.success) {
+        toast.error(result.error || "Failed to complete request");
+
+        if (result.error?.includes("job session panel") && employeeId) {
+          setShowJobPanel(true);
+        }
+
+        return;
+      }
+
+      toast.success("Service request completed.");
       refresh();
       const updated = await getRequestById(requestId);
       if (updated) setRequest(updated);
     } catch (err) {
       console.error("Failed to complete request:", err);
+      toast.error("Failed to complete request");
+    }
+  };
+
+  const handleSubmitFeedback = async () => {
+    if (!requestId || rating === 0) return;
+    
+    setIsSubmittingFeedback(true);
+    try {
+      const result = await submitFeedback({
+        serviceRequestId: requestId,
+        overall_rating: rating,
+        comments: comments,
+        would_recommend: rating >= 3,
+      });
+
+      if (result.success) {
+        toast.success("Feedback submitted successfully");
+        const fb = await getFeedbackForServiceRequest(requestId);
+        setFeedback(fb);
+      }
+    } catch (err) {
+      console.error("Failed to submit feedback:", err);
+    } finally {
+      setIsSubmittingFeedback(false);
+    }
+  };
+
+  const handleClose = async () => {
+    if (!request?.id) return;
+    try {
+      const result = await closeRequest(request.id);
+      if (!result.success) {
+        toast.error(result.error || "Failed to close request");
+        return;
+      }
+      toast.success("Service request closed successfully");
+      refresh();
+      const updated = await getRequestById(requestId);
+      if (updated) setRequest(updated);
+    } catch (err) {
+      console.error("Failed to close request:", err);
+      toast.error("Failed to close request");
     }
   };
 
@@ -262,6 +337,7 @@ export default function ServiceRequestDetailPage() {
   const StatusIcon = getStatusIcon(request.status || "open");
   const statusColor = SERVICE_REQUEST_STATUS_COLORS[request.status || "open"];
   const priorityColor = SERVICE_PRIORITY_COLORS[request.priority || "normal"];
+  const isPestControl = (request as any).service_code === "PST-CON" || request.service_name?.toLowerCase().includes("pest");
 
   return (
     <div className="space-y-6">
@@ -292,6 +368,19 @@ export default function ServiceRequestDetailPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          {isPestControl && (
+            (request as any).ppe_verified ? (
+              <Badge className="bg-success/10 text-success border-success/20 hover:bg-success/20 gap-1.5 py-1 px-3">
+                <CheckCircle className="h-3.5 w-3.5" />
+                PPE Verified
+              </Badge>
+            ) : (
+              <Badge variant="destructive" className="gap-1.5 py-1 px-3">
+                <AlertTriangle className="h-3.5 w-3.5" />
+                PPE Required
+              </Badge>
+            )
+          )}
           {request.status !== "completed" && request.status !== "cancelled" && (
             <>
               {employeeId && (
@@ -300,7 +389,13 @@ export default function ServiceRequestDetailPage() {
                   Start Job
                 </Button>
               )}
-              <Button variant="outline" size="sm" onClick={handleComplete}>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleComplete}
+                disabled={isPestControl && !(request as any).ppe_verified}
+                className={cn(isPestControl && !(request as any).ppe_verified && "opacity-50 cursor-not-allowed")}
+              >
                 <CheckCircle className="h-4 w-4 mr-2" />
                 Complete
               </Button>
@@ -583,6 +678,16 @@ export default function ServiceRequestDetailPage() {
 
         {/* Right Column - Sidebar */}
         <div className="space-y-4">
+          {/* PPE Verification for Pest Control */}
+          {isPestControl && employeeId && request.status !== "completed" && request.status !== "cancelled" && (
+            <PestControlPPEGate
+              serviceRequestId={request.id}
+              technicianId={employeeId}
+              jobSessionId={sessions.find(s => s.status === 'started' || s.status === 'paused')?.id}
+              onVerified={() => refresh()}
+            />
+          )}
+
           {/* Assignment Card */}
           <Card className="border-none shadow-card">
             <CardHeader className="pb-2">
@@ -653,8 +758,91 @@ export default function ServiceRequestDetailPage() {
             </CardContent>
           </Card>
 
+          {/* Buyer Feedback Gate */}
+          {(request.status === "completed" || request.status === "closed") && (
+            <Card className="border-none shadow-card bg-primary/5 border-primary/20">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-bold uppercase tracking-wider text-primary">
+                  Buyer Feedback
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {feedback ? (
+                  <div className="space-y-2">
+                    <div className="flex gap-1">
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <Star
+                          key={s}
+                          className={cn(
+                            "h-5 w-5",
+                            s <= feedback.overall_rating
+                              ? "fill-primary text-primary"
+                              : "text-muted-foreground"
+                          )}
+                        />
+                      ))}
+                    </div>
+                    <p className="text-sm text-muted-foreground italic">
+                      "{feedback.comments || "No comments"}"
+                    </p>
+                    <Badge variant="outline" className="bg-success/10 text-success border-success/20">
+                      Feedback Submitted
+                    </Badge>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex flex-col gap-2">
+                      <label className="text-xs font-medium text-muted-foreground">Rating</label>
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <button
+                            key={s}
+                            type="button"
+                            onClick={() => setRating(s)}
+                            className="focus:outline-none transition-transform hover:scale-110"
+                          >
+                            <Star
+                              className={cn(
+                                "h-6 w-6",
+                                s <= rating
+                                  ? "fill-primary text-primary"
+                                  : "text-muted-foreground"
+                              )}
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <label className="text-xs font-medium text-muted-foreground">Comments</label>
+                      <Textarea
+                        placeholder="How was the service?"
+                        value={comments}
+                        onChange={(e) => setComments(e.target.value)}
+                        className="text-sm min-h-[80px]"
+                      />
+                    </div>
+                    <Button
+                      size="sm"
+                      className="w-full"
+                      onClick={handleSubmitFeedback}
+                      disabled={rating === 0 || isSubmittingFeedback}
+                    >
+                      {isSubmittingFeedback ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : (
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                      )}
+                      Submit Feedback
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Quick Actions */}
-          {request.status !== "completed" && request.status !== "cancelled" && (
+          {request.status !== "closed" && request.status !== "cancelled" && (
             <Card className="border-none shadow-card">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
@@ -662,26 +850,42 @@ export default function ServiceRequestDetailPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                {employeeId && (
+                {request.status === "completed" ? (
                   <Button
-                    variant="outline"
+                    variant="default"
                     size="sm"
                     className="w-full justify-start"
-                    onClick={() => setShowJobPanel(true)}
+                    onClick={handleClose}
+                    disabled={!feedback}
                   >
-                    <Play className="h-4 w-4 mr-2" />
-                    Start Job Session
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Close Request
                   </Button>
+                ) : (
+                  <>
+                    {employeeId && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start"
+                        onClick={() => setShowJobPanel(true)}
+                      >
+                        <Play className="h-4 w-4 mr-2" />
+                        Start Job Session
+                      </Button>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full justify-start text-success"
+                      onClick={handleComplete}
+                      disabled={isPestControl && !(request as any).ppe_verified}
+                    >
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Mark Complete
+                    </Button>
+                  </>
                 )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full justify-start text-success"
-                  onClick={handleComplete}
-                >
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Mark Complete
-                </Button>
                 <Button
                   variant="outline"
                   size="sm"

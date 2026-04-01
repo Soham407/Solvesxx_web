@@ -80,6 +80,7 @@ export default function SupplierBillsPage() {
   const [isValidating, setIsValidating] = useState(false);
 
   const isLoading = billsLoading || reconLoading;
+  const manualMethods = methods.filter((method: any) => method.gateway === "manual");
 
   const openPayoutModal = async (bill: SupplierBill) => {
     setIsValidating(true);
@@ -307,43 +308,7 @@ export default function SupplierBillsPage() {
     );
   }
 
-  const mockBills: SupplierBill[] = [
-    {
-      id: "mock1",
-      supplier_id: "idx1",
-      supplier_name: "Tata Facility Services",
-      po_number: "PO-2026-001",
-      bill_number: "INV-001-A",
-      total_amount: 15000,
-      due_amount: 15000,
-      status: "approved",
-      payment_status: "unpaid"
-    } as unknown as SupplierBill,
-    {
-      id: "mock2",
-      supplier_id: "idx2",
-      supplier_name: "Reliance Industrial Supplies",
-      po_number: "PO-2026-045",
-      bill_number: "INV-8932",
-      total_amount: 45000,
-      due_amount: 10000,
-      status: "approved",
-      payment_status: "partial"
-    } as unknown as SupplierBill,
-    {
-      id: "mock3",
-      supplier_id: "idx3",
-      supplier_name: "Godrej Maintenance Solutions",
-      po_number: "PO-2026-088",
-      bill_number: "CW-2026-03",
-      total_amount: 8500,
-      due_amount: 8500,
-      status: "disputed",
-      payment_status: "unpaid"
-    } as unknown as SupplierBill
-  ];
-
-  const displayBills = error || !bills || bills.length === 0 ? mockBills : bills;
+  const displayBills = bills || [];
 
 
   // Calculate summary stats
@@ -408,6 +373,11 @@ export default function SupplierBillsPage() {
             </div>
         </CardHeader>
         <CardContent className="p-0">
+            {error && (
+              <div className="border-b border-critical/10 bg-critical/5 px-6 py-3 text-xs font-medium text-critical">
+                Live supplier bills could not be loaded. Mock rows are disabled to avoid invalid payouts.
+              </div>
+            )}
             <DataTable columns={columns} data={displayBills} searchKey="supplier_name" />
         </CardContent>
       </Card>
@@ -451,7 +421,7 @@ export default function SupplierBillsPage() {
                   <SelectValue placeholder="Select method" />
                 </SelectTrigger>
                 <SelectContent>
-                  {methods.map((m: any) => (
+                  {manualMethods.map((m: any) => (
                     <SelectItem key={m.id} value={m.id}>{m.method_name}</SelectItem>
                   ))}
                 </SelectContent>

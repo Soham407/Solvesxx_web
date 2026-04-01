@@ -41,6 +41,7 @@ import { cn } from "@/lib/utils";
 import { useMaintenanceSchedules } from "@/hooks/useMaintenanceSchedules";
 import type { DueMaintenanceSchedule } from "@/src/types/operations";
 import { MAINTENANCE_FREQUENCY_LABELS } from "@/src/lib/constants";
+import { toast } from "sonner";
 
 interface MaintenanceScheduleListProps {
   onScheduleSelect?: (schedule: DueMaintenanceSchedule) => void;
@@ -143,6 +144,17 @@ export function MaintenanceScheduleList({
       assetName: isDueSchedule ? (schedule as DueMaintenanceSchedule).asset_name : undefined,
       locationName: isDueSchedule ? (schedule as DueMaintenanceSchedule).location_name : undefined,
     };
+  };
+
+  const handleMarkAsPerformed = async (scheduleId: string) => {
+    const result = await markAsPerformed(scheduleId);
+
+    if (!result.success) {
+      toast.error(result.error || "Failed to update maintenance schedule");
+      return;
+    }
+
+    toast.success("Maintenance schedule advanced from the completed service request");
   };
 
   return (
@@ -387,7 +399,7 @@ export function MaintenanceScheduleList({
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuItem
-                            onClick={() => displayData.id && markAsPerformed(displayData.id)}
+                            onClick={() => displayData.id && handleMarkAsPerformed(displayData.id)}
                           >
                             <CheckCircle className="h-4 w-4 mr-2" />
                             Mark Completed

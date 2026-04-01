@@ -137,14 +137,10 @@ export function useServicePurchaseOrders() {
     input: Omit<ServicePurchaseOrder, "id" | "spo_number" | "created_at" | "updated_at">
   ): Promise<ServicePurchaseOrder | null> => {
     try {
-      // Generate SPO number
-      const spoNumber = `SPO-${Date.now()}`;
-
       const { data, error } = await supabase
         .from("service_purchase_orders")
         .insert({
           ...input,
-          spo_number: spoNumber,
           status: "draft",
         })
         .select()

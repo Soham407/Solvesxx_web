@@ -8,11 +8,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { AssetList, AssetForm } from "@/components/assets";
+import { QrCodeDisplay } from "@/components/qr-codes";
+import { QrCode } from "lucide-react";
 import type { AssetWithDetails } from "@/src/types/operations";
 
 export default function AssetsPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingAsset, setEditingAsset] = useState<AssetWithDetails | null>(null);
+  const [qrAsset, setQrAsset] = useState<AssetWithDetails | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const handleCreateSuccess = () => {
@@ -42,10 +45,7 @@ export default function AssetsPage() {
         key={refreshKey}
         onCreateNew={() => setShowCreateDialog(true)}
         onEdit={(asset) => setEditingAsset(asset)}
-        onViewQr={(asset) => {
-          // TODO: Open QR code dialog
-          console.log("View QR for:", asset.name);
-        }}
+        onViewQr={(asset) => setQrAsset(asset)}
       />
 
       {/* Create Asset Dialog */}
@@ -73,6 +73,24 @@ export default function AssetsPage() {
               onSuccess={handleEditSuccess}
               onCancel={() => setEditingAsset(null)}
             />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!qrAsset} onOpenChange={() => setQrAsset(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Asset QR Code</DialogTitle>
+          </DialogHeader>
+          {qrAsset?.qr_id ? (
+            <QrCodeDisplay qrId={String(qrAsset.qr_id)} asset={qrAsset} />
+          ) : (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <QrCode className="h-12 w-12 text-muted-foreground/30" />
+              <p className="mt-3 text-sm text-muted-foreground">
+                This asset does not have a linked QR code yet.
+              </p>
+            </div>
           )}
         </DialogContent>
       </Dialog>

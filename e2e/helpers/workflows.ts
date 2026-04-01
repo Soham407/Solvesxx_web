@@ -247,7 +247,7 @@ async function createProcurementChain(client: DbClient) {
     ordered_quantity: 5,
     received_quantity: 5,
     accepted_quantity: 5,
-    quality_status: "good",
+    quality_status: "accepted",
     unit_price: amount / 5,
     line_total: amount,
   }));

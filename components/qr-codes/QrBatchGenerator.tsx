@@ -10,21 +10,21 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { useWarehouses } from "@/hooks/useWarehouses";
+import { useQrCodes } from "@/hooks/useQrCodes";
 import { 
   QrCode, 
-  Download, 
+  Download,
   Copy, 
   Plus, 
   Check,
   Printer,
-  Loader2,
-  Package
+  Loader2
 } from "lucide-react";
 
 interface GeneratedQR {
   id: string;
-  qr_code: string;
-  sequence_number: number;
+  qr_code?: string | null;
+  sequence_number: number | null;
 }
 
 interface QrBatchGeneratorProps {
@@ -34,6 +34,7 @@ interface QrBatchGeneratorProps {
 
 export function QrBatchGenerator({ societyId, onSuccess }: QrBatchGeneratorProps) {
   const { warehouses } = useWarehouses(societyId);
+  const { generateBatch, generateQrUrl } = useQrCodes(societyId);
   const { toast } = useToast();
 
   const [count, setCount] = useState<number>(10);
@@ -60,40 +61,33 @@ export function QrBatchGenerator({ societyId, onSuccess }: QrBatchGeneratorProps
     setIsGenerating(true);
 
     try {
-      const response = await fetch("/api/assets/generate-qr-batch", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          count,
-          societyId,
-          warehouseId: selectedWarehouse || undefined,
-          prefix,
-        }),
+      const result = await generateBatch({
+        count,
+        societyId,
+        warehouseId: selectedWarehouse || undefined,
+        prefix,
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to generate QR codes");
+      if (!result.success || !result.data) {
+        throw new Error(result.error || "Failed to generate QR codes");
       }
 
       setGeneratedBatch({
-        batchId: data.batchId,
-        qrCodes: data.qrCodes,
+        batchId: result.data.batchId,
+        qrCodes: result.data.qrCodes as GeneratedQR[],
       });
 
       toast({
         title: "Success",
-        description: `Generated ${data.count} QR codes successfully`,
+        description: `Generated ${result.data.count} QR codes successfully`,
       });
 
-      onSuccess?.(data.batchId);
-    } catch (error: any) {
+      onSuccess?.(result.data.batchId);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to generate QR codes";
       toast({
         title: "Error",
-        description: error.message || "Failed to generate QR codes",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -117,10 +111,10 @@ export function QrBatchGenerator({ societyId, onSuccess }: QrBatchGeneratorProps
     const csvContent = [
       ["Sequence", "QR Code", "ID", "Download URL"],
       ...generatedBatch.qrCodes.map((qr) => [
-        qr.sequence_number,
-        qr.qr_code,
+        qr.sequence_number ?? "",
+        qr.qr_code ?? qr.id,
         qr.id,
-        `${process.env.NEXT_PUBLIC_APP_URL}/scan/${qr.id}`,
+        generateQrUrl(qr.id),
       ]),
     ]
       .map((row) => row.join(","))
@@ -253,7 +247,7 @@ export function QrBatchGenerator({ societyId, onSuccess }: QrBatchGeneratorProps
                 <Card key={qr.id} className="p-3 space-y-2">
                   <div className="flex justify-center">
                     <QRCodeSVG
-                      value={`${process.env.NEXT_PUBLIC_APP_URL}/scan/${qr.id}`}
+                      value={generateQrUrl(qr.id)}
                       size={100}
                       level="M"
                     />
@@ -263,14 +257,14 @@ export function QrBatchGenerator({ societyId, onSuccess }: QrBatchGeneratorProps
                       #{qr.sequence_number}
                     </Badge>
                     <p className="text-xs text-muted-foreground font-mono truncate">
-                      {qr.qr_code}
+                      {qr.qr_code ?? qr.id}
                     </p>
                   </div>
                   <Button
                     variant="ghost"
                     size="sm"
                     className="w-full"
-                    onClick={() => handleCopy(qr.qr_code, qr.id)}
+                    onClick={() => handleCopy(qr.qr_code ?? qr.id, qr.id)}
                   >
                     {copiedId === qr.id ? (
                       <>
@@ -314,7 +308,7 @@ export function QrBatchGenerator({ societyId, onSuccess }: QrBatchGeneratorProps
               <Card key={qr.id} className="p-3 space-y-2">
                 <div className="flex justify-center">
                   <QRCodeSVG
-                    value={`${process.env.NEXT_PUBLIC_APP_URL}/scan/${qr.id}`}
+                    value={generateQrUrl(qr.id)}
                     size={80}
                     level="M"
                   />
@@ -324,14 +318,14 @@ export function QrBatchGenerator({ societyId, onSuccess }: QrBatchGeneratorProps
                     #{qr.sequence_number}
                   </Badge>
                   <p className="text-xs text-muted-foreground font-mono truncate">
-                    {qr.qr_code}
+                    {qr.qr_code ?? qr.id}
                   </p>
                 </div>
                 <Button
                   variant="ghost"
                   size="sm"
                   className="w-full"
-                  onClick={() => handleCopy(qr.qr_code, qr.id)}
+                  onClick={() => handleCopy(qr.qr_code ?? qr.id, qr.id)}
                 >
                   {copiedId === qr.id ? (
                     <Check className="h-3 w-3" />

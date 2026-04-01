@@ -34,6 +34,9 @@ export default function SupplierDashboard() {
           <h1 className="text-3xl font-bold tracking-tight">Supplier Workspace</h1>
           <p className="text-muted-foreground">Manage your orders, fulfillment, and billing.</p>
         </div>
+        <Link href="/supplier/profile">
+          <Button variant="outline">Manage Profile</Button>
+        </Link>
       </div>
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-4">

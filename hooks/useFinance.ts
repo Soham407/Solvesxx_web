@@ -32,6 +32,7 @@ export interface PaymentMethod {
   id: string;
   method_name: string;
   gateway: string;
+  is_active?: boolean | null;
 }
 
 export function useFinance() {
@@ -77,6 +78,14 @@ export function useFinance() {
     payeeId: string;
   }) => {
     try {
+      const selectedMethod = methods.find((method) => method.id === data.methodId);
+      if (!selectedMethod) {
+        throw new Error("Selected payment method is no longer available.");
+      }
+
+      const isGatewayPayment = selectedMethod.gateway !== "manual";
+      const paymentStatus: PaymentStatus = isGatewayPayment ? "pending" : "completed";
+
       // 1. Insert Payment Record
       const { error: payError } = await supabase
         .from('payments')
@@ -91,28 +100,46 @@ export function useFinance() {
           evidence_url: data.evidenceUrl,
           payer_id: data.payerId,
           payee_id: data.payeeId,
-          status: 'completed',
+          gateway_log: isGatewayPayment
+            ? {
+                initiated_at: new Date().toISOString(),
+                gateway: selectedMethod.gateway,
+                source: "useFinance.recordTransaction",
+              }
+            : {},
+          status: paymentStatus,
           processed_by: user?.id
         }]);
 
       if (payError) throw payError;
 
+      if (isGatewayPayment) {
+        await fetchData();
+        return true;
+      }
+
       // 2. Update Bill Balances (Sale Bill or Purchase Bill)
       const table = data.referenceType === 'sale_bill' ? 'sale_bills' : 'purchase_bills';
       
-      const { data: bill } = await supabase.from(table).select('paid_amount, total_amount').eq('id', data.referenceId).single();
+      const { data: bill, error: billError } = await supabase
+        .from(table)
+        .select('paid_amount, total_amount')
+        .eq('id', data.referenceId)
+        .single();
+      if (billError) throw billError;
       
       if (bill) {
         const newPaidAmount = (bill.paid_amount || 0) + data.amount;
         const newDueAmount = Math.max(0, bill.total_amount - newPaidAmount);
-        const newStatus = newDueAmount === 0 ? 'paid' : 'partially_paid';
+        const newStatus = newDueAmount === 0 ? 'paid' : 'partial';
 
-        await supabase.from(table).update({
+        const { error: updateError } = await supabase.from(table).update({
           paid_amount: newPaidAmount,
           due_amount: newDueAmount,
           payment_status: newStatus,
           last_payment_date: data.date
         }).eq('id', data.referenceId);
+        if (updateError) throw updateError;
       }
 
       await fetchData();
@@ -155,13 +182,13 @@ export function useFinance() {
       
       return { 
         success: true as const, 
-        canPay: result?.can_pay ?? false,
-        reason: result?.reason,
-        reconciliationStatus: result?.reconciliation_status,
+        canPay: result?.can_pay ?? result?.is_valid ?? false,
+        reason: result?.reason ?? result?.message,
+        reconciliationStatus: result?.reconciliation_status ?? result?.match_status,
         details: {
-          poAmount: result?.po_amount,
-          grnAmount: result?.grn_amount,
-          billAmount: result?.bill_amount
+          poAmount: result?.po_amount ?? result?.po_total,
+          grnAmount: result?.grn_amount ?? result?.grn_total,
+          billAmount: result?.bill_amount ?? result?.bill_total
         }
       };
     } catch (err: unknown) {

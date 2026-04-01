@@ -84,7 +84,7 @@ describe("feature flags", () => {
         href: "/settings",
         children: [
           { title: "Visual Branding", href: "/settings/branding" },
-          { title: "System Configuration", href: "/settings/company" },
+          { title: "System Configuration", href: "/admin/config" },
         ],
       },
     ]);
@@ -93,7 +93,7 @@ describe("feature flags", () => {
       {
         title: "Settings",
         href: "/settings",
-        children: [{ title: "System Configuration", href: "/settings/company" }],
+        children: [{ title: "System Configuration", href: "/admin/config" }],
       },
     ]);
   });

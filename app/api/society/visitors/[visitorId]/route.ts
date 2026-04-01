@@ -14,12 +14,24 @@ const VisitorActionSchema = z.discriminatedUnion("action", [
   }),
 ]);
 
-const VISITOR_MANAGEMENT_ROLES = new Set([
+const ISSUE_PASS_ROLES = new Set([
   "admin",
   "super_admin",
   "society_manager",
   "security_guard",
   "security_supervisor",
+]);
+
+const FREQUENT_VISITOR_ROLES = new Set([
+  "admin",
+  "super_admin",
+  "society_manager",
+  "security_supervisor",
+]);
+
+const VISITOR_MANAGEMENT_ROLES = new Set([
+  ...ISSUE_PASS_ROLES,
+  ...FREQUENT_VISITOR_ROLES,
 ]);
 
 async function getAuthorizedVisitorManager() {
@@ -108,6 +120,10 @@ export async function PATCH(
     const supabaseAdmin = createServiceRoleClient();
 
     if (parsed.data.action === "issue_pass") {
+      if (!ISSUE_PASS_ROLES.has(auth.roleName ?? "")) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+
       const values = new Uint16Array(1);
       crypto.getRandomValues(values);
       const passNumber = `PASS-${(values[0] % 9000) + 1000}`;
@@ -119,6 +135,10 @@ export async function PATCH(
       if (error) throw error;
 
       return NextResponse.json({ success: true, passNumber });
+    }
+
+    if (!FREQUENT_VISITOR_ROLES.has(auth.roleName ?? "")) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { error } = await supabaseAdmin

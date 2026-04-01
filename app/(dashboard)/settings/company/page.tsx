@@ -18,7 +18,7 @@ import {
 import type { SystemConfigKey } from "@/src/types/platform";
 
 export default function CompanySettingsPage() {
-  const { config, isLoading, error, updateConfig, isSaving, getNumber } =
+  const { config, isLoading, error, updateConfig, isSaving, getNumber, canManage } =
     usePlatformConfig();
   const [formState, setFormState] =
     useState<Record<SystemConfigKey, string>>(SYSTEM_CONFIG_DEFAULTS);
@@ -38,6 +38,25 @@ export default function CompanySettingsPage() {
   const handleSave = async () => {
     await updateConfig(formState);
   };
+
+  if (!isLoading && !canManage) {
+    return (
+      <div className="animate-fade-in space-y-8 pb-10">
+        <PageHeader
+          title="System Configuration"
+          description="This legacy settings route is restricted to users with the `admin` role."
+        />
+
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Only users with the `admin` role can view or update system
+            configuration entries.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   return (
     <div className="animate-fade-in space-y-8 pb-10">

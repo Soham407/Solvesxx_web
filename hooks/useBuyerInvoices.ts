@@ -138,6 +138,7 @@ const canTransition = (currentStatus: InvoiceStatus, targetStatus: InvoiceStatus
   return STATUS_TRANSITIONS[currentStatus]?.includes(targetStatus) ?? false;
 };
 
+import { useAuth } from "@/hooks/useAuth";
 import { toRupees, toPaise, formatCurrency } from "@/src/lib/utils/currency";
 export { formatCurrency };
 
@@ -164,6 +165,7 @@ export function useBuyerInvoices(filters?: {
   clientId?: string;
   contractId?: string;
 }) {
+  const { userId, role } = useAuth();
   const [state, setState] = useState<UseBuyerInvoicesState>({
     invoices: [],
     items: [],
@@ -178,6 +180,32 @@ export function useBuyerInvoices(filters?: {
   const fetchInvoices = useCallback(async () => {
     try {
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
+
+      let effectiveClientId = filters?.clientId;
+
+      // If user is a buyer, we must find their society_id
+      if (role === 'buyer' && userId) {
+        const { data: residentData } = await supabase
+          .from("residents")
+          .select(`
+            flats!inner (
+              buildings!inner (
+                society_id
+              )
+            )
+          `)
+          .eq("auth_user_id", userId)
+          .single();
+        
+        const societyId = (residentData as any)?.flats?.buildings?.society_id;
+        if (societyId) {
+          effectiveClientId = societyId;
+        } else {
+          // If no society found for buyer, return empty
+          setState((prev) => ({ ...prev, invoices: [], isLoading: false }));
+          return;
+        }
+      }
 
       let query = supabase
         .from("sale_bills")
@@ -200,8 +228,8 @@ export function useBuyerInvoices(filters?: {
       if (filters?.paymentStatus) {
         query = query.eq("payment_status", filters.paymentStatus);
       }
-      if (filters?.clientId) {
-        query = query.eq("client_id", filters.clientId);
+      if (effectiveClientId) {
+        query = query.eq("client_id", effectiveClientId);
       }
       if (filters?.contractId) {
         query = query.eq("contract_id", filters.contractId);

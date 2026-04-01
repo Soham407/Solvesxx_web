@@ -1,0 +1,1287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FacilityPro — How It Works</title>
+<style>
+  :root {
+    --bg: #f8f9fc;
+    --card: #ffffff;
+    --text: #1e293b;
+    --text-light: #64748b;
+    --border: #e2e8f0;
+    --accent: #4f46e5;
+    --accent-light: #eef2ff;
+    --green: #16a34a;
+    --green-light: #f0fdf4;
+    --orange: #ea580c;
+    --orange-light: #fff7ed;
+    --blue: #2563eb;
+    --blue-light: #eff6ff;
+    --purple: #7c3aed;
+    --purple-light: #f5f3ff;
+    --pink: #db2777;
+    --pink-light: #fdf2f8;
+    --teal: #0d9488;
+    --teal-light: #f0fdfa;
+    --red: #dc2626;
+    --red-light: #fef2f2;
+    --yellow: #ca8a04;
+    --yellow-light: #fefce8;
+    --radius: 12px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-lg: 0 10px 25px rgba(0,0,0,0.08);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Header ── */
+  .hero {
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #2563eb 100%);
+    color: white;
+    padding: 60px 24px 50px;
+    text-align: center;
+  }
+  .hero h1 { font-size: 2.5rem; font-weight: 800; margin-bottom: 12px; letter-spacing: -0.5px; }
+  .hero p { font-size: 1.15rem; opacity: 0.9; max-width: 700px; margin: 0 auto 30px; }
+  .hero-stats {
+    display: flex; justify-content: center; gap: 40px; flex-wrap: wrap;
+    margin-top: 10px;
+  }
+  .hero-stat { text-align: center; }
+  .hero-stat .num { font-size: 2rem; font-weight: 800; display: block; }
+  .hero-stat .label { font-size: 0.85rem; opacity: 0.8; }
+
+  /* ── Container ── */
+  .container { max-width: 960px; margin: 0 auto; padding: 0 20px; }
+
+  /* ── Section ── */
+  .section { margin: 40px 0; }
+  .section-title {
+    font-size: 1.5rem; font-weight: 700; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .section-subtitle { color: var(--text-light); margin-bottom: 24px; font-size: 0.95rem; }
+
+  /* ── Big Picture Cards ── */
+  .big-picture {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px; margin-bottom: 20px;
+  }
+  .bp-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 24px;
+    box-shadow: var(--shadow); text-align: center;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .bp-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+  .bp-card .icon { font-size: 2.5rem; margin-bottom: 10px; }
+  .bp-card h3 { font-size: 1.1rem; margin-bottom: 6px; }
+  .bp-card p { color: var(--text-light); font-size: 0.9rem; }
+
+  /* ── Accordion ── */
+  .accordion { display: flex; flex-direction: column; gap: 10px; }
+
+  .acc-item {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+    overflow: hidden; transition: box-shadow 0.2s;
+  }
+  .acc-item:hover { box-shadow: var(--shadow-lg); }
+  .acc-item.open { border-color: var(--accent); }
+
+  .acc-header {
+    display: flex; align-items: center; gap: 14px;
+    padding: 18px 20px; cursor: pointer; user-select: none;
+    transition: background 0.15s;
+  }
+  .acc-header:hover { background: var(--bg); }
+
+  .acc-icon {
+    width: 44px; height: 44px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.4rem; flex-shrink: 0;
+  }
+
+  .acc-header-text { flex: 1; }
+  .acc-header-text h3 { font-size: 1rem; font-weight: 600; }
+  .acc-header-text p { font-size: 0.82rem; color: var(--text-light); margin-top: 2px; }
+
+  .acc-badge {
+    font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+    padding: 3px 10px; border-radius: 20px; letter-spacing: 0.5px;
+    flex-shrink: 0;
+  }
+
+  .acc-chevron {
+    width: 20px; height: 20px; flex-shrink: 0;
+    transition: transform 0.3s ease;
+    color: var(--text-light);
+  }
+  .acc-item.open .acc-chevron { transform: rotate(180deg); }
+
+  .acc-body {
+    max-height: 0; overflow: hidden;
+    transition: max-height 0.4s ease, padding 0.3s ease;
+  }
+  .acc-item.open .acc-body { max-height: 3000px; }
+
+  .acc-content { padding: 0 20px 20px 78px; }
+  .acc-content h4 { font-size: 0.9rem; font-weight: 700; margin: 16px 0 8px; color: var(--accent); }
+  .acc-content h4:first-child { margin-top: 0; }
+  .acc-content ul { padding-left: 20px; }
+  .acc-content li { font-size: 0.9rem; margin-bottom: 6px; color: var(--text); }
+  .acc-content li strong { color: var(--text); }
+
+  /* ── Flow Diagrams ── */
+  .flow {
+    display: flex; align-items: center; flex-wrap: wrap;
+    gap: 0; margin: 16px 0; justify-content: center;
+  }
+  .flow-step {
+    background: var(--accent-light); border: 1px solid #c7d2fe;
+    border-radius: 8px; padding: 10px 16px;
+    font-size: 0.82rem; font-weight: 500; text-align: center;
+    min-width: 120px; position: relative;
+  }
+  .flow-step.buyer { background: var(--blue-light); border-color: #bfdbfe; }
+  .flow-step.admin { background: var(--purple-light); border-color: #ddd6fe; }
+  .flow-step.supplier { background: var(--orange-light); border-color: #fed7aa; }
+  .flow-step.guard { background: var(--teal-light); border-color: #99f6e4; }
+  .flow-step.resident { background: var(--pink-light); border-color: #fbcfe8; }
+  .flow-step.system { background: var(--yellow-light); border-color: #fde68a; }
+  .flow-step .who { font-size: 0.7rem; color: var(--text-light); display: block; margin-bottom: 2px; }
+
+  .flow-arrow {
+    font-size: 1.2rem; color: var(--text-light); padding: 0 6px;
+    flex-shrink: 0;
+  }
+
+  /* ── Services Grid ── */
+  .services-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 12px;
+  }
+  .service-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px 16px;
+    text-align: center; box-shadow: var(--shadow);
+  }
+  .service-card .icon { font-size: 2rem; margin-bottom: 8px; }
+  .service-card h4 { font-size: 0.9rem; font-weight: 600; }
+  .service-card p { font-size: 0.78rem; color: var(--text-light); margin-top: 4px; }
+
+  /* ── Module table ── */
+  .module-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 12px;
+  }
+  .module-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px 18px;
+    box-shadow: var(--shadow);
+  }
+  .module-card h4 { font-size: 0.92rem; font-weight: 600; margin-bottom: 4px; }
+  .module-card p { font-size: 0.82rem; color: var(--text-light); }
+
+  /* ── Notification table ── */
+  .notif-table {
+    width: 100%; border-collapse: separate; border-spacing: 0;
+    border: 1px solid var(--border); border-radius: var(--radius);
+    overflow: hidden; font-size: 0.85rem;
+    background: var(--card); box-shadow: var(--shadow);
+  }
+  .notif-table th {
+    background: var(--bg); font-weight: 600; text-align: left;
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+  }
+  .notif-table td {
+    padding: 10px 16px; border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .notif-table tr:last-child td { border-bottom: none; }
+  .notif-table tr:hover td { background: var(--accent-light); }
+
+  /* ── Footer ── */
+  .footer {
+    text-align: center; padding: 40px 20px;
+    color: var(--text-light); font-size: 0.85rem;
+    border-top: 1px solid var(--border); margin-top: 60px;
+  }
+
+  /* ── Nav Tabs ── */
+  .nav-tabs {
+    display: flex; gap: 6px; flex-wrap: wrap;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 6px;
+    box-shadow: var(--shadow); margin-bottom: 24px;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .nav-tab {
+    padding: 8px 16px; border-radius: 8px; font-size: 0.85rem;
+    font-weight: 500; cursor: pointer; transition: all 0.2s;
+    border: none; background: transparent; color: var(--text-light);
+  }
+  .nav-tab:hover { background: var(--bg); color: var(--text); }
+  .nav-tab.active { background: var(--accent); color: white; }
+
+  /* ── Tab Content ── */
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* ── Callout ── */
+  .callout {
+    background: var(--accent-light); border-left: 4px solid var(--accent);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    padding: 16px 20px; margin: 20px 0;
+    font-size: 0.9rem;
+  }
+  .callout strong { color: var(--accent); }
+
+  /* ── Responsive ── */
+  @media (max-width: 600px) {
+    .hero h1 { font-size: 1.8rem; }
+    .hero-stats { gap: 24px; }
+    .acc-content { padding-left: 20px; }
+    .flow { flex-direction: column; }
+    .flow-arrow { transform: rotate(90deg); }
+    .nav-tabs { position: static; }
+  }
+
+  @media print {
+    .nav-tabs { display: none; }
+    .tab-content { display: block !important; }
+    .acc-item.open .acc-body, .acc-body { max-height: none !important; }
+    .hero { padding: 30px 20px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- HERO -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div class="hero">
+  <h1>FacilityPro</h1>
+  <p>A complete digital platform that connects your Company, Buyers, and Suppliers in one place — replacing paperwork with real-time tracking, automated workflows, and instant notifications.</p>
+  <div class="hero-stats">
+    <div class="hero-stat"><span class="num">16</span><span class="label">User Roles</span></div>
+    <div class="hero-stat"><span class="num">5</span><span class="label">Service Verticals</span></div>
+    <div class="hero-stat"><span class="num">14</span><span class="label">Dashboards</span></div>
+    <div class="hero-stat"><span class="num">100+</span><span class="label">Screens</span></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- NAV TABS -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div class="container">
+
+<div class="nav-tabs" style="margin-top: 24px;">
+  <button class="nav-tab active" onclick="showTab('overview')">Overview</button>
+  <button class="nav-tab" onclick="showTab('roles')">Who Uses It</button>
+  <button class="nav-tab" onclick="showTab('workflows')">How It Works</button>
+  <button class="nav-tab" onclick="showTab('services')">Services Offered</button>
+  <button class="nav-tab" onclick="showTab('modules')">System Modules</button>
+  <button class="nav-tab" onclick="showTab('notifications')">Alerts & Notifications</button>
+  <button class="nav-tab" onclick="showTab('feedback')">Feedback Notes</button>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- TAB 1: OVERVIEW -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div id="tab-overview" class="tab-content active">
+
+  <div class="section">
+    <div class="section-title">The Big Picture</div>
+    <div class="section-subtitle">Three parties connected in one system</div>
+    <div class="big-picture">
+      <div class="bp-card">
+        <div class="icon">🏢</div>
+        <h3>Your Company (Admin)</h3>
+        <p>Manages everything — processes requests, coordinates suppliers, handles HR, tracks finances, and ensures quality.</p>
+      </div>
+      <div class="bp-card">
+        <div class="icon">🛒</div>
+        <h3>Buyers (Clients)</h3>
+        <p>Organizations that need services — they place requests, receive staff/materials, pay invoices, and give feedback.</p>
+      </div>
+      <div class="bp-card">
+        <div class="icon">🚚</div>
+        <h3>Suppliers (Vendors)</h3>
+        <p>Third-party agencies that fulfill demand — they accept orders, dispatch staff/goods, and submit bills.</p>
+      </div>
+    </div>
+
+    <div class="callout">
+      <strong>How it connects:</strong> A Buyer asks for something (e.g., "5 security guards") &rarr; Your Admin processes the request &rarr; A Supplier provides the guards &rarr; Everyone gets paid &rarr; Buyer gives feedback. The system tracks every step automatically.
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">What Problems Does This Solve?</div>
+    <div class="big-picture">
+      <div class="bp-card">
+        <div class="icon">📋</div>
+        <h3>No More Paperwork</h3>
+        <p>Every request, invoice, and report is digital. No lost files, no manual tracking.</p>
+      </div>
+      <div class="bp-card">
+        <div class="icon">👁️</div>
+        <h3>See Everything in Real-Time</h3>
+        <p>Track where guards are, what deliveries arrived, which bills are pending — all live.</p>
+      </div>
+      <div class="bp-card">
+        <div class="icon">🔒</div>
+        <h3>Everyone Sees Only Their Part</h3>
+        <p>A guard can't see financials. A buyer can't see HR. Each person gets exactly what they need.</p>
+      </div>
+      <div class="bp-card">
+        <div class="icon">🤖</div>
+        <h3>Automatic Alerts</h3>
+        <p>Guard not moving? System alerts manager. Bill unpaid? System reminds buyer. No manual follow-up needed.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- TAB 2: ROLES -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div id="tab-roles" class="tab-content">
+
+  <div class="section">
+    <div class="section-title">Who Uses the System?</div>
+    <div class="section-subtitle">Click on any role to see what they can do</div>
+
+    <!-- ── Company Team ── -->
+    <h3 style="font-size:1rem; color:var(--purple); margin-bottom:12px; margin-top: 8px;">🏢 Company Team</h3>
+    <div class="accordion">
+
+      <div class="acc-item">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <div class="acc-icon" style="background:var(--purple-light); color:var(--purple);">👑</div>
+          <div class="acc-header-text">
+            <h3>Super Admin</h3>
+            <p>Platform owner — full control over everything</p>
+          </div>
+          <span class="acc-badge" style="background:var(--purple-light); color:var(--purple);">Full Access</span>
+          <svg class="acc-chevron" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+        </div>
+        <div class="acc-body"><div class="acc-content">
+          <h4>What they do</h4>
+          <ul>
+            <li>Create and manage Admin accounts</li>
+            <li>Set up roles and permissions (who can see/do what)</li>
+            <li>View system-wide audit logs (who did what and when)</li>
+            <li>Configure system settings (geo-fence radius, alert thresholds, etc.)</li>
+          </ul>
+          <h4>Think of them as</h4>
+          <ul><li>The IT administrator who sets up the system before anyone else uses it</li></ul>
+        </div></div>
+      </div>
+
+      <div class="acc-item">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <div class="acc-icon" style="background:var(--purple-light); color:var(--purple);">⚙️</div>
+          <div class="acc-header-text">
+            <h3>Admin</h3>
+            <p>Day-to-day operator — runs all company operations</p>
+          </div>
+          <span class="acc-badge" style="background:var(--purple-light); color:var(--purple);">Full Access</span>
+          <svg class="acc-chevron" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+        </div>
+        <div class="acc-body"><div class="acc-content">
+          <h4>What they do</h4>
+          <ul>
+            <li><strong>Process buyer requests</strong> — Accept, hold, or reject incoming orders</li>
+            <li><strong>Manage procurement</strong> — Create purchase orders, match suppliers, track deliveries</li>
+            <li><strong>Handle finances</strong> — Process bills, generate invoices, reconcile payments</li>
+            <li><strong>Manage HR</strong> — Hire staff, run payroll, approve leave</li>
+            <li><strong>Oversee services</strong> — Assign technicians to jobs, manage all service verticals</li>
+            <li><strong>Maintain master data</strong> — Products, suppliers, rates, locations, checklists</li>
+          </ul>
+          <h4>Think of them as</h4>
+          <ul><li>The operations manager who keeps everything running smoothly every day</li></ul>
+        </div></div>
+      </div>
+
+      <div class="acc-item">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <div class="acc-icon" style="background:var(--purple-light); color:var(--purple);">📊</div>
+          <div class="acc-header-text">
+            <h3>Company MD (Managing Director)</h3>
+            <p>Executive — sees high-level numbers and reports</p>
+          </div>
+          <span class="acc-badge" style="background:var(--green-light); color:var(--green);">View Only</span>
+          <svg class="acc-chevron" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+        </div>
+        <div class="acc-body"><div class="acc-content">
+          <h4>What they see</h4>
+          <ul>
+            <li>Year-to-date revenue and growth forecasts</li>
+            <li>Financial health metrics and compliance status</li>
+            <li>All financial and operational reports</li>
+          </ul>
+          <h4>Think of them as</h4>
+          <ul><li>The CEO who checks the dashboard every morning to see how the business is doing</li></ul>
+        </div></div>
+      </div>
+
+      <div class="acc-item">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <div class="acc-icon" style="background:var(--purple-light); color:var(--purple);">👔</div>
+          <div class="acc-header-text">
+            <h3>Company HOD (Head of Department)</h3>
+            <p>Department head — manages their team</p>
+          </div>
+          <span class="acc-badge" style="background:var(--blue-light); color:var(--blue);">Department</span>
+          <svg class="acc-chevron" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+        </div>
+        <div class="acc-body"><div class="acc-content">
+          <h4>What they do</h4>
+          <ul>
+            <li>View their department's staff, attendance, and leave</li>
+            <li>Submit service requests on behalf of their department</li>
+            <li>Review behavior tickets raised against their staff</li>
+          </ul>
+        </div></div>
+      </div>
+
+      <div class="acc-item">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <div class="acc-icon" style="background:var(--purple-light); color:var(--purple);">💰</div>
+          <div class="acc-header-text">
+            <h3>Accounts Team</h3>
+            <p>Finance — handles all money matters</p>
+          </div>
+          <span class="acc-badge" style="background:var(--green-light); color:var(--green);">Finance</span>
+          <svg class="acc-chevron" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+        </div>
+        <div class="acc-body"><div class="acc-content">
+          <h4>What they do</h4>
+          <ul>
+            <li><strong>Verify supplier bills</strong> — Check bills against what was actually delivered</li>
+            <li><strong>Generate buyer invoices</strong> — Create sale bills for clients</li>
+            <li><strong>Run payroll</strong> — Calculate salaries based on attendance, generate payslips</li>
+            <li><strong>Reconciliation</strong> — Match purchase orders with deliveries and bills</li>
+            <li><strong>Track payments</strong> — Monitor who owes what and who has paid</li>
+          </ul>
+        </div></div>
+      </div>
+
+      <div class="acc-item">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <div class="acc-icon" style="background:var(--purple-light); color:var(--purple);">📦</div>
+          <div class="acc-header-text">
+            <h3>Storekeeper</h3>
+            <p>Inventory manager — receives and checks all materials</p>
+          </div>
+          <span class="acc-badge" style="background:var(--orange-light); color:var(--orange);">Inventory</span>
+          <svg class="acc-chevron" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+        </div>
+        <div class="acc-body"><div class="acc-content">
+          <h4>What they do</h4>
+          <ul>
+            <li><strong>Receive materials</strong> — Log incoming deliveries against purchase orders</li>
+            <li><strong>Quality check</strong> — Inspect goods for damage, expiry, or defects (with photo proof)</li>
+            <li><strong>Quantity check</strong> — Count items and flag shortages automatically</li>
+            <li><strong>Return bad goods</strong> — Raise return-to-vendor tickets for rejected items</li>
+            <li><strong>Track stock levels</strong> — Monitor low stock alerts and reorder needs</li>
+          </ul>
+        </div></div>
+      </div>
+
+      <div class="acc-item">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <div class="acc-icon" style="background:var(--purple-light); color:var(--purple);">🏗️</div>
+          <div class="acc-header-text">
+            <h3>Site Supervisor</h3>
+            <p>On-ground manager — verifies deployments at client sites</p>
+          </div>
+          <span class="acc-badge" style="background:var(--teal-light); color:var(--teal);">On-Site</span>
+          <svg class="acc-chevron" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+        </div>
+        <div class="acc-body"><div class="acc-content">
+          <h4>What they do</h4>
+          <ul>
+            <li><strong>Verify deployments</strong> — When supplier sends staff, supervisor checks headcount and skill grades match the order</li>
+            <li><strong>Raise incident tickets</strong> — Report staff misbehavior or issues</li>
+            <li><strong>Monitor attendance</strong> — View who showed up at the site today</li>
+            <li><strong>Track service jobs</strong> — Monitor ongoing AC/pest control/facility work</li>
+          </ul>
+        </div></div>
+      </div>
+
+      <div class="acc-item">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <div class="acc-icon" style="background:var(--purple-light); color:var(--purple);">🛵</div>
+          <div class="acc-header-text">
+            <h3>Delivery Boy</h3>
+            <p>Last-mile delivery — logs material arrivals</p>
+          </div>
+          <span class="acc-badge" style="background:var(--orange-light); color:var(--orange);">Delivery</span>
+          <svg class="acc-chevron" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+        </div>
+        <div class="acc-body"><div class="acc-content">
+          <h4>What they do</h4>
+          <ul>
+            <li>Log delivery vehicle details and take photos</li>
+            <li>Record material arrival time and location</li>
+            <li>System automatically notifies the storekeeper to come inspect</li>
+          </ul>
+        </div></div>
+      </div>
+
+    </div>
+
+    <!-- ── Buyer ── -->
+    <h3 style="font-size:1rem; color:var(--blue); margin: 28px 0 12px;">🛒 Buyer (Your Clients)</h3>
+    <div class="accordion">
+      <div class="acc-item">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <div class="acc-icon" style="background:var(--blue-light); color:var(--blue);">🏬</div>
+          <div class="acc-header-text">
+            <h3>Buyer</h3>
+            <p>Client organization — requests services and materials, pays invoices</p>
+          </div>
+          <span class="acc-badge" style="background:var(--blue-light); color:var(--blue);">Client Portal</span>
+          <svg class="acc-chevron" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+        </div>
+        <div class="acc-body"><div class="acc-content">
+          <h4>What they do</h4>
+          <ul>
+            <li><strong>Browse service catalog</strong> — Pick from security, housekeeping, AC, pest control, plantation, materials, etc.</li>
+            <li><strong>Place orders</strong> — Specify what they need (e.g., "5 Grade-A guards, morning shift, 6 months")</li>
+            <li><strong>Track requests</strong> — See status of every request from submission to completion</li>
+            <li><strong>Pay invoices</strong> — View and pay bills online</li>
+            <li><strong>Give feedback</strong> — Rate the service after completion</li>
+          </ul>
+          <h4>Their dashboard shows</h4>
+          <ul>
+            <li>Active subscriptions and services</li>
+            <li>Pending requests awaiting approval</li>
+            <li>Services expiring soon (reminders to renew)</li>
+            <li>Unpaid invoices</li>
+          </ul>
+        </div></div>
+      </div>
+    </div>
+
+    <!-- ── Supplier ── -->
+    <h3 style="font-size:1rem; color:var(--orange); margin: 28px 0 12px;">🚚 Supplier / Vendor</h3>
+    <div class="accordion">
+      <div class="acc-item">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <div class="acc-icon" style="background:var(--orange-light); color:var(--orange);">🏭</div>
+          <div class="acc-header-text">
+            <h3>Supplier / Vendor</h3>
+            <p>Third-party agency — provides staff or materials on demand</p>
+          </div>
+          <span class="acc-badge" style="background:var(--orange-light); color:var(--orange);">Vendor Portal</span>
+          <svg class="acc-chevron" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+        </div>
+        <div class="acc-body"><div class="acc-content">
+          <h4>What they do</h4>
+          <ul>
+            <li><strong>Receive orders (indents)</strong> — Get notified when your company needs something from them</li>
+            <li><strong>Accept or reject</strong> — Check availability and respond</li>
+            <li><strong>Dispatch goods/staff</strong> — Ship materials or send personnel, update status in real-time</li>
+            <li><strong>Upload delivery notes</strong> — For staffing orders, list the names and credentials of deployed staff</li>
+            <li><strong>Submit bills</strong> — Generate invoices with supporting documents</li>
+            <li><strong>Track payments</strong> — See when bills are paid</li>
+          </ul>
+        </div></div>
+      </div>
+    </div>
+
+    <!-- ── Field Staff ── -->
+    <h3 style="font-size:1rem; color:var(--teal); margin: 28px 0 12px;">👷 Field Staff (On-Ground Workers)</h3>
+    <div class="accordion">
+
+      <div class="acc-item">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <div class="acc-icon" style="background:var(--teal-light); color:var(--teal);">🛡️</div>
+          <div class="acc-header-text">
+            <h3>Security Guard</h3>
+            <p>Uses a mobile app for attendance, visitor entry, SOS alerts, and daily checklists</p>
+          </div>
+          <span class="acc-badge" style="background:var(--red-light); color:var(--red);">Mobile App</span>
+          <svg class="acc-chevron" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+        </div>
+        <div class="acc-body"><div class="acc-content">
+          <h4>What they do on their phone</h4>
+          <ul>
+            <li><strong>Selfie attendance</strong> — Take a selfie to clock in; only works within 50 meters of their assigned post (GPS verified)</li>
+            <li><strong>Daily checklist</strong> — Check parking lights, water supply, gate locks — with photo proof</li>
+            <li><strong>Register visitors</strong> — Capture visitor name, photo, phone, vehicle number</li>
+            <li><strong>SOS panic button</strong> — One tap to alert manager + all supervisors with exact GPS location</li>
+            <li><strong>Emergency contacts</strong> — One-tap dial for police, fire, ambulance</li>
+            <li><strong>Apply for leave</strong> — Submit leave requests from the app</li>
+          </ul>
+          <h4>Automatic monitoring</h4>
+          <ul>
+            <li>If guard doesn't move for 30+ minutes &rarr; system alerts manager</li>
+            <li>If daily checklist not filled by 9 AM &rarr; system sends reminder</li>
+            <li>If guard leaves their post area &rarr; system flags it</li>
+          </ul>
+        </div></div>
+      </div>
+
+      <div class="acc-item">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <div class="acc-icon" style="background:var(--teal-light); color:var(--teal);">🎖️</div>
+          <div class="acc-header-text">
+            <h3>Security Supervisor</h3>
+            <p>Oversees guards — reviews alerts, monitors GPS, manages incidents</p>
+          </div>
+          <span class="acc-badge" style="background:var(--teal-light); color:var(--teal);">Oversight</span>
+          <svg class="acc-chevron" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+        </div>
+        <div class="acc-body"><div class="acc-content">
+          <h4>What they do</h4>
+          <ul>
+            <li>See all guards' GPS locations on a live map</li>
+            <li>Get instant panic alerts and inactivity warnings</li>
+            <li>Review daily checklist submissions</li>
+            <li>Raise behavior tickets (guard sleeping, rude, absent, wrong uniform)</li>
+            <li>View guard attendance records</li>
+          </ul>
+        </div></div>
+      </div>
+
+      <div class="acc-item">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <div class="acc-icon" style="background:var(--teal-light); color:var(--teal);">🏘️</div>
+          <div class="acc-header-text">
+            <h3>Society Manager</h3>
+            <p>On-ground manager for a residential society — visitors, staff, complaints</p>
+          </div>
+          <span class="acc-badge" style="background:var(--teal-light); color:var(--teal);">Management</span>
+          <svg class="acc-chevron" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+        </div>
+        <div class="acc-body"><div class="acc-content">
+          <h4>What they do</h4>
+          <ul>
+            <li><strong>Dashboard</strong> — Live visitor stats, guard checklist status, panic alert history, staff attendance</li>
+            <li><strong>Visitor management</strong> — View all visitor entries, manage family directory</li>
+            <li><strong>Raise complaints</strong> — Log AC repair, pest control, or facility issues</li>
+            <li><strong>Material inspection</strong> — When deliveries arrive, inspect quality and quantity</li>
+            <li><strong>Behavior tickets</strong> — Report staff misconduct with photos and severity levels</li>
+          </ul>
+        </div></div>
+      </div>
+
+      <div class="acc-item">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <div class="acc-icon" style="background:var(--teal-light); color:var(--teal);">❄️</div>
+          <div class="acc-header-text">
+            <h3>AC Technician</h3>
+            <p>Specialized technician — installs, maintains, and repairs air conditioners</p>
+          </div>
+          <span class="acc-badge" style="background:var(--red-light); color:var(--red);">Mobile App</span>
+          <svg class="acc-chevron" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+        </div>
+        <div class="acc-body"><div class="acc-content">
+          <h4>Their job workflow</h4>
+          <ul>
+            <li>See assigned jobs on their phone</li>
+            <li>Check in at location (GPS verified)</li>
+            <li>Take "before" photo of the problem</li>
+            <li>Do the repair &rarr; log parts used (automatically deducted from inventory)</li>
+            <li>Take "after" photo &rarr; mark job complete</li>
+            <li>Manager reviews and closes the ticket</li>
+          </ul>
+        </div></div>
+      </div>
+
+      <div class="acc-item">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <div class="acc-icon" style="background:var(--teal-light); color:var(--teal);">🐛</div>
+          <div class="acc-header-text">
+            <h3>Pest Control Technician</h3>
+            <p>Handles chemical treatments — must follow safety protocols</p>
+          </div>
+          <span class="acc-badge" style="background:var(--red-light); color:var(--red);">Mobile App</span>
+          <svg class="acc-chevron" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+        </div>
+        <div class="acc-body"><div class="acc-content">
+          <h4>Their job workflow</h4>
+          <ul>
+            <li>Same as AC technician PLUS mandatory safety checklist (masks, gloves, eye protection, aprons)</li>
+            <li>Select treatment type: fogging, spraying, or gel application</li>
+            <li>Log chemicals used (tracked with batch numbers and expiry dates)</li>
+            <li>System automatically warns residents: "Pest control at 4 PM — keep kids/pets away"</li>
+          </ul>
+        </div></div>
+      </div>
+
+      <div class="acc-item">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <div class="acc-icon" style="background:var(--teal-light); color:var(--teal);">🧹</div>
+          <div class="acc-header-text">
+            <h3>Service Boy</h3>
+            <p>Housekeeping, pantry, and office support staff</p>
+          </div>
+          <span class="acc-badge" style="background:var(--red-light); color:var(--red);">Mobile App</span>
+          <svg class="acc-chevron" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+        </div>
+        <div class="acc-body"><div class="acc-content">
+          <h4>What they do</h4>
+          <ul>
+            <li>See assigned tasks for the day on their phone</li>
+            <li>GPS check-in at job location</li>
+            <li>Complete task and upload photo proof</li>
+            <li>Real-time updates visible to supervisors</li>
+          </ul>
+        </div></div>
+      </div>
+
+    </div>
+
+    <!-- ── Residents ── -->
+    <h3 style="font-size:1rem; color:var(--pink); margin: 28px 0 12px;">🏠 Society Residents</h3>
+    <div class="accordion">
+      <div class="acc-item">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <div class="acc-icon" style="background:var(--pink-light); color:var(--pink);">👨‍👩‍👧</div>
+          <div class="acc-header-text">
+            <h3>Resident</h3>
+            <p>Society member — manages visitors and flat details</p>
+          </div>
+          <span class="acc-badge" style="background:var(--pink-light); color:var(--pink);">Resident App</span>
+          <svg class="acc-chevron" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+        </div>
+        <div class="acc-body"><div class="acc-content">
+          <h4>What they do</h4>
+          <ul>
+            <li>Get instant notification (SMS + app) when a visitor arrives at the gate — with visitor's photo</li>
+            <li>Approve or deny visitor entry from their phone</li>
+            <li>View flat details and family member directory</li>
+            <li>Invite expected visitors in advance</li>
+          </ul>
+        </div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- TAB 3: WORKFLOWS -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div id="tab-workflows" class="tab-content">
+
+  <div class="section">
+    <div class="section-title">How Does a Typical Order Work?</div>
+    <div class="section-subtitle">Click on each workflow to see the step-by-step process</div>
+
+    <div class="accordion">
+
+      <!-- Material Order -->
+      <div class="acc-item">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <div class="acc-icon" style="background:var(--blue-light); color:var(--blue);">📦</div>
+          <div class="acc-header-text">
+            <h3>Workflow 1: Ordering Materials</h3>
+            <p>Buyer needs cleaning supplies, stationery, pest control chemicals, etc.</p>
+          </div>
+          <svg class="acc-chevron" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+        </div>
+        <div class="acc-body"><div class="acc-content">
+          <div class="flow">
+            <div class="flow-step buyer"><span class="who">Buyer</span>Places Order</div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step admin"><span class="who">Admin</span>Reviews &amp; Approves</div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step admin"><span class="who">Admin</span>Creates Purchase Order</div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step supplier"><span class="who">Supplier</span>Accepts &amp; Ships</div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step admin"><span class="who">Storekeeper</span>Checks Quality</div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step buyer"><span class="who">Buyer</span>Pays &amp; Reviews</div>
+          </div>
+          <h4>Step by step</h4>
+          <ul>
+            <li><strong>Step 1:</strong> Buyer logs in and submits an order request (e.g., "50 bottles of floor cleaner")</li>
+            <li><strong>Step 2:</strong> Admin gets notified, reviews the request, and either accepts, holds, or rejects it</li>
+            <li><strong>Step 3:</strong> Admin creates an internal demand (called an "indent") and sends it to the best matching supplier</li>
+            <li><strong>Step 4:</strong> Supplier reviews and accepts the indent. Admin issues a formal Purchase Order</li>
+            <li><strong>Step 5:</strong> Supplier ships the goods and updates the status to "Dispatched"</li>
+            <li><strong>Step 6:</strong> Storekeeper inspects delivery — checks quantity (did we get all 50?) and quality (any damaged bottles?)</li>
+            <li><strong>Step 7:</strong> If items fail inspection, a Return Ticket is created and sent back to supplier</li>
+            <li><strong>Step 8:</strong> Supplier submits their bill. Admin verifies and pays</li>
+            <li><strong>Step 9:</strong> Admin generates an invoice for the buyer. Buyer pays and leaves feedback</li>
+          </ul>
+          <div class="callout"><strong>Key point:</strong> Every step is tracked automatically. No one needs to call or email to ask "Where is my order?" — they can just check the system.</div>
+        </div></div>
+      </div>
+
+      <!-- Service Deployment -->
+      <div class="acc-item">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <div class="acc-icon" style="background:var(--purple-light); color:var(--purple);">👮</div>
+          <div class="acc-header-text">
+            <h3>Workflow 2: Deploying Staff (Security / Housekeeping)</h3>
+            <p>Buyer needs 5 security guards deployed to their building for 6 months</p>
+          </div>
+          <svg class="acc-chevron" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+        </div>
+        <div class="acc-body"><div class="acc-content">
+          <div class="flow">
+            <div class="flow-step buyer"><span class="who">Buyer</span>Requests 5 Guards</div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step admin"><span class="who">Admin</span>Finds Vendor</div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step supplier"><span class="who">Supplier</span>Sends Guards</div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step admin"><span class="who">Supervisor</span>Verifies on Site</div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step buyer"><span class="who">Buyer</span>Pays &amp; Reviews</div>
+          </div>
+          <h4>Step by step</h4>
+          <ul>
+            <li><strong>Step 1:</strong> Buyer selects "Security Services" &rarr; picks Grade A guards &rarr; 5 people &rarr; morning shift &rarr; 6 months</li>
+            <li><strong>Step 2:</strong> System automatically pulls the rate from the price list. Admin verifies and creates a service indent</li>
+            <li><strong>Step 3:</strong> Admin matches to a vendor who provides Grade A guards and sends them the indent</li>
+            <li><strong>Step 4:</strong> Supplier accepts and sends back a Delivery Note listing the 5 guards' names and credentials</li>
+            <li><strong>Step 5:</strong> Supplier marks "Personnel Dispatched" — buyer and admin are notified</li>
+            <li><strong>Step 6:</strong> Site Supervisor meets the guards at the client's location, checks that all 5 showed up and their grade matches</li>
+            <li><strong>Step 7:</strong> Supervisor confirms deployment. Supplier submits their bill. Admin reconciles and invoices the buyer</li>
+            <li><strong>Step 8:</strong> Buyer pays and rates the service quality</li>
+          </ul>
+        </div></div>
+      </div>
+
+      <!-- Visitor Entry -->
+      <div class="acc-item">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <div class="acc-icon" style="background:var(--teal-light); color:var(--teal);">🚪</div>
+          <div class="acc-header-text">
+            <h3>Workflow 3: Visitor Enters a Society</h3>
+            <p>Someone comes to visit a resident — how the guard handles it</p>
+          </div>
+          <svg class="acc-chevron" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+        </div>
+        <div class="acc-body"><div class="acc-content">
+          <div class="flow">
+            <div class="flow-step" style="background:#fff;border-color:#ccc;"><span class="who">Visitor</span>Arrives at Gate</div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step guard"><span class="who">Guard</span>Registers Visitor</div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step system"><span class="who">System</span>Sends SMS + Photo</div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step resident"><span class="who">Resident</span>Approves / Denies</div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step guard"><span class="who">Guard</span>Allows / Blocks</div>
+          </div>
+          <h4>Step by step</h4>
+          <ul>
+            <li><strong>Step 1:</strong> Visitor arrives at the gate</li>
+            <li><strong>Step 2:</strong> Guard opens the app, looks up the flat number, and registers the visitor (name, photo, phone, vehicle)</li>
+            <li><strong>Step 3:</strong> System instantly sends SMS and push notification to the resident — with the visitor's photo</li>
+            <li><strong>Step 4:</strong> Resident taps "Approve" or "Deny" on their phone</li>
+            <li><strong>Step 5:</strong> Guard sees the response and either lets the visitor in or turns them away</li>
+          </ul>
+          <div class="callout"><strong>For regular visitors</strong> (maids, drivers, milkmen) — they go into a separate "daily visitor" database so guards don't need to register them every day.</div>
+        </div></div>
+      </div>
+
+      <!-- Service Job -->
+      <div class="acc-item">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <div class="acc-icon" style="background:var(--orange-light); color:var(--orange);">🔧</div>
+          <div class="acc-header-text">
+            <h3>Workflow 4: AC Repair / Pest Control Job</h3>
+            <p>Resident complains "AC not cooling" — how it gets fixed</p>
+          </div>
+          <svg class="acc-chevron" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+        </div>
+        <div class="acc-body"><div class="acc-content">
+          <div class="flow">
+            <div class="flow-step resident"><span class="who">Resident/Manager</span>Raises Complaint</div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step admin"><span class="who">Admin</span>Assigns Technician</div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step guard"><span class="who">Technician</span>Arrives + Before Photo</div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step guard"><span class="who">Technician</span>Fixes + After Photo</div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step admin"><span class="who">Manager</span>Reviews &amp; Closes</div>
+          </div>
+          <h4>Step by step</h4>
+          <ul>
+            <li><strong>Step 1:</strong> Resident or society manager logs a complaint (e.g., "AC not cooling in Flat 302")</li>
+            <li><strong>Step 2:</strong> Admin assigns an AC technician to the job</li>
+            <li><strong>Step 3:</strong> Technician gets notified, arrives at location, and checks in via GPS</li>
+            <li><strong>Step 4:</strong> Takes a "before" photo of the problem</li>
+            <li><strong>Step 5:</strong> Does the repair — parts used are automatically logged and deducted from inventory</li>
+            <li><strong>Step 6:</strong> Takes an "after" photo and marks the job as complete</li>
+            <li><strong>Step 7:</strong> Manager reviews the work and closes the ticket</li>
+          </ul>
+          <div class="callout"><strong>For pest control:</strong> Same workflow, but technicians must also fill a mandatory safety checklist (PPE) before starting, and residents get an automatic warning notification.</div>
+        </div></div>
+      </div>
+
+      <!-- Guard Emergency -->
+      <div class="acc-item">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <div class="acc-icon" style="background:var(--red-light); color:var(--red);">🚨</div>
+          <div class="acc-header-text">
+            <h3>Workflow 5: Emergency / Panic Alert</h3>
+            <p>Guard spots a fire, break-in, or medical emergency</p>
+          </div>
+          <svg class="acc-chevron" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+        </div>
+        <div class="acc-body"><div class="acc-content">
+          <div class="flow">
+            <div class="flow-step guard"><span class="who">Guard</span>Hits SOS Button</div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step system"><span class="who">System</span>Captures GPS</div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step system"><span class="who">System</span>Sends Alerts (SMS + Push)</div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step admin"><span class="who">Supervisor + Manager</span>Respond</div>
+          </div>
+          <h4>What happens</h4>
+          <ul>
+            <li>Guard presses the big red SOS button on their phone</li>
+            <li>System instantly captures their exact GPS location</li>
+            <li>All supervisors and the society manager receive push notifications AND SMS simultaneously</li>
+            <li>Manager can see the guard's location on a map and coordinate response</li>
+            <li>After the situation is handled, manager adds resolution notes to close the alert</li>
+          </ul>
+          <div class="callout"><strong>Response time:</strong> The alert reaches all relevant people within seconds — no phone calls needed.</div>
+        </div></div>
+      </div>
+
+      <!-- HR & Payroll -->
+      <div class="acc-item">
+        <div class="acc-header" onclick="toggleAcc(this)">
+          <div class="acc-icon" style="background:var(--green-light); color:var(--green);">💼</div>
+          <div class="acc-header-text">
+            <h3>Workflow 6: Hiring Staff & Running Payroll</h3>
+            <p>From hiring a new guard to paying their salary</p>
+          </div>
+          <svg class="acc-chevron" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+        </div>
+        <div class="acc-body"><div class="acc-content">
+          <div class="flow">
+            <div class="flow-step admin"><span class="who">Admin</span>Posts Job</div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step admin"><span class="who">Admin</span>Interviews</div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step system"><span class="who">System</span>Background Check</div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step admin"><span class="who">Admin</span>One-Click Onboard</div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step system"><span class="who">Monthly</span>Auto Payroll</div>
+          </div>
+          <h4>Hiring pipeline</h4>
+          <ul>
+            <li><strong>Application:</strong> Capture candidate details, source (agency or referral)</li>
+            <li><strong>Interview:</strong> Schedule and track interview status</li>
+            <li><strong>Background verification:</strong> Track police verification, address check, education, employment history</li>
+            <li><strong>Onboarding:</strong> One click converts candidate to employee — documents uploaded (Aadhar, PAN, PSARA certificate)</li>
+          </ul>
+          <h4>Monthly payroll</h4>
+          <ul>
+            <li>System automatically calculates salary based on attendance records</li>
+            <li><strong>Earnings:</strong> Basic Salary + HRA + Allowances + Overtime</li>
+            <li><strong>Deductions:</strong> PF + Professional Tax + ESIC</li>
+            <li>Employees can download their payslip from the app</li>
+          </ul>
+        </div></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- TAB 4: SERVICES -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div id="tab-services" class="tab-content">
+
+  <div class="section">
+    <div class="section-title">Services You Can Offer Through FacilityPro</div>
+    <div class="section-subtitle">Everything your company provides, managed in one place</div>
+
+    <h3 style="margin-bottom:16px; font-size:1.05rem;">Service Verticals</h3>
+    <div class="services-grid">
+      <div class="service-card"><div class="icon">🛡️</div><h4>Security Services</h4><p>Guards (Grade A-D), Gunmen, Door Keepers</p></div>
+      <div class="service-card"><div class="icon">🧹</div><h4>Housekeeping & Staffing</h4><p>Housekeeping, Pantry staff, Office support</p></div>
+      <div class="service-card"><div class="icon">❄️</div><h4>AC Services</h4><p>Installation, maintenance, repair, gas charging</p></div>
+      <div class="service-card"><div class="icon">🐛</div><h4>Pest Control</h4><p>Fogging, spraying, gel treatment, anti-termite</p></div>
+      <div class="service-card"><div class="icon">🌿</div><h4>Plantation</h4><p>Lawn mowing, garden maintenance, landscaping</p></div>
+      <div class="service-card"><div class="icon">🖨️</div><h4>Printing & Ads</h4><p>ID cards, visitor passes, notices, ad-space management</p></div>
+    </div>
+
+    <h3 style="margin: 32px 0 16px; font-size:1.05rem;">Material Supply Categories</h3>
+    <div class="services-grid">
+      <div class="service-card"><div class="icon">🔐</div><h4>Security Panels</h4><p>Door controllers, access hardware</p></div>
+      <div class="service-card"><div class="icon">☕</div><h4>Beverages</h4><p>Tea, coffee, hot & cold drink supplies</p></div>
+      <div class="service-card"><div class="icon">🍃</div><h4>Eco Disposables</h4><p>Cups, plates, cutlery</p></div>
+      <div class="service-card"><div class="icon">🧼</div><h4>Cleaning Essentials</h4><p>Detergents, mops, supplies</p></div>
+      <div class="service-card"><div class="icon">💨</div><h4>Air Fresheners</h4><p>Room fresheners, diffusers</p></div>
+      <div class="service-card"><div class="icon">📎</div><h4>Stationery</h4><p>Office supplies, paper, pens</p></div>
+      <div class="service-card"><div class="icon">🎁</div><h4>Corporate Gifts</h4><p>Branded gifts, event merchandise</p></div>
+      <div class="service-card"><div class="icon">🧪</div><h4>Pest Control Chemicals</h4><p>Insecticides, rodenticides, with batch &amp; expiry tracking</p></div>
+    </div>
+
+    <div class="callout" style="margin-top:24px;">
+      <strong>How security grades work:</strong><br>
+      Guards are categorized by skill level and cost:<br>
+      <strong>Grade A/B</strong> = Premium (luxury residential, corporate) | <strong>Grade C/D</strong> = Standard (industrial, general security)<br>
+      Specialized roles: <strong>Gunman</strong> (armed, high-risk) | <strong>Door Keeper</strong> (visitor management, hospitality)
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- TAB 5: MODULES -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div id="tab-modules" class="tab-content">
+
+  <div class="section">
+    <div class="section-title">What's Inside the System?</div>
+    <div class="section-subtitle">All the major modules — grouped by function</div>
+
+    <h3 style="margin-bottom: 12px; font-size: 1.05rem;">📋 Master Data (Setup once, use everywhere)</h3>
+    <div class="module-grid" style="margin-bottom:28px;">
+      <div class="module-card"><h4>Roles & Users</h4><p>Define who can do what in the system. Create login accounts for all staff.</p></div>
+      <div class="module-card"><h4>Employee & Designation</h4><p>Manage internal staff profiles, job titles, departments.</p></div>
+      <div class="module-card"><h4>Products & Categories</h4><p>Full product catalog with pricing, grouped by category and subcategory.</p></div>
+      <div class="module-card"><h4>Suppliers & Rates</h4><p>Vendor profiles, which products each supplier provides, and negotiated rates.</p></div>
+      <div class="module-card"><h4>Sale Rates</h4><p>Your selling prices — controls margin between what you pay suppliers and what buyers pay you.</p></div>
+      <div class="module-card"><h4>Checklists & Work Types</h4><p>Define daily inspection items and all types of tasks that can be assigned.</p></div>
+      <div class="module-card"><h4>Locations</h4><p>Register physical sites with GPS coordinates for geo-fencing attendance.</p></div>
+      <div class="module-card"><h4>Holidays & Events</h4><p>Calendar of holidays (for payroll/overtime) and company events.</p></div>
+    </div>
+
+    <h3 style="margin-bottom: 12px; font-size: 1.05rem;">🔄 Core Workflow Modules</h3>
+    <div class="module-grid" style="margin-bottom:28px;">
+      <div class="module-card"><h4>Order Requests</h4><p>Buyers place requests. Admin accepts/rejects. Full lifecycle tracking.</p></div>
+      <div class="module-card"><h4>Indents & Purchase Orders</h4><p>Internal demand documents sent to suppliers. Formal POs with tracking.</p></div>
+      <div class="module-card"><h4>Goods Received (GRN)</h4><p>Material receipt with quality and quantity checks, photo evidence.</p></div>
+      <div class="module-card"><h4>Service Purchase Orders</h4><p>For staffing deployments — tracks headcount, grade, shift, duration.</p></div>
+      <div class="module-card"><h4>Supplier Bills</h4><p>Vendors submit invoices. Admin verifies against delivery. Payment tracking.</p></div>
+      <div class="module-card"><h4>Buyer Invoices (Sale Bills)</h4><p>Your invoices to clients. Payment status and reminders.</p></div>
+      <div class="module-card"><h4>Reconciliation</h4><p>Automatic matching of purchase orders with deliveries and bills.</p></div>
+    </div>
+
+    <h3 style="margin-bottom: 12px; font-size: 1.05rem;">👷 HR & Workforce</h3>
+    <div class="module-grid" style="margin-bottom:28px;">
+      <div class="module-card"><h4>Recruitment</h4><p>Applicant &rarr; Interview &rarr; Background Check &rarr; Hired pipeline.</p></div>
+      <div class="module-card"><h4>Attendance</h4><p>Selfie + GPS check-in. Auto-punch-out if staff leaves geo-fence.</p></div>
+      <div class="module-card"><h4>Leave Management</h4><p>Apply, approve/reject, track balances for sick, casual, paid leave.</p></div>
+      <div class="module-card"><h4>Payroll</h4><p>Auto-calculated from attendance. Earnings, deductions, payslip download.</p></div>
+      <div class="module-card"><h4>Employee Documents</h4><p>Aadhar, PAN, PSARA certificates, police verification — all stored digitally.</p></div>
+      <div class="module-card"><h4>Shifts</h4><p>Define and assign work shifts to staff.</p></div>
+    </div>
+
+    <h3 style="margin-bottom: 12px; font-size: 1.05rem;">🏘️ Society Management</h3>
+    <div class="module-grid" style="margin-bottom:28px;">
+      <div class="module-card"><h4>Visitor Management</h4><p>Guest entry with photo, daily visitors, resident notifications, approval flow.</p></div>
+      <div class="module-card"><h4>Panic Alerts</h4><p>One-tap SOS with GPS. Instant SMS + push to supervisors.</p></div>
+      <div class="module-card"><h4>Daily Checklists</h4><p>Routine inspections with photo proof and automated reminders.</p></div>
+      <div class="module-card"><h4>Resident Directory</h4><p>Flat-wise family database. Searchable by guards (limited details for privacy).</p></div>
+      <div class="module-card"><h4>Emergency Contacts</h4><p>One-tap dial for police, fire, ambulance, electrician.</p></div>
+    </div>
+
+    <h3 style="margin-bottom: 12px; font-size: 1.05rem;">🎫 Tickets & Quality</h3>
+    <div class="module-grid" style="margin-bottom:28px;">
+      <div class="module-card"><h4>Behavior Tickets</h4><p>Report staff misconduct: sleeping, rudeness, absence. Severity levels (Low/Medium/High).</p></div>
+      <div class="module-card"><h4>Quality Tickets</h4><p>Flag damaged or substandard materials on delivery. Photo evidence required.</p></div>
+      <div class="module-card"><h4>Return to Vendor (RTV)</h4><p>Track items sent back to suppliers — wrong item, damaged, quality mismatch.</p></div>
+    </div>
+
+    <h3 style="margin-bottom: 12px; font-size: 1.05rem;">📊 Reports & Analytics</h3>
+    <div class="module-grid">
+      <div class="module-card"><h4>Financial Reports</h4><p>Revenue, margins, cash flow, outstanding amounts.</p></div>
+      <div class="module-card"><h4>Attendance Reports</h4><p>Who showed up, late arrivals, overtime hours.</p></div>
+      <div class="module-card"><h4>Inventory Reports</h4><p>Stock levels, expiring items, reorder alerts.</p></div>
+      <div class="module-card"><h4>Service Reports</h4><p>Job completion rates, technician performance, service trends.</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- TAB 6: NOTIFICATIONS -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div id="tab-notifications" class="tab-content">
+
+  <div class="section">
+    <div class="section-title">Automatic Alerts & Notifications</div>
+    <div class="section-subtitle">The system sends these automatically — no manual follow-up needed</div>
+
+    <table class="notif-table">
+      <thead>
+        <tr><th style="width:35%">When This Happens</th><th style="width:25%">Who Gets Notified</th><th style="width:15%">How</th><th>Message</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Buyer places a new order</td><td>Admin</td><td>App + Email</td><td>"New order request from [Buyer]"</td></tr>
+        <tr><td>Admin accepts/rejects order</td><td>Buyer</td><td>App + SMS</td><td>"Your request has been accepted/rejected"</td></tr>
+        <tr><td>Indent sent to supplier</td><td>Supplier</td><td>App + Email</td><td>"New indent received — please review"</td></tr>
+        <tr><td>Supplier accepts/rejects indent</td><td>Admin</td><td>App</td><td>"Supplier [Name] accepted/rejected indent"</td></tr>
+        <tr><td>Goods dispatched by supplier</td><td>Admin + Storekeeper</td><td>App + SMS</td><td>"Goods shipped, expected delivery [Date]"</td></tr>
+        <tr><td>Bad material found</td><td>Admin + Supplier</td><td>App + Email</td><td>"Quality issue flagged, return ticket raised"</td></tr>
+        <tr><td>Quantity shortage detected</td><td>Admin + Supplier</td><td>App + Email</td><td>"Shortage of [X] units for PO [#]"</td></tr>
+        <tr><td>Invoice ready for buyer</td><td>Buyer</td><td>App + Email</td><td>"Invoice ready, amount due &#8377;[X]"</td></tr>
+        <tr><td>Buyer pays invoice</td><td>Admin + Accounts</td><td>App</td><td>"Payment received from [Buyer]"</td></tr>
+        <tr style="background:var(--red-light)"><td><strong>Guard triggers SOS panic</strong></td><td><strong>Manager + Supervisors</strong></td><td><strong>SMS + Push (Instant)</strong></td><td><strong>"SOS Alert! [Guard] at [Location]"</strong></td></tr>
+        <tr><td>Guard not moving for 30+ min</td><td>Manager + Supervisor</td><td>App</td><td>"[Guard] inactive for [X] minutes"</td></tr>
+        <tr><td>Checklist not filled by 9 AM</td><td>Guard</td><td>App + SMS</td><td>"Daily checklist pending, complete now"</td></tr>
+        <tr><td>Visitor arrives at gate</td><td>Resident</td><td>App + SMS</td><td>"[Visitor] is at gate for Flat [#]" + photo</td></tr>
+        <tr><td>Leave request submitted</td><td>HOD / Manager</td><td>App</td><td>"[Employee] applied for leave [Dates]"</td></tr>
+        <tr><td>Low stock detected</td><td>Admin + Storekeeper</td><td>App + Email</td><td>"[Product] below reorder level"</td></tr>
+        <tr><td>Chemical nearing expiry</td><td>Admin + Storekeeper</td><td>App + Email</td><td>"[Chemical] Batch [#] expires on [Date]"</td></tr>
+        <tr><td>Service expiring soon</td><td>Buyer</td><td>App + Email</td><td>"[Service] ends in [X] days — renew now"</td></tr>
+        <tr><td>Technician completes job</td><td>Manager + Admin</td><td>App</td><td>"Job completed — review and close"</td></tr>
+        <tr><td>Payslip generated</td><td>Employee</td><td>App + SMS</td><td>"Payslip for [Month] ready to download"</td></tr>
+        <tr><td>Personnel deployed at site</td><td>Buyer + Admin</td><td>App + Email</td><td>"[X] staff deployed, deployment confirmed"</td></tr>
+        <tr><td>Supplier bill submitted</td><td>Admin + Accounts</td><td>App</td><td>"Supplier submitted Bill for &#8377;[X]"</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- TAB 7: FEEDBACK -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div id="tab-feedback" class="tab-content">
+
+  <div class="section">
+    <div class="section-title">Feedback & Discussion Notes</div>
+    <div class="section-subtitle">Use this section to write down any changes, additions, or questions during the review</div>
+
+    <div style="background:var(--card); border:2px dashed var(--border); border-radius:var(--radius); padding:32px; text-align:center; margin-bottom:24px;">
+      <p style="font-size:1.1rem; font-weight:600; margin-bottom:8px;">Click the text areas below to type your notes</p>
+      <p style="color:var(--text-light); font-size:0.9rem;">These notes are saved in your browser (not sent anywhere). Use them during your discussion.</p>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:16px;">
+
+      <div style="background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow);">
+        <h4 style="font-size:0.95rem; margin-bottom:10px;">✅ What looks good? (Features the client is happy with)</h4>
+        <textarea id="note-good" style="width:100%; min-height:100px; border:1px solid var(--border); border-radius:8px; padding:12px; font-family:inherit; font-size:0.9rem; resize:vertical; outline:none;" placeholder="e.g., The visitor notification system is exactly what we need..." oninput="saveNotes()"></textarea>
+      </div>
+
+      <div style="background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow);">
+        <h4 style="font-size:0.95rem; margin-bottom:10px;">🔄 What needs changes? (Features that need modification)</h4>
+        <textarea id="note-changes" style="width:100%; min-height:100px; border:1px solid var(--border); border-radius:8px; padding:12px; font-family:inherit; font-size:0.9rem; resize:vertical; outline:none;" placeholder="e.g., The guard should also be able to... / The buyer dashboard should show..." oninput="saveNotes()"></textarea>
+      </div>
+
+      <div style="background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow);">
+        <h4 style="font-size:0.95rem; margin-bottom:10px;">➕ What's missing? (New features or roles needed)</h4>
+        <textarea id="note-missing" style="width:100%; min-height:100px; border:1px solid var(--border); border-radius:8px; padding:12px; font-family:inherit; font-size:0.9rem; resize:vertical; outline:none;" placeholder="e.g., We also need a module for... / There should be a role for..." oninput="saveNotes()"></textarea>
+      </div>
+
+      <div style="background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow);">
+        <h4 style="font-size:0.95rem; margin-bottom:10px;">❓ Questions / Things to Discuss Later</h4>
+        <textarea id="note-questions" style="width:100%; min-height:100px; border:1px solid var(--border); border-radius:8px; padding:12px; font-family:inherit; font-size:0.9rem; resize:vertical; outline:none;" placeholder="e.g., How will billing work for... / Who decides when..." oninput="saveNotes()"></textarea>
+      </div>
+
+      <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:8px;">
+        <button onclick="exportNotes()" style="padding:10px 24px; background:var(--accent); color:white; border:none; border-radius:8px; font-size:0.9rem; font-weight:600; cursor:pointer;">📋 Copy All Notes</button>
+        <button onclick="clearNotes()" style="padding:10px 24px; background:var(--bg); color:var(--text-light); border:1px solid var(--border); border-radius:8px; font-size:0.9rem; cursor:pointer;">Clear All</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- FOOTER -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div class="footer">
+  <p><strong>FacilityPro</strong> — Facility Management & Services Platform</p>
+  <p style="margin-top:4px;">Document generated for client review. All features described are fully implemented unless marked otherwise.</p>
+</div>
+
+</div><!-- /container -->
+
+<script>
+// ── Tab switching ──
+function showTab(name) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── Accordion ──
+function toggleAcc(header) {
+  const item = header.parentElement;
+  // Close others in same accordion
+  const accordion = item.parentElement;
+  accordion.querySelectorAll('.acc-item.open').forEach(el => {
+    if (el !== item) el.classList.remove('open');
+  });
+  item.classList.toggle('open');
+}
+
+// ── Notes persistence ──
+function saveNotes() {
+  const notes = {
+    good: document.getElementById('note-good').value,
+    changes: document.getElementById('note-changes').value,
+    missing: document.getElementById('note-missing').value,
+    questions: document.getElementById('note-questions').value
+  };
+  localStorage.setItem('facilitypro-notes', JSON.stringify(notes));
+}
+
+function loadNotes() {
+  try {
+    const notes = JSON.parse(localStorage.getItem('facilitypro-notes'));
+    if (notes) {
+      document.getElementById('note-good').value = notes.good || '';
+      document.getElementById('note-changes').value = notes.changes || '';
+      document.getElementById('note-missing').value = notes.missing || '';
+      document.getElementById('note-questions').value = notes.questions || '';
+    }
+  } catch(e) {}
+}
+
+function exportNotes() {
+  const sections = [
+    { label: 'WHAT LOOKS GOOD', id: 'note-good' },
+    { label: 'WHAT NEEDS CHANGES', id: 'note-changes' },
+    { label: 'WHAT\'S MISSING', id: 'note-missing' },
+    { label: 'QUESTIONS', id: 'note-questions' }
+  ];
+  let text = '=== FacilityPro — Client Feedback Notes ===\n\n';
+  sections.forEach(s => {
+    const val = document.getElementById(s.id).value.trim();
+    text += '## ' + s.label + '\n' + (val || '(no notes)') + '\n\n';
+  });
+  navigator.clipboard.writeText(text).then(() => {
+    alert('Notes copied to clipboard!');
+  }).catch(() => {
+    prompt('Copy these notes:', text);
+  });
+}
+
+function clearNotes() {
+  if (confirm('Clear all notes? This cannot be undone.')) {
+    document.querySelectorAll('textarea').forEach(el => el.value = '');
+    localStorage.removeItem('facilitypro-notes');
+  }
+}
+
+// Load saved notes on page load
+loadNotes();
+</script>
+
+</body>
+</html>

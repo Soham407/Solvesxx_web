@@ -43,6 +43,7 @@ export default function BuyerBillingPage() {
   const { userId } = useAuth();
   const { invoices, isLoading, error, refresh: refreshInvoices } = useBuyerInvoices() as any;
   const { methods, recordTransaction } = useFinance();
+  const manualMethods = methods.filter((method) => method.gateway === "manual");
   
   const [selectedInvoice, setSelectedInvoice] = useState<BuyerInvoice | null>(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -260,7 +261,7 @@ export default function BuyerBillingPage() {
                   <SelectValue placeholder="Select method" />
                 </SelectTrigger>
                 <SelectContent>
-                  {methods.map((m) => (
+                  {manualMethods.map((m) => (
                     <SelectItem key={m.id} value={m.id}>{m.method_name}</SelectItem>
                   ))}
                 </SelectContent>

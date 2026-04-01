@@ -10,6 +10,7 @@ const manageServer = process.env.PLAYWRIGHT_MANAGE_SERVER === "1" && shouldManag
 const smokeTestMatch = [
   "**/roles-*.spec.ts",
   "**/auth-rbac-edge-cases.spec.ts",
+  "**/auth-certification.spec.ts",
   "**/api-authz.spec.ts",
   "**/security-baseline.spec.ts",
   "**/admin-procurement.spec.ts",

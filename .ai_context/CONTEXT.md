@@ -1,6 +1,6 @@
 ﻿# FacilityPro â€” Project Context
 
-> **Last Updated:** 2026-03-24 (Platform master gate green, wave-2 super-admin runtime chain passed, in-scope HRMS setup routes removed from feature-freeze gating)
+> **Last Updated:** 2026-03-30 (Resident auth hardening: `/society/residents` now uses `resident_directory`, `/api/residents/unlinked` supports resident provisioning, resident profile lookup is `auth_user_id`-only; HRMS audit fixes route attendance page reads through `useAttendance`, payroll attendance summaries use `log_date`, and auto punch-out cron now preserves audit fields; ASSET-001 restores `/scan/[id]`, routes QR batch generation through `useQrCodes`, and syncs service evidence RPCs with `job_sessions`; SUPPLIER-001 expands `useSupplierPortal` to supplier-scoped service orders, service acknowledgments, live profile self-service, and auto PO creation on accepted indents)
 > Paste this at the start of every AI session for instant context.
 
 ---
@@ -18,7 +18,7 @@
 | **Framework** | Next.js 16 (App Router) |
 | **Language** | TypeScript (strict OFF, strictNullChecks OFF) |
 | **UI** | TailwindCSS 3.4 + Radix UI + shadcn/ui + Framer Motion |
-| **State** | React hooks (custom hooks per domain â€” 100 hooks in `/hooks/`) |
+| **State** | React hooks (custom hooks per domain â€” 102 hooks in `/hooks/`) |
 | **Backend** | Supabase (Postgres + Auth + Realtime + Storage + Edge Functions) |
 | **Push Notifications** | Firebase Cloud Messaging (FCM) |
 | **SMS** | MSG91 via Supabase Edge Function (`send-notification`) |
@@ -58,6 +58,7 @@ enterprise-canvas-main/
 â”‚   â”‚   â””â”€â”€ tickets/         # Behavior tickets, quality tickets, RTV returns
 â”‚   â”œâ”€â”€ api/                 # Next.js API routes (assets proxy)
 â”‚   â”œâ”€â”€ login/               # Auth pages
+â”‚   â”œâ”€â”€ scan/                # QR landing pages (`/scan/[id]`) that record scans and resolve linked assets
 â”‚   â””â”€â”€ layout.tsx           # Root layout (fonts, theme provider, manifest link)
 â”œâ”€â”€ components/
 â”‚   â”œâ”€â”€ ui/                  # shadcn/ui primitives (Button, Dialog, Card, etc.)
@@ -79,13 +80,13 @@ enterprise-canvas-main/
 â”‚   â”œâ”€â”€ inventory-ops/       # Inventory ops (InventoryTable, StockForm)
 â”‚   â””â”€â”€ society/             # VisitorRegistrationDialog, society-specific components
 â”œâ”€â”€ e2e/                     # Playwright specs, shared auth helpers, role matrix, global setup
-â”œâ”€â”€ hooks/                   # 100 custom hooks (one per domain entity)
+â”œâ”€â”€ hooks/                   # 102 custom hooks (one per domain entity)
 â”œâ”€â”€ lib/                     # Firebase config, notification service, utils
 â”œâ”€â”€ src/
 â”‚   â”œâ”€â”€ lib/                 # Supabase clients, constants, feature flags, auth, utils/currency
 â”‚   â””â”€â”€ types/               # TypeScript types (supabase.ts, operations.ts, supply-chain.ts)
 â”œâ”€â”€ supabase/
-â”‚   â”œâ”€â”€ migrations/          # SQL migration files (30 total as of 2026-03-18)
+â”‚   â”œâ”€â”€ migrations/          # SQL migration files (191 `.sql` files as of 2026-03-31)
 â”‚   â”œâ”€â”€ functions/           # Edge Functions (8 deployed)
 â”‚   â”œâ”€â”€ archive/             # Historical phase schema SQL (PhaseAâ€“E)
 â”‚   â”œâ”€â”€ scripts/             # One-off diagnostic/hotfix SQL scripts
@@ -199,6 +200,11 @@ const channel = supabase
 return () => { supabase.removeChannel(channel); };
 ```
 
+**Resident auth + directory rule:**
+- Resident profile resolution must use `residents.auth_user_id = auth.uid()`
+- The privacy-safe `resident_directory` view is the read surface for the society resident directory page
+- Existing unlinked resident rows can be provisioned through `POST /api/residents/unlinked`, which creates the auth user via the Admin API, sets `must_change_password = true`, and backfills `residents.auth_user_id`
+
 ---
 
 ## Types & Migration Conventions
@@ -249,6 +255,7 @@ return () => { supabase.removeChannel(channel); };
 - **Storage**: Employee documents, visitor photos, job evidence photos
 - **SQL Functions**: payroll_calculation, po_status_transition, reconciliation_matching, visitor_approval, log_material_arrival, auto_punch_out_idle_employees, detect_chemical_expiry
 - **Recent procurement hardening**: `20260323000002_fix_audit_log_uuid_writers.sql` aligns legacy audit writers to `audit_logs.entity_id uuid`; `20260323000003_fix_finance_closure_target_dates.sql` fixes finance closure trigger date-column handling for `purchase_bills`, `sale_bills`, `payments`, and `ledger_entries`
+- **Latest procurement workflow hardening**: `20260329000001_fix_procurement_po_dispatched_flow.sql` aligns `dispatched` across the PO transition RPCs and keeps buyer requests moving to `material_received` after GRN acceptance or partial acceptance
 - **Reference schema**: `docs/reference_schema.sql` (134KB)
 
 ---
@@ -275,7 +282,7 @@ return () => { supabase.removeChannel(channel); };
 
 ---
 
-## Existing Hooks Reference (100 hooks)
+## Existing Hooks Reference (102 hooks)
 
 Below is a categorized list of all hooks. **Always check if a hook already exists before creating a new one.**
 
@@ -286,7 +293,7 @@ Below is a categorized list of all hooks. **Always check if a hook already exist
 `useRoles`, `useEmployees`, `useEmployeeProfile`, `useEmployeeDocuments`
 
 ### Inventory & Supply
-`useProducts`, `useInventory`, `useWarehouses`, `useSuppliers`, `useSupplierProducts`, `useSupplierRates`, `useSupplierRateSubscription`, `useSaleProductRates`, `useSaleRateSubscription`, `useReorderAlerts`, `useServices`
+`useProducts`, `useInventory`, `useWarehouses`, `useSuppliers`, `useSupplierProducts`, `useSupplierRates`, `useSupplierRateSubscription`, `useSaleProductRates`, `useSaleRateSubscription`, `useReorderAlerts`, `useServices`, `useWaitlist`
 
 ### Procurement
 `useIndents`, `usePurchaseOrders`, `usePurchaseOrderList`, `usePurchaseOrderDetails`, `useGRN`, `useSupplierBills` (bill number generation via `generateBillNumber()`, document upload to storage via `uploadBillDocument(billId, supplierId, file)`)
@@ -298,7 +305,7 @@ Below is a categorized list of all hooks. **Always check if a hook already exist
 `useBuyerRequests`, `useBuyerInvoices`, `useBuyerFeedback`
 
 ### Supplier Portal
-`useSupplierPortal`, `useServicePurchaseOrders`, `useServiceDeliveryNotes`, `usePersonnelDispatches`
+`useSupplierPortal` (goods portal + supplier-scoped service orders + service acknowledgments + supplier profile self-service), `useServicePurchaseOrders`, `useServiceDeliveryNotes`, `usePersonnelDispatches`
 
 ### HRMS
 `useAttendance`, `useShifts`, `usePayroll`, `useLeaveApplications`, `useLeaveTypes`, `useHolidays`, `useCompanyEvents`, `useCandidates`, `useBackgroundVerifications`
@@ -307,7 +314,7 @@ Below is a categorized list of all hooks. **Always check if a hook already exist
 `useVisitors`, `useGuardVisitors`, `useGuardChecklist`, `usePanicAlert`, `usePanicAlertHistory`, `usePanicAlertSubscription`, `useInactivityMonitor`, `useGuardLiveLocation`, `usePatrolLogs`, `useSecurityGuards`, `useResident`, `useResidentLookup`, `useResidentProfile`, `useSocieties`, `useSocietyStats`, `useSocietyAudit`, `useEmergencyContacts`, `useSupervisorStats`, `useReorderAlerts`
 
 ### Services
-`useServiceRequests`, `useServiceRequestSubscription`, `useTechnicians`, `useVendorWiseServices`, `useWorkMaster`, `useJobSessions`, `useJobSessionSubscription`, `useJobMaterials`, `useJobPhotos`, `useMaintenanceSchedules`, `usePestControlInventory`, `usePlantationOps`, `usePrintingMaster`, `useSpillKits`, `useAdBookings`
+`useServiceRequests`, `useServiceRequestSubscription`, `useTechnicians`, `useVendorWiseServices`, `useWorkMaster`, `useJobSessions`, `useJobSessionSubscription`, `useJobMaterials`, `useJobPhotos`, `useMaintenanceSchedules`, `usePestControlInventory`, `usePlantation`, `usePlantationOps`, `usePrintingMaster`, `useSpillKits`, `useAdBookings`, `useServiceDeploymentMasters`
 
 ### Tickets
 `useBehaviorTickets`, `useRTVTickets`, `useShortageNotes`
@@ -319,6 +326,6 @@ Below is a categorized list of all hooks. **Always check if a hook already exist
 `useMDStats`, `useHODStats`, `useAnalyticsData`, `usePushNotifications`
 
 ### Platform
-`useAuditLogs`, `useNotifications`, `usePlatformAdminAccounts`, `usePlatformAuditLogs`, `usePlatformConfig`, `usePlatformRolePermissions`, `useSupabaseMutation`, `useSupabaseQuery`, `useUsers`
+`useAuditLogs`, `useNotifications`, `usePlatformAdminAccounts`, `usePlatformAuditLogs`, `usePlatformConfig`, `usePlatformRolePermissions`, `useSupabaseMutation`, `useSupabaseQuery`, `useSystemConfig`, `useUsers`
 
 

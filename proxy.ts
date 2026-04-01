@@ -10,11 +10,21 @@ import { updateSession } from "@/src/lib/supabase/middleware";
  * All other paths require a valid session.
  */
 const PUBLIC_PATHS = ["/login", "/api/auth", "/api/waitlist"];
+
+/**
+ * API routes exempt from middleware RBAC checks.
+ * ⚠️ CRITICAL: Each exempted route MUST validate user role internally.
+ * Exemption is only safe if the handler explicitly checks required roles.
+ * Do not add routes to this list without:
+ * 1. Reviewing the handler code for role-based access control
+ * 2. Adding a JSDoc comment explaining why this route is exempted
+ * 3. Adding/updating tests that verify role enforcement
+ */
 const API_PERMISSION_EXEMPTIONS = [
-  "/api/society/residents",
-  "/api/society/visitors/",
-  "/api/users/change-password",
-  "/api/residents/unlinked",
+  "/api/society/residents", // ✅ Validates role: admin, society_manager only
+  "/api/society/visitors/", // ✅ Validates role: admin, society_manager, guard only (see VISITOR_MANAGEMENT_ROLES in handler)
+  "/api/users/change-password", // ✅ Validates role: authenticated users can change their own password
+  "/api/residents/unlinked", // ✅ Validates role: admin, society_manager only
 ];
 
 /**
@@ -54,8 +64,16 @@ export async function proxy(request: NextRequest) {
 
   if (PUBLIC_PATHS.some((publicPath) => pathname.startsWith(publicPath))) {
     if (pathname.startsWith("/login")) {
-      const { user } = await updateSession(request);
+      const { user, role, isActive, mustChangePassword } = await updateSession(request);
       if (user) {
+        if (mustChangePassword) {
+          return NextResponse.redirect(new URL("/change-password", request.url));
+        }
+
+        if (isActive === false || !role) {
+          return NextResponse.next();
+        }
+
         return NextResponse.redirect(new URL("/dashboard", request.url));
       }
     }
@@ -140,5 +158,7 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon|icons|images|sw\\.js|workbox-|.*\\.(?:png|ico|svg|webmanifest)).*)",
+  ],
 };

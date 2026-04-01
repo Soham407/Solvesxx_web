@@ -1,0 +1,124 @@
+{
+  "profiles": [
+    {
+      "id": "claude-main",
+      "tool": "claude",
+      "command": "claude",
+      "invocation_mode": "stdin",
+      "timeout_multiplier": 1.0,
+      "enabled": true
+    },
+    {
+      "id": "codex-oauth-1",
+      "tool": "codex",
+      "command": "C:\\Users\\soham\\ai-profiles\\bin\\codex-oauth-1.cmd",
+      "invocation_mode": "exec_arg",
+      "timeout_multiplier": 1.0,
+      "enabled": true
+    },
+    {
+      "id": "codex-oauth-2",
+      "tool": "codex",
+      "command": "C:\\Users\\soham\\ai-profiles\\bin\\codex-oauth-2.cmd",
+      "invocation_mode": "exec_arg",
+      "timeout_multiplier": 1.0,
+      "enabled": true
+    },
+    {
+      "id": "codex-oauth-3",
+      "tool": "codex",
+      "command": "C:\\Users\\soham\\ai-profiles\\bin\\codex-oauth-3.cmd",
+      "invocation_mode": "exec_arg",
+      "timeout_multiplier": 1.0,
+      "enabled": true
+    },
+    {
+      "id": "codex-oauth-4",
+      "tool": "codex",
+      "command": "C:\\Users\\soham\\ai-profiles\\bin\\codex-oauth-4.cmd",
+      "invocation_mode": "exec_arg",
+      "timeout_multiplier": 1.0,
+      "enabled": true
+    },
+    {
+      "id": "codex-oauth-5",
+      "tool": "codex",
+      "command": "C:\\Users\\soham\\ai-profiles\\bin\\codex-oauth-5.cmd",
+      "invocation_mode": "exec_arg",
+      "timeout_multiplier": 1.0,
+      "enabled": true
+    },
+    {
+      "id": "gemini-oauth-1",
+      "tool": "gemini",
+      "command": "C:\\Users\\soham\\ai-profiles\\bin\\gemini-oauth-1.cmd --yolo",
+      "invocation_mode": "stdin",
+      "timeout_multiplier": 3.0,
+      "enabled": true
+    },
+    {
+      "id": "gemini-oauth-2",
+      "tool": "gemini",
+      "command": "C:\\Users\\soham\\ai-profiles\\bin\\gemini-oauth-2.cmd --yolo",
+      "invocation_mode": "stdin",
+      "timeout_multiplier": 3.0,
+      "enabled": true
+    },
+    {
+      "id": "gemini-oauth-3",
+      "tool": "gemini",
+      "command": "C:\\Users\\soham\\ai-profiles\\bin\\gemini-oauth-3.cmd --yolo",
+      "invocation_mode": "stdin",
+      "timeout_multiplier": 3.0,
+      "enabled": true
+    },
+    {
+      "id": "gemini-oauth-4",
+      "tool": "gemini",
+      "command": "C:\\Users\\soham\\ai-profiles\\bin\\gemini-oauth-4.cmd --yolo",
+      "invocation_mode": "stdin",
+      "timeout_multiplier": 3.0,
+      "enabled": true
+    }
+  ],
+  "stage_policies": {
+    "claude_audit": [
+      "claude-main",
+      "gemini-oauth-1",
+      "gemini-oauth-2",
+      "gemini-oauth-3",
+      "gemini-oauth-4"
+    ],
+    "codex_fix": [
+      "codex-oauth-1",
+      "codex-oauth-2",
+      "codex-oauth-3",
+      "codex-oauth-4",
+      "codex-oauth-5",
+      "claude-main"
+    ],
+    "gemini_test": [
+      "gemini-oauth-1",
+      "gemini-oauth-2",
+      "gemini-oauth-3",
+      "gemini-oauth-4",
+      "codex-oauth-1",
+      "codex-oauth-2"
+    ],
+    "copilot_review": [
+      "claude-main"
+    ],
+    "gemini_review": [
+      "gemini-oauth-1",
+      "gemini-oauth-2",
+      "gemini-oauth-3",
+      "gemini-oauth-4",
+      "claude-main"
+    ]
+  },
+  "cooldowns": {
+    "quota_minutes": 480,
+    "rate_limit_minutes": 20,
+    "transient_minutes": 10
+  }
+}

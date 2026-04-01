@@ -13,22 +13,45 @@ VALUES (
 )
 ON CONFLICT (id) DO NOTHING;
 
--- RLS policy: authenticated users can upload (INSERT) to bill-documents
-CREATE POLICY "Authenticated users can upload bill documents"
-ON storage.objects
-FOR INSERT
-TO authenticated
-WITH CHECK (bucket_id = 'bill-documents');
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'storage'
+      AND tablename = 'objects'
+      AND policyname = 'Authenticated users can upload bill documents'
+  ) THEN
+    CREATE POLICY "Authenticated users can upload bill documents"
+    ON storage.objects
+    FOR INSERT
+    TO authenticated
+    WITH CHECK (bucket_id = 'bill-documents');
+  END IF;
 
--- RLS policy: authenticated users can read (SELECT) from bill-documents
-CREATE POLICY "Authenticated users can read bill documents"
-ON storage.objects
-FOR SELECT
-TO authenticated
-USING (bucket_id = 'bill-documents');
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'storage'
+      AND tablename = 'objects'
+      AND policyname = 'Authenticated users can read bill documents'
+  ) THEN
+    CREATE POLICY "Authenticated users can read bill documents"
+    ON storage.objects
+    FOR SELECT
+    TO authenticated
+    USING (bucket_id = 'bill-documents');
+  END IF;
 
--- RLS policy: authenticated users can delete from bill-documents (needed for rollback on upload failure)
-CREATE POLICY "Authenticated users can delete bill documents"
-ON storage.objects FOR DELETE
-TO authenticated
-USING (bucket_id = 'bill-documents');
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'storage'
+      AND tablename = 'objects'
+      AND policyname = 'Authenticated users can delete bill documents'
+  ) THEN
+    CREATE POLICY "Authenticated users can delete bill documents"
+    ON storage.objects
+    FOR DELETE
+    TO authenticated
+    USING (bucket_id = 'bill-documents');
+  END IF;
+END;
+$$;

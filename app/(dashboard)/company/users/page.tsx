@@ -26,11 +26,19 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useUsers, UserMaster } from "@/hooks/useUsers";
+import { EditRoleDialog } from "@/components/dialogs/EditRoleDialog";
 
 export default function UsersPage() {
-  const { users, isLoading, error, deactivateUser, activateUser, refresh } = useUsers();
+  const { users, isLoading, error, suspendUser, activateUser, refresh } = useUsers();
   const [mfaDialogOpen, setMfaDialogOpen] = useState(false);
   const [provisionDialogOpen, setProvisionDialogOpen] = useState(false);
+  const [editRoleDialogOpen, setEditRoleDialogOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<UserMaster | null>(null);
+
+  const handleEditRole = (user: UserMaster) => {
+    setSelectedUser(user);
+    setEditRoleDialogOpen(true);
+  };
 
   const handleResetPassword = async (user: UserMaster) => {
     if (user.is_admin_tier) {
@@ -142,6 +150,9 @@ export default function UsersPage() {
                 </>
               ) : (
                 <>
+                  <DropdownMenuItem className="gap-2" onClick={() => handleEditRole(user)}>
+                    <ShieldCheck className="h-3.5 w-3.5" /> Edit Role
+                  </DropdownMenuItem>
                   <DropdownMenuItem className="gap-2" onClick={() => handleResetPassword(user)}>
                     <ShieldCheck className="h-3.5 w-3.5" /> Reset Password
                   </DropdownMenuItem>
@@ -151,9 +162,9 @@ export default function UsersPage() {
                   {user.is_active ? (
                     <DropdownMenuItem
                       className="text-destructive font-bold gap-2"
-                      onClick={() => deactivateUser(user)}
+                      onClick={() => suspendUser(user)}
                     >
-                      Deactivate User
+                      Suspend User
                     </DropdownMenuItem>
                   ) : (
                     <DropdownMenuItem
@@ -196,6 +207,13 @@ export default function UsersPage() {
       <ProvisionUserDialog
         open={provisionDialogOpen}
         onOpenChange={setProvisionDialogOpen}
+        onSuccess={refresh}
+      />
+
+      <EditRoleDialog
+        user={selectedUser}
+        open={editRoleDialogOpen}
+        onOpenChange={setEditRoleDialogOpen}
         onSuccess={refresh}
       />
 

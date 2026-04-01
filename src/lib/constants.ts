@@ -56,6 +56,7 @@ export const SERVICE_REQUEST_STATUS = {
   IN_PROGRESS: 'in_progress',
   ON_HOLD: 'on_hold',
   COMPLETED: 'completed',
+  CLOSED: 'closed',
   CANCELLED: 'cancelled',
 } as const;
 
@@ -65,6 +66,7 @@ export const SERVICE_REQUEST_STATUS_LABELS: Record<string, string> = {
   in_progress: 'In Progress',
   on_hold: 'On Hold',
   completed: 'Completed',
+  closed: 'Closed',
   cancelled: 'Cancelled',
 };
 
@@ -74,6 +76,7 @@ export const SERVICE_REQUEST_STATUS_COLORS: Record<string, string> = {
   in_progress: '#f59e0b', // amber
   on_hold: '#6b7280',    // gray
   completed: '#22c55e',  // green
+  closed: '#0f172a',     // slate-900
   cancelled: '#ef4444',  // red
 };
 
