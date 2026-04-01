@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
 import { useToast } from "@/components/ui/use-toast";
-import { getCurrentEmployeeId } from "@/src/lib/security/getCurrentEmployeeId";
+import { getCurrentUserId } from "@/src/lib/security/getCurrentUserId";
 
 /**
  * Panic Alert History Hook
@@ -46,8 +46,11 @@ export interface PanicAlert {
     location_code: string;
   };
   resolver?: {
-    first_name: string | null;
-    last_name: string | null;
+    full_name: string | null;
+    employee?: {
+      first_name: string | null;
+      last_name: string | null;
+    };
   };
 }
 
@@ -95,7 +98,10 @@ export function usePanicAlertHistory(initialFilters?: AlertFilters) {
             employee:employees(first_name, last_name, phone)
           ),
           location:company_locations(location_name, location_code),
-          resolver:employees!panic_alerts_resolved_by_fkey(first_name, last_name)
+          resolver:users!panic_alerts_resolved_by_fkey(
+            full_name,
+            employee:employees(first_name, last_name)
+          )
         `)
         .order("alert_time", { ascending: false });
 
@@ -203,7 +209,7 @@ export function usePanicAlertHistory(initialFilters?: AlertFilters) {
   // Resolve an alert (PRD: Resolution notes)
   const resolveAlert = async (alertId: string, resolutionNotes: string) => {
     try {
-      const resolvedBy = await getCurrentEmployeeId();
+      const resolvedBy = await getCurrentUserId();
 
       const { error: updateError } = await supabase
         .from("panic_alerts")

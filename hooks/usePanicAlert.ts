@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
 import { sendPanicAlertNotification } from "@/src/lib/notifications";
-import { getCurrentEmployeeId } from "@/src/lib/security/getCurrentEmployeeId";
+import { getCurrentUserId } from "@/src/lib/security/getCurrentUserId";
 
 interface PanicAlertState {
   isTriggering: boolean;
@@ -234,7 +234,7 @@ export function usePanicAlert() {
   const resolveAlert = useCallback(
     async (alertId: string, resolutionNotes?: string): Promise<boolean> => {
       try {
-        const resolvedBy = await getCurrentEmployeeId();
+        const resolvedBy = await getCurrentUserId();
 
         const { error } = await supabase
           .from("panic_alerts")
