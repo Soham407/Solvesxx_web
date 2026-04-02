@@ -759,7 +759,6 @@ AS $$
       gt.employee_id,
       gt.latitude,
       gt.longitude,
-      gt.is_within_fence,
       gt.tracked_at
     FROM public.gps_tracking gt
     ORDER BY gt.employee_id, gt.tracked_at DESC
@@ -803,7 +802,17 @@ AS $$
     CASE
       WHEN a.last_check_in IS NULL OR a.last_check_out IS NOT NULL THEN 'off_duty'
       WHEN lg.tracked_at IS NULL OR lg.tracked_at < NOW() - INTERVAL '10 minutes' THEN 'offline'
-      WHEN lg.is_within_fence = FALSE THEN 'breach'
+      WHEN
+        lg.tracked_at IS NOT NULL
+        AND cl.latitude IS NOT NULL
+        AND cl.longitude IS NOT NULL
+        AND NOT check_geofence(
+          lg.latitude::DOUBLE PRECISION,
+          lg.longitude::DOUBLE PRECISION,
+          cl.latitude::DOUBLE PRECISION,
+          cl.longitude::DOUBLE PRECISION,
+          COALESCE(cl.geo_fence_radius::DOUBLE PRECISION, 100.0)
+        ) THEN 'breach'
       ELSE 'on_duty'
     END AS status,
     COALESCE(lg.tracked_at, a.last_check_in) AS last_seen_at,
@@ -816,7 +825,7 @@ AS $$
   FROM public.security_guards sg
   JOIN public.employees e ON e.id = sg.employee_id
   LEFT JOIN public.company_locations cl ON cl.id = sg.assigned_location_id
-  LEFT JOIN latest_gps lg ON lg.employee_id = e.id
+  LEFT JOIN latest_gps lg ON lg.employee_id = sg.id
   LEFT JOIN attendance a ON a.employee_id = e.id
   LEFT JOIN checklist c ON c.employee_id = e.id
   CROSS JOIN checklist_total ct
