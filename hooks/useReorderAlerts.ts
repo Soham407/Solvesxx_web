@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
 import type { StockLevel } from "@/src/types/operations";
-import { sendReorderAlertNotification } from "@/src/lib/notifications";
 
 interface ReorderAlert {
   id: string;
@@ -101,42 +100,10 @@ export function useReorderAlerts(warehouseId?: string): UseReorderAlertsReturn {
         isLoading: false,
         error: null,
       });
-
-      // Send push notifications for newly detected alerts (not previously notified this session)
+      // Passive dashboard reads must not trigger outbound notifications from the client.
+      // Delivery fan-out belongs in a server-side workflow once alert state is persisted.
       const newAlerts = alerts.filter((a) => !notifiedAlertIds.current.has(a.id));
-      if (newAlerts.length > 0) {
-        try {
-          // Fetch manager/admin employees using the same pattern as usePanicAlert
-          const { data: managers } = await supabase
-            .from("employees")
-            .select("auth_user_id, designations!inner(designation_name)")
-            .or(
-              "designation_name.eq.Admin,designation_name.eq.Security Supervisor,designation_name.eq.Society Manager,designation_name.eq.Company HOD",
-              { referencedTable: "designations" }
-            )
-            .eq("is_active", true);
-
-          const managerIds = (managers || [])
-            .map((m: any) => m.auth_user_id)
-            .filter(Boolean) as string[];
-
-          if (managerIds.length > 0) {
-            for (const alert of newAlerts) {
-              if (alert.productName) {
-                await sendReorderAlertNotification(managerIds, alert.productName, alert.alertType);
-              }
-              notifiedAlertIds.current.add(alert.id);
-            }
-          } else {
-            // Still mark as notified to avoid repeated queries with no recipients
-            newAlerts.forEach((a) => notifiedAlertIds.current.add(a.id));
-          }
-        } catch (notifErr) {
-          console.error("Failed to send reorder alert notification:", notifErr);
-          // Non-blocking — mark as notified so we don't spam on next fetch
-          newAlerts.forEach((a) => notifiedAlertIds.current.add(a.id));
-        }
-      }
+      newAlerts.forEach((a) => notifiedAlertIds.current.add(a.id));
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Failed to fetch reorder alerts";
       console.error("Error fetching reorder alerts:", err);
@@ -296,3 +263,5 @@ export function useReorderAlerts(warehouseId?: string): UseReorderAlertsReturn {
 }
 
 export type { ReorderAlert };
+
+

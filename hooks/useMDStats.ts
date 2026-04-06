@@ -15,7 +15,7 @@ interface MDStats {
   guardStrength: number;
   totalRevenue: number | null;
   clientRetention: number | null;
-  psaraCompliancePercent: number | null;
+  policeVerificationCompliancePercent: number | null;
   monthlyTrends: MonthlyTrend[];
 }
 
@@ -33,7 +33,7 @@ export function useMDStats(): UseMDStatsReturn {
     guardStrength: 0,
     totalRevenue: null,
     clientRetention: null,
-    psaraCompliancePercent: null,
+    policeVerificationCompliancePercent: null,
     monthlyTrends: [],
   });
   const [isLoading, setIsLoading] = useState(true);
@@ -47,59 +47,61 @@ export function useMDStats(): UseMDStatsReturn {
       const currentYear = new Date().getFullYear();
       const yearStart = `${currentYear}-01-01`;
 
-      const [
-        societiesRes,
-        empRes,
-        guardRes,
-        revenueRes,
-        saleBillsRes,
-        purchaseBillsRes,
-        guardsWithPsaraRes,
-      ] = await Promise.all([
-        supabase.from("societies").select("id", { count: "exact" }).eq("is_active", true),
-        supabase.from("employees").select("id", { count: "exact" }).eq("is_active", true),
-        supabase.from("security_guards").select("id", { count: "exact" }),
-        // YTD revenue = sum of paid amounts on sale_bills in current year
-        (supabase as any)
-          .from("sale_bills")
-          .select("paid_amount")
-          .eq("payment_status", "paid")
-          .gte("created_at", yearStart),
-        // Monthly sale bills (last 6 months)
-        (supabase as any)
-          .from("sale_bills")
-          .select("paid_amount, created_at")
-          .gte("created_at", new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString()),
-        // Monthly purchase bills (last 6 months)
-        (supabase as any)
-          .from("purchase_bills")
-          .select("paid_amount, created_at")
-          .gte("created_at", new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString()),
-        // Guards with valid PSARA certificates
-        (supabase as any)
-          .from("employee_documents")
-          .select("id", { count: "exact" })
-          .eq("document_type", "psara_license")
-          .eq("is_verified", true)
-          .gte("expiry_date", new Date().toISOString()),
-      ]);
+      const [societiesRes, empRes, guardRes, revenueRes, saleBillsRes, purchaseBillsRes] =
+        await Promise.all([
+          supabase.from("societies").select("id", { count: "exact" }).eq("is_active", true),
+          supabase.from("employees").select("id", { count: "exact" }).eq("is_active", true),
+          supabase.from("security_guards").select("id, employee_id"),
+          (supabase as any)
+            .from("sale_bills")
+            .select("paid_amount")
+            .eq("payment_status", "paid")
+            .gte("created_at", yearStart),
+          (supabase as any)
+            .from("sale_bills")
+            .select("paid_amount, created_at")
+            .gte("created_at", new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString()),
+          (supabase as any)
+            .from("purchase_bills")
+            .select("paid_amount, created_at")
+            .gte("created_at", new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString()),
+        ]);
 
-      // Compute YTD revenue
+      if (societiesRes.error) throw societiesRes.error;
+      if (empRes.error) throw empRes.error;
+      if (guardRes.error) throw guardRes.error;
+      if (revenueRes.error) throw revenueRes.error;
+      if (saleBillsRes.error) throw saleBillsRes.error;
+      if (purchaseBillsRes.error) throw purchaseBillsRes.error;
+
       const totalRevenue = revenueRes.data
-        ? revenueRes.data.reduce((sum: number, r: any) => sum + (r.paid_amount || 0), 0)
+        ? revenueRes.data.reduce((sum: number, row: any) => sum + (row.paid_amount || 0), 0)
         : null;
 
-      // PSARA compliance %
-      const guardTotal = guardRes.count || 0;
-      const guardsWithPsara = guardsWithPsaraRes.count || 0;
-      const psaraCompliancePercent =
-        guardTotal > 0 ? Math.round((guardsWithPsara / guardTotal) * 100) : null;
+      const guards = (guardRes.data || []) as Array<{ id: string; employee_id: string | null }>;
+      const guardTotal = guards.length;
+      const guardEmployeeIds = guards
+        .map((guard) => guard.employee_id)
+        .filter((employeeId): employeeId is string => Boolean(employeeId));
 
-      // Build monthly trends
+      let policeVerificationCompliancePercent: number | null = null;
+      if (guardTotal > 0) {
+        const { count: verifiedCount, error: verificationError } = await (supabase as any)
+          .from("employee_documents")
+          .select("employee_id", { count: "exact", head: true })
+          .eq("document_type", "police_verification")
+          .eq("status", "verified")
+          .in("employee_id", guardEmployeeIds);
+
+        if (verificationError) throw verificationError;
+
+        policeVerificationCompliancePercent = Math.round(((verifiedCount || 0) / guardTotal) * 100);
+      }
+
       const monthMap: Record<string, MonthlyTrend> = {};
       const getMonthKey = (dateStr: string) => {
-        const d = new Date(dateStr);
-        return d.toLocaleString("en-IN", { month: "short", year: "2-digit" });
+        const date = new Date(dateStr);
+        return date.toLocaleString("en-IN", { month: "short", year: "2-digit" });
       };
 
       (saleBillsRes.data || []).forEach((row: any) => {
@@ -107,28 +109,26 @@ export function useMDStats(): UseMDStatsReturn {
         if (!monthMap[key]) monthMap[key] = { month: key, revenue: 0, expenses: 0 };
         monthMap[key].revenue += row.paid_amount || 0;
       });
+
       (purchaseBillsRes.data || []).forEach((row: any) => {
         const key = getMonthKey(row.created_at);
         if (!monthMap[key]) monthMap[key] = { month: key, revenue: 0, expenses: 0 };
         monthMap[key].expenses += row.paid_amount || 0;
       });
 
-      const monthlyTrends = Object.values(monthMap).sort((a, b) =>
-        a.month.localeCompare(b.month),
-      );
+      const monthlyTrends = Object.values(monthMap).sort((a, b) => a.month.localeCompare(b.month));
 
       setStats({
         activeSocieties: societiesRes.count || 0,
         totalEmployees: empRes.count || 0,
         guardStrength: guardTotal,
-        totalRevenue: revenueRes.error ? null : totalRevenue,
+        totalRevenue,
         clientRetention: null,
-        psaraCompliancePercent,
+        policeVerificationCompliancePercent,
         monthlyTrends,
       });
     } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Failed to fetch MD stats";
+      const errorMessage = err instanceof Error ? err.message : "Failed to fetch MD stats";
       setError(errorMessage);
       console.error("Error fetching MD stats:", err);
     } finally {

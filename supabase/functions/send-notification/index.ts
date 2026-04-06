@@ -36,6 +36,7 @@ if (!admin.apps.length) {
 }
 
 interface NotificationRequest {
+  notification_id?: string;
   user_id?: string; // Optional if sending to specific non-user mobile
   title: string;
   body: string;
@@ -55,6 +56,11 @@ async function validateAuth(req: Request): Promise<{ authorized: boolean; userId
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) {
     return { authorized: false };
+  }
+
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (serviceRoleKey && authHeader === `Bearer ${serviceRoleKey}`) {
+    return { authorized: true, userId: 'service-role' };
   }
 
   // Validate strictly as a Supabase user JWT — no service key shortcut
@@ -95,7 +101,7 @@ Deno.serve(async (req) => {
     );
 
     const payload: NotificationRequest = await req.json();
-    const { user_id, data, channel = 'fcm', mobile } = payload;
+    const { notification_id, user_id, data, channel = 'fcm', mobile } = payload;
     const title = typeof payload.title === 'string' ? payload.title.slice(0, 200) : payload.title;
     const body = typeof payload.body === 'string' ? payload.body.slice(0, 1000) : payload.body;
 
@@ -122,6 +128,14 @@ Deno.serve(async (req) => {
 
       if (tokenError) {
         console.error('Error fetching tokens:', tokenError);
+        logs.push({
+          notification_id,
+          user_id,
+          channel: 'fcm',
+          status: 'failed',
+          error_message: tokenError.message,
+          sent_at: new Date().toISOString(),
+        });
       } else if (tokens && tokens.length > 0) {
         const promises = tokens.map(async (t) => {
           try {
@@ -143,7 +157,25 @@ Deno.serve(async (req) => {
         });
 
         const results = await Promise.all(promises);
-        results.forEach(res => logs.push({ user_id, channel: 'fcm', status: res.status, error_message: res.error, sent_at: new Date().toISOString() }));
+        results.forEach((res) =>
+          logs.push({
+            notification_id,
+            user_id,
+            channel: 'fcm',
+            status: res.status,
+            error_message: res.error,
+            sent_at: new Date().toISOString(),
+          }),
+        );
+      } else {
+        logs.push({
+          notification_id,
+          user_id,
+          channel: 'fcm',
+          status: 'failed',
+          error_message: 'No active push tokens',
+          sent_at: new Date().toISOString(),
+        });
       }
     }
 
@@ -164,7 +196,14 @@ Deno.serve(async (req) => {
       }
 
       if (!msg91ApiKey || !msg91TemplateId) {
-        logs.push({ user_id, channel: 'sms', status: 'failed', error_message: 'MSG91 Config Missing', sent_at: new Date().toISOString() });
+        logs.push({
+          notification_id,
+          user_id,
+          channel: 'sms',
+          status: 'failed',
+          error_message: 'MSG91 Config Missing',
+          sent_at: new Date().toISOString(),
+        });
       } else if (targetMobile) {
         try {
           // New Flow API Implementation
@@ -196,17 +235,38 @@ Deno.serve(async (req) => {
           });
 
           if (response.ok) {
-            logs.push({ user_id, channel: 'sms', status: 'sent', recipient_phone: cleanPhone, sent_at: new Date().toISOString() });
+            logs.push({
+              notification_id,
+              user_id,
+              channel: 'sms',
+              status: 'sent',
+              recipient_phone: cleanPhone,
+              sent_at: new Date().toISOString(),
+            });
           } else {
             const errText = await response.text();
             throw new Error(`MSG91 Flow Error: ${errText}`);
           }
 
         } catch (smsErr: any) {
-           logs.push({ user_id, channel: 'sms', status: 'failed', error_message: smsErr.message, sent_at: new Date().toISOString() });
+           logs.push({
+             notification_id,
+             user_id,
+             channel: 'sms',
+             status: 'failed',
+             error_message: smsErr.message,
+             sent_at: new Date().toISOString(),
+           });
         }
       } else {
-         logs.push({ user_id, channel: 'sms', status: 'failed', error_message: 'No mobile found', sent_at: new Date().toISOString() });
+         logs.push({
+           notification_id,
+           user_id,
+           channel: 'sms',
+           status: 'failed',
+           error_message: 'No mobile found',
+           sent_at: new Date().toISOString(),
+         });
       }
     }
 

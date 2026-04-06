@@ -1,6 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="480" height="480" viewBox="0 0 480 480">
-  <rect width="480" height="480" fill="#e7edf5" />
-  <circle cx="240" cy="170" r="82" fill="#7f93ad" />
-  <path d="M120 392c18-72 72-112 120-112s102 40 120 112" fill="#7f93ad" />
-  <text x="240" y="442" text-anchor="middle" font-family="Arial" font-size="24" fill="#2f4258">E2E VISITOR</text>
-</svg>

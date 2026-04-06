@@ -233,22 +233,22 @@ export function MDDashboard() {
                 <ShieldCheck className="h-5 w-5" />
               </div>
               <div className="space-y-1">
-                <h3 className="text-lg font-semibold uppercase tracking-wide">PSARA Compliance</h3>
-                <p className="text-xs text-indigo-100/70 font-medium">Guards with valid licenses</p>
+                <h3 className="text-lg font-semibold uppercase tracking-wide">Police Verification</h3>
+                <p className="text-xs text-indigo-100/70 font-medium">Guards with verified police records</p>
               </div>
               {isLoading ? (
                 <Skeleton className="h-10 w-24 bg-white/20" />
-              ) : stats.psaraCompliancePercent !== null ? (
+              ) : stats.policeVerificationCompliancePercent !== null ? (
                 <div className="flex flex-col gap-2">
-                  <span className="text-4xl font-black">{stats.psaraCompliancePercent}%</span>
+                  <span className="text-4xl font-black">{stats.policeVerificationCompliancePercent}%</span>
                   <div className="w-full h-2 rounded-full bg-white/20">
                     <div
                       className="h-full rounded-full bg-white transition-all duration-700"
-                      style={{ width: `${stats.psaraCompliancePercent}%` }}
+                      style={{ width: `${stats.policeVerificationCompliancePercent}%` }}
                     />
                   </div>
                   <span className="text-xs text-indigo-100/70">
-                    {stats.psaraCompliancePercent >= 80 ? "Compliant" : "Action required"}
+                    {stats.policeVerificationCompliancePercent >= 80 ? "Compliant" : "Action required"}
                   </span>
                 </div>
               ) : (
@@ -304,3 +304,4 @@ export function MDDashboard() {
     </div>
   );
 }
+
