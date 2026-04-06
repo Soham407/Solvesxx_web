@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useSupabaseMutation } from "@/hooks/lib/useSupabaseMutation";
 import { useSupabaseQuery } from "@/hooks/lib/useSupabaseQuery";
 import { insertAuditLog } from "@/src/lib/platform/audit";
+import { hasPermission } from "@/src/lib/platform/permissions";
 import {
   getSystemConfigNumber,
   normalizeSystemConfigRows,
@@ -21,8 +22,11 @@ interface SystemConfigUpdateEntry {
   value: string;
 }
 
-const ACCESS_ERROR = "Only admins can access system configuration.";
-const UPDATE_ERROR = "Only admins can update system configuration.";
+const REQUIRED_PERMISSION = "platform.config.manage";
+const ACCESS_ERROR =
+  "You do not have permission to access system configuration.";
+const UPDATE_ERROR =
+  "You do not have permission to update system configuration.";
 
 function getDefaultConfigRows(): SystemConfigEntry[] {
   return Object.values(normalizeSystemConfigRows([]));
@@ -51,11 +55,12 @@ function normalizeConfigValue(key: SystemConfigKey, rawValue: string): string {
 }
 
 export function useSystemConfig() {
-  const { role, userId, isLoading: isAuthLoading } = useAuth();
+  const { role, permissions, userId, isLoading: isAuthLoading } = useAuth();
+  const canManage = hasPermission(permissions, REQUIRED_PERMISSION);
 
   const configQuery = useSupabaseQuery<SystemConfigEntry>(
     async () => {
-      if (isAuthLoading || role !== "admin") {
+      if (isAuthLoading || !canManage) {
         return getDefaultConfigRows();
       }
 
@@ -70,7 +75,7 @@ export function useSystemConfig() {
 
       return Object.values(normalizeSystemConfigRows(data ?? []));
     },
-    [isAuthLoading, role]
+    [canManage, isAuthLoading]
   );
 
   const config = useMemo(() => {
@@ -90,7 +95,7 @@ export function useSystemConfig() {
     Record<SystemConfigKey, SystemConfigEntry>
   >(
     async (nextValues) => {
-      if (role !== "admin") {
+      if (!canManage) {
         throw new Error(UPDATE_ERROR);
       }
 
@@ -161,7 +166,7 @@ export function useSystemConfig() {
   );
 
   const error =
-    !isAuthLoading && role !== "admin" ? ACCESS_ERROR : configQuery.error;
+    !isAuthLoading && !canManage ? ACCESS_ERROR : configQuery.error;
 
   return {
     config,
@@ -173,7 +178,7 @@ export function useSystemConfig() {
     updateEntry: (update: SystemConfigUpdateEntry) =>
       updateConfig({ [update.key]: update.value }),
     isSaving,
-    canManage: role === "admin",
+    canManage,
     getNumber: (key: SystemConfigKey) => getSystemConfigNumber(config, key),
   };
 }

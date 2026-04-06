@@ -877,7 +877,12 @@ const hrmsServiceFeatures: ScopedFeatureTestConfig[] = [
     routes: ["/hrms/payroll"],
     primaryRoles: ["account"],
     fixtureProfile: "hrms_core",
-    wave1Checks: [{ route: "/hrms/payroll", readyText: "Personnel Payroll", ctaText: "Create Payroll Cycle", entityChecks: [{ table: "payroll_cycles", minCount: 1 }] }],
+    wave1Checks: [{
+      route: "/hrms/payroll",
+      readyText: "Personnel Payroll",
+      secondaryText: "Payroll Registry - Current Cycle",
+      entityChecks: [{ table: "payroll_cycles", minCount: 1 }],
+    }],
     expectedEntities: ["payroll_cycles", "payslips", "attendance_logs"],
     expectedNotifications: [],
   }),
@@ -1105,7 +1110,6 @@ const hrmsServiceFeatures: ScopedFeatureTestConfig[] = [
     },
     expectedEntities: ["service_purchase_orders", "personnel_dispatches", "service_delivery_notes", "service_acknowledgments"],
     expectedNotifications: [],
-    deferredReason: "Current app surface has hooks for dispatch and delivery-note entities but no complete UI path for end-to-end supervisor acknowledgment and billing verification.",
   }),
   feature({
     scopeSection: "5.6",

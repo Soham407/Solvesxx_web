@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { ChevronLeft, Save, X, User, Briefcase, Mail, Phone, MapPin } from "lucide-react";
+import { ChevronLeft, Save, User, Briefcase, Mail, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,16 +20,15 @@ import { toast } from "sonner";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useEmployees } from "@/hooks/useEmployees";
+import { useDesignations } from "@/hooks/useDesignations";
 
 const employeeSchema = z.object({
   firstName: z.string().min(2, "First name is required"),
   lastName: z.string().min(2, "Last name is required"),
   email: z.string().email("Invalid email address"),
   phone: z.string().min(10, "Invalid phone number"),
-  role: z.string().min(1, "Role is required"),
   department: z.string().min(1, "Department is required"),
-  location: z.string().min(1, "Location is required"),
-  designation: z.string().min(1, "Designation is required"),
+  designationId: z.string().min(1, "Designation is required"),
 });
 
 type EmployeeFormValues = z.infer<typeof employeeSchema>;
@@ -37,6 +36,7 @@ type EmployeeFormValues = z.infer<typeof employeeSchema>;
 export default function CreateEmployeePage() {
   const router = useRouter();
   const { createEmployee } = useEmployees();
+  const { designations, isLoading: designationsLoading } = useDesignations();
   const { register, handleSubmit, formState: { errors, isSubmitting }, setValue } = useForm<EmployeeFormValues>({
     resolver: zodResolver(employeeSchema),
   });
@@ -48,9 +48,7 @@ export default function CreateEmployeePage() {
       email: data.email,
       phone: data.phone,
       department: data.department,
-      designation: data.designation,
-      location: data.location,
-      role: data.role,
+      designation_id: data.designationId,
     });
     if (result.success) {
       toast.success("Employee record created successfully!");
@@ -138,7 +136,7 @@ export default function CreateEmployeePage() {
           <CardContent className="p-6 grid gap-6 md:grid-cols-2">
             <div className="space-y-2">
               <Label>Department</Label>
-              <Select onValueChange={(v: string) => setValue("department", v)}>
+              <Select onValueChange={(v: string) => setValue("department", v, { shouldValidate: true })}>
                 <SelectTrigger className={errors.department ? "border-critical" : ""}>
                   <SelectValue placeholder="Select Department" />
                 </SelectTrigger>
@@ -152,41 +150,31 @@ export default function CreateEmployeePage() {
               {errors.department && <p className="text-xs text-critical font-medium">{errors.department.message}</p>}
             </div>
             <div className="space-y-2">
-              <Label>Role</Label>
-              <Select onValueChange={(v: string) => setValue("role", v)}>
-                <SelectTrigger className={errors.role ? "border-critical" : ""}>
-                  <SelectValue placeholder="Select Role" />
+              <Label>Designation</Label>
+              <Select onValueChange={(v: string) => setValue("designationId", v, { shouldValidate: true })}>
+                <SelectTrigger className={errors.designationId ? "border-critical" : ""}>
+                  <SelectValue
+                    placeholder={
+                      designationsLoading
+                        ? "Loading designations..."
+                        : "Select Designation"
+                    }
+                  />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">Administrator</SelectItem>
-                  <SelectItem value="manager">Manager</SelectItem>
-                  <SelectItem value="staff">Standard Staff</SelectItem>
-                  <SelectItem value="guard">Security Guard</SelectItem>
+                  {designations.map((designation) => (
+                    <SelectItem key={designation.id} value={designation.id}>
+                      {designation.designation_name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
-              {errors.role && <p className="text-xs text-critical font-medium">{errors.role.message}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label>Designation</Label>
-              <Input id="designation" {...register("designation")} placeholder="e.g. Senior Operations Officer" className={errors.designation ? "border-critical" : ""} />
-              {errors.designation && <p className="text-xs text-critical font-medium">{errors.designation.message}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label>Base Location</Label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Select onValueChange={(v: string) => setValue("location", v)}>
-                  <SelectTrigger className={cn("pl-10", errors.location ? "border-critical" : "")}>
-                    <SelectValue placeholder="Select Location" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="hq">Headquarters (Mumbai)</SelectItem>
-                    <SelectItem value="tp">TechPark Complex</SelectItem>
-                    <SelectItem value="gv">Green Valley Site</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {errors.location && <p className="text-xs text-critical font-medium">{errors.location.message}</p>}
+              {errors.designationId && <p className="text-xs text-critical font-medium">{errors.designationId.message}</p>}
+              {!designationsLoading && designations.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Add a designation in Company Master before onboarding employees.
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -194,7 +182,8 @@ export default function CreateEmployeePage() {
         {/* Footer Actions */}
         <div className="flex items-center justify-end gap-4 p-6 bg-muted/20 border rounded-xl">
            <p className="text-xs text-muted-foreground mr-auto">
-             Note: This creates the employee record. Role assignment, location mapping, and account/email onboarding still happen separately.
+             Note: This creates the employee record with department and designation.
+             User provisioning, role assignment, and operational location mapping still happen separately.
            </p>
            <Button variant="outline" type="button" asChild>
              <Link href="/company/employees">Cancel</Link>

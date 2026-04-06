@@ -20,3 +20,9 @@ export interface CreateDesignationForm {
   description?: string;
   is_active?: boolean;
 }
+
+export type CompanyLocation = Database['public']['Tables']['company_locations']['Row'];
+
+export type CompanyLocationInsert = Database['public']['Tables']['company_locations']['Insert'];
+
+export type CompanyLocationUpdate = Database['public']['Tables']['company_locations']['Update'];

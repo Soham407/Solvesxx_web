@@ -80,9 +80,8 @@ describe("RLS contract: role and policy source", () => {
     ).toBe(true);
   });
 
-  it("keeps middleware RBAC flowing through the shared path access gate", async () => {
+  it("keeps proxy RBAC flowing through the shared path access gate", async () => {
     const proxySource = await readRepoFile("proxy.ts");
-    const middlewareSource = await readRepoFile("middleware.ts");
 
     expect(
       sourceContainsAll(proxySource, [
@@ -92,6 +91,5 @@ describe("RLS contract: role and policy source", () => {
       ])
     ).toBe(true);
 
-    expect(sourceContainsAll(middlewareSource, ["return proxy(request);"])).toBe(true);
   });
 });

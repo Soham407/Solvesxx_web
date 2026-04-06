@@ -35,11 +35,10 @@ function isServiceRequest(request: BuyerRequest) {
   return Boolean(
     request.service_type ||
       request.service_grade ||
-      request.headcount ||
       request.shift ||
       request.start_date ||
-      request.duration_months ||
-      request.site_location_id
+      request.site_location_id ||
+      ((request.headcount ?? 0) > 0)
   );
 }
 
@@ -53,7 +52,7 @@ export default function AdminServiceIndentsPage() {
     fetchRequestById,
     refresh: refreshRequests,
   } = useBuyerRequests();
-  const { createIndent, approveIndent } = useIndents();
+  const { createIndent, submitForApproval, approveIndent } = useIndents();
   const {
     getSuppliersByServiceType,
     isLoading: isLoadingMasters,
@@ -161,6 +160,10 @@ export default function AdminServiceIndentsPage() {
     setIsGeneratingIndent(true);
 
     try {
+      if (!user?.id) {
+        throw new Error("Authenticated admin user required.");
+      }
+
       // Re-fetch to prevent race conditions
       const freshRequest = await fetchRequestById(selectedRequest.id);
       if (!freshRequest || freshRequest.indent_id) {
@@ -190,7 +193,12 @@ export default function AdminServiceIndentsPage() {
         throw new Error("Indent creation failed.");
       }
 
-      const approved = await approveIndent(indent.id, user?.id || "system");
+      const submitted = await submitForApproval(indent.id, user.id);
+      if (!submitted) {
+        throw new Error("Indent submission failed.");
+      }
+
+      const approved = await approveIndent(indent.id, user.id);
       if (!approved) {
         throw new Error("Indent approval failed.");
       }

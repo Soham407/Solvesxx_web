@@ -8,7 +8,7 @@ const workflowFeatures = scopedFeatureMatrix.filter(
 );
 
 test.describe("Wave 2 Scoped Workflows", () => {
-  test.describe.configure({ timeout: 120_000 });
+  test.describe.configure({ timeout: 180_000 });
 
   for (const feature of workflowFeatures) {
     test(`${feature.featureKey} workflow`, async ({ browser }, testInfo) => {

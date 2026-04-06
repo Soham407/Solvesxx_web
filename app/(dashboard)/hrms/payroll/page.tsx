@@ -57,6 +57,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useAuth } from "@/hooks/useAuth";
 
 // Initial form state for creating payroll cycle
 const INITIAL_CYCLE_FORM = {
@@ -69,6 +70,7 @@ const INITIAL_CYCLE_FORM = {
 };
 
 export default function PayrollPage() {
+  const { role } = useAuth();
   const {
     cycles,
     payslips,
@@ -90,6 +92,7 @@ export default function PayrollPage() {
   const [cycleForm, setCycleForm] = useState(INITIAL_CYCLE_FORM);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedCycle, setSelectedCycle] = useState<PayrollCycle | null>(null);
+  const canManagePayroll = role === "admin" || role === "super_admin";
 
   // Get current/active cycle
   const currentCycle = cycles.find((c) => c.status !== "cancelled" && c.status !== "disbursed") || cycles[0];
@@ -310,10 +313,16 @@ export default function PayrollPage() {
         description="Automated earnings, statutory deductions, and monthly payslip generation cycle."
         actions={
           <div className="flex gap-2">
-            <Button variant="outline" className="gap-2" onClick={() => setCreateCycleDialogOpen(true)}>
-              <Plus className="h-4 w-4" /> New Cycle
-            </Button>
-            {selectedCycle?.status === "computed" && (
+            {canManagePayroll && (
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => setCreateCycleDialogOpen(true)}
+              >
+                <Plus className="h-4 w-4" /> New Cycle
+              </Button>
+            )}
+            {canManagePayroll && selectedCycle?.status === "computed" && (
               <Button
                 variant="outline"
                 className="gap-2"
@@ -328,7 +337,7 @@ export default function PayrollPage() {
                 Approve Cycle
               </Button>
             )}
-            {selectedCycle?.status === "approved" && (
+            {canManagePayroll && selectedCycle?.status === "approved" && (
               <Button
                 className="gap-2 shadow-lg shadow-primary/20"
                 onClick={handleDisburseCycle}
@@ -342,7 +351,7 @@ export default function PayrollPage() {
                 Disburse Payroll
               </Button>
             )}
-            {selectedCycle?.status === "draft" && (
+            {canManagePayroll && selectedCycle?.status === "draft" && (
               <Button 
                 className="gap-2 shadow-lg shadow-primary/20"
                 onClick={handleGeneratePayslips}
@@ -454,7 +463,7 @@ export default function PayrollPage() {
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
               <Calendar className="h-12 w-12 mb-4 opacity-50" />
               <p className="text-sm">No payslips generated for this cycle yet.</p>
-              {selectedCycle?.status === "draft" && (
+              {canManagePayroll && selectedCycle?.status === "draft" && (
                 <Button variant="outline" className="mt-4 gap-2" onClick={handleGeneratePayslips}>
                   <ShieldCheck className="h-4 w-4" /> Generate Payslips
                 </Button>

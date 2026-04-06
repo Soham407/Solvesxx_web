@@ -8,6 +8,10 @@ describe("service delivery contracts", () => {
     const detailPageSource = await readRepoFile(
       "app/(dashboard)/service-requests/[id]/page.tsx"
     );
+    const panelSource = await readRepoFile("components/jobs/JobSessionPanel.tsx");
+    const migrationSource = await readRepoFile(
+      "supabase/migrations/20260405010000_service_ops_completion_truth.sql"
+    );
 
     expect(
       sourceContainsAll(requestsSource, [
@@ -22,6 +26,22 @@ describe("service delivery contracts", () => {
         "const result = await completeRequest(request.id)",
         "if (!result.success)",
         'toast.error(result.error || "Failed to complete request")',
+      ])
+    ).toBe(true);
+
+    expect(
+      sourceContainsAll(panelSource, [
+        "completionNotes.trim().length < 10",
+        "Please add meaningful completion notes (min 10 characters).",
+        "completeTask(requestState.id, photoUrl, completionNotes.trim())",
+      ])
+    ).toBe(true);
+
+    expect(
+      sourceContainsAll(migrationSource, [
+        "Operational Truth Error: Meaningful resolution notes (min 10 chars) required.",
+        "completion_notes = v_completion_notes",
+        "resolution_notes = v_completion_notes",
       ])
     ).toBe(true);
   });
@@ -103,6 +123,9 @@ describe("service delivery contracts", () => {
   it("keeps delivery-note and dispatch joins mapped through explicit aliases", async () => {
     const deliveryNotesSource = await readRepoFile("hooks/useServiceDeliveryNotes.ts");
     const dispatchesSource = await readRepoFile("hooks/usePersonnelDispatches.ts");
+    const acknowledgmentDialogSource = await readRepoFile("components/dialogs/ServiceAcknowledgmentDialog.tsx");
+    const deliveryDialogSource = await readRepoFile("components/dialogs/ServiceDeliveryNoteDialog.tsx");
+    const supplierServiceOrdersPageSource = await readRepoFile("app/(dashboard)/supplier/service-orders/page.tsx");
 
     expect(
       sourceContainsAll(deliveryNotesSource, [
@@ -114,9 +137,41 @@ describe("service delivery contracts", () => {
 
     expect(
       sourceContainsAll(dispatchesSource, [
-        "purchase_order:purchase_orders!service_po_id (po_number)",
-        "deployment_site:company_locations!deployment_site_id (name)",
-        "site_name: d.deployment_site?.name",
+        'from("service_purchase_orders")',
+        'select("id, spo_number")',
+        '.in("status", ["dispatched", "confirmed", "active"])',
+        '.lte("start_date", overlapEndDate)',
+        "deployment_site:company_locations!deployment_site_id (location_name)",
+        "site_name: d.deployment_site?.location_name",
+      ])
+    ).toBe(true);
+
+    expect(
+      sourceContainsAll(deliveryDialogSource, [
+        'from("personnel_dispatches")',
+        '.in("status", ["dispatched", "confirmed", "active"])',
+        '.lte("start_date", watchDate)',
+        "deployment_site:company_locations!deployment_site_id (location_name)",
+        "o.deployment_site?.location_name",
+        "deployment_site_id: deploymentSiteId || undefined",
+        "Dispatch Ledger Incomplete",
+      ])
+    ).toBe(true);
+
+    expect(
+      sourceContainsAll(acknowledgmentDialogSource, [
+        'from("service_delivery_notes")',
+        'status: "verified"',
+        "verified_by: employeeRecord.id",
+        "A delivery note must exist before deployment can be acknowledged.",
+      ])
+    ).toBe(true);
+
+    expect(
+      sourceContainsAll(supplierServiceOrdersPageSource, [
+        "site_location_name || \"Site pending\"",
+        "deploymentSiteId={deliveryNoteOrder.site_location_id ?? null}",
+        "deploymentSiteName={deliveryNoteOrder.site_location_name ?? null}",
       ])
     ).toBe(true);
   });

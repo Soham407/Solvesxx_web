@@ -68,9 +68,91 @@ describe("visitor lifecycle contracts", () => {
 
     expect(
       sourceContainsAll(source, [
+        '"create_mobile_visitor" as any',
         '"checkout_visitor" as any',
         '"approve_visitor" as any',
         '"deny_visitor" as any',
+      ])
+    ).toBe(true);
+  });
+
+  it("uses the resident pending approvals rpc on the resident portal", async () => {
+    const residentHookSource = await readRepoFile("hooks/useResident.ts");
+    const dashboardSource = await readRepoFile("components/dashboards/ResidentDashboard.tsx");
+    const repairSource = await readRepoFile(
+      "supabase/migrations/20260406010000_security_ops_resident_approval_contract_fix.sql"
+    );
+    const pathFixSource = await readRepoFile(
+      "supabase/migrations/20260406011000_security_ops_visitor_decision_path_fix.sql"
+    );
+
+    expect(
+      sourceContainsAll(residentHookSource, [
+        '"get_resident_pending_visitors" as any',
+        'approval_status === "pending"',
+        "pendingApprovals",
+      ])
+    ).toBe(true);
+
+    expect(dashboardSource).toContain("pendingApprovals,");
+
+    expect(
+      sourceContainsNone(dashboardSource, [
+        "const pendingApprovals = visitors.filter(v => v.approved_by_resident === null && v.entry_time !== null);",
+      ])
+    ).toBe(true);
+
+    expect(
+      sourceContainsAll(repairSource, [
+        "approved_by_resident = null",
+        "case when v_auto_approve then true else null end",
+        "create or replace function public.get_resident_pending_visitors()",
+        "v.visitor_name::text",
+        "v.phone::text",
+        "and v.approval_status = 'pending'",
+      ])
+    ).toBe(true);
+
+    expect(
+      sourceContainsAll(pathFixSource, [
+        "p_visitor_type text default 'guest'",
+        "when v_requires_resident_approval then case when v_auto_approve then true else null end",
+        "else true",
+        "create or replace function public.check_visitor_immutability()",
+        "residents can only approve, deny, or change frequent visitor status from the app.",
+      ])
+    ).toBe(true);
+  });
+
+  it("keeps resident pre-approved invites on the rpc path instead of raw visitor inserts", async () => {
+    const residentHookSource = await readRepoFile("hooks/useResident.ts");
+    const inviteRpcSource = await readRepoFile(
+      "supabase/migrations/20260406012000_security_ops_resident_invite_rpc.sql"
+    );
+
+    expect(
+      sourceContainsAll(residentHookSource, [
+        '"create_resident_invited_visitor" as any',
+        "p_visitor_name: visitorData.visitor_name",
+        "Failed to invite visitor",
+      ])
+    ).toBe(true);
+
+    expect(
+      sourceContainsNone(residentHookSource, [
+        '.insert({\n            visitor_name: visitorData.visitor_name,',
+        '.from("visitors")\n          .insert({',
+      ])
+    ).toBe(true);
+
+    expect(
+      sourceContainsAll(inviteRpcSource, [
+        "create or replace function public.create_resident_invited_visitor(",
+        "where r.auth_user_id = auth.uid()",
+        "approved_by_resident,",
+        "'approved'",
+        "decision_at,",
+        "grant execute on function public.create_resident_invited_visitor(text, text, text, text, text) to authenticated;",
       ])
     ).toBe(true);
   });

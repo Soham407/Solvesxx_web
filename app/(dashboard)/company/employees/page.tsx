@@ -87,6 +87,11 @@ export default function EmployeesPage() {
             <DropdownMenuItem asChild>
               <Link href={`/company/employees/${row.original.id}`}>View Details</Link>
             </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href={`/company/employees/${row.original.id}?tab=compensation`}>
+                Manage Payroll Setup
+              </Link>
+            </DropdownMenuItem>
             <DropdownMenuItem>Edit Employee</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="text-destructive">Deactivate</DropdownMenuItem>

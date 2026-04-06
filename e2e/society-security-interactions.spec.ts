@@ -234,8 +234,10 @@ test.describe("Society Security Interaction Pack", () => {
     await page.getByRole("button", { name: /next: select destination/i }).click();
     await page.getByPlaceholder(/search flat number/i).fill(readFeatureFixtureState().slugs.residentFlatSearch);
     await page.getByRole("button", { name: /^search$/i }).click();
-    await page.getByText(new RegExp(readFeatureFixtureState().slugs.residentFlatSearch, "i")).first().click();
-    await page.getByRole("button", { name: /verify & send alert|instant check-in/i }).click();
+    await page.getByRole("button", { name: /Wing A - 101/i }).click();
+    const submitButton = page.getByRole("button", { name: /verify & send alert|instant check-in/i });
+    await expect(submitButton).toBeEnabled({ timeout: 15_000 });
+    await submitButton.click();
 
     await expect(page.getByRole("dialog", { name: /register visitor/i })).toHaveCount(0, { timeout: 20_000 });
 
@@ -291,26 +293,25 @@ test.describe("Society Security Interaction Pack", () => {
     await inviteDialog.getByRole("combobox").click();
     await page.getByRole("option", { name: /guest/i }).click();
     await inviteDialog.locator("#phone").fill("9000000001");
-    await inviteDialog.locator("#purpose").fill("Dinner");
     await inviteDialog.getByRole("button", { name: /send invite/i }).click();
     await expect(page.getByRole("dialog", { name: /invite a visitor/i })).toHaveCount(0, { timeout: 20_000 });
     await expect(page.getByText(inviteName).first()).toBeVisible({ timeout: 20_000 });
 
-    await page.getByText("Notifications").first().click();
-    await expect(page.getByRole("dialog", { name: /notifications/i })).toBeVisible();
+    await page.getByRole("button", { name: /^notifications$/i }).click();
+    await expect(page.getByText(/^notifications$/i)).toBeVisible();
     const markAllRead = page.getByRole("button", { name: /mark all read/i });
     if (await markAllRead.isVisible().catch(() => false)) {
       await markAllRead.click();
     }
     await page.keyboard.press("Escape");
 
-    await page.getByText("Raise Complaint").first().click();
-    const complaintDialog = page.getByRole("dialog", { name: /raise a complaint/i });
+    await page.getByRole("button", { name: /raise request/i }).click();
+    const complaintDialog = page.getByRole("dialog", { name: /raise a service request/i });
     await expect(complaintDialog).toBeVisible();
     await complaintDialog.locator("#complaint_title").fill(complaintTitle);
     await complaintDialog.locator("#complaint_desc").fill("Water seepage near the lobby wall.");
-    await complaintDialog.getByRole("button", { name: /submit complaint/i }).click();
-    await expect(page.getByRole("dialog", { name: /raise a complaint/i })).toHaveCount(0, { timeout: 20_000 });
+    await complaintDialog.getByRole("button", { name: /^submit$/i }).click();
+    await expect(page.getByRole("dialog", { name: /raise a service request/i })).toHaveCount(0, { timeout: 20_000 });
     await waitForServiceRequestTitle(complaintTitle, 20_000);
   });
 

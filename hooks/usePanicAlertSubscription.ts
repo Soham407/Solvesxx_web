@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import { getCurrentUserId } from "@/src/lib/security/getCurrentUserId";
+import { getCurrentEmployeeId } from "@/src/lib/security/getCurrentEmployeeId";
 
 interface PanicAlert {
   id: string;
@@ -264,7 +264,7 @@ export function usePanicAlertSubscription() {
       resolutionNotes?: string
     ): Promise<{ success: boolean; error?: string }> => {
       try {
-        const resolvedBy = await getCurrentUserId();
+        const resolvedBy = await getCurrentEmployeeId();
 
         const { error } = await supabase
           .from("panic_alerts")

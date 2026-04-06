@@ -43,9 +43,18 @@ interface Visitor {
   is_frequent_visitor: boolean | null;
 }
 
+interface ResidentPendingVisitor extends Visitor {
+  approval_status: string | null;
+  approval_deadline_at: string | null;
+  flat_id: string | null;
+  flat_label: string | null;
+  rejection_reason: string | null;
+}
+
 interface ResidentState {
   resident: ResidentDetails | null;
   visitors: Visitor[];
+  pendingApprovals: ResidentPendingVisitor[];
   isLoading: boolean;
   isLoadingVisitors: boolean;
   error: string | null;
@@ -55,6 +64,7 @@ export function useResident(residentId?: string) {
   const [state, setState] = useState<ResidentState>({
     resident: null,
     visitors: [],
+    pendingApprovals: [],
     isLoading: true,
     isLoadingVisitors: true,
     error: null,
@@ -184,6 +194,69 @@ export function useResident(residentId?: string) {
     }
   }, [state.resident?.flat?.id]);
 
+  const fetchPendingApprovals = useCallback(async () => {
+    if (!state.resident?.id) return;
+
+    setState((prev) => ({ ...prev, isLoadingVisitors: true }));
+
+    try {
+      const { data, error } = await supabase.rpc(
+        "get_resident_pending_visitors" as any
+      );
+
+      if (error) throw error;
+
+      const pendingApprovals = (
+        ((data as Array<{
+          id: string;
+          visitor_name: string;
+          phone: string | null;
+          purpose: string | null;
+          flat_id: string | null;
+          flat_label: string | null;
+          vehicle_number: string | null;
+          photo_url: string | null;
+          entry_time: string | null;
+          approval_status: string | null;
+          approval_deadline_at: string | null;
+          is_frequent_visitor: boolean | null;
+          rejection_reason: string | null;
+        }> | null) ?? [])
+      )
+        .filter((visitor) => visitor.approval_status === "pending")
+        .map((visitor) => ({
+          id: visitor.id,
+          visitor_name: visitor.visitor_name,
+          visitor_type: null,
+          phone: visitor.phone,
+          vehicle_number: visitor.vehicle_number,
+          purpose: visitor.purpose,
+          photo_url: visitor.photo_url,
+          entry_time: visitor.entry_time,
+          exit_time: null,
+          approved_by_resident: null,
+          is_frequent_visitor: visitor.is_frequent_visitor,
+          approval_status: visitor.approval_status,
+          approval_deadline_at: visitor.approval_deadline_at,
+          flat_id: visitor.flat_id,
+          flat_label: visitor.flat_label,
+          rejection_reason: visitor.rejection_reason,
+        }));
+
+      setState((prev) => ({
+        ...prev,
+        pendingApprovals,
+        isLoadingVisitors: false,
+      }));
+    } catch (err: any) {
+      console.error("Error fetching resident pending approvals:", err);
+      setState((prev) => ({
+        ...prev,
+        isLoadingVisitors: false,
+      }));
+    }
+  }, [state.resident?.id]);
+
   // Invite a visitor (pre-approve)
   const inviteVisitor = useCallback(
     async (visitorData: {
@@ -198,26 +271,25 @@ export function useResident(residentId?: string) {
       }
 
       try {
-        const { data, error } = await supabase
-          .from("visitors")
-          .insert({
-            visitor_name: visitorData.visitor_name,
-            visitor_type: visitorData.visitor_type,
-            phone: visitorData.phone || null,
-            purpose: visitorData.purpose || null,
-            vehicle_number: visitorData.vehicle_number || null,
-            flat_id: state.resident.flat.id,
-            resident_id: state.resident.id,
-            approved_by_resident: true, // Pre-approved by resident
-            entry_time: null, // Will be set when visitor actually arrives
-          })
-          .select()
-          .single();
+        const { data, error } = await supabase.rpc(
+          "create_resident_invited_visitor" as any,
+          {
+            p_visitor_name: visitorData.visitor_name,
+            p_visitor_type: visitorData.visitor_type,
+            p_phone: visitorData.phone || null,
+            p_purpose: visitorData.purpose || null,
+            p_vehicle_number: visitorData.vehicle_number || null,
+          }
+        );
 
         if (error) throw error;
+        const result = data as { success?: boolean; error?: string } | null;
+        if (!result?.success) {
+          throw new Error(result?.error || "Failed to invite visitor");
+        }
 
-        // Refresh visitors list
         fetchVisitors();
+        fetchPendingApprovals();
 
         return { success: true };
       } catch (err: any) {
@@ -225,7 +297,7 @@ export function useResident(residentId?: string) {
         return { success: false, error: err.message || "Failed to invite visitor" };
       }
     },
-    [state.resident, fetchVisitors]
+    [state.resident, fetchPendingApprovals, fetchVisitors]
   );
 
   // Approve a visitor (PRD: Resident confirmation)
@@ -244,12 +316,13 @@ export function useResident(residentId?: string) {
       if (!result.success) throw new Error(result.error);
 
       fetchVisitors();
+      fetchPendingApprovals();
       return { success: true };
     } catch (err: any) {
       console.error("Error approving visitor:", err);
       return { success: false, error: err.message };
     }
-  }, [fetchVisitors]);
+  }, [fetchPendingApprovals, fetchVisitors]);
 
   // Deny a visitor (PRD: Resident denial)
   const denyVisitor = useCallback(async (visitorId: string, reason: string) => {
@@ -268,12 +341,13 @@ export function useResident(residentId?: string) {
       if (!result.success) throw new Error(result.error);
 
       fetchVisitors();
+      fetchPendingApprovals();
       return { success: true };
     } catch (err: any) {
       console.error("Error denying visitor:", err);
       return { success: false, error: err.message };
     }
-  }, [fetchVisitors]);
+  }, [fetchPendingApprovals, fetchVisitors]);
 
   // Toggle frequent visitor status (Phase 1B)
   const toggleFrequentVisitor = useCallback(async (visitorId: string, isFrequent: boolean) => {
@@ -305,7 +379,9 @@ export function useResident(residentId?: string) {
   const refresh = useCallback(() => {
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
     fetchResidentDetails();
-  }, [fetchResidentDetails]);
+    fetchVisitors();
+    fetchPendingApprovals();
+  }, [fetchPendingApprovals, fetchResidentDetails, fetchVisitors]);
 
   // Initialize
   useEffect(() => {
@@ -318,6 +394,12 @@ export function useResident(residentId?: string) {
       fetchVisitors();
     }
   }, [state.resident?.flat?.id, fetchVisitors]);
+
+  useEffect(() => {
+    if (state.resident?.id) {
+      fetchPendingApprovals();
+    }
+  }, [state.resident?.id, fetchPendingApprovals]);
 
   return {
     ...state,

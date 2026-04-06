@@ -64,4 +64,35 @@ describe("Resident module contracts", () => {
       ])
     ).toBe(true);
   });
+
+  it("routes resident service requests through auth user ids and keeps the matching self-create RLS policy", async () => {
+    const dashboardSource = await readRepoFile("components/dashboards/ResidentDashboard.tsx");
+    const policySource = await readRepoFile(
+      "supabase/migrations/20260406013000_service_requests_self_serve_insert_policy.sql"
+    );
+
+    expect(
+      sourceContainsAll(dashboardSource, [
+        "return <ResidentDashboardContent residentId={residentId} authUserId={userId} />;",
+        "useServiceRequests(authUserId ? { requesterId: authUserId } : undefined)",
+      ])
+    ).toBe(true);
+
+    expect(
+      sourceContainsNone(dashboardSource, [
+        "requester_id: residentId",
+        "useServiceRequests({ requesterId: residentId })",
+      ])
+    ).toBe(true);
+
+    expect(
+      sourceContainsAll(policySource, [
+        'drop policy if exists "users create own service requests" on public.service_requests;',
+        'create policy "users create own service requests" on public.service_requests',
+        "for insert",
+        "created_by = auth.uid()",
+        "requester_id = auth.uid()",
+      ])
+    ).toBe(true);
+  });
 });

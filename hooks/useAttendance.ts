@@ -118,6 +118,8 @@ function mapAttendanceStatus(status?: string | null): AttendanceDisplayStatus {
   if (
     status === "on_leave" ||
     status === "leave" ||
+    status === "paid_leave" ||
+    status === "unpaid_leave" ||
     status === "sick_leave" ||
     status === "casual_leave" ||
     status === "earned_leave"

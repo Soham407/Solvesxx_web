@@ -7,19 +7,19 @@ describe("service deployment type contracts", () => {
     const rootTypesSource = await readRepoFile("supabase-types.ts");
     const clientTypesSource = await readRepoFile("src/types/supabase.ts");
 
-    [rootTypesSource, clientTypesSource].forEach((source) => {
-      expect(
-        sourceContainsAll(source, [
-          "service_grade: string | null",
-          "service_type: string | null",
-          "site_location_id: string | null",
-          "start_date: string | null",
-          'foreignKeyName: "requests_site_location_id_fkey"',
-          "service_request_id: string | null",
-          'foreignKeyName: "indents_service_request_id_fkey"',
-          'foreignKeyName: "indents_supplier_id_fkey"',
-        ])
-      ).toBe(true);
-    });
+    expect(
+      sourceContainsAll(rootTypesSource, [
+        "service_grade: string | null",
+        "service_type: string | null",
+        "site_location_id: string | null",
+        "start_date: string | null",
+        'foreignKeyName: "requests_site_location_id_fkey"',
+        "service_request_id: string | null",
+        'foreignKeyName: "indents_service_request_id_fkey"',
+        'foreignKeyName: "indents_supplier_id_fkey"',
+      ])
+    ).toBe(true);
+
+    expect(clientTypesSource.includes("export * from '../../supabase-types';")).toBe(true);
   });
 });

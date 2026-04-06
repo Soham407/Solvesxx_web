@@ -33,8 +33,32 @@ import {
 
 type UserAuthRow = {
   must_change_password?: boolean | null;
-  roles?: { role_name?: string | null } | null;
+  roles?:
+    | { role_name?: string | null }
+    | Array<{ role_name?: string | null }>
+    | null;
 };
+
+function getRoleName(authRow: UserAuthRow | null) {
+  const roleRecord = Array.isArray(authRow?.roles)
+    ? authRow?.roles[0]
+    : authRow?.roles;
+
+  return roleRecord?.role_name ?? null;
+}
+
+async function waitForPersistedAuthCookie(timeoutMs = 3_000) {
+  const deadline = Date.now() + timeoutMs;
+  const authCookiePattern = /(?:^|;\s*)sb-[^=]+-auth-token(?:\.\d+)?=/i;
+
+  while (Date.now() < deadline) {
+    if (authCookiePattern.test(document.cookie)) {
+      return;
+    }
+
+    await new Promise((resolve) => window.setTimeout(resolve, 100));
+  }
+}
 
 const createContainerVariants = (prefersReducedMotion: boolean) => ({
   hidden: { opacity: prefersReducedMotion ? 1 : 0 },
@@ -114,11 +138,11 @@ export default function LoginPage() {
         const authRow = userData as UserAuthRow | null;
 
         if (authRow?.must_change_password) {
-          router.push("/change-password");
+          window.location.assign("/change-password");
           return;
         }
 
-        const userRole = authRow?.roles?.role_name;
+        const userRole = getRoleName(authRow);
 
         const roleRedirects: Record<string, string> = {
           buyer: "/buyer",
@@ -126,12 +150,13 @@ export default function LoginPage() {
           vendor: "/supplier",
           resident: "/resident",
           delivery_boy: "/delivery",
-          security_guard: "/guard",
-          security_supervisor: "/guard",
+          security_guard: "/dashboard",
+          security_supervisor: "/dashboard",
         };
 
         toast.success(`Welcome to ${BRAND_NAME}.`);
-        router.push(roleRedirects[userRole] ?? "/dashboard");
+        await waitForPersistedAuthCookie();
+        window.location.assign(roleRedirects[userRole] ?? "/dashboard");
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "An unexpected error occurred.";

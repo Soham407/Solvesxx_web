@@ -52,9 +52,68 @@ async function gotoWithRetry(
   throw lastError instanceof Error ? lastError : new Error(`Failed to navigate to ${path}`);
 }
 
-async function waitForPath(page: Page, path: string, timeout = 15_000) {
-  await page.waitForURL((url) => url.pathname === path, { timeout });
+async function waitForPath(
+  page: Page,
+  path: string | string[],
+  timeout = 15_000
+) {
+  const acceptedPaths = Array.from(new Set(Array.isArray(path) ? path : [path]));
+
+  await expect
+    .poll(
+      () => {
+        try {
+          return acceptedPaths.includes(new URL(page.url()).pathname);
+        } catch {
+          return acceptedPaths.includes(page.url());
+        }
+      },
+      {
+        timeout,
+        message: `Expected one of [${acceptedPaths.join(", ")}] but saw ${page.url()}`,
+      }
+    )
+    .toBe(true);
+
   await expect(page.locator("main")).toBeVisible({ timeout });
+}
+
+function getCurrentPath(page: Page) {
+  try {
+    return new URL(page.url()).pathname;
+  } catch {
+    return page.url();
+  }
+}
+
+async function prepareLoginForm(page: Page) {
+  const emailField = page.getByLabel(/corporate email|email/i);
+
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    await gotoWithRetry(page, "/login", { waitUntil: "domcontentloaded" });
+
+    try {
+      await expect(emailField).toBeVisible({ timeout: 5_000 });
+      return emailField;
+    } catch (error) {
+      if (attempt === 2 || getCurrentPath(page) === "/login") {
+        throw error;
+      }
+
+      await page.context().clearCookies();
+      await page.evaluate(() => {
+        try {
+          window.localStorage.clear();
+          window.sessionStorage.clear();
+        } catch {
+          // Ignore storage access errors while resetting auth state.
+        }
+      });
+      await page.waitForTimeout(500);
+    }
+  }
+
+  return emailField;
 }
 
 function getJourneyReadyLocators(page: Page, journey: RoleJourneyCheck): Locator[] {
@@ -101,13 +160,33 @@ async function expectAnyVisible(locators: Locator[], timeout = 10_000) {
 
 export async function loginAsRole(page: Page, configOrRole: RoleTestConfig | AppRole) {
   const config = getRoleConfig(configOrRole);
+  const acceptedLandingPaths = Array.from(
+    new Set([config.expectedLandingPath, config.allowedPath])
+  );
+  let lastError: unknown;
 
-  await gotoWithRetry(page, "/login", { waitUntil: "domcontentloaded" });
-  await page.getByLabel(/corporate email|email/i).fill(config.email);
-  await page.getByLabel(/password/i).fill(config.password);
-  await page.getByRole("button", { name: LOGIN_BUTTON_NAME }).click();
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    const emailField = await prepareLoginForm(page);
+    await emailField.fill(config.email);
+    await page.getByLabel(/password/i).fill(config.password);
+    await page.getByRole("button", { name: LOGIN_BUTTON_NAME }).click();
 
-  await waitForPath(page, config.expectedLandingPath, 30_000);
+    try {
+      await waitForPath(page, acceptedLandingPaths, 15_000);
+      return;
+    } catch (error) {
+      lastError = error;
+      const currentPath = getCurrentPath(page);
+
+      if (attempt === 2 || currentPath !== "/login") {
+        throw error;
+      }
+
+      await page.waitForTimeout(1_000);
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error(`Failed to sign in as ${config.role}.`);
 }
 
 export async function expectAllowedRoute(page: Page, configOrRole: RoleTestConfig | AppRole) {

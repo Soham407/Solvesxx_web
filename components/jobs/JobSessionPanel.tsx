@@ -249,8 +249,8 @@ export function JobSessionPanel({
       return;
     }
 
-    if (!completionNotes || completionNotes.length < 5) {
-      toast.error("Please add completion notes.");
+    if (!completionNotes || completionNotes.trim().length < 10) {
+      toast.error("Please add meaningful completion notes (min 10 characters).");
       return;
     }
 
@@ -260,7 +260,7 @@ export function JobSessionPanel({
       const photoUrl = await uploadEvidence(afterPhoto, 'complete');
       
       // 2. Call RPC
-      const result = await completeTask(requestState.id, photoUrl, completionNotes);
+      const result = await completeTask(requestState.id, photoUrl, completionNotes.trim());
       
       if (result.success) {
         const updatedRequest = await getRequestById(requestState.id);
@@ -536,7 +536,7 @@ export function JobSessionPanel({
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCompleteModalOpen(false)} disabled={isSubmitting}>Cancel</Button>
-            <Button onClick={handleCompleteTask} disabled={!afterPhoto || completionNotes.length < 5 || isSubmitting || (isPestControl && !isPpeVerified)} className="gap-2 bg-green-600 hover:bg-green-700" variant="default">
+            <Button onClick={handleCompleteTask} disabled={!afterPhoto || completionNotes.trim().length < 10 || isSubmitting || (isPestControl && !isPpeVerified)} className="gap-2 bg-green-600 hover:bg-green-700" variant="default">
               {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
               Complete Task
             </Button>

@@ -106,6 +106,29 @@ export function ServiceAcknowledgmentDialog({
     setIsSubmitting(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      const { data: employeeRecord, error: employeeError } = await supabase
+        .from("employees")
+        .select("id")
+        .eq("auth_user_id", user?.id ?? "")
+        .maybeSingle();
+
+      if (employeeError) throw employeeError;
+      if (!employeeRecord?.id) {
+        throw new Error("Deployment acknowledgment requires a linked employee profile.");
+      }
+
+      const { data: deliveryNote, error: deliveryNoteError } = await supabase
+        .from("service_delivery_notes")
+        .select("id")
+        .eq("po_id", spo.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (deliveryNoteError) throw deliveryNoteError;
+      if (!deliveryNote?.id) {
+        throw new Error("A delivery note must exist before deployment can be acknowledged.");
+      }
 
       const { error: upsertError } = await supabase
         .from("service_acknowledgments")
@@ -116,11 +139,25 @@ export function ServiceAcknowledgmentDialog({
           headcount_received: values.headcount_received,
           grade_verified: values.grade_verified,
           notes: values.notes || null,
-          status: 'confirmed',
+          // Billing gates key off the supplier acknowledgment row remaining in the
+          // acknowledged state even after the site/admin confirms deployment quality.
+          status: 'acknowledged',
           updated_at: new Date().toISOString(),
         }, { onConflict: 'spo_id' });
 
       if (upsertError) throw upsertError;
+
+      const { error: deliveryNoteUpdateError } = await supabase
+        .from("service_delivery_notes")
+        .update({
+          status: "verified",
+          verified_by: employeeRecord.id,
+          verified_at: new Date().toISOString(),
+          remarks: values.notes || null,
+        })
+        .eq("id", deliveryNote.id);
+
+      if (deliveryNoteUpdateError) throw deliveryNoteUpdateError;
 
       const { error: updateError } = await supabase
         .from("service_purchase_orders")

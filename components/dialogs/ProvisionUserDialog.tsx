@@ -38,6 +38,7 @@ const schema = z.object({
 });
 
 type FormValues = z.infer<typeof schema>;
+const CREATE_NEW_EMPLOYEE_VALUE = "__create_new_employee__";
 
 interface UnlinkedResident {
   id: string;
@@ -110,11 +111,12 @@ export function ProvisionUserDialog({
         resident_id: isResidentRole ? selectedResidentId : undefined,
       });
 
+      onSuccess();
+
       if (result.password) {
         setGeneratedPassword(result.password);
       } else {
         onOpenChange(false);
-        onSuccess();
         reset();
       }
     } catch (err: any) {
@@ -255,12 +257,20 @@ export function ProvisionUserDialog({
 
           <div className="space-y-1.5">
             <Label htmlFor="employee_id">Link Existing Employee (Optional)</Label>
-            <Select onValueChange={(val) => setValue("employee_id", val)}>
+            <Select
+              onValueChange={(val) =>
+                setValue(
+                  "employee_id",
+                  val === CREATE_NEW_EMPLOYEE_VALUE ? "" : val,
+                  { shouldValidate: true }
+                )
+              }
+            >
               <SelectTrigger id="employee_id">
                 <SelectValue placeholder={employeesLoading ? "Loading…" : "Select employee"} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">None / Create New</SelectItem>
+                <SelectItem value={CREATE_NEW_EMPLOYEE_VALUE}>None / Create New</SelectItem>
                 {employees.map((emp) => (
                   <SelectItem key={emp.id} value={emp.id}>
                     {emp.full_name} ({emp.employee_code})

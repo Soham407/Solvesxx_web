@@ -33,7 +33,7 @@ export const ROLE_ACCESS: Record<AppRole, string[]> = {
   vendor: ["/dashboard", "/supplier"],
   security_guard: ["/dashboard", "/guard", "/test-guard", "/society", "/hrms/attendance", "/hrms/leave"],
   security_supervisor: ["/dashboard", "/guard", "/test-guard", "/tickets", "/society", "/hrms/attendance", "/hrms/leave"],
-  society_manager: ["/dashboard", "/society", "/resident", "/test-resident", "/tickets", "/finance/compliance", "/service-requests", "/hrms/attendance"],
+  society_manager: ["/dashboard", "/society", "/resident", "/test-resident", "/tickets", "/finance/compliance", "/service-requests", "/hrms/attendance", "/hrms/leave"],
   service_boy: ["/dashboard", "/service-boy", "/service-requests"],
   resident: ["/resident", "/test-resident", "/society/my-flat"],
   storekeeper: ["/dashboard", "/inventory", "/tickets/quality", "/tickets/returns"],

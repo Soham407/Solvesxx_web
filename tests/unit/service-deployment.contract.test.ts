@@ -40,6 +40,7 @@ describe("service deployment contracts", () => {
     expect(
       sourceContainsAll(adminPageSource, [
         "Generate Service Indent",
+        "submitForApproval",
         "approveIndent",
         "linkRequestToIndent",
         "getCurrentEmployeeId",
@@ -54,6 +55,8 @@ describe("service deployment contracts", () => {
         "supplier_id?: string",
         "service_request_id: input.service_request_id",
         "supplier_id: input.supplier_id",
+        "Service deployment indents carry workflow metadata on the request, not SKU rows on the indent.",
+        "items.length === 0 && !isServiceDeploymentIndent",
         'if (indentStatus !== "draft")',
         '.on("postgres_changes", { event: "*", schema: "public", table: "indents" }, fetchIndents)',
       ])
@@ -81,6 +84,7 @@ describe("service deployment contracts", () => {
   it("keeps service indents visible and supplier-safe in the supplier portal", async () => {
     const supplierPortalHookSource = await readRepoFile("hooks/useSupplierPortal.ts");
     const supplierIndentsPageSource = await readRepoFile("app/(dashboard)/supplier/indents/page.tsx");
+    const supplierServiceIndentRouteSource = await readRepoFile("app/api/supplier/service-indent-response/route.ts");
     const migrationSource = await readRepoFile(
       "supabase/migrations/20260331000001_service_deployment_indent_flow.sql"
     );
@@ -91,10 +95,16 @@ describe("service deployment contracts", () => {
         "site_location_name",
         "is_service_request === true",
         'rejected_at: new Date().toISOString()',
-        'from("service_purchase_order_items")',
-        "total_amount: 0",
-        'status: "po_issued"',
+        'fetch("/api/supplier/service-indent-response"',
         'rpc("create_po_from_supplier_request"',
+      ])
+    ).toBe(true);
+
+    expect(
+      sourceContainsAll(supplierServiceIndentRouteSource, [
+        'from("service_purchase_order_items")',
+        "total_amount: lineTotal",
+        'status: "po_issued"',
       ])
     ).toBe(true);
 
@@ -126,7 +136,7 @@ describe("service deployment contracts", () => {
       "supabase/migrations/20260401000004_patch_requests_super_admin_policies.sql"
     );
     const superAdminProcurementPatchMigration = await readRepoFile(
-      "supabase/migrations/20260401000005_patch_procurement_super_admin_policies.sql"
+      "supabase/migrations/20260401000011_patch_procurement_super_admin_policies.sql"
     );
 
     expect(
@@ -151,6 +161,34 @@ describe("service deployment contracts", () => {
         'CREATE POLICY "View Indents"',
         'CREATE POLICY "Manage Purchase Orders"',
         'CREATE POLICY "View Reconciliation Lines"',
+      ])
+    ).toBe(true);
+  });
+
+  it("keeps the service deployment workflow active in the Wave 2 automation matrix", async () => {
+    const featureMatrixSource = await readRepoFile("e2e/feature-matrix.ts");
+    const workflowSource = await readRepoFile("e2e/helpers/workflows.ts");
+
+    expect(
+      sourceContainsAll(featureMatrixSource, [
+        'featureKey: "service-deployment-chain"',
+        'scenarioKey: "service_deployment_chain"',
+        'evidenceTables: ["service_purchase_orders", "personnel_dispatches", "service_delivery_notes", "service_acknowledgments"]',
+      ])
+    ).toBe(true);
+
+    expect(featureMatrixSource).not.toContain(
+      'deferredReason: "Current app surface has hooks for dispatch and delivery-note entities but no complete UI path for end-to-end supervisor acknowledgment and billing verification."'
+    );
+
+    expect(
+      sourceContainsAll(workflowSource, [
+        'case "service_deployment_chain":',
+        "return runServiceDeploymentChain(browser, feature, testInfo);",
+        'await page.goto("/admin/service-indents");',
+        'await page.goto("/supplier/service-orders");',
+        'await page.goto("/inventory/service-purchase-orders");',
+        'await page.goto("/supplier/bills/new");',
       ])
     ).toBe(true);
   });

@@ -34,10 +34,40 @@ describe("procurement rate verification gate contracts", () => {
     ).toBe(true);
   });
 
+  it("displays material rate verification summary in the admin material indents page", async () => {
+    const pageSource = await readRepoFile("app/(dashboard)/admin/material-indents/page.tsx");
+
+    expect(
+      sourceContainsAll(pageSource, [
+        "materialRateSummary",
+        "fetchMaterialRateSummary",
+        "Verifying rate contracts...",
+        "Active Rate Contracts Found",
+        "No active rate contract for one or more items",
+        "toPaise(itemRate.rate)",
+        "disabled={isGeneratingIndent || !selectedSupplierId || !materialRateSummary?.hasAllRates || isLoadingRateSummary}",
+      ])
+    ).toBe(true);
+  });
+
+  it("provisions material procurement rate prerequisites in the feature fixture script", async () => {
+    const scriptSource = await readRepoFile("scripts/provision-feature-fixtures.cjs");
+
+    expect(
+      sourceContainsAll(scriptSource, [
+        "ensureSupplierProductMapping",
+        "ensureSupplierRate",
+        "supplierProductId",
+        "supplierRateId",
+        "Procurement fixtures ensure a supplier-product link and active supplier rate",
+      ])
+    ).toBe(true);
+  });
+
   it("has the database migration for rate verification", async () => {
     const migrationsDir = path.join(process.cwd(), "supabase", "migrations");
     const files = fs.readdirSync(migrationsDir);
-    const rateMigration = files.find(f => f.includes("procurement_rate_verification_gate"));
+    const rateMigration = files.find((f) => f.includes("procurement_rate_verification_gate"));
 
     expect(rateMigration).toBeDefined();
 

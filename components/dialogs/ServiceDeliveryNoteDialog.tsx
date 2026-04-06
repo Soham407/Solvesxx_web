@@ -56,6 +56,9 @@ interface ServiceDeliveryNoteDialogProps {
   onOpenChange: (open: boolean) => void;
   poId: string;
   poNumber: string;
+  supplierId: string;
+  deploymentSiteId?: string | null;
+  deploymentSiteName?: string | null;
   onSuccess?: () => void;
 }
 
@@ -64,6 +67,9 @@ export function ServiceDeliveryNoteDialog({
   onOpenChange,
   poId,
   poNumber,
+  supplierId,
+  deploymentSiteId,
+  deploymentSiteName,
   onSuccess,
 }: ServiceDeliveryNoteDialogProps) {
   const { toast } = useToast();
@@ -71,6 +77,7 @@ export function ServiceDeliveryNoteDialog({
   const [createdSDN, setCreatedSDN] = useState<any>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [conflicts, setConflicts] = useState<Record<number, string>>({});
+  const [dispatchIssues, setDispatchIssues] = useState<string[]>([]);
   
   const { createNote } = useServiceDeliveryNotes(poId);
   const { employees } = useEmployees();
@@ -109,16 +116,17 @@ export function ServiceDeliveryNoteDialog({
             .select(`
               start_date, 
               end_date, 
-              deployment_site:company_locations!deployment_site_id (name)
+              deployment_site:company_locations!deployment_site_id (location_name)
             `)
             .eq("employee_id", p.employee_id)
-            .not("status", "in", "('cancelled', 'completed', 'withdrawn')")
-            .or(`start_date.lte.${watchDate},end_date.gte.${watchDate},end_date.is.null`)
+            .in("status", ["dispatched", "confirmed", "active"])
+            .lte("start_date", watchDate)
+            .or(`end_date.gte.${watchDate},end_date.is.null`)
             .limit(1);
 
           if (overlaps && overlaps.length > 0) {
             const o = overlaps[0];
-            newConflicts[i] = `Already deployed at ${o.deployment_site?.name || "another site"} (${o.start_date} to ${o.end_date || 'Open'})`;
+            newConflicts[i] = `Already deployed at ${o.deployment_site?.location_name || "another site"} (${o.start_date} to ${o.end_date || 'Open'})`;
           }
         }
       }
@@ -139,6 +147,7 @@ export function ServiceDeliveryNoteDialog({
     }
 
     setIsSubmitting(true);
+    setDispatchIssues([]);
     // 1. Create the delivery note
     const result = await createNote({
       po_id: poId,
@@ -149,17 +158,40 @@ export function ServiceDeliveryNoteDialog({
     
     // 2. Also create personnel_dispatches entries for each employee
     if (result.success) {
+      const nextDispatchIssues: string[] = [];
+
+      if (!deploymentSiteId) {
+        nextDispatchIssues.push(
+          "Deployment site is not linked to this service order, so dispatch rows cannot be tied to a site."
+        );
+      }
+
       for (const p of values.personnel) {
-        await createDispatch({
+        const dispatchResult = await createDispatch({
           service_po_id: poId,
-          supplier_id: (result.data as any)?.supplier_id || "", // Fallback if missing
+          supplier_id: supplierId,
           employee_id: p.employee_id,
           start_date: values.delivery_date,
+          deployment_site_id: deploymentSiteId || undefined,
           personnel: [p],
           notes: values.remarks,
         });
+
+        if (!dispatchResult.success) {
+          nextDispatchIssues.push(dispatchResult.error || `Dispatch row failed for ${p.name}`);
+        }
       }
-      
+
+      setDispatchIssues(nextDispatchIssues);
+
+      if (nextDispatchIssues.length > 0) {
+        toast({
+          title: "Dispatch Ledger Incomplete",
+          description: `Delivery note was submitted, but ${nextDispatchIssues.length} dispatch record(s) failed.`,
+          variant: "destructive",
+        });
+      }
+
       setCreatedSDN(result.data);
       form.reset();
       onSuccess?.();
@@ -220,6 +252,7 @@ export function ServiceDeliveryNoteDialog({
 
   const handleClose = () => {
     setCreatedSDN(null);
+    setDispatchIssues([]);
     onOpenChange(false);
   };
 
@@ -233,6 +266,7 @@ export function ServiceDeliveryNoteDialog({
           </DialogTitle>
           <p className="text-xs text-muted-foreground">
             Service Order: <span className="font-mono font-bold">{poNumber}</span>
+            {deploymentSiteName ? ` • ${deploymentSiteName}` : ""}
           </p>
         </DialogHeader>
 
@@ -245,6 +279,14 @@ export function ServiceDeliveryNoteDialog({
               <p className="text-sm text-muted-foreground mt-1">
                 SDN created successfully and is awaiting admin verification.
               </p>
+              {dispatchIssues.length > 0 && (
+                <Alert variant="destructive" className="mt-3 text-left">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Dispatch ledger incomplete: {dispatchIssues.join(" ")}
+                  </AlertDescription>
+                </Alert>
+              )}
             </div>
             <div className="flex gap-3">
               <Button

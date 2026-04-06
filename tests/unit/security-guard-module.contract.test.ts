@@ -26,16 +26,21 @@ describe("security guard module contracts", () => {
   it("resolves panic alerts with employee ids instead of auth user ids", async () => {
     const historySource = await readRepoFile("hooks/usePanicAlertHistory.ts");
     const subscriptionSource = await readRepoFile("hooks/usePanicAlertSubscription.ts");
+    const fkRepairSource = await readRepoFile(
+      "supabase/migrations/20260406014000_panic_alerts_resolved_by_fk_repair.sql"
+    );
 
     expect(
       sourceContainsAll(historySource, [
         'import { getCurrentEmployeeId }',
         "resolved_by: resolvedBy",
-        "resolver:employees!panic_alerts_resolved_by_fkey",
       ])
     ).toBe(true);
     expect(
-      sourceContainsNone(historySource, ["resolved_by: userData?.user?.id"])
+      sourceContainsNone(historySource, [
+        "resolved_by: userData?.user?.id",
+        "resolver:employees!panic_alerts_resolved_by_fkey",
+      ])
     ).toBe(true);
 
     expect(
@@ -43,6 +48,15 @@ describe("security guard module contracts", () => {
         'import { getCurrentEmployeeId }',
         "const resolvedBy = await getCurrentEmployeeId()",
         "resolved_by: resolvedBy",
+      ])
+    ).toBe(true);
+
+    expect(
+      sourceContainsAll(fkRepairSource, [
+        "drop constraint if exists panic_alerts_resolved_by_fkey",
+        "set resolved_by = e.id",
+        "pa.resolved_by = e.auth_user_id",
+        "references public.employees(id)",
       ])
     ).toBe(true);
   });

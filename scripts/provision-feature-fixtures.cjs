@@ -94,6 +94,44 @@ async function ensureEmployee(supabase, user, options) {
     );
   }
 
+  const employeePatch = {};
+
+  if (employee.employee_code !== options.code) {
+    employeePatch.employee_code = options.code;
+  }
+  if (employee.first_name !== options.firstName) {
+    employeePatch.first_name = options.firstName;
+  }
+  if (employee.last_name !== options.lastName) {
+    employeePatch.last_name = options.lastName;
+  }
+  if (employee.email !== user.email) {
+    employeePatch.email = user.email;
+  }
+  if (employee.designation_id !== options.designationId) {
+    employeePatch.designation_id = options.designationId;
+  }
+  if (employee.department !== options.department) {
+    employeePatch.department = options.department;
+  }
+  if (employee.auth_user_id !== user.id) {
+    employeePatch.auth_user_id = user.id;
+  }
+  if (employee.is_active !== true) {
+    employeePatch.is_active = true;
+  }
+
+  if (Object.keys(employeePatch).length > 0) {
+    employee = await runMutation(
+      supabase
+        .from("employees")
+        .update(employeePatch)
+        .eq("id", employee.id)
+        .select()
+        .single()
+    );
+  }
+
   if (user.employee_id !== employee.id) {
     await runMutation(
       supabase.from("users").update({ employee_id: employee.id, updated_at: new Date().toISOString() }).eq("id", user.id)
@@ -253,6 +291,269 @@ async function ensureBehaviorTicket(supabase, employeeId, reportedBy) {
   );
 }
 
+async function ensureSupplierProductMapping(supabase, supplierId, productId) {
+  const existing = await maybeSingle(
+    supabase
+      .from("supplier_products")
+      .select("*")
+      .eq("supplier_id", supplierId)
+      .eq("product_id", productId)
+      .maybeSingle()
+  );
+
+  if (existing) {
+    return existing;
+  }
+
+  return runMutation(
+    supabase
+      .from("supplier_products")
+      .insert({
+        id: stableUuid(`supplier-product:${supplierId}:${productId}`),
+        supplier_id: supplierId,
+        product_id: productId,
+      })
+      .select()
+      .single()
+  );
+}
+
+async function ensureSupplierRate(supabase, supplierProductId, rateRupees) {
+  const today = new Date().toISOString().split("T")[0];
+  const existing = await maybeSingle(
+    supabase
+      .from("supplier_rates")
+      .select("*")
+      .eq("supplier_product_id", supplierProductId)
+      .eq("is_active", true)
+      .lte("effective_from", today)
+      .order("effective_from", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+  );
+
+  if (existing) {
+    return existing;
+  }
+
+  return runMutation(
+    supabase
+      .from("supplier_rates")
+      .insert({
+        id: stableUuid(`supplier-rate:${supplierProductId}`),
+        supplier_product_id: supplierProductId,
+        rate: rateRupees,
+        effective_from: "2026-01-01",
+        is_active: true,
+      })
+      .select()
+      .single()
+  );
+}
+
+async function ensureVendorWiseService(supabase, supplierId, serviceType) {
+  const existing = await maybeSingle(
+    supabase
+      .from("vendor_wise_services")
+      .select("*")
+      .eq("supplier_id", supplierId)
+      .eq("service_type", serviceType)
+      .maybeSingle()
+  );
+
+  if (existing) {
+    if (existing.is_active !== true) {
+      return runMutation(
+        supabase
+          .from("vendor_wise_services")
+          .update({ is_active: true })
+          .eq("id", existing.id)
+          .select()
+          .single()
+      );
+    }
+
+    return existing;
+  }
+
+  return runMutation(
+    supabase
+      .from("vendor_wise_services")
+      .insert({
+        id: stableUuid(`vendor-service:${supplierId}:${serviceType}`),
+        supplier_id: supplierId,
+        service_type: serviceType,
+        is_active: true,
+      })
+      .select()
+      .single()
+  );
+}
+
+async function ensureServiceRate(supabase, supplierId, serviceType, ratePaise) {
+  const today = new Date().toISOString().split("T")[0];
+  const existing = await maybeSingle(
+    supabase
+      .from("service_rates")
+      .select("*")
+      .eq("supplier_id", supplierId)
+      .eq("service_type", serviceType)
+      .eq("is_active", true)
+      .lte("effective_from", today)
+      .order("effective_from", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+  );
+
+  if (existing) {
+    if (existing.rate !== ratePaise) {
+      return runMutation(
+        supabase
+          .from("service_rates")
+          .update({ rate: ratePaise, is_active: true })
+          .eq("id", existing.id)
+          .select()
+          .single()
+      );
+    }
+
+    return existing;
+  }
+
+  return runMutation(
+    supabase
+      .from("service_rates")
+      .insert({
+        id: stableUuid(`service-rate:${supplierId}:${serviceType}`),
+        supplier_id: supplierId,
+        service_type: serviceType,
+        rate: ratePaise,
+        effective_from: "2026-01-01",
+        is_active: true,
+      })
+      .select()
+      .single()
+  );
+}
+
+async function ensureServiceDeploymentRequest(supabase, requestInput) {
+  const createFreshAcceptedRequest = async (input, reason) => {
+    const clonedRequestNumber = `${input.request_number}-${Date.now().toString().slice(-6)}`;
+    console.warn(
+      `Creating a fresh accepted service deployment request because ${input.request_number} can no longer be rewound safely (${reason}).`
+    );
+
+    return runMutation(
+      supabase
+        .from("requests")
+        .insert({
+          ...input,
+          id: crypto.randomUUID(),
+          request_number: clonedRequestNumber,
+          supplier_id: null,
+          indent_id: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .select()
+        .single()
+    );
+  };
+
+  const existing =
+    (await findByEq(supabase, "requests", "request_number", requestInput.request_number)) ||
+    (await findByEq(supabase, "requests", "id", requestInput.id));
+
+  if (existing) {
+    const needsUpdate =
+      existing.title !== requestInput.title ||
+      existing.status !== requestInput.status ||
+      existing.service_type !== requestInput.service_type ||
+      existing.service_grade !== requestInput.service_grade ||
+      existing.headcount !== requestInput.headcount ||
+      existing.shift !== requestInput.shift ||
+      existing.start_date !== requestInput.start_date ||
+      existing.duration_months !== requestInput.duration_months ||
+      existing.site_location_id !== requestInput.site_location_id ||
+      existing.location_id !== requestInput.location_id ||
+      existing.is_service_request !== true ||
+      existing.indent_id !== null ||
+      existing.supplier_id !== null;
+
+    if (!needsUpdate) {
+      return existing;
+    }
+
+    try {
+      return await runMutation(
+        supabase
+          .from("requests")
+          .update({
+            ...requestInput,
+            supplier_id: null,
+            indent_id: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existing.id)
+          .select()
+          .single()
+      );
+    } catch (error) {
+      const message =
+        typeof error === "object" && error && "message" in error
+          ? String(error.message)
+          : error instanceof Error
+            ? error.message
+            : String(error);
+
+      if (
+        message.includes("Illegal status transition") &&
+        message.includes("accepted")
+      ) {
+        return createFreshAcceptedRequest(requestInput, message);
+      }
+
+      throw error;
+    }
+  }
+
+  return runMutation(
+    supabase
+      .from("requests")
+      .insert({
+        ...requestInput,
+        supplier_id: null,
+        indent_id: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select()
+      .single()
+  );
+}
+
+async function releaseOpenDispatchesForEmployee(supabase, employeeCode) {
+  const employee = await findByEq(supabase, "employees", "employee_code", employeeCode, "id, employee_code");
+
+  if (!employee) {
+    return null;
+  }
+
+  await runMutation(
+    supabase
+      .from("personnel_dispatches")
+      .update({
+        status: "withdrawn",
+        end_date: new Date().toISOString().slice(0, 10),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("employee_id", employee.id)
+      .not("status", "in", "('cancelled', 'completed', 'withdrawn')")
+  );
+
+  return employee;
+}
+
 function isBrokenEmployeeDocumentTrigger(error) {
   const message =
     typeof error === "object" && error && "message" in error
@@ -366,6 +667,25 @@ async function main() {
     (supplierUser?.supplier_id && (await findByEq(supabase, "suppliers", "id", supplierUser.supplier_id))) ||
     (await maybeSingle(supabase.from("suppliers").select("*").order("created_at").limit(1).maybeSingle()));
 
+  if (!product) {
+    throw new Error("No product row available for procurement feature fixtures.");
+  }
+
+  if (!supplier) {
+    throw new Error("No supplier row available for procurement feature fixtures.");
+  }
+
+  const procurementRateRupees =
+    typeof product.base_rate === "number" && Number.isFinite(product.base_rate)
+      ? Number((product.base_rate / 100).toFixed(2))
+      : 490;
+  const supplierProduct = await ensureSupplierProductMapping(supabase, supplier.id, product.id);
+  const supplierRate = await ensureSupplierRate(supabase, supplierProduct.id, procurementRateRupees);
+  const serviceSecurityMapping = await ensureVendorWiseService(supabase, supplier.id, "security");
+  const serviceAcMapping = await ensureVendorWiseService(supabase, supplier.id, "ac");
+  const serviceSecurityRate = await ensureServiceRate(supabase, supplier.id, "security", 2000000);
+  const serviceAcRate = await ensureServiceRate(supabase, supplier.id, "ac", 1600000);
+  const supplierDispatchEmployee = await releaseOpenDispatchesForEmployee(supabase, "EMP-SUP-001");
   const residentUser = userByEmail["resident@test.com"];
   const resident =
     (await findByEq(supabase, "residents", "email", residentUser.email)) ||
@@ -558,6 +878,27 @@ async function main() {
 
   await ensureBehaviorTicket(supabase, employees.guard.id, employees.supervisor.id);
 
+  const serviceRequestStartDate = new Date();
+  serviceRequestStartDate.setDate(serviceRequestStartDate.getDate() + 7);
+  const serviceDeploymentRequest = await ensureServiceDeploymentRequest(supabase, {
+    id: stableUuid("request:service-deployment"),
+    request_number: "REQ-E2E-SVC-001",
+    buyer_id: userByEmail["buyer@test.com"].id,
+    title: "E2E Security Deployment",
+    description: "Deploy three grade A guards at the main gate for the next month.",
+    location_id: location.id,
+    site_location_id: location.id,
+    preferred_delivery_date: serviceRequestStartDate.toISOString().slice(0, 10),
+    status: "accepted",
+    service_type: "security",
+    service_grade: "Grade A Guard",
+    headcount: 3,
+    shift: "day",
+    start_date: serviceRequestStartDate.toISOString().slice(0, 10),
+    duration_months: 1,
+    is_service_request: true,
+  });
+
   const guardRecord =
     (await findByEq(supabase, "security_guards", "employee_id", employees.guard.id)) ||
     (await runMutation(
@@ -614,6 +955,13 @@ async function main() {
       pestServiceId: pestService.id,
       productId: product.id,
       supplierId: supplier.id,
+      supplierProductId: supplierProduct.id,
+      supplierRateId: supplierRate.id,
+      serviceSecurityVendorMappingId: serviceSecurityMapping.id,
+      serviceAcVendorMappingId: serviceAcMapping.id,
+      serviceSecurityRateId: serviceSecurityRate.id,
+      serviceAcRateId: serviceAcRate.id,
+      serviceDeploymentRequestId: serviceDeploymentRequest.id,
     },
     slugs: {
       sharedPrefix: "E2E_SHARED",
@@ -624,6 +972,11 @@ async function main() {
     },
     notes: [
       "Feature fixtures normalize employee links for role test users.",
+      "Procurement fixtures ensure a supplier-product link and active supplier rate for the shared product.",
+      "Service fixtures ensure vendor-wise service mappings, active service rates, and one accepted deployment request.",
+      supplierDispatchEmployee
+        ? `Service fixtures release stale open dispatches for ${supplierDispatchEmployee.employee_code}.`
+        : "Service fixtures could not locate the supplier dispatch employee EMP-SUP-001.",
       "Shared reference rows use stable E2E_* identifiers; workflow rows should remain run-scoped.",
       employeeDocumentsSeeded
         ? "Employee document baseline is present for HRMS document coverage."
@@ -648,3 +1001,4 @@ main().catch((error) => {
   console.error(error);
   process.exit(1);
 });
+

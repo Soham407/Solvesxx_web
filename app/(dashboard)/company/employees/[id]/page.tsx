@@ -1,6 +1,7 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { 
   ChevronLeft, 
   Mail, 
@@ -24,14 +25,36 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { RoleTag } from "@/components/shared/RoleTag";
 import { StepperTimeline } from "@/components/shared/StepperTimeline";
 import Link from "next/link";
+import { EmployeeCompensationPanel } from "@/components/forms/EmployeeCompensationPanel";
+import { useAuth } from "@/hooks/useAuth";
 import { useEmployees } from "@/hooks/useEmployees";
+
+type EmployeeDetailTab = "overview" | "onboarding" | "documents" | "activity" | "compensation";
+
+function getEmployeeDetailTab(value: string | null): EmployeeDetailTab {
+  if (value === "onboarding" || value === "documents" || value === "activity" || value === "compensation") {
+    return value;
+  }
+
+  return "overview";
+}
 
 export default function EmployeeDetailPage() {
   const { id } = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { role } = useAuth();
   const { getEmployeeById, isLoading, error } = useEmployees();
+  const [activeTab, setActiveTab] = useState<EmployeeDetailTab>(
+    getEmployeeDetailTab(searchParams.get("tab"))
+  );
   
   const employee = getEmployeeById(id as string);
+  const canManageCompensation = role === "admin" || role === "super_admin";
+
+  useEffect(() => {
+    setActiveTab(getEmployeeDetailTab(searchParams.get("tab")));
+  }, [searchParams]);
 
   if (isLoading) {
     return (
@@ -78,6 +101,16 @@ export default function EmployeeDetailPage() {
             <FileText className="h-4 w-4" />
             Download Dossier
           </Button>
+          {canManageCompensation && (
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={() => setActiveTab("compensation")}
+            >
+              <Briefcase className="h-4 w-4" />
+              Payroll Setup
+            </Button>
+          )}
           <Button className="gap-2 shadow-md">
             <Edit3 className="h-4 w-4" />
             Edit Profile
@@ -150,16 +183,25 @@ export default function EmployeeDetailPage() {
                   <History className="h-4 w-4" />
                   View Attendance History
                </Button>
+               <Button
+                 variant="outline"
+                 className="justify-start gap-3 h-11 border-dashed hover:border-primary hover:text-primary transition-all"
+                 onClick={() => setActiveTab("compensation")}
+               >
+                  <Briefcase className="h-4 w-4" />
+                  Manage Payroll Setup
+               </Button>
             </CardContent>
           </Card>
         </div>
 
         {/* Content Tabs */}
         <div className="lg:col-span-2 space-y-6">
-          <Tabs defaultValue="overview" className="w-full">
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as EmployeeDetailTab)} className="w-full">
             <TabsList className="bg-transparent border-b rounded-none w-full justify-start h-auto p-0 gap-8">
               <TabsTrigger value="overview" className="px-0 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none font-bold text-xs uppercase tracking-widest">Overview</TabsTrigger>
               <TabsTrigger value="onboarding" className="px-0 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none font-bold text-xs uppercase tracking-widest">Onboarding Status</TabsTrigger>
+              <TabsTrigger value="compensation" className="px-0 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none font-bold text-xs uppercase tracking-widest">Compensation</TabsTrigger>
               <TabsTrigger value="documents" className="px-0 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none font-bold text-xs uppercase tracking-widest">Documents</TabsTrigger>
               <TabsTrigger value="activity" className="px-0 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none font-bold text-xs uppercase tracking-widest">Audit Log</TabsTrigger>
             </TabsList>
@@ -233,6 +275,14 @@ export default function EmployeeDetailPage() {
                      <StepperTimeline steps={onboardingSteps} />
                   </CardContent>
                </Card>
+            </TabsContent>
+
+            <TabsContent value="compensation" className="pt-6">
+              <EmployeeCompensationPanel
+                employeeId={id as string}
+                employeeName={employee.full_name || "Employee"}
+                canManage={canManageCompensation}
+              />
             </TabsContent>
 
             <TabsContent value="documents" className="pt-6">

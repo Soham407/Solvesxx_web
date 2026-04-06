@@ -61,6 +61,9 @@ describe("notifications module contracts", () => {
         '{ event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` }',
         '{ event: "UPDATE", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` }',
         "mergeNotification",
+        "row.message ?? row.body ?? \"\"",
+        "row.notification_type ?? row.type ?? \"general\"",
+        "data.action_url",
         "const [error, setError] = useState<string | null>(null);",
         "return { notifications, isLoading, error, unreadCount, markAsRead, markAllRead };",
       ])
@@ -94,6 +97,29 @@ describe("notifications module contracts", () => {
       sourceContainsAll(topNavSource, [
         'import { NotificationBell } from "./NotificationBell";',
         "<NotificationBell />",
+      ])
+    ).toBe(true);
+  });
+
+  it("repairs the mobile notification helper against the live notifications schema", async () => {
+    const migrationSource = await readRepoFile(
+      "supabase/migrations/20260405020000_mobile_notification_contract_repair.sql"
+    );
+
+    expect(
+      sourceContainsAll(migrationSource, [
+        "ADD COLUMN IF NOT EXISTS action_url TEXT",
+        "message",
+        "notification_type",
+        "JSONB_BUILD_OBJECT('action_url', p_action_url)",
+        "LEFT(COALESCE(p_body, ''), 1000)",
+      ])
+    ).toBe(true);
+
+    expect(
+      sourceContainsNone(migrationSource, [
+        "\n    body,\n",
+        "\n    type,\n",
       ])
     ).toBe(true);
   });
