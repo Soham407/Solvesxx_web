@@ -80,6 +80,7 @@ export interface Candidate {
   
   // Computed
   full_name?: string;
+  bgv_ready_for_offer?: boolean;
 }
 
 export interface CreateCandidateInput {
@@ -153,6 +154,55 @@ const STATUS_TRANSITIONS: Record<CandidateStatus, CandidateStatus[]> = {
   rejected: [], // Terminal state (could allow reconsideration in future)
 };
 
+const REQUIRED_BGV_TYPES = ["police", "address", "education", "employment"] as const;
+
+async function fetchBgvReadiness(candidateIds: string[]) {
+  if (candidateIds.length === 0) {
+    return new Map<string, boolean>();
+  }
+
+  const { data, error } = await supabase
+    .from("background_verifications")
+    .select("candidate_id, verification_type, status")
+    .in("candidate_id", candidateIds)
+    .in("verification_type", [...REQUIRED_BGV_TYPES]);
+
+  if (error) {
+    throw error;
+  }
+
+  const recordsByCandidate = new Map<
+    string,
+    Array<{ verification_type: string; status: string }>
+  >();
+
+  for (const row of data || []) {
+    if (!row.candidate_id) {
+      continue;
+    }
+
+    const existing = recordsByCandidate.get(row.candidate_id) || [];
+    existing.push({
+      verification_type: row.verification_type,
+      status: row.status,
+    });
+    recordsByCandidate.set(row.candidate_id, existing);
+  }
+
+  return new Map(
+    candidateIds.map((candidateId) => {
+      const records = recordsByCandidate.get(candidateId) || [];
+      const isReady = REQUIRED_BGV_TYPES.every((type) =>
+        records.some(
+          (record) =>
+            record.verification_type === type && record.status === "verified"
+        )
+      );
+      return [candidateId, isReady];
+    })
+  );
+}
+
 // ============================================
 // HOOK
 // ============================================
@@ -191,10 +241,20 @@ export function useCandidates(initialFilters?: UseCandidatesFilters) {
 
       if (error) throw error;
 
-      // Transform data to include full_name
-      const candidatesWithFullName: Candidate[] = (data || []).map((c: any) => ({
+      const candidates = (data || []) as Candidate[];
+      const bgvCandidateIds = candidates
+        .filter((candidate) => candidate.status === "background_check")
+        .map((candidate) => candidate.id);
+      const bgvReadinessByCandidate = await fetchBgvReadiness(bgvCandidateIds);
+
+      // Transform data to include full_name and BGV readiness
+      const candidatesWithFullName: Candidate[] = candidates.map((c) => ({
         ...c,
         full_name: [c.first_name, c.last_name].filter(Boolean).join(" ").trim() || "Unknown",
+        bgv_ready_for_offer:
+          c.status === "background_check"
+            ? bgvReadinessByCandidate.get(c.id) === true
+            : c.bgv_status === "cleared",
       }));
 
       // Apply client-side search filter if provided
@@ -343,6 +403,17 @@ export function useCandidates(initialFilters?: UseCandidatesFilters) {
           `Invalid status transition from '${candidate.status}' to '${newStatus}'. ` +
           `Allowed transitions: ${allowedTransitions.join(", ") || "none"}`
         );
+      }
+
+      if (candidate.status === "background_check" && newStatus === "offered") {
+        const readinessByCandidate = await fetchBgvReadiness([id]);
+        const isReadyForOffer = readinessByCandidate.get(id) === true;
+
+        if (!isReadyForOffer) {
+          throw new Error(
+            "All required background verifications must be verified before making an offer."
+          );
+        }
       }
 
       // Build update payload
@@ -518,6 +589,15 @@ export function useCandidates(initialFilters?: UseCandidatesFilters) {
     (candidateId: string, targetStatus: CandidateStatus): boolean => {
       const candidate = state.candidates.find((c) => c.id === candidateId);
       if (!candidate) return false;
+
+      if (
+        candidate.status === "background_check" &&
+        targetStatus === "offered" &&
+        candidate.bgv_ready_for_offer !== true
+      ) {
+        return false;
+      }
+
       return STATUS_TRANSITIONS[candidate.status].includes(targetStatus);
     },
     [state.candidates]

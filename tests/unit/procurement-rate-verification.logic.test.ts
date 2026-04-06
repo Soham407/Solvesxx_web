@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock Supabase - must define inside vi.mock factory if it's hoisted
 vi.mock("@/src/lib/supabaseClient", () => {
@@ -39,6 +39,11 @@ import { supabase } from "@/src/lib/supabaseClient";
 describe("Procurement Rate Verification Gate Logic", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("calls validate_indent_rate RPC during linkRequestToIndent", async () => {

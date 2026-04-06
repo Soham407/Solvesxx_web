@@ -25,11 +25,13 @@ describe("Personnel Dispatch Overlap Detection", () => {
 
     expect(
       sourceContainsAll(hookSource, [
+        'const overlapEndDate = input.end_date || "9999-12-31";',
         "// Pre-flight overlap check",
         '.from("personnel_dispatches")',
         '.eq("employee_id", input.employee_id)',
-        '.not("status", "in", "(\'cancelled\', \'completed\', \'withdrawn\')")',
-        ".or(`start_date.lte.${input.end_date || '9999-12-31'},end_date.gte.${input.start_date},end_date.is.null`)",
+        '.in("status", ["dispatched", "confirmed", "active"])',
+        '.lte("start_date", overlapEndDate)',
+        '.or(`end_date.gte.${input.start_date},end_date.is.null`)',
         "toast({ title: \"Deployment Conflict\"",
         "return { success: false, error: msg }",
       ])

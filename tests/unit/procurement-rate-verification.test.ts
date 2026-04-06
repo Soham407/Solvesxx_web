@@ -1,10 +1,10 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock Supabase
-const mockSupabase = {
+const mockSupabase = vi.hoisted(() => ({
   from: vi.fn(),
   rpc: vi.fn(),
-};
+}));
 
 vi.mock("@/src/lib/supabaseClient", () => ({
   supabase: mockSupabase,
@@ -24,9 +24,48 @@ vi.mock("react", () => ({
 
 import { useBuyerRequests } from "@/hooks/useBuyerRequests";
 
+function mockFromForSuccessfulLink() {
+  mockSupabase.from.mockImplementation((table: string) => {
+    if (table === "indents") {
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ data: { id: "indent-1", status: "approved" }, error: null }),
+          }),
+        }),
+      };
+    }
+
+    if (table === "requests") {
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ data: { indent_id: null, status: "accepted" }, error: null }),
+          }),
+          order: vi.fn().mockResolvedValue({ data: [], error: null }),
+        }),
+        update: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            or: vi.fn().mockResolvedValue({ data: {}, error: null, count: 1 }),
+          }),
+        }),
+      };
+    }
+
+    throw new Error(`Unexpected table mock request: ${table}`);
+  });
+}
+
 describe("Procurement Rate Verification Gate", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockSupabase.from.mockReset();
+    mockSupabase.rpc.mockReset();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("blocks forwarding when validate_indent_rate returns false", async () => {
@@ -53,18 +92,7 @@ describe("Procurement Rate Verification Gate", () => {
     mockSupabase.rpc.mockResolvedValue({ data: true, error: null } as any);
 
     // 2. Mock other Supabase calls in linkRequestToIndent
-    mockSupabase.from.mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({ data: { id: "indent-1", status: "approved" }, error: null }),
-        }),
-      }),
-      update: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          or: vi.fn().mockResolvedValue({ data: {}, error: null, count: 1 }),
-        }),
-      }),
-    });
+    mockFromForSuccessfulLink();
 
     const hook = useBuyerRequests();
 
@@ -81,18 +109,7 @@ describe("Procurement Rate Verification Gate", () => {
     mockSupabase.rpc.mockResolvedValue({ data: null, error: { message: "Internal error" } } as any);
 
     // 2. Mock other Supabase calls (it should continue)
-    mockSupabase.from.mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({ data: { id: "indent-1", status: "approved" }, error: null }),
-        }),
-      }),
-      update: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          or: vi.fn().mockResolvedValue({ data: {}, error: null, count: 1 }),
-        }),
-      }),
-    });
+    mockFromForSuccessfulLink();
 
     const hook = useBuyerRequests();
 

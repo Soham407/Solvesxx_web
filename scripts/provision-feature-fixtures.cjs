@@ -143,6 +143,37 @@ async function ensureEmployee(supabase, user, options) {
 }
 
 async function ensureShiftAssignment(supabase, employeeId, shiftId) {
+  const assignmentId = stableUuid(`shift:${employeeId}:${shiftId}`);
+  const existingById = await maybeSingle(
+    supabase.from("employee_shift_assignments").select("*").eq("id", assignmentId).maybeSingle()
+  );
+
+  if (existingById) {
+    if (
+      existingById.employee_id !== employeeId ||
+      existingById.shift_id !== shiftId ||
+      existingById.assigned_from !== "2026-01-01" ||
+      existingById.is_active !== true
+    ) {
+      return runMutation(
+        supabase
+          .from("employee_shift_assignments")
+          .update({
+            employee_id: employeeId,
+            shift_id: shiftId,
+            assigned_from: "2026-01-01",
+            assigned_to: null,
+            is_active: true,
+          })
+          .eq("id", assignmentId)
+          .select()
+          .single()
+      );
+    }
+
+    return existingById;
+  }
+
   const existing = await maybeSingle(
     supabase
       .from("employee_shift_assignments")
@@ -161,7 +192,7 @@ async function ensureShiftAssignment(supabase, employeeId, shiftId) {
     supabase
       .from("employee_shift_assignments")
       .insert({
-        id: stableUuid(`shift:${employeeId}:${shiftId}`),
+        id: assignmentId,
         employee_id: employeeId,
         shift_id: shiftId,
         assigned_from: "2026-01-01",

@@ -206,4 +206,185 @@ describe("hrms module contracts", () => {
       ])
     ).toBe(true);
   });
+
+  it("keeps HRMS secondary surfaces on truthful hooks, storage, and repair migrations", async () => {
+    const recruitmentPageSource = await readRepoFile(
+      "app/(dashboard)/hrms/recruitment/page.tsx"
+    );
+    const documentsPageSource = await readRepoFile(
+      "app/(dashboard)/hrms/documents/page.tsx"
+    );
+    const shiftsPageSource = await readRepoFile(
+      "app/(dashboard)/hrms/shifts/page.tsx"
+    );
+    const holidaysPageSource = await readRepoFile(
+      "app/(dashboard)/hrms/holidays/page.tsx"
+    );
+    const eventsPageSource = await readRepoFile(
+      "app/(dashboard)/hrms/events/page.tsx"
+    );
+    const specializedProfilesPageSource = await readRepoFile(
+      "app/(dashboard)/hrms/specialized-profiles/page.tsx"
+    );
+    const candidatesHookSource = await readRepoFile("hooks/useCandidates.ts");
+    const employeeDocumentsHookSource = await readRepoFile(
+      "hooks/useEmployeeDocuments.ts"
+    );
+    const shiftsHookSource = await readRepoFile("hooks/useShifts.ts");
+    const companyEventsHookSource = await readRepoFile(
+      "hooks/useCompanyEvents.ts"
+    );
+    const techniciansHookSource = await readRepoFile("hooks/useTechnicians.ts");
+    const secondaryTruthMigrationSource = await readRepoFile(
+      "supabase/migrations/20260406190000_hrms_secondary_surface_truth_repairs.sql"
+    );
+    const shiftsDescriptionMigrationSource = await readRepoFile(
+      "supabase/migrations/20260406193000_hrms_shifts_description_column.sql"
+    );
+
+    expect(
+      sourceContainsAll(recruitmentPageSource, [
+        "Offer release stays locked until police, address, education, and employment checks are all verified.",
+        "onVerificationChange={refresh}",
+        "Verify",
+        "Reject",
+      ])
+    ).toBe(true);
+
+    expect(
+      sourceContainsAll(candidatesHookSource, [
+        'const REQUIRED_BGV_TYPES = ["police", "address", "education", "employment"] as const;',
+        "fetchBgvReadiness",
+        "bgv_ready_for_offer",
+        "All required background verifications must be verified before making an offer.",
+        ".from('staff-compliance-docs')",
+      ])
+    ).toBe(true);
+
+    expect(
+      sourceContainsAll(documentsPageSource, [
+        "useEmployeeDocuments",
+        "useEmployees",
+        "uploadDocument",
+        "verifyDocument",
+        "rejectDocument",
+        "Upload Document",
+        "Verify Document",
+      ])
+    ).toBe(true);
+
+    expect(
+      sourceContainsNone(documentsPageSource, ['import { supabase }'])
+    ).toBe(true);
+
+    expect(
+      sourceContainsAll(employeeDocumentsHookSource, [
+        '.from("employee-documents")',
+        'status: "pending_review"',
+        ".createSignedUrl(filePath, 3600)",
+      ])
+    ).toBe(true);
+
+    expect(
+      sourceContainsAll(shiftsPageSource, [
+        "createShift",
+        "handleCreateShift",
+        "Assign Guard",
+        "Create Shift",
+      ])
+    ).toBe(true);
+
+    expect(
+      sourceContainsNone(shiftsPageSource, ['import { supabase }'])
+    ).toBe(true);
+
+    expect(
+      sourceContainsAll(shiftsHookSource, [
+        '.from("shifts")',
+        '.from("employee_shift_assignments")',
+        "description: shiftData.description || null",
+        "await fetchGuardsWithShifts();",
+      ])
+    ).toBe(true);
+
+    expect(
+      sourceContainsAll(holidaysPageSource, [
+        "useHolidays",
+        "addHoliday",
+        "deleteHoliday",
+        "Add Holiday",
+        "Save Holiday",
+      ])
+    ).toBe(true);
+
+    expect(
+      sourceContainsNone(holidaysPageSource, ['import { supabase }'])
+    ).toBe(true);
+
+    expect(
+      sourceContainsAll(eventsPageSource, [
+        "useCompanyEvents",
+        "addEvent",
+        "updateEvent",
+        "Schedule Event",
+        "Save Event",
+        "Complete",
+        "Cancel",
+      ])
+    ).toBe(true);
+
+    expect(
+      sourceContainsNone(eventsPageSource, ['import { supabase }'])
+    ).toBe(true);
+
+    expect(
+      sourceContainsAll(companyEventsHookSource, [
+        "event_name: event.title",
+        'if (typeof updates.title === "string") {',
+        "updatePayload.event_name = updates.title;",
+      ])
+    ).toBe(true);
+
+    expect(
+      sourceContainsAll(specializedProfilesPageSource, [
+        "useEmployees",
+        "useTechnicians",
+        "addTechnician",
+        "updateTechnician",
+        "Add Profile",
+        "Edit Specialized Profile",
+        "Save Profile",
+      ])
+    ).toBe(true);
+
+    expect(
+      sourceContainsNone(specializedProfilesPageSource, ['import { supabase }'])
+    ).toBe(true);
+
+    expect(
+      sourceContainsAll(techniciansHookSource, [
+        '.from("technician_profiles")',
+        "await fetchTechnicians();",
+        "return { success: true };",
+      ])
+    ).toBe(true);
+
+    expect(
+      sourceContainsAll(secondaryTruthMigrationSource, [
+        "employee-documents",
+        "file_size_limit",
+        "allowed_mime_types",
+        "Admins manage company events",
+        "Admins manage shifts",
+        "Admins manage shift assignments",
+      ])
+    ).toBe(true);
+
+    expect(
+      sourceContainsAll(shiftsDescriptionMigrationSource, [
+        "ALTER TABLE public.shifts",
+        "ADD COLUMN IF NOT EXISTS description TEXT",
+      ])
+    ).toBe(true);
+  });
 });

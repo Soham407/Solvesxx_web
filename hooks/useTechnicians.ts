@@ -115,7 +115,7 @@ export function useTechnicians(): UseTechniciansReturn {
     try {
       const { error } = await supabase.from("technician_profiles").insert(profile);
       if (error) throw error;
-      fetchTechnicians();
+      await fetchTechnicians();
       return { success: true };
     } catch (err: unknown) {
       return { success: false, error: err instanceof Error ? err.message : "Operation failed" };
@@ -126,7 +126,7 @@ export function useTechnicians(): UseTechniciansReturn {
     try {
       const { error } = await supabase.from("technician_profiles").update(profile).eq("id", id);
       if (error) throw error;
-      fetchTechnicians();
+      await fetchTechnicians();
       return { success: true };
     } catch (err: unknown) {
       return { success: false, error: err instanceof Error ? err.message : "Operation failed" };

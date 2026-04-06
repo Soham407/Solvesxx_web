@@ -8,9 +8,6 @@ import {
   Plus,
   Clock,
   Users,
-  Calendar,
-  MoreHorizontal,
-  Settings2,
   ShieldCheck,
   UserPlus,
   Loader2,
@@ -40,6 +37,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 interface DisplayShift {
   id: string;
@@ -108,17 +108,46 @@ export default function ShiftMasterPage() {
     shifts,
     guards,
     isLoading,
+    isCreating,
     isAssigning,
+    createShift,
     assignGuardToShift,
     getStats,
     refresh,
   } = useShifts();
 
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [selectedGuardId, setSelectedGuardId] = useState<string>("");
   const [selectedShiftId, setSelectedShiftId] = useState<string>("");
+  const [newShift, setNewShift] = useState({
+    shift_code: "",
+    shift_name: "",
+    start_time: "",
+    end_time: "",
+    shift_type: "day",
+    break_duration_minutes: "60",
+    description: "",
+  });
 
   const stats = getStats();
+
+  const resetCreateShiftForm = () => {
+    setNewShift({
+      shift_code: "",
+      shift_name: "",
+      start_time: "",
+      end_time: "",
+      shift_type: "day",
+      break_duration_minutes: "60",
+      description: "",
+    });
+  };
+
+  const openAssignDialog = (shiftId?: string) => {
+    setSelectedShiftId(shiftId || "");
+    setIsAssignDialogOpen(true);
+  };
 
   // Transform shifts for display with count of assigned guards
   const displayShifts: DisplayShift[] = shifts.map((shift) => ({
@@ -160,6 +189,42 @@ export default function ShiftMasterPage() {
       toast({
         title: "Assignment Failed",
         description: result.error || "Could not assign guard to shift.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCreateShift = async () => {
+    if (!newShift.shift_code || !newShift.shift_name || !newShift.start_time || !newShift.end_time) {
+      toast({
+        title: "Shift details required",
+        description: "Shift code, shift name, start time, and end time are mandatory.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const result = await createShift({
+      shift_code: newShift.shift_code.trim().toUpperCase(),
+      shift_name: newShift.shift_name.trim(),
+      start_time: newShift.start_time,
+      end_time: newShift.end_time,
+      is_night_shift: newShift.shift_type === "night",
+      break_duration_minutes: Number.parseInt(newShift.break_duration_minutes, 10) || 0,
+      description: newShift.description.trim() || undefined,
+    });
+
+    if (result.success) {
+      toast({
+        title: "Shift created",
+        description: `${newShift.shift_name.trim()} is now available for assignment.`,
+      });
+      setIsCreateDialogOpen(false);
+      resetCreateShiftForm();
+    } else {
+      toast({
+        title: "Shift creation failed",
+        description: result.error || "Could not create the shift.",
         variant: "destructive",
       });
     }
@@ -255,15 +320,16 @@ export default function ShiftMasterPage() {
     },
     {
       id: "actions",
-      cell: () => (
-        <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-primary">
-            <Settings2 className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8">
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
-        </div>
+      cell: ({ row }) => (
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8"
+          onClick={() => openAssignDialog(row.original.id)}
+        >
+          <UserPlus className="mr-2 h-3.5 w-3.5" />
+          Assign Guard
+        </Button>
       ),
     },
   ];
@@ -289,6 +355,141 @@ export default function ShiftMasterPage() {
         description="Define and manage operational shift timings, rotations, and personnel deployment strength."
         actions={
           <div className="flex gap-2">
+            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="gap-2 shadow-sm">
+                  <Plus className="h-4 w-4" /> Create Shift
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Create Shift</DialogTitle>
+                  <DialogDescription>
+                    Define the shift timing before assigning guards to it.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="shift_code">Shift Code</Label>
+                      <Input
+                        id="shift_code"
+                        value={newShift.shift_code}
+                        onChange={(event) =>
+                          setNewShift((prev) => ({ ...prev, shift_code: event.target.value }))
+                        }
+                        placeholder="SHIFT-DAY-A"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="shift_name">Shift Name</Label>
+                      <Input
+                        id="shift_name"
+                        value={newShift.shift_name}
+                        onChange={(event) =>
+                          setNewShift((prev) => ({ ...prev, shift_name: event.target.value }))
+                        }
+                        placeholder="Morning Patrol"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="start_time">Start Time</Label>
+                      <Input
+                        id="start_time"
+                        type="time"
+                        value={newShift.start_time}
+                        onChange={(event) =>
+                          setNewShift((prev) => ({ ...prev, start_time: event.target.value }))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="end_time">End Time</Label>
+                      <Input
+                        id="end_time"
+                        type="time"
+                        value={newShift.end_time}
+                        onChange={(event) =>
+                          setNewShift((prev) => ({ ...prev, end_time: event.target.value }))
+                        }
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="shift_type">Shift Type</Label>
+                      <Select
+                        value={newShift.shift_type}
+                        onValueChange={(value) =>
+                          setNewShift((prev) => ({ ...prev, shift_type: value }))
+                        }
+                      >
+                        <SelectTrigger id="shift_type">
+                          <SelectValue placeholder="Select shift type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="day">Day Shift</SelectItem>
+                          <SelectItem value="night">Night Shift</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="break_duration_minutes">Break Duration (Minutes)</Label>
+                      <Input
+                        id="break_duration_minutes"
+                        type="number"
+                        min="0"
+                        value={newShift.break_duration_minutes}
+                        onChange={(event) =>
+                          setNewShift((prev) => ({
+                            ...prev,
+                            break_duration_minutes: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="shift_description">Description</Label>
+                    <Textarea
+                      id="shift_description"
+                      value={newShift.description}
+                      onChange={(event) =>
+                        setNewShift((prev) => ({ ...prev, description: event.target.value }))
+                      }
+                      placeholder="Coverage, rotation, or dispatch notes"
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setIsCreateDialogOpen(false);
+                      resetCreateShiftForm();
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleCreateShift}
+                    disabled={
+                      isCreating ||
+                      !newShift.shift_code ||
+                      !newShift.shift_name ||
+                      !newShift.start_time ||
+                      !newShift.end_time
+                    }
+                    className="gap-2"
+                  >
+                    {isCreating && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Create Shift
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
             <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" className="gap-2">
@@ -376,9 +577,6 @@ export default function ShiftMasterPage() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-            <Button className="gap-2 shadow-sm">
-              <Plus className="h-4 w-4" /> Create Shift
-            </Button>
           </div>
         }
       />

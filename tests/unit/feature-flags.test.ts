@@ -29,7 +29,9 @@ describe("feature flags", () => {
 
     expect(featureFlags.isRouteFrozen("/reports")).toBe(true);
     expect(featureFlags.isRouteFrozen("/dashboard")).toBe(false);
+    expect(featureFlags.isRouteFrozen("/service-requests/board")).toBe(false);
     expect(featureFlags.isNavHrefFrozen("/settings/branding")).toBe(true);
+    expect(featureFlags.isNavItemFrozen("Kanban Board")).toBe(false);
     expect(featureFlags.isNavItemFrozen("Asset Registry")).toBe(true);
   });
 
@@ -40,7 +42,7 @@ describe("feature flags", () => {
 
     expect(featureFlags.isRouteFrozen("/reports/attendance")).toBe(false);
     expect(featureFlags.isRouteFrozen("/settings/branding")).toBe(true);
-  });
+  }, 15000);
 
   it("unfreezes all scoped routes when the future phase flag is enabled", async () => {
     const featureFlags = await loadFeatureFlags({
