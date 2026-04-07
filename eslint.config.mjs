@@ -41,8 +41,6 @@ const eslintConfig = defineConfig([
       "@typescript-eslint/no-require-imports": "off",
       // img elements are sometimes necessary
       "@next/next/no-img-element": "warn",
-      // Unescaped entities warning instead of error
-      "react/no-unescaped-entities": "warn",
     }
   }
 ]);
