@@ -19,6 +19,7 @@ export type DocumentType =
   | "offer_letter"
   | "relieving_letter"
   | "address_proof"
+  | "psara_license"
   | "police_verification"
   | "medical_certificate"
   | "other";
@@ -101,6 +102,7 @@ export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
   offer_letter: "Offer Letter",
   relieving_letter: "Relieving Letter",
   address_proof: "Address Proof",
+  psara_license: "PSARA License",
   police_verification: "Police Verification",
   medical_certificate: "Medical Certificate",
   other: "Other Document",

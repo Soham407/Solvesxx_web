@@ -1,6 +1,6 @@
 "use client";
 
-import { useBuyerInvoices, PAYMENT_STATUS_CONFIG } from "@/hooks/useBuyerInvoices";
+import { useBuyerInvoices, PAYMENT_STATUS_CONFIG, BuyerInvoice } from "@/hooks/useBuyerInvoices";
 import { 
   Table, 
   TableBody, 
@@ -21,8 +21,9 @@ import { BuyerFeedbackDialog } from "@/components/buyer/BuyerFeedbackDialog";
 import { toast } from "sonner";
 
 export default function BuyerInvoicesPage() {
-  const { invoices, isLoading } = useBuyerInvoices();
+  const { invoices, isLoading, recordPayment } = useBuyerInvoices();
   const [search, setSearch] = useState("");
+  const [processingInvoiceId, setProcessingInvoiceId] = useState<string | null>(null);
 
   const handleDownloadPDF = (invoiceNumber: string) => {
     toast.info(`Generating PDF for ${invoiceNumber}...`);
@@ -32,12 +33,25 @@ export default function BuyerInvoicesPage() {
     }, 1500);
   };
 
-  const handlePayNow = (invoiceNumber: string) => {
-    toast.info(`Redirecting to payment gateway for ${invoiceNumber}...`);
-    // Mock payment redirection
-    setTimeout(() => {
-      toast.success(`Secure payment session initiated for ${invoiceNumber}`);
-    }, 1000);
+  const handlePayNow = async (invoice: BuyerInvoice) => {
+    setProcessingInvoiceId(invoice.id);
+    try {
+      const paid = await recordPayment(invoice.id, {
+        amount: invoice.due_amount,
+        payment_date: new Date().toISOString().split("T")[0],
+        payment_method: "manual_buyer_portal",
+        payment_reference: `BUYER-PORTAL-${Date.now()}`,
+      });
+
+      if (!paid) {
+        toast.error(`Payment update failed for ${invoice.invoice_number}`);
+        return;
+      }
+
+      toast.success(`Payment recorded for ${invoice.invoice_number}`);
+    } finally {
+      setProcessingInvoiceId(null);
+    }
   };
 
   const filteredInvoices = invoices.filter(inv => 
@@ -144,23 +158,27 @@ export default function BuyerInvoicesPage() {
                          size="sm" 
                          variant="outline" 
                          className="gap-1 border-primary text-primary hover:bg-primary/5"
-                         onClick={() => handlePayNow(inv.invoice_number)}
+                         onClick={() => handlePayNow(inv)}
+                         disabled={processingInvoiceId === inv.id}
                        >
-                         <Wallet className="h-3 w-3" /> Pay Now
+                         <Wallet className="h-3 w-3" /> {processingInvoiceId === inv.id ? "Processing..." : "Pay Now"}
                        </Button>
-                     ) : !inv.feedback_submitted ? (
+                     ) : inv.request_id && !inv.feedback_submitted ? (
                        <BuyerFeedbackDialog
-                         invoiceId={inv.id}
-                         supplierName={inv.supplier_name || "Supplier"}
+                         requestId={inv.request_id}
+                         invoiceLabel={inv.invoice_number}
+                         supplierName={inv.supplier_name || inv.client_name || "Supplier"}
                        >
                          <Button size="sm" variant="outline" className="gap-1 border-warning text-warning hover:bg-warning/5">
                            <Star className="h-3 w-3" /> Rate
                          </Button>
                        </BuyerFeedbackDialog>
-                     ) : (
+                     ) : inv.feedback_submitted ? (
                        <Badge variant="outline" className="text-xs">
                          <Star className="h-3 w-3 fill-warning text-warning mr-1" /> Rated
                        </Badge>
+                     ) : (
+                       <Badge variant="outline" className="text-xs">No Feedback Route</Badge>
                      )}
                    </TableCell>
                 </TableRow>

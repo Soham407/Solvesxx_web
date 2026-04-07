@@ -27,6 +27,26 @@ const requiredArtifacts = [
   "required-server-files.json",
 ];
 
+function findUp(startDir, relativePath, maxLevels = 6) {
+  let currentDir = startDir;
+  for (let depth = 0; depth <= maxLevels; depth += 1) {
+    const candidate = path.join(currentDir, relativePath);
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+    const parent = path.dirname(currentDir);
+    if (parent === currentDir) {
+      break;
+    }
+    currentDir = parent;
+  }
+  return null;
+}
+
+const resolvedNextBin =
+  findUp(root, path.join("node_modules", "next", "dist", "bin", "next")) ||
+  nextBin;
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -140,7 +160,7 @@ async function main() {
   if (process.platform === "win32") {
     const startCommand = [
       `$env:PORT = ${quotePs(port)}`,
-      `$process = Start-Process -FilePath ${quotePs(process.execPath)} -ArgumentList ${quotePs(nextBin)}, ${quotePs("start")}, ${quotePs("--hostname")}, ${quotePs(host)} -WorkingDirectory ${quotePs(root)} -RedirectStandardOutput ${quotePs(logPath)} -RedirectStandardError ${quotePs(logPath)} -PassThru`,
+      `$process = Start-Process -FilePath ${quotePs(process.execPath)} -ArgumentList ${quotePs(resolvedNextBin)}, ${quotePs("start")}, ${quotePs("--hostname")}, ${quotePs(host)} -WorkingDirectory ${quotePs(root)} -RedirectStandardOutput ${quotePs(logPath)} -RedirectStandardError ${quotePs(logPath)} -PassThru`,
       "Write-Output $process.Id",
     ].join("; ");
 
@@ -164,7 +184,7 @@ async function main() {
     const logFd = fs.openSync(logPath, "a");
     const child = spawn(
       process.execPath,
-      [nextBin, "start", "--hostname", host],
+      [resolvedNextBin, "start", "--hostname", host],
       {
         cwd: root,
         detached: true,

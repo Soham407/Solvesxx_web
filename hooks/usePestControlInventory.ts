@@ -142,16 +142,30 @@ export function usePestControlInventory() {
   const submitPPEVerification = useCallback(async (input: {
     technician_id: string;
     service_request_id?: string;
+    job_session_id?: string;
     items: Array<{ item: string; verified: boolean; mandatory: boolean }>;
     site_readiness_report?: string;
     status: "verified" | "failed";
   }) => {
     try {
+      let jobSessionId = input.job_session_id || null;
+      if (!jobSessionId && input.service_request_id) {
+        const { data: latestSession } = await supabase
+          .from("job_sessions")
+          .select("id")
+          .eq("service_request_id", input.service_request_id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        jobSessionId = latestSession?.id || null;
+      }
+
       const { error } = await supabase
         .from("pest_control_ppe_verifications")
         .insert({
           technician_id: input.technician_id,
           service_request_id: input.service_request_id,
+          job_session_id: jobSessionId,
           items_json: input.items,
           status: input.status,
           site_readiness_report: input.site_readiness_report,

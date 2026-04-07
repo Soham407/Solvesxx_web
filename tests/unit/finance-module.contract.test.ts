@@ -36,7 +36,11 @@ describe("finance module contracts", () => {
         'const isGatewayPayment = selectedMethod.gateway !== "manual";',
         "status: paymentStatus",
         "const newStatus = newDueAmount === 0 ? 'paid' : 'partial';",
+        "referenceType: ReferenceType;",
+        "const table = data.referenceType === 'sale_bill' ? 'sale_bills' : 'purchase_bills';",
+        "const result = Array.isArray(data) ? data[0] : data;",
         "result?.can_pay ?? result?.is_valid ?? false",
+        "const { error } = await supabase.rpc('force_match_bill', {",
       ])
     ).toBe(true);
   });
@@ -57,6 +61,9 @@ describe("finance module contracts", () => {
         "const displayBills = bills || [];",
         "Mock rows are disabled to avoid invalid payouts.",
         'method.gateway === "manual"',
+        "const validation = await validateBillForPayout(bill.id);",
+        "HARD TRUTH GATE: Cannot Pay",
+        "const result = await forceMatchBill(selectedBill.id, forceMatchReason.trim());",
       ])
     ).toBe(true);
 
@@ -82,6 +89,9 @@ describe("finance module contracts", () => {
       sourceContainsAll(reconciliationPageSource, [
         "const handleAutoSync = async () => {",
         "const result = await autoSyncReconciliations();",
+        "const handleResolveManual = async (id: string) => {",
+        "const success = await resolveDiscrepancy(id, {",
+        "resolution_action: 'accept'",
         "Trigger Auto-Sync",
       ])
     ).toBe(true);

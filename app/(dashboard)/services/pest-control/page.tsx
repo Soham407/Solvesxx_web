@@ -58,6 +58,9 @@ export default function PestControlPage() {
   const { kits, isLoading: isKitsLoading, stats: kitStats } = useSpillKits();
   const totalChemicalStock = chemicals.reduce((acc, curr) => acc + Number(curr.current_stock), 0);
   const isLoading = isRequestsLoading || isInventoryLoading;
+  const activeRequestId =
+    requests.find((r: any) => ["open", "assigned", "in_progress"].includes(r.status))?.id ||
+    requests[0]?.id;
 
   const columns: ColumnDef<any>[] = [
     {
@@ -398,7 +401,7 @@ export default function PestControlPage() {
                                     <Badge variant="secondary" className="text-[10px] font-bold uppercase">{ppe.status}</Badge>
                                 </div>
                             ))}
-                            <PPEChecklistDialog>
+                            <PPEChecklistDialog serviceRequestId={activeRequestId}>
                               <Button className="w-full shadow-lg shadow-primary/20">Submit Site Readiness Report</Button>
                             </PPEChecklistDialog>
                         </CardContent>

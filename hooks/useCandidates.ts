@@ -484,6 +484,29 @@ export function useCandidates(initialFilters?: UseCandidatesFilters) {
         throw new Error("Only candidates with 'offered' status can be converted to employees");
       }
 
+      const normalizedEmail = candidate.email?.trim().toLowerCase();
+      let matchedUser: { id: string; employee_id: string | null } | null = null;
+      if (normalizedEmail) {
+        const { data: userRow, error: userLookupError } = await supabase
+          .from("users")
+          .select("id, employee_id")
+          .eq("email", normalizedEmail)
+          .maybeSingle();
+
+        if (userLookupError) {
+          throw userLookupError;
+        }
+
+        if (userRow) {
+          matchedUser = userRow;
+          if (matchedUser.employee_id) {
+            throw new Error(
+              "Matched user account is already linked to another employee. Resolve the user mapping before conversion."
+            );
+          }
+        }
+      }
+
       // Create employee record
       const { data: newEmployee, error: empError } = await supabase
         .from("employees")
@@ -502,12 +525,24 @@ export function useCandidates(initialFilters?: UseCandidatesFilters) {
           city: candidate.city,
           state: candidate.state,
           pincode: candidate.pincode,
+          auth_user_id: matchedUser?.id || null,
           is_active: true,
         })
         .select()
         .single();
 
       if (empError) throw empError;
+
+      if (matchedUser) {
+        const { error: userUpdateError } = await supabase
+          .from("users")
+          .update({ employee_id: newEmployee.id })
+          .eq("id", matchedUser.id);
+
+        if (userUpdateError) {
+          console.warn("Converted employee created, but user master link update failed:", userUpdateError);
+        }
+      }
 
       // Update candidate status to hired and link to employee
       const { data: updatedCandidate, error: candError } = await supabase
