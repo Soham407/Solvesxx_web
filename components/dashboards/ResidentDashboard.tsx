@@ -115,7 +115,7 @@ const getVisitorTypeBadge = (type: string | null) => {
 };
 
 export function ResidentDashboard() {
-  const { isLoading: isAuthLoading } = useAuth();
+  const { isLoading: isAuthLoading, userId } = useAuth();
   
   // Get authenticated resident profile
   const { 
@@ -135,7 +135,7 @@ export function ResidentDashboard() {
   }
 
   // Show login prompt if not authenticated
-  if (!residentId) {
+  if (!residentId || !userId) {
     return (
       <div className="max-w-md mx-auto flex flex-col items-center justify-center min-h-[60vh] gap-4 p-6">
         <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
@@ -152,16 +152,23 @@ export function ResidentDashboard() {
     );
   }
 
-  return <ResidentDashboardContent residentId={residentId} />;
+  return <ResidentDashboardContent residentId={residentId} authUserId={userId} />;
 }
 
-function ResidentDashboardContent({ residentId }: { residentId: string }) {
+function ResidentDashboardContent({
+  residentId,
+  authUserId,
+}: {
+  residentId: string;
+  authUserId: string;
+}) {
   const { toast } = useToast();
   const searchParams = useSearchParams();
 
   // 1. Core resident data (for profile and actions)
   const {
     resident,
+    pendingApprovals,
     isLoading: isResidentLoading,
     error: residentError,
     inviteVisitor,
@@ -185,7 +192,7 @@ function ResidentDashboardContent({ residentId }: { residentId: string }) {
     isLoading: isLoadingRequests, 
     createRequest,
     refresh: refreshRequests 
-  } = useServiceRequests({ requesterId: residentId });
+  } = useServiceRequests(authUserId ? { requesterId: authUserId } : undefined);
 
   const { notifications, isLoading: isNotifLoading, markAsRead, markAllRead } = useNotifications();
   const unreadCount = notifications.filter(n => !n.is_read).length;
@@ -199,9 +206,6 @@ function ResidentDashboardContent({ residentId }: { residentId: string }) {
   const [complaintPriority, setComplaintPriority] = useState<ServicePriority>("normal");
   const [isSubmittingComplaint, setIsSubmittingComplaint] = useState(false);
   const [isProcessingApproval, setIsProcessingApproval] = useState<string | null>(null);
-
-  // Filter for pending visitor approvals (currently at gate)
-  const pendingApprovals = visitors.filter(v => v.approved_by_resident === null && v.entry_time !== null);
 
   // KPI Calculations
   const today = new Date().toISOString().split("T")[0];
@@ -306,7 +310,6 @@ function ResidentDashboardContent({ residentId }: { residentId: string }) {
       title: complaintTitle.trim(),
       description: complaintDesc.trim(),
       priority: complaintPriority,
-      requester_id: residentId,
     } as any);
     setIsSubmittingComplaint(false);
     if (result.success) {

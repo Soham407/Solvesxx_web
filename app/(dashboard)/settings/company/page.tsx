@@ -44,14 +44,14 @@ export default function CompanySettingsPage() {
       <div className="animate-fade-in space-y-8 pb-10">
         <PageHeader
           title="System Configuration"
-          description="This legacy settings route is restricted to users with the `admin` role."
+          description="This settings route is restricted to users with platform configuration permission."
         />
 
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            Only users with the `admin` role can view or update system
-            configuration entries.
+            Only users with the `platform.config.manage` permission can view or
+            update system configuration entries.
           </AlertDescription>
         </Alert>
       </div>

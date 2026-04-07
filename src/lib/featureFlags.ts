@@ -84,7 +84,6 @@ export const FEATURE_FLAGS = {
 // Routes that should be blocked when features are disabled
 // Mapped to their controlling feature flag for targeted enable/disable
 const ROUTE_FLAG_MAP: Record<string, keyof typeof FEATURE_FLAGS> = {
-  "/service-requests/board": "KANBAN_BOARD",
   "/reports": "REPORTS_MODULE",
   "/reports/attendance": "REPORTS_MODULE",
   "/reports/financial": "REPORTS_MODULE",
@@ -114,7 +113,6 @@ export const FROZEN_ROUTES: string[] = Object.entries(ROUTE_FLAG_MAP)
 // ===== FROZEN NAVIGATION ITEMS =====
 // Title -> feature flag mapping
 const NAV_ITEM_FLAG_MAP: Record<string, keyof typeof FEATURE_FLAGS> = {
-  "Kanban Board": "KANBAN_BOARD",
   "Analytics Hub": "REPORTS_MODULE",
   "Attendance Analysis": "REPORTS_MODULE",
   "Financial Health": "REPORTS_MODULE",

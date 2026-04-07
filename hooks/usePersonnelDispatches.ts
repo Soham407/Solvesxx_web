@@ -60,9 +60,8 @@ export function usePersonnelDispatches(poId?: string) {
         .from("personnel_dispatches")
         .select(`
           *,
-          purchase_order:purchase_orders!service_po_id (po_number),
           supplier:suppliers!supplier_id (supplier_name),
-          deployment_site:company_locations!deployment_site_id (name),
+          deployment_site:company_locations!deployment_site_id (location_name),
           employee:employees!employee_id (first_name, last_name)
         `)
         .order("created_at", { ascending: false });
@@ -74,11 +73,29 @@ export function usePersonnelDispatches(poId?: string) {
       const { data, error } = await query;
       if (error) throw error;
 
+      const servicePoIds = Array.from(
+        new Set((data || []).map((dispatch: any) => dispatch.service_po_id).filter(Boolean))
+      );
+      const servicePoNumberById = new Map<string, string | null>();
+
+      if (servicePoIds.length > 0) {
+        const { data: serviceOrders, error: serviceOrdersError } = await supabase
+          .from("service_purchase_orders")
+          .select("id, spo_number")
+          .in("id", servicePoIds);
+
+        if (serviceOrdersError) throw serviceOrdersError;
+
+        (serviceOrders || []).forEach((serviceOrder: any) => {
+          servicePoNumberById.set(serviceOrder.id, serviceOrder.spo_number ?? null);
+        });
+      }
+
       const mapped = (data || []).map((d: any) => ({
         ...d,
-        po_number: d.purchase_order?.po_number,
+        po_number: servicePoNumberById.get(d.service_po_id) ?? null,
         supplier_name: d.supplier?.supplier_name,
-        site_name: d.deployment_site?.name,
+        site_name: d.deployment_site?.location_name,
         employee_name: d.employee ? `${d.employee.first_name} ${d.employee.last_name}` : null,
       }));
 
@@ -102,6 +119,7 @@ export function usePersonnelDispatches(poId?: string) {
   }) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      const overlapEndDate = input.end_date || "9999-12-31";
 
       // Pre-flight overlap check
       const { data: overlaps, error: checkError } = await supabase
@@ -110,12 +128,13 @@ export function usePersonnelDispatches(poId?: string) {
           id, 
           start_date, 
           end_date, 
-          deployment_site:company_locations!deployment_site_id (name),
+          deployment_site:company_locations!deployment_site_id (location_name),
           employee:employees!employee_id (first_name, last_name)
         `)
         .eq("employee_id", input.employee_id)
-        .not("status", "in", "('cancelled', 'completed', 'withdrawn')")
-        .or(`start_date.lte.${input.end_date || '9999-12-31'},end_date.gte.${input.start_date},end_date.is.null`)
+        .in("status", ["dispatched", "confirmed", "active"])
+        .lte("start_date", overlapEndDate)
+        .or(`end_date.gte.${input.start_date},end_date.is.null`)
         .limit(1);
 
       if (checkError) throw checkError;
@@ -123,7 +142,7 @@ export function usePersonnelDispatches(poId?: string) {
       if (overlaps && overlaps.length > 0) {
         const o = overlaps[0];
         const empName = o.employee ? `${o.employee.first_name} ${o.employee.last_name}` : "Employee";
-        const siteName = o.deployment_site?.name || "another site";
+        const siteName = o.deployment_site?.location_name || "another site";
         const msg = `${empName} is already deployed from ${o.start_date} to ${o.end_date || 'Open'} at ${siteName}`;
         toast({ title: "Deployment Conflict", description: msg, variant: "destructive" });
         return { success: false, error: msg };

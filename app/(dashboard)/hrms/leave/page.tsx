@@ -50,6 +50,7 @@ const LEAVE_MANAGER_ROLES = new Set([
   "super_admin",
   "company_hod",
   "society_manager",
+  "security_supervisor",
 ]);
 
 interface LeaveRequestRow {

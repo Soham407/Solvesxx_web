@@ -109,6 +109,9 @@ export default function SupplierServiceOrdersPage() {
           <span className="text-[10px] text-muted-foreground truncate max-w-[180px]">
             {row.original.description || "No scope provided"}
           </span>
+          <span className="text-[10px] text-muted-foreground truncate max-w-[180px]">
+            {row.original.site_location_name || "Site pending"}
+          </span>
         </div>
       ),
     },
@@ -325,6 +328,9 @@ export default function SupplierServiceOrdersPage() {
           }}
           poId={deliveryNoteOrder.id}
           poNumber={deliveryNoteOrder.spo_number}
+          supplierId={deliveryNoteOrder.vendor_id}
+          deploymentSiteId={deliveryNoteOrder.site_location_id ?? null}
+          deploymentSiteName={deliveryNoteOrder.site_location_name ?? null}
           onSuccess={refresh}
         />
       )}
@@ -357,6 +363,10 @@ export default function SupplierServiceOrdersPage() {
                 <div>
                   <p className="text-[10px] uppercase font-bold text-muted-foreground">Start Date</p>
                   <p className="mt-1">{format(new Date(selectedOrder.start_date), "MMM d, yyyy")}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground">Deployment Site</p>
+                  <p className="mt-1">{selectedOrder.site_location_name || "Site pending"}</p>
                 </div>
                 <div>
                   <p className="text-[10px] uppercase font-bold text-muted-foreground">End Date</p>

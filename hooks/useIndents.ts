@@ -279,6 +279,30 @@ export function useIndents(filters?: { status?: IndentStatus; department?: strin
     return (data?.status as IndentStatus | undefined) ?? null;
   }, []);
 
+  const fetchIndentWorkflowRecord = useCallback(async (
+    indentId: string
+  ): Promise<{ status: IndentStatus; service_request_id: string | null } | null> => {
+    const { data, error } = await supabase
+      .from("indents")
+      .select("status, service_request_id")
+      .eq("id", indentId)
+      .single();
+
+    if (error) {
+      console.error("Error fetching indent workflow record:", error);
+      throw error;
+    }
+
+    if (!data) {
+      return null;
+    }
+
+    return {
+      status: data.status as IndentStatus,
+      service_request_id: data.service_request_id ?? null,
+    };
+  }, []);
+
   // ============================================
   // CREATE INDENT
   // ============================================
@@ -505,17 +529,25 @@ export function useIndents(filters?: { status?: IndentStatus; department?: strin
   // ============================================
   const submitForApproval = useCallback(async (indentId: string, submittedBy: string): Promise<boolean> => {
     try {
-      const indent = state.indents.find((i) => i.id === indentId);
-      if (!indent) throw new Error("Indent not found");
+      const cachedIndent = state.indents.find((i) => i.id === indentId);
+      const indentRecord = cachedIndent
+        ? {
+            status: cachedIndent.status,
+            service_request_id: cachedIndent.service_request_id ?? null,
+          }
+        : await fetchIndentWorkflowRecord(indentId);
+
+      if (!indentRecord) throw new Error("Indent not found");
 
       // Validate status transition
-      if (!canTransition(indent.status, "pending_approval")) {
-        throw new Error(`Cannot submit indent from status: ${indent.status}`);
+      if (!canTransition(indentRecord.status, "pending_approval")) {
+        throw new Error(`Cannot submit indent from status: ${indentRecord.status}`);
       }
 
-      // Validate indent has items
+      // Service deployment indents carry workflow metadata on the request, not SKU rows on the indent.
+      const isServiceDeploymentIndent = Boolean(indentRecord.service_request_id);
       const items = await fetchIndentItems(indentId);
-      if (items.length === 0) {
+      if (items.length === 0 && !isServiceDeploymentIndent) {
         throw new Error("Cannot submit indent without items");
       }
 
@@ -538,7 +570,7 @@ export function useIndents(filters?: { status?: IndentStatus; department?: strin
       setState((prev) => ({ ...prev, error: errorMessage }));
       return false;
     }
-  }, [state.indents, fetchIndentItems, fetchIndents]);
+  }, [state.indents, fetchIndentItems, fetchIndents, fetchIndentWorkflowRecord]);
 
   // ============================================
   // APPROVE INDENT

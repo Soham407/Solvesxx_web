@@ -123,12 +123,18 @@ export function useCompanyEvents() {
 
   const updateEvent = async (id: string, updates: Partial<CompanyEvent>) => {
     try {
+      const updatePayload: Record<string, unknown> = {
+        ...updates,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (typeof updates.title === "string") {
+        updatePayload.event_name = updates.title;
+      }
+
       const { data, error } = await supabase
         .from("company_events")
-        .update({
-          ...updates,
-          updated_at: new Date().toISOString(),
-        } as any)
+        .update(updatePayload as any)
         .eq("id", id)
         .select()
         .single();

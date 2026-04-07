@@ -261,10 +261,11 @@ export function VisitorRegistrationDialog({
                     </div>
                   )}
                   {flatResults.map(flat => (
-                    <div 
-                      key={flat.id} 
+                    <button
+                      key={flat.id}
+                      type="button"
                       className={cn(
-                        "p-3 flex items-center justify-between cursor-pointer hover:bg-muted/50 transition-colors",
+                        "w-full p-3 flex items-center justify-between text-left cursor-pointer hover:bg-muted/50 transition-colors",
                         selectedFlat?.id === flat.id && "bg-primary/5"
                       )}
                       onClick={() => handleSelectFlat(flat)}
@@ -276,7 +277,7 @@ export function VisitorRegistrationDialog({
                         </span>
                       </div>
                       {selectedFlat?.id === flat.id && <Check className="h-4 w-4 text-primary" />}
-                    </div>
+                    </button>
                   ))}
                 </div>
 

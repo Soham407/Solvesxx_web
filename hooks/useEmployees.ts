@@ -33,9 +33,7 @@ interface CreateEmployeePayload {
   email: string;
   phone?: string;
   department?: string;
-  designation?: string;
-  location?: string;
-  role?: string;
+  designation_id?: string | null;
 }
 
 interface UseEmployeesReturn extends UseEmployeesState {
@@ -145,20 +143,6 @@ export function useEmployees(): UseEmployeesReturn {
   const createEmployee = useCallback(async (payload: CreateEmployeePayload): Promise<{ success: boolean; error?: string }> => {
     try {
       const employee_code = `EMP-${Date.now()}`;
-      let designationId: string | null = null;
-
-      if (payload.designation) {
-        const { data: designation, error: designationError } = await supabase
-          .from("designations")
-          .select("id")
-          .ilike("designation_name", payload.designation)
-          .limit(1)
-          .maybeSingle();
-
-        if (designationError) throw designationError;
-        designationId = designation?.id || null;
-      }
-
       const { error } = await supabase.from("employees").insert({
         employee_code,
         first_name: payload.first_name,
@@ -166,7 +150,7 @@ export function useEmployees(): UseEmployeesReturn {
         email: payload.email,
         phone: payload.phone || null,
         department: payload.department || null,
-        designation_id: designationId,
+        designation_id: payload.designation_id || null,
         date_of_joining: new Date().toISOString().split("T")[0],
         is_active: true,
       } as any);

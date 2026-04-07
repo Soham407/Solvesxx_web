@@ -25,7 +25,10 @@ import {
 
 type UserPasswordRow = {
   must_change_password?: boolean | null;
-  roles?: { role_name?: string | null } | null;
+  roles?:
+    | { role_name?: string | null }
+    | Array<{ role_name?: string | null }>
+    | null;
 };
 
 const ROLE_REDIRECTS: Record<string, string> = {
@@ -34,9 +37,17 @@ const ROLE_REDIRECTS: Record<string, string> = {
   vendor: "/supplier",
   resident: "/resident",
   delivery_boy: "/delivery",
-  security_guard: "/guard",
-  security_supervisor: "/guard",
+  security_guard: "/dashboard",
+  security_supervisor: "/dashboard",
 };
+
+function getRoleName(userData: UserPasswordRow | null) {
+  const roleRecord = Array.isArray(userData?.roles)
+    ? userData?.roles[0]
+    : userData?.roles;
+
+  return roleRecord?.role_name ?? null;
+}
 
 export default function ChangePasswordPage() {
   const router = useRouter();
@@ -71,7 +82,7 @@ export default function ChangePasswordPage() {
           .select("roles(role_name)")
           .eq("id", user.id)
           .single();
-        const roleName = (roleData as UserPasswordRow | null)?.roles?.role_name;
+        const roleName = getRoleName(roleData as UserPasswordRow | null);
         router.replace(ROLE_REDIRECTS[roleName] ?? "/dashboard");
         return;
       }
@@ -128,7 +139,7 @@ export default function ChangePasswordPage() {
           .eq("id", user.id)
           .single();
 
-        const roleName = (userData as UserPasswordRow | null)?.roles?.role_name;
+        const roleName = getRoleName(userData as UserPasswordRow | null);
         router.push(ROLE_REDIRECTS[roleName] ?? "/dashboard");
       } else {
         router.push("/dashboard");

@@ -73,6 +73,7 @@ export interface SupplierServiceOrder {
   id: string;
   spo_number: string;
   vendor_id: string;
+  request_id: string | null;
   service_type: string;
   description: string | null;
   start_date: string;
@@ -82,6 +83,8 @@ export interface SupplierServiceOrder {
   terms_conditions: string | null;
   created_at: string;
   updated_at: string;
+  site_location_id?: string | null;
+  site_location_name?: string | null;
 }
 
 export interface SupplierServiceAcknowledgment {
@@ -114,19 +117,18 @@ interface SupplierServiceAcknowledgmentRow extends SupplierServiceAcknowledgment
   } | null;
 }
 
+interface SupplierServiceOrderRow extends SupplierServiceOrder {
+  request?: {
+    site_location_id?: string | null;
+    site_location?: {
+      location_name?: string | null;
+    } | null;
+  } | null;
+}
+
 interface SupplierPurchaseOrderRow {
   purchase_order_items?: any[] | null;
   [key: string]: any;
-}
-
-function calculateServiceEndDate(startDate?: string | null, durationMonths?: number | null) {
-  if (!startDate || !durationMonths || durationMonths <= 0) {
-    return null;
-  }
-
-  const nextDate = new Date(startDate);
-  nextDate.setMonth(nextDate.getMonth() + durationMonths);
-  return nextDate.toISOString().slice(0, 10);
 }
 
 function getErrorMessage(err: unknown, fallback: string): string {
@@ -224,7 +226,7 @@ export function useSupplierPortal() {
             ),
             request_items (
               *,
-              products (product_name, unit)
+              products (product_name, unit_of_measurement)
             )
           `)
           .eq("supplier_id", currentSupplierId)
@@ -236,7 +238,7 @@ export function useSupplierPortal() {
             *,
             purchase_order_items (
               *,
-              products (product_name, unit)
+              products (product_name, unit_of_measurement)
             )
           `)
           .eq("supplier_id", currentSupplierId)
@@ -248,7 +250,15 @@ export function useSupplierPortal() {
           .order("created_at", { ascending: false }),
         supabase
           .from("service_purchase_orders")
-          .select("*")
+          .select(`
+            *,
+            request:requests!request_id (
+              site_location_id,
+              site_location:company_locations!site_location_id (
+                location_name
+              )
+            )
+          `)
           .eq("vendor_id", currentSupplierId)
           .order("created_at", { ascending: false }),
         supabase
@@ -285,7 +295,13 @@ export function useSupplierPortal() {
         })) as SupplierPO[]
       );
       setBills((purchaseBillsResult.data ?? []) as SupplierBill[]);
-      setServiceOrders((serviceOrdersResult.data ?? []) as SupplierServiceOrder[]);
+      setServiceOrders(
+        ((serviceOrdersResult.data ?? []) as SupplierServiceOrderRow[]).map((serviceOrder) => ({
+          ...serviceOrder,
+          site_location_id: serviceOrder.request?.site_location_id ?? null,
+          site_location_name: serviceOrder.request?.site_location?.location_name ?? null,
+        })) as SupplierServiceOrder[]
+      );
       setServiceAcknowledgments(
         ((serviceAcknowledgmentsResult.data ?? []) as SupplierServiceAcknowledgmentRow[]).map(
           ({ service_purchase_orders: _servicePurchaseOrders, ...acknowledgment }) => acknowledgment
@@ -344,65 +360,18 @@ export function useSupplierPortal() {
 
         if (error) throw error;
       } else if (isServiceRequest) {
-        // 1. Create SPO directly from service request details
-        const serviceHeadcount = Math.max(targetIndent?.headcount ?? 1, 1);
-        const { data: authData } = await supabase.auth.getUser();
-        const { data: spo, error: spoError } = await supabase
-          .from("service_purchase_orders")
-          .insert({
-            vendor_id: supplierId,
-            request_id: requestId,
-            indent_id: targetIndent?.indent_id ?? null,
-            spo_number: "",
-            service_type: targetIndent?.service_type ?? "N/A",
-            description: targetIndent?.description ?? `Service Deployment: ${targetIndent?.service_type ?? targetIndent?.title}`,
-            start_date: targetIndent?.start_date ?? new Date().toISOString(),
-            end_date: calculateServiceEndDate(targetIndent?.start_date, targetIndent?.duration_months),
-            total_amount: 0,
-            // Insert as sent_to_vendor; supplier explicitly acknowledges via acknowledgeServiceOrder()
-            status: "sent_to_vendor",
-            created_by: authData.user?.id,
-            updated_at: new Date().toISOString(),
-          })
-          .select()
-          .single();
+        const response = await fetch("/api/supplier/service-indent-response", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ requestId }),
+        });
 
-        if (spoError) throw spoError;
-
-        const { error: itemError } = await supabase
-          .from("service_purchase_order_items")
-          .insert({
-            spo_id: spo.id,
-            service_description: [targetIndent?.service_type, targetIndent?.service_grade]
-              .filter(Boolean)
-              .join(" - ") || targetIndent?.title || "Service deployment",
-            quantity: serviceHeadcount,
-            unit: "headcount",
-            unit_price: 0,
-            line_total: 0,
-            notes: [
-              targetIndent?.shift ? `Shift: ${targetIndent.shift}` : null,
-              targetIndent?.duration_months ? `Duration: ${targetIndent.duration_months} month(s)` : null,
-            ]
-              .filter(Boolean)
-              .join(" | ") || null,
-          });
-
-        if (itemError) throw itemError;
-
-        // 2. Advance request status to po_issued (skip indent_accepted as order is generated)
-        const { error } = await supabase
-          .from("requests")
-          .update({
-            status: "po_issued",
-            rejection_reason: null,
-            rejected_at: null,
-            rejected_by: null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", requestId);
-
-        if (error) throw error;
+        const result = await response.json().catch(() => null);
+        if (!response.ok || !result?.success) {
+          throw new Error(result?.error || "Failed to accept the service deployment request.");
+        }
       } else {
         const { data, error } = await (supabase as any).rpc("create_po_from_supplier_request", {
           p_request_id: requestId,
@@ -645,33 +614,8 @@ export function useSupplierPortal() {
 
       if (error) throw error;
 
-      if (billPayload.purchase_order_id) {
-        const { data: po } = await supabase
-          .from("purchase_orders")
-          .select("indent_id")
-          .eq("id", billPayload.purchase_order_id)
-          .single();
-
-        if (po?.indent_id) {
-          await supabase
-            .from("requests")
-            .update({ status: "bill_generated" as RequestStatus, updated_at: new Date().toISOString() })
-            .eq("indent_id", po.indent_id);
-        }
-      } else if (billPayload.service_purchase_order_id) {
-        const { data: spo } = await supabase
-          .from("service_purchase_orders")
-          .select("request_id")
-          .eq("id", billPayload.service_purchase_order_id)
-          .single();
-
-        if (spo?.request_id) {
-          await supabase
-            .from("requests")
-            .update({ status: "bill_generated" as RequestStatus, updated_at: new Date().toISOString() })
-            .eq("id", spo.request_id);
-        }
-      }
+      // Request-state propagation is server-authoritative from purchase_bills
+      // triggers so service flows can obey the shared workflow guard safely.
 
       await fetchPortalData();
       return { success: true, billId: data.id };

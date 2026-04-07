@@ -194,12 +194,23 @@ function summarizeAttendanceLogs(
   const summary = createEmptyAttendanceData();
 
   logs.forEach((log) => {
-    if (log.status === "present") {
+    if (log.status === "present" || log.status === "late") {
       summary.present_days += 1;
-    } else if (log.status === "absent" || log.status === "absent_breach") {
+    } else if (
+      log.status === "absent" ||
+      log.status === "absent_breach" ||
+      log.status === "unpaid_leave"
+    ) {
       summary.absent_days += 1;
     } else if (
-      ["leave", "sick_leave", "casual_leave", "earned_leave", "on_leave"].includes(
+      [
+        "leave",
+        "on_leave",
+        "paid_leave",
+        "sick_leave",
+        "casual_leave",
+        "earned_leave",
+      ].includes(
         log.status || "",
       )
     ) {

@@ -69,14 +69,37 @@ const INITIAL_FORM_STATE = {
 };
 
 // BGV Panel: shown inline for background_check candidates
-function BGVPanel({ candidateId }: { candidateId: string }) {
-  const { verifications, isLoading, initiateVerification, allVerified } =
+function BGVPanel({
+  candidateId,
+  onVerificationChange,
+}: {
+  candidateId: string;
+  onVerificationChange?: () => void;
+}) {
+  const { verifications, isLoading, initiateVerification, updateStatus, allVerified } =
     useBackgroundVerifications(candidateId);
 
   const BGV_TYPES: BGVType[] = ["police", "address", "education", "employment"];
 
   const getVerification = (type: BGVType) =>
     verifications.find((v) => v.verification_type === type);
+
+  const handleInitiate = async (type: BGVType) => {
+    const result = await initiateVerification(candidateId, type);
+    if (result.success) {
+      onVerificationChange?.();
+    }
+  };
+
+  const handleStatusUpdate = async (
+    verificationId: string,
+    status: "verified" | "rejected"
+  ) => {
+    const result = await updateStatus(verificationId, status);
+    if (result.success) {
+      onVerificationChange?.();
+    }
+  };
 
   if (isLoading) {
     return (
@@ -87,15 +110,20 @@ function BGVPanel({ candidateId }: { candidateId: string }) {
   }
 
   return (
-    <div className="p-4 rounded-xl border bg-primary/3 space-y-3 mt-2">
+    <div className="mt-2 space-y-3 rounded-xl border bg-primary/3 p-4">
       <div className="flex items-center justify-between">
         <p className="text-xs font-bold uppercase text-primary">Background Verification Checklist</p>
         {allVerified && (
-          <Badge className="bg-success/10 text-success border-success/20 text-[10px] uppercase font-bold">
+          <Badge className="border-success/20 bg-success/10 text-[10px] font-bold uppercase text-success">
             <ShieldCheck className="h-3 w-3 mr-1" /> All Clear — Ready to Offer
           </Badge>
         )}
       </div>
+      {!allVerified && (
+        <p className="text-[11px] text-muted-foreground">
+          Offer release stays locked until police, address, education, and employment checks are all verified.
+        </p>
+      )}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {BGV_TYPES.map((type) => {
           const v = getVerification(type);
@@ -113,10 +141,31 @@ function BGVPanel({ candidateId }: { candidateId: string }) {
                   size="sm"
                   variant="outline"
                   className="h-6 text-[10px] w-full mt-1"
-                  onClick={() => initiateVerification(candidateId, type)}
+                  onClick={() => handleInitiate(type)}
                 >
                   Initiate
                 </Button>
+              )}
+              {v && v.status !== "verified" && (
+                <div className="mt-1 flex gap-1">
+                  <Button
+                    size="sm"
+                    className="h-6 flex-1 px-2 text-[10px]"
+                    onClick={() => handleStatusUpdate(v.id, "verified")}
+                  >
+                    Verify
+                  </Button>
+                  {v.status !== "rejected" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-6 flex-1 px-2 text-[10px]"
+                      onClick={() => handleStatusUpdate(v.id, "rejected")}
+                    >
+                      Reject
+                    </Button>
+                  )}
+                </div>
               )}
             </div>
           );
@@ -501,7 +550,7 @@ export default function RecruitmentPortalPage() {
 
       {/* BGV Panel */}
       {bgvCandidateId && (
-        <BGVPanel candidateId={bgvCandidateId} />
+        <BGVPanel candidateId={bgvCandidateId} onVerificationChange={refresh} />
       )}
 
       {/* Add Candidate Dialog */}

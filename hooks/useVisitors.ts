@@ -244,55 +244,31 @@ export function useVisitors(initialFilters?: VisitorFilters) {
   // Add new visitor (PRD: Guest Entry)
   const addVisitor = async (visitor: CreateVisitorDTO) => {
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { data: result, error: rpcError } = await supabase.rpc(
+        "create_mobile_visitor" as any,
+        {
+          p_visitor_name: visitor.visitor_name,
+          p_phone: visitor.phone ?? null,
+          p_purpose: visitor.purpose ?? null,
+          p_flat_id: visitor.flat_id ?? null,
+          p_vehicle_number: visitor.vehicle_number ?? null,
+          p_photo_url: visitor.photo_url ?? null,
+          p_is_frequent_visitor: visitor.is_frequent_visitor || false,
+          p_visitor_type: visitor.visitor_type ?? "guest",
+        },
+      );
 
-      // Try to get guard_id if the user is a guard
-      let guardId = visitor.entry_guard_id;
-      if (!guardId && user) {
-        const { data: guardData } = await supabase
-          .from("security_guards")
-          .select("id")
-          .eq(
-            "employee_id",
-            (
-              await supabase
-                .from("employees")
-                .select("id")
-                .eq("auth_user_id", user.id)
-                .single()
-            ).data?.id,
-          )
-          .single();
-        guardId = guardData?.id;
+      if (rpcError) throw rpcError;
+
+      const rpcResult = result as
+        | { success?: boolean; error?: string; visitor?: Visitor | null }
+        | null;
+
+      if (!rpcResult?.success || !rpcResult.visitor?.id) {
+        throw new Error(rpcResult?.error || "Failed to add visitor");
       }
 
-      const { data, error: insertError } = await supabase
-        .from("visitors")
-        .insert({
-          visitor_name: visitor.visitor_name,
-          visitor_type: visitor.visitor_type,
-          phone: visitor.phone,
-          vehicle_number: visitor.vehicle_number,
-          photo_url: visitor.photo_url,
-          flat_id: visitor.flat_id,
-          resident_id: visitor.resident_id,
-          purpose: visitor.purpose,
-          entry_guard_id: guardId,
-          entry_location_id: visitor.entry_location_id,
-          is_frequent_visitor: visitor.is_frequent_visitor || false,
-          approved_by_resident:
-            visitor.is_frequent_visitor && !visitor.approval_required
-              ? true
-              : null,
-          bypass_reason: visitor.bypass_reason || null,
-          entry_time: new Date().toISOString(),
-        })
-        .select()
-        .single();
-
-      if (insertError) throw insertError;
+      const data = rpcResult.visitor;
 
       toast({
         title: "Visitor Registered",
@@ -304,29 +280,6 @@ export function useVisitors(initialFilters?: VisitorFilters) {
       // Refresh data
       fetchVisitors();
       fetchStats();
-
-      // Automated Trigger: Send Notification to Resident
-      if (visitor.resident_id) {
-        // Find the auth_user_id for this resident to target their push tokens
-        const { data: residentData } = await supabase
-          .from("residents")
-          .select("auth_user_id, full_name, flats(flat_number)")
-          .eq("id", visitor.resident_id)
-          .single();
-
-        if (residentData?.auth_user_id) {
-          supabase.functions
-            .invoke("send-notification", {
-              body: {
-                user_id: residentData.auth_user_id,
-                title: "Visitor at the Gate",
-                body: `${visitor.visitor_name} is requesting entry to ${residentData.flats?.[0]?.flat_number || "your unit"}.`,
-                data: { visitor_id: data.id, type: "VISITOR_RECEPTION" },
-              },
-            })
-            .catch((err) => console.error("Notification trigger failed:", err));
-        }
-      }
 
       return { success: true, data };
     } catch (err: unknown) {

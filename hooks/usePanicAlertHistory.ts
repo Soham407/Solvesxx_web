@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
 import { useToast } from "@/components/ui/use-toast";
-import { getCurrentUserId } from "@/src/lib/security/getCurrentUserId";
+import { getCurrentEmployeeId } from "@/src/lib/security/getCurrentEmployeeId";
 
 /**
  * Panic Alert History Hook
@@ -46,11 +46,8 @@ export interface PanicAlert {
     location_code: string;
   };
   resolver?: {
-    full_name: string | null;
-    employee?: {
-      first_name: string | null;
-      last_name: string | null;
-    };
+    first_name: string | null;
+    last_name: string | null;
   };
 }
 
@@ -97,11 +94,7 @@ export function usePanicAlertHistory(initialFilters?: AlertFilters) {
             guard_code,
             employee:employees(first_name, last_name, phone)
           ),
-          location:company_locations(location_name, location_code),
-          resolver:users!panic_alerts_resolved_by_fkey(
-            full_name,
-            employee:employees(first_name, last_name)
-          )
+          location:company_locations(location_name, location_code)
         `)
         .order("alert_time", { ascending: false });
 
@@ -149,7 +142,6 @@ export function usePanicAlertHistory(initialFilters?: AlertFilters) {
         created_at: row.created_at,
         guard: row.guard as PanicAlert["guard"],
         location: row.location as PanicAlert["location"],
-        resolver: row.resolver as PanicAlert["resolver"],
       }));
       setAlerts(typedData);
 
@@ -209,7 +201,7 @@ export function usePanicAlertHistory(initialFilters?: AlertFilters) {
   // Resolve an alert (PRD: Resolution notes)
   const resolveAlert = async (alertId: string, resolutionNotes: string) => {
     try {
-      const resolvedBy = await getCurrentUserId();
+      const resolvedBy = await getCurrentEmployeeId();
 
       const { error: updateError } = await supabase
         .from("panic_alerts")

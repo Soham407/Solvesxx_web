@@ -40,7 +40,9 @@ export default function NewSupplierBillPage() {
   // Show SPOs that are not already billed
   const eligibleSPOs = useMemo(() => {
     const billedSPOIds = new Set((bills || []).map(b => b.service_purchase_order_id).filter(Boolean));
-    return (serviceOrders || []).filter(s => !billedSPOIds.has(s.id));
+    return (serviceOrders || []).filter(
+      s => ['deployment_confirmed', 'completed'].includes(s.status) && !billedSPOIds.has(s.id)
+    );
   }, [serviceOrders, bills]);
 
   const selectedPO = useMemo(() => {
@@ -186,6 +188,11 @@ export default function NewSupplierBillPage() {
                   )}
                 </SelectContent>
               </Select>
+              {billType === "spo" && (
+                <p className="text-xs text-muted-foreground">
+                  Only deployment-confirmed service orders can be billed.
+                </p>
+              )}
             </div>
 
             {selectedPO && (
