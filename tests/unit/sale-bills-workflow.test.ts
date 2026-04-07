@@ -31,9 +31,10 @@ describe("sale bills workflow", () => {
         "handleDownloadPDF",
         "handlePayNow",
         "Generating PDF for",
-        "Redirecting to payment gateway for",
         "PDF for",
-        "Secure payment session initiated for",
+        "const paid = await recordPayment(invoice.id, {",
+        "Payment recorded for",
+        "Payment update failed for",
       ])
     ).toBe(true);
   });

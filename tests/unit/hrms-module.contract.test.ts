@@ -257,6 +257,10 @@ describe("hrms module contracts", () => {
         "fetchBgvReadiness",
         "bgv_ready_for_offer",
         "All required background verifications must be verified before making an offer.",
+        '.from("users")',
+        "auth_user_id: matchedUser?.id || null",
+        ".update({ employee_id: newEmployee.id })",
+        "Matched user account is already linked to another employee. Resolve the user mapping before conversion.",
         ".from('staff-compliance-docs')",
       ])
     ).toBe(true);
