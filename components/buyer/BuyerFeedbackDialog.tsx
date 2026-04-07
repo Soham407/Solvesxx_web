@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { supabase as supabaseTyped } from "@/src/lib/supabaseClient";
-const supabase = supabaseTyped as any;
 import { useToast } from "@/components/ui/use-toast";
 import {
   Dialog,
@@ -17,16 +15,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Star, CheckCircle2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useBuyerFeedback } from "@/hooks/useBuyerFeedback";
 
 interface BuyerFeedbackDialogProps {
-  invoiceId: string;
+  requestId: string;
+  invoiceLabel?: string;
   supplierName: string;
   onSubmitComplete?: () => void;
   children: React.ReactNode;
 }
 
 export function BuyerFeedbackDialog({ 
-  invoiceId,
+  requestId,
+  invoiceLabel,
   supplierName,
   onSubmitComplete,
   children 
@@ -37,6 +38,7 @@ export function BuyerFeedbackDialog({
   const [hoverRating, setHoverRating] = useState(0);
   const [feedback, setFeedback] = useState("");
   const { toast } = useToast();
+  const { submitFeedback } = useBuyerFeedback();
 
   const handleSubmit = async () => {
     if (rating === 0) {
@@ -50,40 +52,18 @@ export function BuyerFeedbackDialog({
 
     try {
       setIsSubmitting(true);
+      const result = await submitFeedback({
+        requestId,
+        overall_rating: rating,
+        quality_rating: rating,
+        delivery_rating: rating,
+        professionalism_rating: rating,
+        would_recommend: rating >= 4,
+        comments: feedback || undefined,
+      });
 
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error("Not authenticated");
-      }
-
-      // Save feedback to service_feedback table (may need to create this table)
-      try {
-        await supabase
-          .from('service_feedback')
-          .insert({
-            invoice_id: invoiceId,
-            buyer_user_id: user.id,
-            score: rating,
-            comments: feedback,
-            created_at: new Date().toISOString(),
-          } as any);
-      } catch (dbErr) {
-        console.log('Note: service_feedback table may not exist. Feedback functionality requires database setup.');
-      }
-
-      // Update invoice status to completed
-      try {
-        await supabase
-          .from('buyer_invoices')
-          .update({ 
-            status: 'completed',
-            feedback_submitted: true,
-            feedback_submitted_at: new Date().toISOString(),
-          } as any)
-          .eq('id', invoiceId);
-      } catch (dbErr) {
-        console.log('Note: buyer_invoices table columns may differ.');
+      if (!result.success) {
+        throw new Error(result.error || "Failed to submit feedback");
       }
 
       toast({
@@ -121,7 +101,7 @@ export function BuyerFeedbackDialog({
             Rate Your Experience
           </DialogTitle>
           <DialogDescription>
-            Share your feedback for invoice #{invoiceId.substring(0, 8)} from {supplierName}
+            Share your feedback for {invoiceLabel || `request #${requestId.substring(0, 8)}`} from {supplierName}
           </DialogDescription>
         </DialogHeader>
 

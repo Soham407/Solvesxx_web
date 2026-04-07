@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 
 interface PhotoUploadDialogProps {
   serviceRequestId: string;
-  jobId: string;
+  jobId?: string;
   onUploadComplete?: () => void;
   children: React.ReactNode;
 }
@@ -124,17 +124,44 @@ export function PhotoUploadDialog({
 
       // Save to database (using job_photos table with correct schema)
       try {
-        const allPhotos = [
-          ...beforeUrls.map(url => ({ job_session_id: jobId, photo_url: url, photo_type: 'before' })),
-          ...afterUrls.map(url => ({ job_session_id: jobId, photo_url: url, photo_type: 'after' }))
-        ];
-        
-        if (allPhotos.length > 0) {
-          await supabase.from('job_photos').insert(allPhotos as any);
+        // First persist evidence at request scope.
+        const requestEvidencePatch: Record<string, string> = {};
+        if (beforeUrls.length > 0) {
+          requestEvidencePatch.before_photo_url = beforeUrls[0];
+        }
+        if (afterUrls.length > 0) {
+          requestEvidencePatch.after_photo_url = afterUrls[0];
+        }
+
+        if (Object.keys(requestEvidencePatch).length > 0) {
+          await supabase
+            .from("service_requests")
+            .update(requestEvidencePatch)
+            .eq("id", serviceRequestId);
+        }
+
+        // Then link photo rows only if a real job session exists.
+        const { data: latestSession } = await supabase
+          .from("job_sessions")
+          .select("id")
+          .eq("service_request_id", serviceRequestId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (latestSession?.id) {
+          const allPhotos = [
+            ...beforeUrls.map((url) => ({ job_session_id: latestSession.id, photo_url: url, photo_type: "before" })),
+            ...afterUrls.map((url) => ({ job_session_id: latestSession.id, photo_url: url, photo_type: "after" })),
+          ];
+
+          if (allPhotos.length > 0) {
+            await supabase.from("job_photos").insert(allPhotos as any);
+          }
         }
       } catch (dbErr) {
-        // Table might not exist, just log and continue
-        console.log('Note: job_photos table may not exist yet. Photos are stored in storage.');
+        // Persistence best-effort: storage upload already succeeded.
+        console.log("Photo metadata persistence warning:", dbErr);
       }
 
       toast({
@@ -173,7 +200,7 @@ export function PhotoUploadDialog({
             Upload Job Photos
           </DialogTitle>
           <DialogDescription>
-            Upload before and after photos for job #{jobId}
+            Upload before and after photos for {jobId ? `job #${jobId}` : "this service request"}.
           </DialogDescription>
         </DialogHeader>
 

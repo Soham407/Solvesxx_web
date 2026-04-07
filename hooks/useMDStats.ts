@@ -80,7 +80,7 @@ export function useMDStats(): UseMDStatsReturn {
           .from("employee_documents")
           .select("id", { count: "exact" })
           .eq("document_type", "psara_license")
-          .eq("is_verified", true)
+          .eq("status", "verified")
           .gte("expiry_date", new Date().toISOString()),
       ]);
 

@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { usePestControlInventory } from "@/hooks/usePestControlInventory";
 
 interface PPEChecklistDialogProps {
+  serviceRequestId?: string;
   onSubmitComplete?: () => void;
   children: React.ReactNode;
 }
@@ -30,6 +31,7 @@ interface PPEItem {
 }
 
 export function PPEChecklistDialog({ 
+  serviceRequestId,
   onSubmitComplete,
   children 
 }: PPEChecklistDialogProps) {
@@ -87,6 +89,7 @@ export function PPEChecklistDialog({
 
       const result = await submitPPEVerification({
         technician_id: empData.id,
+        service_request_id: serviceRequestId,
         items: ppeItems,
         site_readiness_report: report,
         status: "verified",

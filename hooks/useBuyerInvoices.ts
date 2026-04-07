@@ -16,6 +16,7 @@ export interface BuyerInvoice {
   invoice_number: string;
   client_id: string | null;
   contract_id: string | null;
+  request_id: string | null;
   invoice_date: string;
   due_date: string | null;
   status: InvoiceStatus;
@@ -239,12 +240,36 @@ export function useBuyerInvoices(filters?: {
 
       if (error) throw error;
 
+      const requestIds = Array.from(
+        new Set(
+          ((data || []) as Array<{ request_id?: string | null }>)
+            .map((row) => row.request_id)
+            .filter((value): value is string => Boolean(value))
+        )
+      );
+
+      let feedbackRequestIds = new Set<string>();
+      if (requestIds.length > 0) {
+        const { data: feedbackRows, error: feedbackError } = await supabase
+          .from("buyer_feedback")
+          .select("request_id")
+          .in("request_id", requestIds);
+
+        if (feedbackError) throw feedbackError;
+        feedbackRequestIds = new Set(
+          (feedbackRows || [])
+            .map((row: { request_id?: string | null }) => row.request_id || null)
+            .filter((value): value is string => Boolean(value))
+        );
+      }
+
       // Transform data
       const invoicesWithDetails: BuyerInvoice[] = (data || []).map((invoice: any) => ({
         ...invoice,
         client_name: invoice.societies?.society_name || "Unknown",
         client_code: invoice.societies?.society_code || "N/A",
         contract_number: invoice.contracts?.contract_number || null,
+        feedback_submitted: invoice.request_id ? feedbackRequestIds.has(invoice.request_id) : null,
       }));
 
       setState((prev) => ({

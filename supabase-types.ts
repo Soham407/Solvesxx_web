@@ -10172,6 +10172,8 @@ export type Database = {
         | "offer_letter"
         | "relieving_letter"
         | "address_proof"
+        | "psara_license"
+        | "id_proof"
         | "police_verification"
         | "medical_certificate"
         | "other"
@@ -10489,6 +10491,8 @@ export const Constants = {
         "offer_letter",
         "relieving_letter",
         "address_proof",
+        "psara_license",
+        "id_proof",
         "police_verification",
         "medical_certificate",
         "other",
