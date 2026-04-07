@@ -10,7 +10,25 @@ const npmCli =
   process.platform === "win32"
     ? path.join(path.dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js")
     : require.resolve("npm/bin/npm-cli.js");
-const nextBin = path.join(root, "node_modules", "next", "dist", "bin", "next");
+function findUp(startDir, relativePath, maxLevels = 6) {
+  let currentDir = startDir;
+  for (let depth = 0; depth <= maxLevels; depth += 1) {
+    const candidate = path.join(currentDir, relativePath);
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+    const parent = path.dirname(currentDir);
+    if (parent === currentDir) {
+      break;
+    }
+    currentDir = parent;
+  }
+  return null;
+}
+
+const nextBin =
+  findUp(root, path.join("node_modules", "next", "dist", "bin", "next")) ||
+  path.join(root, "node_modules", "next", "dist", "bin", "next");
 const pidPath = path.join(root, ".test-app.pid");
 const logPath = path.join(root, ".test-app.log");
 const buildLockPath = path.join(root, ".next", "lock");

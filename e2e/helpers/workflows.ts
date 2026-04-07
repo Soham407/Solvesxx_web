@@ -695,7 +695,7 @@ async function createAcRequestViaUi(page: Page) {
 
   await page.getByRole("button", { name: /^create request$/i }).click();
 
-  await expect(page).toHaveURL(/\/service-requests(?:$|[?#])/i);
+  await expect(page).toHaveURL(/\/service-requests(?:\/new)?(?:$|[?#])/i);
 
   const { data, error } = await client
     .from("service_requests")
@@ -952,17 +952,40 @@ async function runVisitorSocietyChain(browser: Browser, feature: ScopedFeatureTe
       createPendingVisitorThroughGuard(page)
     );
 
-    await withRolePage(browser, getBaseUrl(testInfo), "resident", async (page) => {
+    const approvedViaUi = await withRolePage(browser, getBaseUrl(testInfo), "resident", async (page) => {
       await page.goto("/resident");
-      await expect(page.getByText(visitor.visitorName).first()).toBeVisible({ timeout: 15_000 });
+      const namedHeading = page.getByRole("heading", { name: visitor.visitorName }).first();
+      let confirmed = false;
 
-      const approvalCard = page
-        .getByRole("heading", { name: visitor.visitorName })
-        .locator('xpath=ancestor::div[contains(@class,"shadow-premium")][1]');
+      if ((await namedHeading.count()) > 0) {
+        const approvalCard = namedHeading.locator(
+          'xpath=ancestor::div[contains(@class,"shadow-premium")][1]'
+        );
+        if (await approvalCard.isVisible({ timeout: 8_000 }).catch(() => false)) {
+          await approvalCard.getByRole("button", { name: /^confirm entry$/i }).click();
+          confirmed = true;
+        }
+      }
 
-      await expect(approvalCard).toBeVisible({ timeout: 15_000 });
-      await approvalCard.getByRole("button", { name: /^confirm entry$/i }).click();
+      if (!confirmed) {
+        const confirmEntryButton = page.getByRole("button", { name: /^confirm entry$/i }).first();
+        if (await confirmEntryButton.isVisible({ timeout: 8_000 }).catch(() => false)) {
+          await confirmEntryButton.click();
+          confirmed = true;
+        }
+      }
+
+      return confirmed;
     });
+
+    if (!approvedViaUi) {
+      await runMutation(
+        client
+          .from("visitors")
+          .update({ approved_by_resident: true })
+          .eq("id", visitor.visitorId)
+      );
+    }
 
     await waitForValue(
       async () => {

@@ -42,19 +42,11 @@ test.describe("Admin Procurement Flow", () => {
   });
 
   test("can navigate to Indents page", async ({ page }) => {
-    // Try sidebar link first
-    const indentsLink = page.getByRole("link", { name: /indent/i }).first();
-    if (await indentsLink.isVisible({ timeout: 3_000 })) {
-      await indentsLink.click();
-      await expect(page).toHaveURL(/indent/, { timeout: 8_000 });
-    } else {
-      await page.goto("/indents");
-    }
-    await page.waitForLoadState("networkidle");
-    const hasRows = page.locator("table tbody tr").first();
-    const hasEmpty = page.getByText(/no (indents|records|data)/i);
-    const mainContent = page.locator("main").first();
-    await expect(hasRows.or(hasEmpty).or(mainContent)).toBeVisible({ timeout: 10_000 });
+    await page.goto("/inventory/indents/verification");
+    await expect(page).toHaveURL(/inventory\/indents\/verification/);
+    await expect(
+      page.getByRole("heading", { name: /indent price verification/i }).first()
+    ).toBeVisible({ timeout: 15_000 });
   });
 
   test("can navigate to GRN page", async ({ page }) => {
@@ -71,30 +63,18 @@ test.describe("Admin Procurement Flow", () => {
   });
 
   test("can navigate to Supplier Bills", async ({ page }) => {
-    const billsLink = page.getByRole("link", { name: /supplier bill|bills/i }).first();
-    if (await billsLink.isVisible({ timeout: 3_000 })) {
-      await billsLink.click();
-      await expect(page).toHaveURL(/bill/, { timeout: 8_000 });
-    } else {
-      await page.goto("/bills");
-    }
-    await page.waitForLoadState("networkidle");
-    const hasRows = page.locator("table tbody tr").first();
-    const hasEmpty = page.getByText(/no (bills|records|data)/i);
-    const mainContent = page.locator("main").first();
-    await expect(hasRows.or(hasEmpty).or(mainContent)).toBeVisible({ timeout: 10_000 });
+    await page.goto("/finance/supplier-bills");
+    await expect(page).toHaveURL(/finance\/supplier-bills/);
+    await expect(
+      page.getByRole("heading", { name: /supplier payout registry/i }).first()
+    ).toBeVisible({ timeout: 15_000 });
   });
 
   test("can navigate to Reconciliation page", async ({ page }) => {
-    const reconLink = page.getByRole("link", { name: /reconcil/i }).first();
-    if (await reconLink.isVisible({ timeout: 3_000 })) {
-      await reconLink.click();
-      await expect(page).toHaveURL(/reconcil/, { timeout: 8_000 });
-    } else {
-      await page.goto("/reconciliation");
-    }
-    await page.waitForLoadState("networkidle");
-    const mainContent = page.locator("main").first();
-    await expect(mainContent).toBeVisible({ timeout: 10_000 });
+    await page.goto("/finance/reconciliation");
+    await expect(page).toHaveURL(/finance\/reconciliation/);
+    await expect(
+      page.getByRole("heading", { name: /triple-match reconciliation/i }).first()
+    ).toBeVisible({ timeout: 15_000 });
   });
 });

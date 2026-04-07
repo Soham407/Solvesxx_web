@@ -9,7 +9,11 @@ test.describe("Buyer Order Flow", () => {
   });
 
   test("buyer dashboard loads", async ({ page }) => {
-    await expect(page.getByRole("heading", { name: /dashboard/i })).toBeVisible();
+    await expect(
+      page
+        .getByRole("heading", { name: /our best services|current services|waiting for approval|ongoing services/i })
+        .first()
+    ).toBeVisible();
   });
 
   test("can navigate to order requests", async ({ page }) => {
@@ -41,10 +45,10 @@ test.describe("Buyer Order Flow", () => {
   test("order request list shows data or empty state", async ({ page }) => {
     await page.goto("/buyer/requests");
     await page.waitForLoadState("networkidle");
-    const hasRows = page.locator("table tbody tr, [data-testid='request-row']").first();
-    const hasEmpty = page.getByText(/no (requests|orders|records|data)/i);
-    const hasContent = page.locator("main .card, main [class*='card']").first();
-    await expect(hasRows.or(hasEmpty).or(hasContent)).toBeVisible({ timeout: 10_000 });
+    const hasRows = (await page.locator("table tbody tr, [data-testid='request-row']").count()) > 0;
+    const hasEmpty = (await page.getByText(/no (requests|orders|records|data)/i).count()) > 0;
+    const hasContent = (await page.locator("main .card, main [class*='card']").count()) > 0;
+    expect(hasRows || hasEmpty || hasContent).toBeTruthy();
   });
 
   test("order status badge is visible when orders exist", async ({ page }) => {
@@ -53,8 +57,9 @@ test.describe("Buyer Order Flow", () => {
     // If any rows exist, check for a status badge
     const firstRow = page.locator("table tbody tr").first();
     if (await firstRow.isVisible({ timeout: 3_000 })) {
-      const statusBadge = page.locator("table tbody tr").first().locator("[class*='badge'], [class*='Badge'], span[class*='bg-']").first();
-      await expect(statusBadge).toBeVisible({ timeout: 5_000 });
+      const statusCell = firstRow.locator("td").nth(3);
+      await expect(statusCell).toBeVisible({ timeout: 5_000 });
+      await expect(statusCell).not.toHaveText(/^\s*$/);
     }
   });
 
