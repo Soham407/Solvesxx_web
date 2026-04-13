@@ -129,6 +129,7 @@ type TeamMember = {
   title: string;
   bio: string;
   image: string | null;
+  imageClassName?: string;
 };
 
 // Replace this block with the final 5 profiles and image paths when ready.
@@ -146,6 +147,7 @@ const teamMembers: TeamMember[] = [
     title: "Director, Project Management & Execution Specialist",
     bio: "With more than 20 years of industry experience, Nafis Shaikh brings a strong blend of design insight and execution expertise to Solvesxx. A graduate in Interior Design, she has built her career around precision, coordination, and delivering projects that meet both functional and aesthetic expectations. She has served as a Senior Designer and Project Coordinator, where she played a central role in turning concepts into well-executed outcomes. Her core strength is execution excellence: managing timelines, coordinating stakeholders, and ensuring every phase of delivery is handled with discipline and clarity. Driven by a deep passion for project management, she believes successful projects are built on planning, coordination, and flawless execution.",
     image: "/team/Nafis Shaikh.png",
+    imageClassName: "object-top",
   },
   {
     id: "team-3",
@@ -160,6 +162,7 @@ const teamMembers: TeamMember[] = [
     title: "Director, Legal Advisory & Governance",
     bio: "Advocate Kamal brings a rare combination of legal expertise, leadership experience, and sporting excellence to Solvesxx. She holds BA and LLB degrees and has built a distinguished career rooted in governance, public service, and legal advisory. At Solvesxx, she guides the organization on legal frameworks, compliance, and strategic decision-making, helping ensure operations align with regulatory standards and ethical practices. Her professional journey is complemented by an inspiring sports background as a former national-level cricket player who played as an opening bowler. She has also held major leadership positions, including member of the Apex Council of the Maharashtra Cricket Association and Chairperson of Zilla Parishad, Ahilyanagar. Her experience across law, sports, and governance adds a distinctive strength to the company's leadership foundation.",
     image: "/team/Kamal Sawant.jpeg",
+    imageClassName: "object-center",
   },
   {
     id: "team-5",
@@ -495,7 +498,7 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="mt-14 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+          <div className="mt-14 grid gap-4 md:grid-cols-2 lg:grid-cols-5">
             {teamMembers.map((member) => {
               const initials = getInitials(member.name);
 
@@ -506,15 +509,16 @@ export default function LandingPage() {
                       type="button"
                       className="brand-surface group flex h-full flex-col overflow-hidden text-left transition-transform duration-300 hover:-translate-y-1 focus-visible:ring-2 focus-visible:ring-ring"
                     >
-                      <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-[linear-gradient(145deg,#0a3f63,#0e527f)]">
+                      <div className="relative flex aspect-[4/5] items-center justify-center overflow-hidden bg-[linear-gradient(145deg,#0a3f63,#0e527f)]">
                         {member.image ? (
                           <>
                             <Image
                               src={member.image}
                               alt={member.name}
                               fill
-                              sizes="(min-width: 1280px) 24rem, (min-width: 768px) 45vw, 100vw"
-                              className="object-cover"
+                              unoptimized
+                              sizes="(min-width: 1024px) 20vw, (min-width: 768px) 45vw, 100vw"
+                              className={`object-cover ${member.imageClassName ?? "object-center"}`}
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-primary/45 via-primary/10 to-transparent" />
                           </>
@@ -528,11 +532,11 @@ export default function LandingPage() {
                         )}
                       </div>
 
-                      <div className="flex flex-1 flex-col p-6">
+                      <div className="flex flex-1 flex-col p-5">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-warning">
                           Team Profile
                         </p>
-                        <h3 className="mt-3 text-2xl font-semibold text-primary">
+                        <h3 className="mt-3 text-xl font-semibold leading-tight text-primary">
                           {member.name}
                         </h3>
                         <p className="mt-2 text-sm font-medium text-muted-foreground">
@@ -558,8 +562,9 @@ export default function LandingPage() {
                                 src={member.image}
                                 alt={member.name}
                                 fill
+                                unoptimized
                                 sizes="(min-width: 768px) 32rem, 100vw"
-                                className="object-cover"
+                                className={`object-cover ${member.imageClassName ?? "object-center"}`}
                               />
                             </div>
                           ) : (
