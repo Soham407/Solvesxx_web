@@ -21,6 +21,15 @@ import {
 import { BrandLogo } from "@/components/branding/BrandLogo";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogScrollArea,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   BRAND_DOMAIN,
@@ -113,6 +122,62 @@ const steps = [
     body: "Finish with documented service status, finance visibility, and audit-ready operational records.",
   },
 ];
+
+type TeamMember = {
+  id: string;
+  name: string;
+  title: string;
+  bio: string;
+  image: string | null;
+};
+
+// Replace this block with the final 5 profiles and image paths when ready.
+const teamMembers: TeamMember[] = [
+  {
+    id: "team-1",
+    name: "Vandanaa Mahadeo Chougulay",
+    title: "Director, Marketing & Strategic Alliances",
+    bio: "With 30 years of diverse professional experience, Vandanaa brings a dynamic blend of business acumen, innovation, and leadership to Solvesxx. She holds a Master's degree and has built a multifaceted career spanning manufacturing, international business, and strategic marketing. At Solvesxx, she drives marketing strategy and project alliances, building strong business relationships and aligning growth opportunities with market demand. She also leads her own sports brand, LGM Sports, a skating manufacturing and international trading business focused on custom skate design and innovation. Her earlier experience in the food industry further strengthens her operational and business management perspective across sectors. Known for her hard work, innovation-driven thinking, and strategic collaboration, she continues to add significant value to the company's growth vision.",
+    image: null,
+  },
+  {
+    id: "team-2",
+    name: "Nafis Shaikh",
+    title: "Director, Project Management & Execution Specialist",
+    bio: "With more than 20 years of industry experience, Nafis Shaikh brings a strong blend of design insight and execution expertise to Solvesxx. A graduate in Interior Design, she has built her career around precision, coordination, and delivering projects that meet both functional and aesthetic expectations. She has served as a Senior Designer and Project Coordinator, where she played a central role in turning concepts into well-executed outcomes. Her core strength is execution excellence: managing timelines, coordinating stakeholders, and ensuring every phase of delivery is handled with discipline and clarity. Driven by a deep passion for project management, she believes successful projects are built on planning, coordination, and flawless execution.",
+    image: "/team/Nafis Shaikh.png",
+  },
+  {
+    id: "team-3",
+    name: "Sharada Vitthal Dhumal",
+    title: "Director, Administrative Management & Operations",
+    bio: "With over 25 years of professional experience, Sharada brings deep expertise in administrative management, financial discipline, and organizational efficiency to Solvesxx. She holds an M.Com with specialization in Business Entrepreneurship, giving her a strong foundation in both business strategy and operations. She oversees administrative systems and project organization, ensuring operations run with structure, accountability, and precision. Her career spans CA firms, legal firms, advertising, printing, media, and the gems and jewellery sector, including 15 years in accounts and 10 years in administration with organizations such as Times of India and P. N. Gadgil & Sons Ltd. Her cross-industry exposure has made her highly adaptable and detail-oriented, with strong capability in managing complex workflows and ensuring seamless coordination across departments.",
+    image: null,
+  },
+  {
+    id: "team-4",
+    name: "Adv. Kamal Dashrath Sawant",
+    title: "Director, Legal Advisory & Governance",
+    bio: "Advocate Kamal brings a rare combination of legal expertise, leadership experience, and sporting excellence to Solvesxx. She holds BA and LLB degrees and has built a distinguished career rooted in governance, public service, and legal advisory. At Solvesxx, she guides the organization on legal frameworks, compliance, and strategic decision-making, helping ensure operations align with regulatory standards and ethical practices. Her professional journey is complemented by an inspiring sports background as a former national-level cricket player who played as an opening bowler. She has also held major leadership positions, including member of the Apex Council of the Maharashtra Cricket Association and Chairperson of Zilla Parishad, Ahilyanagar. Her experience across law, sports, and governance adds a distinctive strength to the company's leadership foundation.",
+    image: "/team/Kamal Sawant.jpeg",
+  },
+  {
+    id: "team-5",
+    name: "Adv. Ashwini Jagtap",
+    title: "Director, Legal Advisory - Civil & Family Law",
+    bio: "Advocate Ashwini brings strong legal expertise and practical understanding of civil and family law to the leadership team at Solvesxx. She holds B.Com and LLB degrees, combining a foundation in commerce with professional legal proficiency. She actively practices at Shivajinagar Court, handling matters related to civil and family law with structured guidance, legal clarity, and effective representation. At Solvesxx, she contributes to the company's legal advisory framework by supporting compliance, risk management, and the handling of contractual and legal matters. Known for her methodical approach, attention to detail, and client-focused mindset, she plays an important role in safeguarding the company's interests while enabling informed and compliant decision-making.",
+    image: null,
+  },
+];
+
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+}
 
 export default function LandingPage() {
   const [email, setEmail] = useState("");
@@ -410,6 +475,128 @@ export default function LandingPage() {
                 </p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-white/65 px-4 py-24 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <div className="text-center">
+            <Badge variant="secondary" className="mb-4">
+              Meet the Team
+            </Badge>
+            <h2 className="text-4xl font-semibold text-primary sm:text-5xl">
+              People behind the operating model.
+            </h2>
+            <p className="mx-auto mt-5 max-w-3xl text-lg leading-relaxed text-muted-foreground">
+              Meet the leadership and delivery team shaping how {BRAND_NAME} brings
+              service excellence, accountability, and control into facility
+              operations.
+            </p>
+          </div>
+
+          <div className="mt-14 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+            {teamMembers.map((member) => {
+              const initials = getInitials(member.name);
+
+              return (
+                <Dialog key={member.id}>
+                  <DialogTrigger asChild>
+                    <button
+                      type="button"
+                      className="brand-surface group flex h-full flex-col overflow-hidden text-left transition-transform duration-300 hover:-translate-y-1 focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-[linear-gradient(145deg,#0a3f63,#0e527f)]">
+                        {member.image ? (
+                          <>
+                            <Image
+                              src={member.image}
+                              alt={member.name}
+                              fill
+                              sizes="(min-width: 1280px) 24rem, (min-width: 768px) 45vw, 100vw"
+                              className="object-cover"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-primary/45 via-primary/10 to-transparent" />
+                          </>
+                        ) : (
+                          <>
+                            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(242,224,138,0.22),transparent_42%)]" />
+                            <div className="flex h-24 w-24 items-center justify-center rounded-full border border-white/20 bg-white/10 text-3xl font-semibold text-white shadow-[0_20px_50px_-28px_rgba(0,0,0,0.45)] backdrop-blur-sm sm:h-28 sm:w-28">
+                              {initials}
+                            </div>
+                          </>
+                        )}
+                      </div>
+
+                      <div className="flex flex-1 flex-col p-6">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-warning">
+                          Team Profile
+                        </p>
+                        <h3 className="mt-3 text-2xl font-semibold text-primary">
+                          {member.name}
+                        </h3>
+                        <p className="mt-2 text-sm font-medium text-muted-foreground">
+                          {member.title}
+                        </p>
+                        <p className="mt-4 text-sm font-semibold text-primary transition-colors group-hover:text-warning">
+                          View full profile
+                        </p>
+                      </div>
+                    </button>
+                  </DialogTrigger>
+
+                  <DialogContent
+                    size="lg"
+                    className="overflow-hidden rounded-[1.75rem] border-border/70 p-0"
+                  >
+                    <DialogScrollArea maxHeight="80vh">
+                      <div className="grid gap-0 md:grid-cols-[0.95fr_1.05fr]">
+                        <div className="relative flex min-h-[320px] items-center justify-center bg-[linear-gradient(155deg,#0a3f63,#0e527f)] p-8">
+                          {member.image ? (
+                            <div className="relative h-full min-h-[320px] w-full overflow-hidden rounded-[1.5rem] border border-white/10">
+                              <Image
+                                src={member.image}
+                                alt={member.name}
+                                fill
+                                sizes="(min-width: 768px) 32rem, 100vw"
+                                className="object-cover"
+                              />
+                            </div>
+                          ) : (
+                            <>
+                              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(242,224,138,0.22),transparent_42%)]" />
+                              <div className="relative flex h-32 w-32 items-center justify-center rounded-full border border-white/20 bg-white/10 text-4xl font-semibold text-white shadow-[0_24px_60px_-30px_rgba(0,0,0,0.5)] backdrop-blur-sm sm:h-40 sm:w-40 sm:text-5xl">
+                                {initials}
+                              </div>
+                            </>
+                          )}
+                        </div>
+
+                        <div className="p-8 sm:p-10">
+                          <DialogHeader className="space-y-3 text-left">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-warning">
+                              Team Profile
+                            </p>
+                            <DialogTitle className="text-3xl font-semibold text-primary sm:text-4xl">
+                              {member.name}
+                            </DialogTitle>
+                            <DialogDescription className="text-base font-medium text-muted-foreground">
+                              {member.title}
+                            </DialogDescription>
+                          </DialogHeader>
+
+                          <div className="brand-gold-divider my-6" />
+
+                          <div className="space-y-4 text-base leading-relaxed text-muted-foreground">
+                            <p>{member.bio}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </DialogScrollArea>
+                  </DialogContent>
+                </Dialog>
+              );
+            })}
           </div>
         </div>
       </section>
