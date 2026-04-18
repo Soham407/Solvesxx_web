@@ -9,7 +9,7 @@ import { updateSession } from "@/src/lib/supabase/middleware";
  * Public paths that don't require authentication.
  * All other paths require a valid session.
  */
-const PUBLIC_PATHS = ["/login", "/api/auth", "/api/waitlist"];
+const PUBLIC_PATHS = ["/login", "/api/auth", "/api/waitlist", "/api/mobile/demo-otp"];
 
 /**
  * API routes exempt from middleware RBAC checks.
