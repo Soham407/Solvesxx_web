@@ -9,6 +9,7 @@ type DemoResolvedUser = {
   employeeId: string | null;
   fullName: string;
   phone: string;
+  email: string | null;
   roleName: DemoRole;
 };
 
@@ -125,7 +126,7 @@ async function findGuardUserByPhone(phone: string) {
   for (const candidate of buildPhoneCandidates(phone)) {
     const { data, error } = await supabaseAdmin
       .from("users")
-      .select("id, employee_id, full_name, is_active, phone, roles(role_name)")
+      .select("id, employee_id, full_name, email, is_active, phone, roles(role_name)")
       .eq("phone", candidate)
       .limit(1)
       .maybeSingle();
@@ -149,7 +150,7 @@ async function findGuardUserByPhone(phone: string) {
 
     const { data: linkedUser, error: userError } = await supabaseAdmin
       .from("users")
-      .select("id, employee_id, full_name, is_active, phone, roles(role_name)")
+      .select("id, employee_id, full_name, email, is_active, phone, roles(role_name)")
       .eq("id", employeeRecord.auth_user_id)
       .maybeSingle();
 
@@ -199,7 +200,7 @@ export async function resolveDemoOtpUser(phone: string): Promise<DemoResolvedUse
 
     const { data: linkedUser, error: userError } = await supabaseAdmin
       .from("users")
-      .select("id, full_name, is_active, roles(role_name)")
+      .select("id, full_name, email, is_active, roles(role_name)")
       .eq("id", resident.auth_user_id)
       .maybeSingle();
 
@@ -224,6 +225,7 @@ export async function resolveDemoOtpUser(phone: string): Promise<DemoResolvedUse
       employeeId: null,
       fullName: resident.full_name,
       phone: normalizedPhone,
+      email: (linkedUser as any).email ?? null,
       roleName: "resident",
     };
   }
@@ -286,6 +288,7 @@ export async function resolveDemoOtpUser(phone: string): Promise<DemoResolvedUse
     employeeId: (guardUser as any).employee_id,
     fullName: (guardUser as any).full_name,
     phone: normalizedPhone,
+    email: (guardUser as any).email ?? null,
     roleName: "security_guard",
   };
 }
@@ -312,7 +315,32 @@ export async function createDemoOtpSession(phone: string) {
   });
 
   if (error) {
-    throw error;
+    const message = error.message.toLowerCase();
+    const phoneProviderDisabled =
+      message.includes("phone logins are disabled") ||
+      message.includes("unsupported phone provider");
+
+    if (!phoneProviderDisabled || !resolvedUser.email) {
+      throw error;
+    }
+
+    const emailSignIn = await anonAuthClient.auth.signInWithPassword({
+      email: resolvedUser.email,
+      password: oneTimePassword,
+    });
+
+    if (emailSignIn.error) {
+      throw emailSignIn.error;
+    }
+
+    if (!emailSignIn.data.session) {
+      throw new Error("Demo OTP sign-in did not return a session.");
+    }
+
+    return {
+      session: emailSignIn.data.session,
+      user: resolvedUser,
+    };
   }
 
   if (!data.session) {
