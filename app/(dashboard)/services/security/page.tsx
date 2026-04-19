@@ -89,6 +89,24 @@ export default function SecurityCommandPage() {
   const { locations, isLoading: locationsLoading } = useCompanyLocations();
   const { shifts, isLoading: shiftsLoading } = useShifts();
   const { designations, isLoading: designationsLoading } = useDesignations();
+  const guardDesignations = (() => {
+    const seen = new Set<string>();
+    return designations.filter((designation) => {
+      const normalizedName = designation.designation_name?.trim().toLowerCase() || "";
+      const normalizedDepartment = designation.department?.trim().toLowerCase() || "";
+      const looksSecurityRelated =
+        normalizedDepartment === "sec" ||
+        normalizedDepartment === "security" ||
+        normalizedName.includes("security") ||
+        normalizedName.includes("guard") ||
+        normalizedName.includes("supervisor");
+
+      if (!looksSecurityRelated) return false;
+      if (seen.has(normalizedName)) return false;
+      seen.add(normalizedName);
+      return true;
+    });
+  })();
 
   const [selectedGuard, setSelectedGuard] = useState<SecurityGuard | null>(null);
   const [onboardDialogOpen, setOnboardDialogOpen] = useState(false);
@@ -767,13 +785,18 @@ export default function SecurityCommandPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">No designation</SelectItem>
-                      {designations.map((designation) => (
+                      {guardDesignations.map((designation) => (
                         <SelectItem key={designation.id} value={designation.id}>
                           {designation.designation_name}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {!designationsLoading && guardDesignations.length === 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Add at least one security designation in Company Master to assign a guard designation.
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="guard_onboard_grade">Guard Grade</Label>
