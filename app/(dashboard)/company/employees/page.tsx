@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Download, Filter, MoreHorizontal, UserPlus, Loader2, AlertCircle, RefreshCw } from "lucide-react";
+import { Plus, Download, Filter, MoreHorizontal, UserPlus, Loader2, AlertCircle, RefreshCw, UserX, Trash2 } from "lucide-react";
 import { DataTable } from "@/components/shared/DataTable";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { RoleTag } from "@/components/shared/RoleTag";
@@ -19,9 +19,86 @@ import {
 import Link from "next/link";
 import { useEmployees, Employee } from "@/hooks/useEmployees";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function EmployeesPage() {
-  const { employees, isLoading, error, refresh } = useEmployees();
+  const { employees, isLoading, error, refresh } = useEmployees({ includeInactive: true });
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deleteConfirmationName, setDeleteConfirmationName] = useState("");
+  const [isSubmittingAction, setIsSubmittingAction] = useState(false);
+
+  const openStatusDialog = (employee: Employee) => {
+    setSelectedEmployee(employee);
+    setIsStatusDialogOpen(true);
+  };
+
+  const openDeleteDialog = (employee: Employee) => {
+    setSelectedEmployee(employee);
+    setDeleteConfirmationName("");
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleToggleEmployeeStatus = async () => {
+    if (!selectedEmployee) return;
+    setIsSubmittingAction(true);
+    try {
+      const response = await fetch(`/api/admin/employees/${selectedEmployee.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_active: !selectedEmployee.is_active }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to update employee");
+      }
+      toast.success(selectedEmployee.is_active ? "Employee deactivated" : "Employee activated");
+      setIsStatusDialogOpen(false);
+      setSelectedEmployee(null);
+      refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update employee");
+    } finally {
+      setIsSubmittingAction(false);
+    }
+  };
+
+  const handleDeleteEmployee = async () => {
+    if (!selectedEmployee) return;
+    setIsSubmittingAction(true);
+    try {
+      const response = await fetch(`/api/admin/employees/${selectedEmployee.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm_name: deleteConfirmationName }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to delete employee");
+      }
+      toast.success("Employee deleted permanently");
+      setIsDeleteDialogOpen(false);
+      setSelectedEmployee(null);
+      setDeleteConfirmationName("");
+      refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete employee");
+    } finally {
+      setIsSubmittingAction(false);
+    }
+  };
 
   const columns: ColumnDef<Employee>[] = [
     {
@@ -88,13 +165,23 @@ export default function EmployeesPage() {
               <Link href={`/company/employees/${row.original.id}`}>View Details</Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href={`/company/employees/${row.original.id}?tab=compensation`}>
+                  <Link href={`/company/employees/${row.original.id}?tab=compensation`}>
                 Manage Payroll Setup
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem>Edit Employee</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive">Deactivate</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => openStatusDialog(row.original)}>
+              <UserX className="mr-2 h-4 w-4" />
+              {row.original.is_active ? "Deactivate" : "Activate"}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="text-destructive"
+              onClick={() => openDeleteDialog(row.original)}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete Permanently
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -150,6 +237,62 @@ export default function EmployeesPage() {
           />
         )}
       </div>
+
+      <AlertDialog open={isStatusDialogOpen} onOpenChange={setIsStatusDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {selectedEmployee?.is_active ? "Deactivate employee?" : "Activate employee?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {selectedEmployee?.is_active
+                ? `This will disable app access for ${selectedEmployee?.full_name} and mark linked guard access inactive where applicable.`
+                : `This will restore access for ${selectedEmployee?.full_name} and reactivate linked login state where applicable.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSubmittingAction}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleToggleEmployeeStatus} disabled={isSubmittingAction}>
+              {isSubmittingAction ? "Saving..." : selectedEmployee?.is_active ? "Deactivate" : "Activate"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete employee permanently?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This is destructive and only works when the employee has no linked login, no guard profile, and no operational history.
+              Type <span className="font-semibold text-foreground">{selectedEmployee?.full_name || "the employee name"}</span> to confirm.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2">
+            <Input
+              value={deleteConfirmationName}
+              onChange={(event) => setDeleteConfirmationName(event.target.value)}
+              placeholder={selectedEmployee?.full_name || "Employee name"}
+            />
+            <p className="text-xs text-muted-foreground">
+              Use deactivate for normal offboarding. Permanent delete is only for mistaken records with no history.
+            </p>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSubmittingAction}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteEmployee}
+              disabled={
+                isSubmittingAction ||
+                deleteConfirmationName.trim() !== (selectedEmployee?.full_name || "")
+              }
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isSubmittingAction ? "Deleting..." : "Delete Permanently"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

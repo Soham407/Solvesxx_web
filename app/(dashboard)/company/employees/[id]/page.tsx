@@ -15,7 +15,13 @@ import {
   FileText,
   MoreVertical,
   ArrowUpRight,
-  Loader2
+  Loader2,
+  Shield,
+  CheckCircle2,
+  CircleAlert,
+  Copy,
+  Link2,
+  LockKeyhole
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,6 +34,8 @@ import Link from "next/link";
 import { EmployeeCompensationPanel } from "@/components/forms/EmployeeCompensationPanel";
 import { useAuth } from "@/hooks/useAuth";
 import { useEmployees } from "@/hooks/useEmployees";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 
 type EmployeeDetailTab = "overview" | "onboarding" | "documents" | "activity" | "compensation";
 
@@ -44,17 +52,64 @@ export default function EmployeeDetailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { role } = useAuth();
-  const { getEmployeeById, isLoading, error } = useEmployees();
+  const { getEmployeeById, isLoading, error } = useEmployees({ includeInactive: true });
   const [activeTab, setActiveTab] = useState<EmployeeDetailTab>(
     getEmployeeDetailTab(searchParams.get("tab"))
   );
+  const [isResettingCredentials, setIsResettingCredentials] = useState(false);
+  const [credentialResult, setCredentialResult] = useState<null | { temporary_password: string; email: string | null }>(null);
+  const [copiedPassword, setCopiedPassword] = useState(false);
   
   const employee = getEmployeeById(id as string);
   const canManageCompensation = role === "admin" || role === "super_admin";
+  const isGuardProfile = employee?.role_name === "security_guard" || Boolean(employee?.guard_profile_id);
+  const profileRoleLabel = employee?.role_name || employee?.role || employee?.designation_name || "Employee";
+  const profileLocation = employee?.assigned_location_name || employee?.department || "Operations";
+  const onboardingChecks = employee
+    ? [
+        { label: "Auth account", ok: Boolean(employee.auth_user_id), value: employee.email || "Missing login" },
+        { label: "Public user link", ok: Boolean(employee.linked_user_id), value: employee.role_name || "Role missing" },
+        { label: "Employee record", ok: true, value: employee.employee_code || employee.id.slice(0, 8) },
+        { label: "Guard profile", ok: isGuardProfile && Boolean(employee.guard_profile_id), value: employee.guard_code || "Not provisioned" },
+        { label: "Assigned location", ok: Boolean(employee.assigned_location_id), value: employee.assigned_location_name || "Unassigned" },
+        { label: "Active shift", ok: Boolean(employee.shift_id), value: employee.shift_name || "No active shift" },
+      ]
+    : [];
 
   useEffect(() => {
     setActiveTab(getEmployeeDetailTab(searchParams.get("tab")));
   }, [searchParams]);
+
+  const handleCopyPassword = async () => {
+    if (!credentialResult?.temporary_password) return;
+    await navigator.clipboard.writeText(credentialResult.temporary_password);
+    setCopiedPassword(true);
+    toast.success("Temporary password copied");
+    setTimeout(() => setCopiedPassword(false), 1500);
+  };
+
+  const handleResetSecurityCredentials = async () => {
+    if (!employee) return;
+    setIsResettingCredentials(true);
+    try {
+      const response = await fetch(`/api/admin/employees/${employee.id}/reset-security`, {
+        method: "POST",
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to reset security credentials");
+      }
+      setCredentialResult({
+        temporary_password: payload.temporary_password,
+        email: payload.email ?? null,
+      });
+      toast.success("Temporary password generated");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to reset security credentials");
+    } finally {
+      setIsResettingCredentials(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -74,13 +129,12 @@ export default function EmployeeDetailPage() {
     );
   }
 
-  const onboardingSteps = [
-    { title: "Document Verification", description: "Identity and address proof verified by HR", status: "complete" as const, date: employee.created_at ? new Date(employee.created_at).toLocaleDateString() : "2024-01-05" },
-    { title: "Background Check", description: "Standard criminal and professional record check", status: "complete" as const, date: employee.created_at ? new Date(employee.created_at).toLocaleDateString() : "2024-01-10" },
-    { title: "Hardware Assignment", description: "Laptop and security badge issuance", status: "current" as const, date: "In Progress" },
-    { title: "System Access", description: "Provisioning ERP and email accounts", status: "upcoming" as const },
-    { title: "Final Orientation", description: "Introduction to company policies and culture", status: "upcoming" as const },
-  ];
+  const onboardingSteps = onboardingChecks.map((check) => ({
+    title: check.label,
+    description: check.value,
+    status: check.ok ? ("complete" as const) : ("current" as const),
+    date: check.ok ? "Ready" : "Needs action",
+  }));
 
   return (
     <div className="space-y-8 pb-20">
@@ -131,9 +185,9 @@ export default function EmployeeDetailPage() {
                   </AvatarFallback>
                 </Avatar>
                 <h2 className="text-xl font-bold mt-4">{employee.full_name}</h2>
-                <p className="text-sm text-muted-foreground font-medium">{employee.role || "Employee"}</p>
+                <p className="text-sm text-muted-foreground font-medium">{profileRoleLabel}</p>
                 <div className="flex gap-2 mt-4">
-                  <RoleTag role={employee.role || "Staff"} />
+                  <RoleTag role={profileRoleLabel} />
                   <StatusBadge status={employee.is_active ? "Active" : "Inactive"} />
                 </div>
               </div>
@@ -163,7 +217,7 @@ export default function EmployeeDetailPage() {
                     </div>
                     <div className="flex flex-col">
                        <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Location</span>
-                       <span className="text-sm font-medium">{employee.department || "Operations"}</span>
+                       <span className="text-sm font-medium">{profileLocation}</span>
                     </div>
                  </div>
               </div>
@@ -175,14 +229,27 @@ export default function EmployeeDetailPage() {
               <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-2">
-               <Button variant="outline" className="justify-start gap-3 h-11 border-dashed hover:border-primary hover:text-primary transition-all">
-                  <ShieldCheck className="h-4 w-4" />
+               <Button
+                 variant="outline"
+                 className="justify-start gap-3 h-11 border-dashed hover:border-primary hover:text-primary transition-all"
+                 onClick={handleResetSecurityCredentials}
+                 disabled={isResettingCredentials || !employee.auth_user_id}
+               >
+                  {isResettingCredentials ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
                   Reset Security Credentials
                </Button>
                <Button variant="outline" className="justify-start gap-3 h-11 border-dashed hover:border-primary hover:text-primary transition-all">
                   <History className="h-4 w-4" />
                   View Attendance History
                </Button>
+               {isGuardProfile && (
+                 <Button asChild variant="outline" className="justify-start gap-3 h-11 border-dashed hover:border-primary hover:text-primary transition-all">
+                    <Link href="/services/security">
+                      <Shield className="h-4 w-4" />
+                      Open Guard Command Center
+                    </Link>
+                 </Button>
+               )}
                <Button
                  variant="outline"
                  className="justify-start gap-3 h-11 border-dashed hover:border-primary hover:text-primary transition-all"
@@ -193,6 +260,32 @@ export default function EmployeeDetailPage() {
                </Button>
             </CardContent>
           </Card>
+          {credentialResult && (
+            <Card className="border-none shadow-card ring-1 ring-primary/20 bg-primary/5">
+              <CardHeader>
+                <CardTitle className="text-sm font-bold uppercase tracking-widest text-primary">Temporary Password</CardTitle>
+                <CardDescription>
+                  This password is only shown once. Share it securely, then ask the user to change it after login.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="rounded-xl border bg-background px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Generated credential</p>
+                      <p className="font-mono text-sm font-bold break-all">{credentialResult.temporary_password}</p>
+                      {credentialResult.email && (
+                        <p className="text-xs text-muted-foreground mt-1">Login email: {credentialResult.email}</p>
+                      )}
+                    </div>
+                    <Button type="button" variant="outline" size="icon" onClick={handleCopyPassword}>
+                      {copiedPassword ? <CheckCircle2 className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Content Tabs */}
@@ -221,9 +314,17 @@ export default function EmployeeDetailPage() {
                           <span className="text-sm text-muted-foreground">Department</span>
                           <span className="text-sm font-bold">{employee.department || "General"}</span>
                        </div>
+                       <div className="flex justify-between py-2 border-b border-dashed">
+                          <span className="text-sm text-muted-foreground">Assigned Site</span>
+                          <span className="text-sm font-bold">{employee.assigned_location_name || "Unassigned"}</span>
+                       </div>
+                       <div className="flex justify-between py-2 border-b border-dashed">
+                          <span className="text-sm text-muted-foreground">Active Shift</span>
+                          <span className="text-sm font-bold">{employee.shift_name || "No active shift"}</span>
+                       </div>
                         <div className="flex justify-between py-2 border-b border-dashed text-right">
                           <span className="text-sm text-muted-foreground">Role</span>
-                          <span className="text-sm font-bold">{employee.role || "Staff"}</span>
+                          <span className="text-sm font-bold">{profileRoleLabel}</span>
                         </div>
                        <div className="flex justify-between py-2 border-b border-dashed">
                           <span className="text-sm text-muted-foreground">Joined Date</span>
@@ -241,40 +342,99 @@ export default function EmployeeDetailPage() {
                     <CardContent className="space-y-4">
                        <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
                           <div className="flex items-center gap-3">
-                             <div className="h-2 w-2 rounded-full bg-success" />
+                             <div className={`h-2 w-2 rounded-full ${employee.linked_user_id ? "bg-success" : "bg-warning"}`} />
                              <span className="text-sm font-medium">ERP Access</span>
                           </div>
-                          <StatusBadge status="active" className="text-[10px]" />
+                          <StatusBadge status={employee.linked_user_id ? "active" : "pending"} className="text-[10px]" />
                        </div>
                        <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
                           <div className="flex items-center gap-3">
-                             <div className="h-2 w-2 rounded-full bg-success" />
+                             <div className={`h-2 w-2 rounded-full ${employee.guard_profile_id ? "bg-success" : "bg-warning"}`} />
                              <span className="text-sm font-medium">Mobile App</span>
                           </div>
-                          <StatusBadge status="active" className="text-[10px]" />
+                          <StatusBadge status={employee.guard_profile_id || employee.linked_user_id ? "active" : "pending"} className="text-[10px]" />
                        </div>
                        <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
                           <div className="flex items-center gap-3">
-                             <div className="h-2 w-2 rounded-full bg-warning" />
-                             <span className="text-sm font-medium">Financial Portal</span>
+                             <div className={`h-2 w-2 rounded-full ${employee.must_change_password ? "bg-warning" : "bg-success"}`} />
+                             <span className="text-sm font-medium">Password Rotation</span>
                           </div>
-                          <StatusBadge status="pending" className="text-[10px]" />
+                          <StatusBadge status={employee.must_change_password ? "pending" : "active"} className="text-[10px]" />
                        </div>
+                       {isGuardProfile && (
+                         <div className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">
+                           Guard code {employee.guard_code || "not generated"} • {employee.assigned_location_name || "No site"} • {employee.shift_name || "No shift"}
+                         </div>
+                       )}
                     </CardContent>
                  </Card>
               </div>
             </TabsContent>
 
             <TabsContent value="onboarding" className="pt-6">
-               <Card className="border-none shadow-card ring-1 ring-border">
-                  <CardHeader>
-                     <CardTitle className="text-lg">Onboarding Progress</CardTitle>
-                     <CardDescription>Track the initial setup steps for this employee.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="pt-4 px-10 pb-10">
-                     <StepperTimeline steps={onboardingSteps} />
-                  </CardContent>
-               </Card>
+               <div className="space-y-6">
+                  <Card className="border-none shadow-card ring-1 ring-border">
+                    <CardHeader>
+                      <CardTitle className="text-lg">Provisioning Chain</CardTitle>
+                      <CardDescription>Shows the real auth, role, guard, site, and shift state used by mobile and admin flows.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid gap-3 md:grid-cols-2">
+                      {onboardingChecks.map((check) => (
+                        <div key={check.label} className="rounded-xl border p-4 bg-card">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-bold">{check.label}</p>
+                              <p className="text-xs text-muted-foreground mt-1">{check.value}</p>
+                            </div>
+                            {check.ok ? (
+                              <Badge variant="outline" className="bg-success/10 text-success border-success/20 gap-1">
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                Ready
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="bg-warning/10 text-warning border-warning/20 gap-1">
+                                <CircleAlert className="h-3.5 w-3.5" />
+                                Missing
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-none shadow-card ring-1 ring-border">
+                    <CardHeader>
+                      <CardTitle className="text-lg">Operator Guidance</CardTitle>
+                      <CardDescription>Use this when a guard or resident cannot log in or is missing assignment data.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="pt-4 px-10 pb-10">
+                      <StepperTimeline steps={onboardingSteps} />
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-none shadow-card ring-1 ring-border">
+                    <CardHeader>
+                      <CardTitle className="text-lg">Support Notes</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3 text-sm text-muted-foreground">
+                      <div className="flex items-start gap-3">
+                        <LockKeyhole className="h-4 w-4 mt-0.5 text-primary" />
+                        <p>Temporary passwords are only shown at creation or after using <span className="font-semibold text-foreground">Reset Security Credentials</span>.</p>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <Link2 className="h-4 w-4 mt-0.5 text-primary" />
+                        <p>Phone login and demo OTP require the linked auth user, public user role, and guard/resident profile to all be present.</p>
+                      </div>
+                      {isGuardProfile && (
+                        <div className="flex items-start gap-3">
+                          <Shield className="h-4 w-4 mt-0.5 text-primary" />
+                          <p>Guards must have both an assigned site and an active shift before mobile demo OTP and attendance will work reliably.</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+               </div>
             </TabsContent>
 
             <TabsContent value="compensation" className="pt-6">

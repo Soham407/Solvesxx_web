@@ -136,6 +136,29 @@ async function findGuardUserByPhone(phone: string) {
     }
   }
 
+  for (const candidate of buildPhoneCandidates(phone)) {
+    const { data: employeeRecord, error: employeeError } = await supabaseAdmin
+      .from("employees")
+      .select("id, auth_user_id")
+      .eq("phone", candidate)
+      .limit(1)
+      .maybeSingle();
+
+    if (employeeError) throw employeeError;
+    if (!employeeRecord?.auth_user_id) continue;
+
+    const { data: linkedUser, error: userError } = await supabaseAdmin
+      .from("users")
+      .select("id, employee_id, full_name, is_active, phone, roles(role_name)")
+      .eq("id", employeeRecord.auth_user_id)
+      .maybeSingle();
+
+    if (userError) throw userError;
+    if (linkedUser) {
+      return linkedUser;
+    }
+  }
+
   return null;
 }
 

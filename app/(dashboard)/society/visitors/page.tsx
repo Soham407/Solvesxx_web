@@ -184,6 +184,33 @@ export default function VisitorManagementPage() {
       },
     },
     {
+      id: "resident_audit",
+      header: "Resident Decision",
+      cell: ({ row }) => (
+        <div className="flex flex-col gap-1 text-xs">
+          <span className="font-semibold">
+            {row.original.resident?.full_name || "Resident not linked"}
+          </span>
+          {row.original.approved_by_resident === null && (
+            <span className="text-warning font-medium">Approval pending</span>
+          )}
+          {row.original.approved_by_resident === false && (
+            <span className="text-critical font-medium">
+              Denied{row.original.rejection_reason ? `: ${row.original.rejection_reason}` : ""}
+            </span>
+          )}
+          {row.original.approved_by_resident === true && (
+            <span className="text-success font-medium">
+              Approved{row.original.visitor_pass_number ? ` • Pass ${row.original.visitor_pass_number}` : ""}
+            </span>
+          )}
+          {row.original.bypass_reason && (
+            <span className="text-muted-foreground">Bypass: {row.original.bypass_reason}</span>
+          )}
+        </div>
+      ),
+    },
+    {
       id: "actions",
       cell: ({ row }) => {
         const isExited = !!row.original.exit_time;

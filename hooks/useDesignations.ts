@@ -3,6 +3,26 @@ import { useSupabaseQuery } from "@/hooks/lib/useSupabaseQuery";
 import { useSupabaseMutation } from "@/hooks/lib/useSupabaseMutation";
 import { Designation, DesignationInsert, DesignationUpdate } from "@/src/types/company";
 
+function normalizeDesignationKey(designation: Pick<Designation, "designation_name" | "department">) {
+  const title = designation.designation_name?.trim().toLowerCase() || "";
+  const department = designation.department?.trim().toLowerCase() || "";
+  return `${title}::${department}`;
+}
+
+function dedupeDesignations(rows: Designation[]) {
+  const seen = new Set<string>();
+  const deduped: Designation[] = [];
+
+  for (const designation of rows) {
+    const key = normalizeDesignationKey(designation);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(designation);
+  }
+
+  return deduped;
+}
+
 /**
  * Hook for managing Designation Master data.
  */
@@ -17,10 +37,11 @@ export function useDesignations() {
     const { data, error } = await supabase
       .from("designations")
       .select("*")
+      .order("is_active", { ascending: false })
       .order("designation_name");
     
     if (error) throw error;
-    return data as Designation[] ?? [];
+    return dedupeDesignations((data as Designation[] | null) ?? []);
   });
 
   // WRITE: Create new designation

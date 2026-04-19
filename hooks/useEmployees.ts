@@ -19,6 +19,17 @@ interface Employee {
   date_of_joining?: string | null;
   designation_name?: string | null;
   role?: string | null;
+  role_name?: string | null;
+  linked_user_id?: string | null;
+  auth_user_id?: string | null;
+  must_change_password?: boolean;
+  assigned_location_id?: string | null;
+  assigned_location_name?: string | null;
+  guard_profile_id?: string | null;
+  guard_code?: string | null;
+  guard_is_active?: boolean;
+  shift_id?: string | null;
+  shift_name?: string | null;
 }
 
 interface UseEmployeesState {
@@ -48,18 +59,19 @@ interface UseEmployeesReturn extends UseEmployeesState {
  * Hook for fetching all employees
  * Used for employee selection dropdowns, assignment, etc.
  */
-export function useEmployees(): UseEmployeesReturn {
+export function useEmployees(options?: { includeInactive?: boolean }): UseEmployeesReturn {
   const [state, setState] = useState<UseEmployeesState>({
     employees: [],
     isLoading: true,
     error: null,
   });
+  const includeInactive = options?.includeInactive ?? false;
 
   const fetchEmployees = useCallback(async () => {
     try {
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
-      const { data, error } = await supabase
+      let query = supabase
         .from("employees")
         .select(`
           id,
@@ -76,20 +88,126 @@ export function useEmployees(): UseEmployeesReturn {
           date_of_joining,
           designations:designation_id(designation_name)
         `)
-        .eq("is_active", true)
         .order("first_name");
 
+      if (!includeInactive) {
+        query = query.eq("is_active", true);
+      }
+
+      const { data, error } = await query;
+
       if (error) throw error;
+
+      const employeeIds = (data || []).map((emp) => emp.id).filter(Boolean);
+
+      const [usersResult, guardsResult, shiftsResult] = employeeIds.length
+        ? await Promise.all([
+            supabase
+              .from("users")
+              .select("id, employee_id, must_change_password, roles(role_name)")
+              .in("employee_id", employeeIds),
+            supabase
+              .from("security_guards")
+              .select(`
+                id,
+                employee_id,
+                guard_code,
+                assigned_location_id,
+                is_active,
+                assigned_location:company_locations(location_name)
+              `)
+              .in("employee_id", employeeIds),
+            supabase
+              .from("employee_shift_assignments")
+              .select(`
+                employee_id,
+                shift_id,
+                assigned_from,
+                shifts(shift_name)
+              `)
+              .eq("is_active", true)
+              .in("employee_id", employeeIds)
+              .order("assigned_from", { ascending: false }),
+          ])
+        : [
+            { data: [], error: null },
+            { data: [], error: null },
+            { data: [], error: null },
+          ];
+
+      if (usersResult.error) throw usersResult.error;
+      if (guardsResult.error) throw guardsResult.error;
+      if (shiftsResult.error) throw shiftsResult.error;
+
+      const userMap = new Map<string, {
+        linked_user_id: string | null;
+        role_name: string | null;
+        must_change_password: boolean;
+      }>();
+      (usersResult.data || []).forEach((record: any) => {
+        if (!record.employee_id || userMap.has(record.employee_id)) return;
+        const roleRecord = Array.isArray(record.roles) ? record.roles[0] : record.roles;
+        userMap.set(record.employee_id, {
+          linked_user_id: record.id ?? null,
+          role_name: roleRecord?.role_name ?? null,
+          must_change_password: Boolean(record.must_change_password),
+        });
+      });
+
+      const guardMap = new Map<string, {
+        guard_profile_id: string | null;
+        guard_code: string | null;
+        assigned_location_id: string | null;
+        assigned_location_name: string | null;
+        guard_is_active: boolean;
+      }>();
+      (guardsResult.data || []).forEach((record: any) => {
+        if (!record.employee_id || guardMap.has(record.employee_id)) return;
+        const assignedLocation = Array.isArray(record.assigned_location)
+          ? record.assigned_location[0]
+          : record.assigned_location;
+
+        guardMap.set(record.employee_id, {
+          guard_profile_id: record.id ?? null,
+          guard_code: record.guard_code ?? null,
+          assigned_location_id: record.assigned_location_id ?? null,
+          assigned_location_name: assignedLocation?.location_name ?? null,
+          guard_is_active: record.is_active !== false,
+        });
+      });
+
+      const shiftMap = new Map<string, { shift_id: string | null; shift_name: string | null }>();
+      (shiftsResult.data || []).forEach((record: any) => {
+        if (!record.employee_id || shiftMap.has(record.employee_id)) return;
+        const shiftRecord = Array.isArray(record.shifts) ? record.shifts[0] : record.shifts;
+        shiftMap.set(record.employee_id, {
+          shift_id: record.shift_id ?? null,
+          shift_name: shiftRecord?.shift_name ?? null,
+        });
+      });
 
       // Transform data to include full_name
       const employeesWithFullName: Employee[] = (data || []).map((emp: any) => {
         // Handle relation returns
         const desigInfo = Array.isArray(emp.designations) ? emp.designations[0] : emp.designations;
+        const linkedUser = userMap.get(emp.id);
+        const linkedGuard = guardMap.get(emp.id);
+        const activeShift = shiftMap.get(emp.id);
         
         return {
           ...emp,
           full_name: [emp.first_name, emp.last_name].filter(Boolean).join(" ").trim() || "Unknown",
           designation_name: desigInfo?.designation_name || emp.department || "Employee",
+          linked_user_id: linkedUser?.linked_user_id ?? null,
+          role_name: linkedUser?.role_name ?? null,
+          must_change_password: linkedUser?.must_change_password ?? false,
+          guard_profile_id: linkedGuard?.guard_profile_id ?? null,
+          guard_code: linkedGuard?.guard_code ?? null,
+          assigned_location_id: linkedGuard?.assigned_location_id ?? null,
+          assigned_location_name: linkedGuard?.assigned_location_name ?? null,
+          guard_is_active: linkedGuard?.guard_is_active ?? false,
+          shift_id: activeShift?.shift_id ?? null,
+          shift_name: activeShift?.shift_name ?? null,
         };
       });
 
@@ -107,7 +225,7 @@ export function useEmployees(): UseEmployeesReturn {
         error: errorMessage,
       }));
     }
-  }, []);
+  }, [includeInactive]);
 
   const getEmployeeById = useCallback(
     (id: string): Employee | undefined => {

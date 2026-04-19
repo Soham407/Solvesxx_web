@@ -44,6 +44,7 @@ import {
 
 interface Resident {
   id: string;
+  resident_code: string;
   full_name: string;
   flat_number: string;
   building_name: string;
@@ -52,6 +53,14 @@ interface Resident {
   vehicle_numbers: string[];
   relation: "Owner" | "Tenant" | string;
   photo_url?: string;
+  auth_linked: boolean;
+  role_name: string | null;
+  must_change_password: boolean;
+  active_push_tokens: number;
+  unread_notifications: number;
+  total_visitors: number;
+  pending_visitors: number;
+  denied_visitors: number;
 }
 
 export default function ResidentsPage() {
@@ -94,19 +103,17 @@ export default function ResidentsPage() {
     try {
       setIsLoading(true);
       setError(null);
+      const response = await fetch("/api/society/residents", { method: "GET" });
+      const payload = await response.json();
 
-      const { data, error: fetchError } = await supabase
-        .from("resident_directory")
-        .select("id, full_name, flat_number, building_name, is_primary_contact, masked_phone")
-        .eq("is_active", true)
-        .order("full_name");
-
-      if (fetchError) throw fetchError;
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to load resident directory");
+      }
 
       let vehicleCount = 0;
       const uniqueFlats = new Set<string>();
 
-      const formattedResidents: Resident[] = (data || []).map((r: any) => {
+      const formattedResidents: Resident[] = (payload.residents || []).map((r: any) => {
         const flatNo = r.flat_number || "N/A";
         const bldg = r.building_name || "";
         uniqueFlats.add(`${bldg}-${flatNo}`);
@@ -117,13 +124,22 @@ export default function ResidentsPage() {
 
         return {
           id: r.id,
+          resident_code: r.resident_code || "",
           full_name: r.full_name,
-          mobile: r.masked_phone || "",
+          mobile: r.phone || "",
           vehicle_numbers: vehicles,
-          relation: r.is_primary_contact ? "Primary Contact" : "Resident",
+          relation: r.relation || "Resident",
           photo_url: undefined, // Update with correct profile photo field if there is one
           flat_number: flatNo,
           building_name: bldg,
+          auth_linked: Boolean(r.auth_linked),
+          role_name: r.role_name || null,
+          must_change_password: Boolean(r.must_change_password),
+          active_push_tokens: Number(r.active_push_tokens || 0),
+          unread_notifications: Number(r.unread_notifications || 0),
+          total_visitors: Number(r.total_visitors || 0),
+          pending_visitors: Number(r.pending_visitors || 0),
+          denied_visitors: Number(r.denied_visitors || 0),
         };
       });
 
@@ -245,6 +261,16 @@ export default function ResidentsPage() {
       ),
     },
     {
+      accessorKey: "mobile",
+      header: "Phone",
+      cell: ({ row }) => (
+        <div className="flex flex-col">
+          <span className="text-sm font-medium">{row.original.mobile || "Not provided"}</span>
+          <span className="text-[10px] text-muted-foreground font-medium">{row.original.resident_code}</span>
+        </div>
+      ),
+    },
+    {
       accessorKey: "vehicle_numbers",
       header: "Authorized Vehicles",
       cell: ({ row }) => (
@@ -271,6 +297,70 @@ export default function ResidentsPage() {
         )}>
             {row.original.relation}
         </Badge>
+      ),
+    },
+    {
+      id: "provisioning",
+      header: "Provisioning Status",
+      cell: ({ row }) => (
+        <div className="flex flex-wrap gap-1.5">
+          <Badge
+            variant="outline"
+            className={cn(
+              "text-[10px] uppercase font-bold px-2 py-0.5",
+              row.original.auth_linked
+                ? "bg-success/5 text-success border-success/20"
+                : "bg-warning/5 text-warning border-warning/20"
+            )}
+          >
+            {row.original.auth_linked ? "Auth Linked" : "No Login"}
+          </Badge>
+          <Badge variant="outline" className="text-[10px] uppercase font-bold px-2 py-0.5">
+            {row.original.building_name ? "Flat Linked" : "Flat Missing"}
+          </Badge>
+          {row.original.role_name && (
+            <Badge variant="outline" className="text-[10px] uppercase font-bold px-2 py-0.5">
+              {row.original.role_name}
+            </Badge>
+          )}
+          {row.original.must_change_password && (
+            <Badge variant="outline" className="text-[10px] uppercase font-bold px-2 py-0.5 bg-info/5 text-info border-info/20">
+              Password Reset Pending
+            </Badge>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: "support",
+      header: "Support Signals",
+      cell: ({ row }) => (
+        <div className="flex flex-wrap gap-1.5">
+          <Badge
+            variant="outline"
+            className={cn(
+              "text-[10px] uppercase font-bold px-2 py-0.5",
+              row.original.active_push_tokens > 0
+                ? "bg-success/5 text-success border-success/20"
+                : "bg-warning/5 text-warning border-warning/20"
+            )}
+          >
+            {row.original.active_push_tokens > 0
+              ? `${row.original.active_push_tokens} Push Token`
+              : "No Push Token"}
+          </Badge>
+          <Badge variant="outline" className="text-[10px] uppercase font-bold px-2 py-0.5">
+            {row.original.unread_notifications} Unread Alerts
+          </Badge>
+          <Badge variant="outline" className="text-[10px] uppercase font-bold px-2 py-0.5">
+            {row.original.pending_visitors} Pending Visitors
+          </Badge>
+          {row.original.denied_visitors > 0 && (
+            <Badge variant="outline" className="text-[10px] uppercase font-bold px-2 py-0.5 bg-critical/5 text-critical border-critical/20">
+              {row.original.denied_visitors} Denied
+            </Badge>
+          )}
+        </div>
       ),
     },
     {

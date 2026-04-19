@@ -17,7 +17,9 @@ import {
   Loader2,
   Signal,
   Navigation,
-  User
+  User,
+  Copy,
+  Check
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +40,9 @@ import {
 import { ColumnDef } from "@tanstack/react-table";
 import { cn } from "@/lib/utils";
 import { useSecurityGuards, SecurityGuard, GuardGrade } from "@/hooks/useSecurityGuards";
+import { useCompanyLocations } from "@/hooks/useCompanyLocations";
+import { useShifts } from "@/hooks/useShifts";
+import { useDesignations } from "@/hooks/useDesignations";
 import {
   Dialog,
   DialogContent,
@@ -48,8 +53,23 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+
+const INITIAL_ONBOARD_FORM = {
+  full_name: "",
+  phone: "",
+  email: "",
+  assigned_location_id: "",
+  shift_id: "",
+  designation_id: "",
+  grade: "C" as GuardGrade,
+};
+
+const INITIAL_EDIT_FORM = {
+  assigned_location_id: "",
+  shift_id: "",
+  is_active: true,
+};
 
 export default function SecurityCommandPage() {
   const {
@@ -66,10 +86,114 @@ export default function SecurityCommandPage() {
     refresh,
     refreshLocations,
   } = useSecurityGuards();
+  const { locations, isLoading: locationsLoading } = useCompanyLocations();
+  const { shifts, isLoading: shiftsLoading } = useShifts();
+  const { designations, isLoading: designationsLoading } = useDesignations();
 
   const [selectedGuard, setSelectedGuard] = useState<SecurityGuard | null>(null);
-  const [dispatchDialogOpen, setDispatchDialogOpen] = useState(false);
-  const [dispatchForm, setDispatchForm] = useState({ guard_name: "", location: "", shift: "", notes: "" });
+  const [onboardDialogOpen, setOnboardDialogOpen] = useState(false);
+  const [onboardForm, setOnboardForm] = useState(INITIAL_ONBOARD_FORM);
+  const [isSubmittingOnboarding, setIsSubmittingOnboarding] = useState(false);
+  const [onboardingResult, setOnboardingResult] = useState<null | {
+    password: string;
+    email: string;
+    guard_code: string;
+  }>(null);
+  const [copied, setCopied] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editForm, setEditForm] = useState(INITIAL_EDIT_FORM);
+  const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
+
+  const selectedShift = shifts.find((shift) => shift.id === onboardForm.shift_id);
+  const selectedEditShift = shifts.find((shift) => shift.id === editForm.shift_id);
+
+  const resetOnboardingState = () => {
+    setOnboardForm(INITIAL_ONBOARD_FORM);
+    setOnboardingResult(null);
+    setCopied(false);
+  };
+
+  const handleCopyPassword = async () => {
+    if (!onboardingResult?.password) return;
+    await navigator.clipboard.writeText(onboardingResult.password);
+    setCopied(true);
+    toast.success("Temporary password copied");
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  const openEditDialog = (guard: SecurityGuard) => {
+    setSelectedGuard(guard);
+    setEditForm({
+      assigned_location_id: guard.assigned_location_id || "",
+      shift_id: guard.currentShift?.id || "",
+      is_active: guard.is_active,
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleSaveGuard = async () => {
+    if (!selectedGuard || !editForm.assigned_location_id) {
+      toast.error("Assigned location is required.");
+      return;
+    }
+
+    setIsSubmittingEdit(true);
+    try {
+      const response = await fetch(`/api/admin/guards/${selectedGuard.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editForm),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to update guard");
+      }
+
+      toast.success(
+        editForm.is_active
+          ? `Guard updated${payload.shift_name ? ` • ${payload.shift_name}` : ""}`
+          : "Guard deactivated and login disabled",
+      );
+      setEditDialogOpen(false);
+      refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update guard");
+    } finally {
+      setIsSubmittingEdit(false);
+    }
+  };
+
+  const handleOnboardGuard = async () => {
+    if (!onboardForm.full_name || !onboardForm.phone || !onboardForm.assigned_location_id) {
+      toast.error("Full name, phone, and assigned location are required.");
+      return;
+    }
+
+    setIsSubmittingOnboarding(true);
+    try {
+      const response = await fetch("/api/admin/guard-onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(onboardForm),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to onboard guard");
+      }
+
+      setOnboardingResult({
+        password: payload.password,
+        email: payload.email,
+        guard_code: payload.guard_code,
+      });
+      toast.success("Guard onboarding completed");
+      refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to onboard guard");
+    } finally {
+      setIsSubmittingOnboarding(false);
+    }
+  };
 
   // Format time for display
   const formatTime = (isoDate: string | null) => {
@@ -157,6 +281,47 @@ export default function SecurityCommandPage() {
       },
     },
     {
+      id: "provisioning",
+      header: "Provisioning",
+      cell: ({ row }) => (
+        <div className="flex flex-wrap gap-1.5">
+          <Badge
+            variant="outline"
+            className={cn(
+              "font-bold",
+              row.original.employee?.auth_user_id
+                ? "bg-success/10 text-success border-success/20"
+                : "bg-warning/10 text-warning border-warning/20"
+            )}
+          >
+            {row.original.employee?.auth_user_id ? "Auth Linked" : "Auth Missing"}
+          </Badge>
+          <Badge
+            variant="outline"
+            className={cn(
+              "font-bold",
+              row.original.assigned_location_id
+                ? "bg-success/10 text-success border-success/20"
+                : "bg-warning/10 text-warning border-warning/20"
+            )}
+          >
+            {row.original.assigned_location_id ? "Location Assigned" : "No Location"}
+          </Badge>
+          <Badge
+            variant="outline"
+            className={cn(
+              "font-bold",
+              row.original.currentShift
+                ? "bg-primary/10 text-primary border-primary/20"
+                : "bg-muted text-muted-foreground border-muted"
+            )}
+          >
+            {row.original.currentShift?.shift_name || "No Shift"}
+          </Badge>
+        </div>
+      ),
+    },
+    {
       id: "status",
       header: "Status",
       cell: ({ row }) => {
@@ -205,6 +370,9 @@ export default function SecurityCommandPage() {
             <DropdownMenuItem onClick={() => setSelectedGuard(row.original)}>
               View on Map
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => openEditDialog(row.original)}>
+              Edit Assignment
+            </DropdownMenuItem>
             <DropdownMenuItem>Contact Guard</DropdownMenuItem>
             <DropdownMenuItem>View Patrol Log</DropdownMenuItem>
             <DropdownMenuItem>View Checklist Status</DropdownMenuItem>
@@ -245,8 +413,8 @@ export default function SecurityCommandPage() {
             <Button variant="outline" onClick={refreshLocations} className="gap-2">
               <RefreshCw className="h-4 w-4" /> Refresh GPS
             </Button>
-            <Button className="gap-2 shadow-lg shadow-primary/20" onClick={() => setDispatchDialogOpen(true)}>
-              <Shield className="h-4 w-4" /> Dispatch Guard
+            <Button className="gap-2 shadow-lg shadow-primary/20" onClick={() => setOnboardDialogOpen(true)}>
+              <Shield className="h-4 w-4" /> Onboard Guard
             </Button>
           </div>
         }
@@ -467,65 +635,261 @@ export default function SecurityCommandPage() {
         </CardContent>
       </Card>
 
-      {/* Dispatch Guard Dialog */}
-      <Dialog open={dispatchDialogOpen} onOpenChange={setDispatchDialogOpen}>
+      <Dialog
+        open={onboardDialogOpen}
+        onOpenChange={(open) => {
+          setOnboardDialogOpen(open);
+          if (!open) {
+            resetOnboardingState();
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-[420px]">
           <DialogHeader>
-            <DialogTitle>Dispatch Guard</DialogTitle>
-            <DialogDescription>Assign a security guard to a location or shift.</DialogDescription>
+            <DialogTitle>Onboard Security Guard</DialogTitle>
+            <DialogDescription>
+              Create the auth user, employee row, guard profile, location mapping, and optional shift assignment in one admin flow.
+            </DialogDescription>
+          </DialogHeader>
+          {onboardingResult ? (
+            <>
+              <div className="space-y-3 py-4">
+                <div className="rounded-lg border bg-muted/40 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Guard Code</p>
+                  <p className="text-sm font-bold">{onboardingResult.guard_code}</p>
+                </div>
+                <div className="rounded-lg border bg-muted/40 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Login Email</p>
+                  <p className="text-sm font-bold break-all">{onboardingResult.email}</p>
+                </div>
+                <div className="rounded-lg border bg-muted/40 p-3 flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Temporary Password</p>
+                    <p className="text-sm font-bold font-mono">{onboardingResult.password}</p>
+                  </div>
+                  <Button variant="outline" size="icon" onClick={handleCopyPassword}>
+                    {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  The guard can now log in, is linked to an employee and guard profile, and is mapped to the selected location{selectedShift ? ` and ${selectedShift.shift_name}` : ""}.
+                </p>
+              </div>
+              <DialogFooter>
+                <Button
+                  onClick={() => {
+                    setOnboardDialogOpen(false);
+                    resetOnboardingState();
+                  }}
+                >
+                  Close
+                </Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <>
+              <div className="grid gap-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="guard_onboard_full_name">Full Name *</Label>
+                  <Input
+                    id="guard_onboard_full_name"
+                    value={onboardForm.full_name}
+                    onChange={(event) => setOnboardForm((prev) => ({ ...prev, full_name: event.target.value }))}
+                    placeholder="e.g. Rakesh Yadav"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="guard_onboard_phone">Phone *</Label>
+                  <Input
+                    id="guard_onboard_phone"
+                    value={onboardForm.phone}
+                    onChange={(event) => setOnboardForm((prev) => ({ ...prev, phone: event.target.value }))}
+                    placeholder="+91 9876543210"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="guard_onboard_email">Email</Label>
+                  <Input
+                    id="guard_onboard_email"
+                    value={onboardForm.email}
+                    onChange={(event) => setOnboardForm((prev) => ({ ...prev, email: event.target.value }))}
+                    placeholder="Optional. Blank will generate a demo email."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="guard_onboard_location">Assigned Location *</Label>
+                  <Select
+                    value={onboardForm.assigned_location_id}
+                    onValueChange={(value) => setOnboardForm((prev) => ({ ...prev, assigned_location_id: value }))}
+                    disabled={locationsLoading}
+                  >
+                    <SelectTrigger id="guard_onboard_location">
+                      <SelectValue placeholder={locationsLoading ? "Loading locations..." : "Select gate/location"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {locations.map((location) => (
+                        <SelectItem key={location.id} value={location.id}>
+                          {location.location_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="guard_onboard_shift">Shift Assignment</Label>
+                  <Select
+                    value={onboardForm.shift_id || "none"}
+                    onValueChange={(value) => setOnboardForm((prev) => ({ ...prev, shift_id: value === "none" ? "" : value }))}
+                    disabled={shiftsLoading}
+                  >
+                    <SelectTrigger id="guard_onboard_shift">
+                      <SelectValue placeholder={shiftsLoading ? "Loading shifts..." : "Optional shift"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No shift</SelectItem>
+                      {shifts.map((shift) => (
+                        <SelectItem key={shift.id} value={shift.id}>
+                          {shift.shift_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="guard_onboard_designation">Designation</Label>
+                  <Select
+                    value={onboardForm.designation_id || "none"}
+                    onValueChange={(value) => setOnboardForm((prev) => ({ ...prev, designation_id: value === "none" ? "" : value }))}
+                    disabled={designationsLoading}
+                  >
+                    <SelectTrigger id="guard_onboard_designation">
+                      <SelectValue placeholder={designationsLoading ? "Loading designations..." : "Optional designation"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No designation</SelectItem>
+                      {designations.map((designation) => (
+                        <SelectItem key={designation.id} value={designation.id}>
+                          {designation.designation_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="guard_onboard_grade">Guard Grade</Label>
+                  <Select
+                    value={onboardForm.grade}
+                    onValueChange={(value) => setOnboardForm((prev) => ({ ...prev, grade: value as GuardGrade }))}
+                  >
+                    <SelectTrigger id="guard_onboard_grade">
+                      <SelectValue placeholder="Select guard grade" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="A">Grade A</SelectItem>
+                      <SelectItem value="B">Grade B</SelectItem>
+                      <SelectItem value="C">Grade C</SelectItem>
+                      <SelectItem value="D">Grade D</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setOnboardDialogOpen(false)}>Cancel</Button>
+                <Button onClick={handleOnboardGuard} disabled={isSubmittingOnboarding}>
+                  {isSubmittingOnboarding ? "Creating..." : "Create Guard"}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={editDialogOpen}
+        onOpenChange={(open) => {
+          setEditDialogOpen(open);
+          if (!open) {
+            setSelectedGuard(null);
+            setEditForm(INITIAL_EDIT_FORM);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Edit Guard Assignment</DialogTitle>
+            <DialogDescription>
+              Update site assignment, shift mapping, and account status without breaking the guard identity chain.
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="space-y-2">
-              <Label>Guard Name *</Label>
-              <Input
-                value={dispatchForm.guard_name}
-                onChange={e => setDispatchForm({ ...dispatchForm, guard_name: e.target.value })}
-                placeholder="Select or enter guard name"
-                list="guards-list"
-              />
-              <datalist id="guards-list">
-                {guards.map(g => (
-                  <option key={g.id} value={`${g.employee?.first_name} ${g.employee?.last_name}`} />
-                ))}
-              </datalist>
+            <div className="rounded-lg border bg-muted/40 p-3">
+              <p className="text-sm font-bold">
+                {selectedGuard?.employee?.first_name} {selectedGuard?.employee?.last_name}
+              </p>
+              <p className="text-xs text-muted-foreground">{selectedGuard?.guard_code}</p>
             </div>
             <div className="space-y-2">
-              <Label>Deployment Location *</Label>
-              <Input
-                value={dispatchForm.location}
-                onChange={e => setDispatchForm({ ...dispatchForm, location: e.target.value })}
-                placeholder="e.g., Gate 1, Parking Lot B"
-              />
+              <Label htmlFor="guard_edit_location">Assigned Location *</Label>
+              <Select
+                value={editForm.assigned_location_id}
+                onValueChange={(value) => setEditForm((prev) => ({ ...prev, assigned_location_id: value }))}
+                disabled={locationsLoading}
+              >
+                <SelectTrigger id="guard_edit_location">
+                  <SelectValue placeholder={locationsLoading ? "Loading locations..." : "Select gate/location"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {locations.map((location) => (
+                    <SelectItem key={location.id} value={location.id}>
+                      {location.location_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
-              <Label>Shift</Label>
-              <Input
-                value={dispatchForm.shift}
-                onChange={e => setDispatchForm({ ...dispatchForm, shift: e.target.value })}
-                placeholder="e.g., Morning Shift (06:00–14:00)"
-              />
+              <Label htmlFor="guard_edit_shift">Shift Assignment</Label>
+              <Select
+                value={editForm.shift_id || "none"}
+                onValueChange={(value) => setEditForm((prev) => ({ ...prev, shift_id: value === "none" ? "" : value }))}
+                disabled={shiftsLoading}
+              >
+                <SelectTrigger id="guard_edit_shift">
+                  <SelectValue placeholder={shiftsLoading ? "Loading shifts..." : "Optional shift"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No shift</SelectItem>
+                  {shifts.map((shift) => (
+                    <SelectItem key={shift.id} value={shift.id}>
+                      {shift.shift_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedEditShift && (
+                <p className="text-xs text-muted-foreground">Selected: {selectedEditShift.shift_name}</p>
+              )}
             </div>
             <div className="space-y-2">
-              <Label>Notes</Label>
-              <Textarea
-                value={dispatchForm.notes}
-                onChange={e => setDispatchForm({ ...dispatchForm, notes: e.target.value })}
-                placeholder="Any special instructions..."
-                rows={2}
-              />
+              <Label htmlFor="guard_edit_status">Account Status</Label>
+              <Select
+                value={editForm.is_active ? "active" : "inactive"}
+                onValueChange={(value) => setEditForm((prev) => ({ ...prev, is_active: value === "active" }))}
+              >
+                <SelectTrigger id="guard_edit_status">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDispatchDialogOpen(false)}>Cancel</Button>
-            <Button
-              disabled={!dispatchForm.guard_name || !dispatchForm.location}
-              onClick={() => {
-                toast.success("Guard dispatched", { description: `${dispatchForm.guard_name} → ${dispatchForm.location}` });
-                setDispatchDialogOpen(false);
-                setDispatchForm({ guard_name: "", location: "", shift: "", notes: "" });
-              }}
-            >
-              Dispatch
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveGuard} disabled={isSubmittingEdit}>
+              {isSubmittingEdit ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>
         </DialogContent>

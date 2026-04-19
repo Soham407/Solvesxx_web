@@ -35,6 +35,7 @@ export interface SecurityGuard {
     last_name: string;
     phone: string;
     photo_url: string | null;
+    auth_user_id?: string | null;
   };
   assigned_location?: {
     location_name: string;
@@ -50,6 +51,10 @@ export interface SecurityGuard {
     check_out_time: string | null;
     status: string;
   };
+  currentShift?: {
+    id: string;
+    shift_name: string;
+  } | null;
 }
 
 export interface GuardLocation {
@@ -103,10 +108,9 @@ export function useSecurityGuards(initialFilters?: GuardFilters) {
         .from("security_guards")
         .select(`
           *,
-          employee:employees(first_name, last_name, phone, photo_url),
+          employee:employees(first_name, last_name, phone, photo_url, auth_user_id),
           assigned_location:company_locations(location_name, location_code, latitude, longitude, geo_fence_radius)
         `)
-        .eq("is_active", true)
         .order("guard_code", { ascending: true });
 
       // Apply filters
@@ -139,7 +143,28 @@ export function useSecurityGuards(initialFilters?: GuardFilters) {
         employee: row.employee as SecurityGuard["employee"],
         assigned_location: row.assigned_location as SecurityGuard["assigned_location"],
       }));
-      setGuards(typedData);
+
+      const { data: assignmentsData, error: assignmentsError } = await supabase
+        .from("employee_shift_assignments")
+        .select(`
+          employee_id,
+          shifts(id, shift_name)
+        `)
+        .eq("is_active", true)
+        .in("employee_id", typedData.map((guard) => guard.employee_id));
+
+      if (assignmentsError) throw assignmentsError;
+
+      const shiftMap = new Map<string, { id: string; shift_name: string }>();
+      (assignmentsData || []).forEach((assignment: any) => {
+        const shift = Array.isArray(assignment.shifts) ? assignment.shifts[0] : assignment.shifts;
+        if (assignment.employee_id && shift?.id) {
+          shiftMap.set(assignment.employee_id, {
+            id: shift.id,
+            shift_name: shift.shift_name,
+          });
+        }
+      });
 
       // Fetch today's attendance for each guard
       const today = new Date().toISOString().split("T")[0];
@@ -161,6 +186,7 @@ export function useSecurityGuards(initialFilters?: GuardFilters) {
       const guardsWithAttendance: SecurityGuard[] = typedData.map(guard => ({
         ...guard,
         attendance: attendanceMap.get(guard.employee_id) || undefined,
+        currentShift: shiftMap.get(guard.employee_id) || null,
       }));
 
       setGuards(guardsWithAttendance);

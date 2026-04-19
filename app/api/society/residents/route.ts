@@ -75,6 +75,179 @@ async function canManageFlat(flatId: string) {
   return !flatError && !!flatRecord;
 }
 
+export async function GET() {
+  try {
+    const auth = await getAuthorizedResidentManager();
+    if (auth.error) return auth.error;
+
+    const supabaseAdmin = createServiceRoleClient();
+    const { data: residents, error: residentsError } = await supabaseAdmin
+      .from("residents")
+      .select(`
+        id,
+        resident_code,
+        full_name,
+        phone,
+        relation,
+        is_active,
+        auth_user_id,
+        flat_id,
+        flats(
+          flat_number,
+          buildings(building_name)
+        )
+      `)
+      .eq("is_active", true)
+      .order("full_name");
+
+    if (residentsError) throw residentsError;
+
+    const authUserIds = (residents ?? [])
+      .map((resident: any) => resident.auth_user_id)
+      .filter((value: string | null): value is string => Boolean(value));
+
+    const userLookup = new Map<
+      string,
+      { role_name: string | null; must_change_password: boolean | null; phone: string | null }
+    >();
+
+    if (authUserIds.length > 0) {
+      const { data: linkedUsers, error: linkedUsersError } = await supabaseAdmin
+        .from("users")
+        .select("id, phone, must_change_password, roles(role_name)")
+        .in("id", authUserIds);
+
+      if (linkedUsersError) throw linkedUsersError;
+
+      for (const record of linkedUsers ?? []) {
+        const roleRecord = Array.isArray((record as any).roles)
+          ? (record as any).roles[0]
+          : (record as any).roles;
+        userLookup.set((record as any).id, {
+          role_name: roleRecord?.role_name ?? null,
+          must_change_password: (record as any).must_change_password ?? null,
+          phone: (record as any).phone ?? null,
+        });
+      }
+    }
+
+    const payload = (residents ?? []).map((resident: any) => {
+      const linkedUser = resident.auth_user_id ? userLookup.get(resident.auth_user_id) : null;
+      const flatRecord = Array.isArray(resident.flats) ? resident.flats[0] : resident.flats;
+      const buildingRecord = Array.isArray(flatRecord?.buildings) ? flatRecord?.buildings[0] : flatRecord?.buildings;
+
+      return {
+        id: resident.id,
+        resident_code: resident.resident_code,
+        full_name: resident.full_name,
+        phone: resident.phone || linkedUser?.phone || null,
+        relation: resident.relation,
+        flat_id: resident.flat_id,
+        flat_number: flatRecord?.flat_number || null,
+        building_name: buildingRecord?.building_name || null,
+        auth_user_id: resident.auth_user_id,
+        auth_linked: Boolean(resident.auth_user_id),
+        role_name: linkedUser?.role_name ?? null,
+        must_change_password: linkedUser?.must_change_password ?? false,
+      };
+    });
+
+    const residentIds = payload.map((resident) => resident.id);
+    const linkedAuthUserIds = payload
+      .map((resident) => resident.auth_user_id)
+      .filter((value): value is string => Boolean(value));
+
+    const [visitorCountsResult, notificationCountsResult, pushTokenCountsResult] = await Promise.all([
+      residentIds.length > 0
+        ? supabaseAdmin
+            .from("visitors")
+            .select("resident_id, approved_by_resident")
+            .in("resident_id", residentIds)
+        : Promise.resolve({ data: [], error: null }),
+      linkedAuthUserIds.length > 0
+        ? supabaseAdmin
+            .from("notifications")
+            .select("user_id, is_read")
+            .in("user_id", linkedAuthUserIds)
+        : Promise.resolve({ data: [], error: null }),
+      linkedAuthUserIds.length > 0
+        ? supabaseAdmin
+            .from("push_tokens")
+            .select("user_id, is_active")
+            .in("user_id", linkedAuthUserIds)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+
+    if (visitorCountsResult.error) throw visitorCountsResult.error;
+    if (notificationCountsResult.error) throw notificationCountsResult.error;
+    if (pushTokenCountsResult.error) throw pushTokenCountsResult.error;
+
+    const visitorStatsByResident = new Map<
+      string,
+      { total: number; pending: number; denied: number }
+    >();
+    for (const record of visitorCountsResult.data ?? []) {
+      const residentId = (record as any).resident_id as string | null;
+      if (!residentId) continue;
+      const current = visitorStatsByResident.get(residentId) ?? {
+        total: 0,
+        pending: 0,
+        denied: 0,
+      };
+      current.total += 1;
+      if ((record as any).approved_by_resident === null) current.pending += 1;
+      if ((record as any).approved_by_resident === false) current.denied += 1;
+      visitorStatsByResident.set(residentId, current);
+    }
+
+    const unreadNotificationsByUser = new Map<string, number>();
+    for (const record of notificationCountsResult.data ?? []) {
+      const userId = (record as any).user_id as string | null;
+      if (!userId) continue;
+      if ((record as any).is_read === false) {
+        unreadNotificationsByUser.set(userId, (unreadNotificationsByUser.get(userId) ?? 0) + 1);
+      }
+    }
+
+    const activePushTokensByUser = new Map<string, number>();
+    for (const record of pushTokenCountsResult.data ?? []) {
+      const userId = (record as any).user_id as string | null;
+      if (!userId) continue;
+      if ((record as any).is_active !== false) {
+        activePushTokensByUser.set(userId, (activePushTokensByUser.get(userId) ?? 0) + 1);
+      }
+    }
+
+    const enrichedPayload = payload.map((resident) => {
+      const visitorStats = visitorStatsByResident.get(resident.id) ?? {
+        total: 0,
+        pending: 0,
+        denied: 0,
+      };
+      return {
+        ...resident,
+        active_push_tokens: resident.auth_user_id
+          ? activePushTokensByUser.get(resident.auth_user_id) ?? 0
+          : 0,
+        unread_notifications: resident.auth_user_id
+          ? unreadNotificationsByUser.get(resident.auth_user_id) ?? 0
+          : 0,
+        total_visitors: visitorStats.total,
+        pending_visitors: visitorStats.pending,
+        denied_visitors: visitorStats.denied,
+      };
+    });
+
+    return NextResponse.json({ residents: enrichedPayload });
+  } catch (error) {
+    console.error("Residents list error:", error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to fetch residents" },
+      { status: 500 },
+    );
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const auth = await getAuthorizedResidentManager();
@@ -132,6 +305,8 @@ export async function POST(request: NextRequest) {
           email,
           password: temp_password,
           email_confirm: true,
+          phone: parsed.data.phone || undefined,
+          phone_confirm: Boolean(parsed.data.phone),
         });
 
         if (authError) {
@@ -163,6 +338,7 @@ export async function POST(request: NextRequest) {
           id: newAuthUserId,
           full_name: parsed.data.full_name,
           email,
+          phone: parsed.data.phone || null,
           role_id: (roleRow as any).id,
           username,
           must_change_password: true,
