@@ -75,12 +75,12 @@ export default function SecurityCommandPage() {
   const {
     guards,
     activeGuards,
-    guardLocations,
     stats,
     isLoading,
     error,
     getGuardStatus,
     getBatteryStatus,
+    getLocationForGuard,
     filters,
     setFilters,
     refresh,
@@ -356,7 +356,7 @@ export default function SecurityCommandPage() {
       header: "Device",
       cell: ({ row }) => {
         const battery = getBatteryStatus(row.original);
-        const location = guardLocations.get(row.original.employee_id);
+        const location = getLocationForGuard(row.original);
         
         return (
           <div className="flex items-center gap-3">
@@ -528,7 +528,7 @@ export default function SecurityCommandPage() {
                     <h3 className="font-bold">{activeGuards.length} Guards Tracking</h3>
                     <div className="flex flex-wrap gap-2 justify-center">
                       {activeGuards.slice(0, 5).map((guard) => {
-                        const location = guardLocations.get(guard.employee_id);
+                        const location = getLocationForGuard(guard);
                         const status = getGuardStatus(guard);
                         return (
                           <Badge 

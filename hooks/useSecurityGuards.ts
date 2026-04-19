@@ -98,6 +98,12 @@ export function useSecurityGuards(initialFilters?: GuardFilters) {
   });
   const [filters, setFilters] = useState<GuardFilters>(initialFilters || {});
 
+  const getLocationForGuard = useCallback(
+    (guard: Pick<SecurityGuard, "id" | "employee_id">): GuardLocation | undefined =>
+      guardLocations.get(guard.id) || guardLocations.get(guard.employee_id),
+    [guardLocations],
+  );
+
   // Fetch all guards with details
   const fetchGuards = useCallback(async () => {
     setIsLoading(true);
@@ -225,7 +231,8 @@ export function useSecurityGuards(initialFilters?: GuardFilters) {
 
       if (fetchError) throw fetchError;
 
-      // Group by employee_id and take latest
+      // GPS rows are now written with security_guards.id to satisfy RLS,
+      // but some older staging rows may still use employees.id. Keep both.
       const locationMap = new Map<string, GuardLocation>();
       (data || []).forEach((loc: GuardLocation) => {
         if (!locationMap.has(loc.employee_id)) {
@@ -318,7 +325,7 @@ export function useSecurityGuards(initialFilters?: GuardFilters) {
   };
 
   // Get guard status label
-  const getGuardStatus = (guard: SecurityGuard): { label: string; color: string } => {
+  const getGuardStatus = useCallback((guard: SecurityGuard): { label: string; color: string } => {
     if (!guard.attendance?.check_in_time) {
       return { label: "Off Duty", color: "text-muted-foreground" };
     }
@@ -326,7 +333,7 @@ export function useSecurityGuards(initialFilters?: GuardFilters) {
       return { label: "Shift Ended", color: "text-muted-foreground" };
     }
 
-    const location = guardLocations.get(guard.employee_id);
+    const location = getLocationForGuard(guard);
     if (!location) {
       return { label: "No GPS Signal", color: "text-warning" };
     }
@@ -344,11 +351,11 @@ export function useSecurityGuards(initialFilters?: GuardFilters) {
     }
 
     return { label: "Active", color: "text-success" };
-  };
+  }, [getLocationForGuard]);
 
   // Get battery status
-  const getBatteryStatus = (guard: SecurityGuard): { level: number | null; color: string } => {
-    const location = guardLocations.get(guard.employee_id);
+  const getBatteryStatus = useCallback((guard: SecurityGuard): { level: number | null; color: string } => {
+    const location = getLocationForGuard(guard);
     if (!location?.battery_level) {
       return { level: null, color: "text-muted-foreground" };
     }
@@ -360,7 +367,7 @@ export function useSecurityGuards(initialFilters?: GuardFilters) {
       return { level: location.battery_level, color: "text-warning" };
     }
     return { level: location.battery_level, color: "text-success" };
-  };
+  }, [getLocationForGuard]);
 
   // Real-time subscription for GPS updates
   useEffect(() => {
@@ -413,6 +420,7 @@ export function useSecurityGuards(initialFilters?: GuardFilters) {
     // Helpers
     getGuardStatus,
     getBatteryStatus,
+    getLocationForGuard,
     isWithinGeoFence,
     calculateDistance,
     
