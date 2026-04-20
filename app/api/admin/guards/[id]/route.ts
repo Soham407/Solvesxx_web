@@ -10,6 +10,14 @@ const UpdateGuardSchema = z.object({
   assigned_location_id: z.string().uuid(),
   shift_id: z.string().uuid().optional().or(z.literal("")),
   is_active: z.boolean(),
+}).superRefine((value, ctx) => {
+  if (value.is_active && !value.shift_id) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["shift_id"],
+      message: "Active guards must have an assigned shift",
+    });
+  }
 });
 
 type RouteContext = {
@@ -118,6 +126,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     if (shiftId && (shiftResult.error || !shiftResult.data)) {
       return NextResponse.json({ error: "Selected shift not found" }, { status: 400 });
+    }
+
+    if (parsed.data.is_active && !shiftId) {
+      return NextResponse.json({ error: "Active guards must have an assigned shift" }, { status: 400 });
     }
 
     if (employeeResult.error || !employeeResult.data) {

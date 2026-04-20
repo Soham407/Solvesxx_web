@@ -23,6 +23,7 @@ export interface PanicAlert {
   guard_id: string;
   alert_type: AlertType;
   location_id: string | null;
+  photo_url: string | null;
   latitude: number | null;
   longitude: number | null;
   alert_time: string;
@@ -81,8 +82,12 @@ export function usePanicAlertHistory(initialFilters?: AlertFilters) {
   const [filters, setFilters] = useState<AlertFilters>(initialFilters || {});
 
   // Fetch all alerts with filters
-  const fetchAlerts = useCallback(async () => {
-    setIsLoading(true);
+  const fetchAlerts = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false;
+
+    if (!silent) {
+      setIsLoading(true);
+    }
     setError(null);
 
     try {
@@ -131,6 +136,7 @@ export function usePanicAlertHistory(initialFilters?: AlertFilters) {
         guard_id: row.guard_id,
         alert_type: row.alert_type as AlertType,
         location_id: row.location_id,
+        photo_url: row.photo_url,
         latitude: row.latitude,
         longitude: row.longitude,
         alert_time: row.alert_time,
@@ -159,7 +165,9 @@ export function usePanicAlertHistory(initialFilters?: AlertFilters) {
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      if (!silent) {
+        setIsLoading(false);
+      }
     }
   }, [filters, toast]);
 
@@ -221,7 +229,7 @@ export function usePanicAlertHistory(initialFilters?: AlertFilters) {
       });
 
       // Refresh data
-      fetchAlerts();
+      fetchAlerts({ silent: true });
       fetchStats();
 
       return { success: true };
@@ -324,6 +332,29 @@ export function usePanicAlertHistory(initialFilters?: AlertFilters) {
     };
   }, [fetchAlerts, fetchStats, toast]);
 
+  // Realtime delivery can be flaky in some local/prod sessions, so keep a light
+  // polling fallback to ensure new SOS alerts appear without a hard refresh.
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      fetchAlerts({ silent: true });
+      fetchStats();
+    }, 10_000);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchAlerts({ silent: true });
+        fetchStats();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [fetchAlerts, fetchStats]);
+
   // Initial fetch
   useEffect(() => {
     fetchAlerts();
@@ -351,6 +382,6 @@ export function usePanicAlertHistory(initialFilters?: AlertFilters) {
     setFilters,
     
     // Refresh
-    refresh: fetchAlerts,
+    refresh: () => fetchAlerts(),
   };
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTable } from "@/components/shared/DataTable";
 import { Button } from "@/components/ui/button";
@@ -182,8 +183,8 @@ export default function SecurityCommandPage() {
   };
 
   const handleOnboardGuard = async () => {
-    if (!onboardForm.full_name || !onboardForm.phone || !onboardForm.assigned_location_id) {
-      toast.error("Full name, phone, and assigned location are required.");
+    if (!onboardForm.full_name || !onboardForm.phone || !onboardForm.assigned_location_id || !onboardForm.shift_id) {
+      toast.error("Full name, phone, assigned location, and shift are required.");
       return;
     }
 
@@ -384,17 +385,18 @@ export default function SecurityCommandPage() {
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => setSelectedGuard(row.original)}>
-              View on Map
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => openEditDialog(row.original)}>
-              Edit Assignment
-            </DropdownMenuItem>
-            <DropdownMenuItem>Contact Guard</DropdownMenuItem>
-            <DropdownMenuItem>View Patrol Log</DropdownMenuItem>
-            <DropdownMenuItem>View Checklist Status</DropdownMenuItem>
-          </DropdownMenuContent>
+            <DropdownMenuContent align="end">
+              {row.original.employee_id ? (
+                <DropdownMenuItem asChild>
+                  <Link href={`/company/employees/${row.original.employee_id}`}>
+                    Open Profile
+                  </Link>
+                </DropdownMenuItem>
+              ) : null}
+              <DropdownMenuItem onClick={() => openEditDialog(row.original)}>
+                Edit Assignment
+              </DropdownMenuItem>
+            </DropdownMenuContent>
         </DropdownMenu>
       ),
     },
@@ -666,7 +668,7 @@ export default function SecurityCommandPage() {
           <DialogHeader>
             <DialogTitle>Onboard Security Guard</DialogTitle>
             <DialogDescription>
-              Create the auth user, employee row, guard profile, location mapping, and optional shift assignment in one admin flow.
+              Create the auth user, employee row, guard profile, location mapping, and active shift assignment in one admin flow.
             </DialogDescription>
           </DialogHeader>
           {onboardingResult ? (
@@ -754,17 +756,16 @@ export default function SecurityCommandPage() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="guard_onboard_shift">Shift Assignment</Label>
+                  <Label htmlFor="guard_onboard_shift">Shift Assignment *</Label>
                   <Select
-                    value={onboardForm.shift_id || "none"}
-                    onValueChange={(value) => setOnboardForm((prev) => ({ ...prev, shift_id: value === "none" ? "" : value }))}
+                    value={onboardForm.shift_id}
+                    onValueChange={(value) => setOnboardForm((prev) => ({ ...prev, shift_id: value }))}
                     disabled={shiftsLoading}
                   >
                     <SelectTrigger id="guard_onboard_shift">
-                      <SelectValue placeholder={shiftsLoading ? "Loading shifts..." : "Optional shift"} />
+                      <SelectValue placeholder={shiftsLoading ? "Loading shifts..." : "Select active shift"} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">No shift</SelectItem>
                       {shifts.map((shift) => (
                         <SelectItem key={shift.id} value={shift.id}>
                           {shift.shift_name}

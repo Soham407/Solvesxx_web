@@ -1290,34 +1290,13 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
               )}
             </>
           ) : (
-            /* Fallback to hardcoded numbers if database is empty */
-            <>
-              <a href="tel:100" className="inline-flex">
-                <Button
-                  variant="outline"
-                  className="w-full h-10 justify-start gap-2 text-xs font-bold border-muted-foreground/20"
-                >
-                  <Shield className="h-3 w-3 text-primary" /> Police (100)
-                </Button>
-              </a>
-              <a href="tel:101" className="inline-flex">
-                <Button
-                  variant="outline"
-                  className="w-full h-10 justify-start gap-2 text-xs font-bold border-muted-foreground/20"
-                >
-                  <AlertCircle className="h-3 w-3 text-critical" /> Fire (101)
-                </Button>
-              </a>
-              <a href="tel:102" className="inline-flex">
-                <Button
-                  variant="outline"
-                  className="w-full h-10 justify-start gap-2 text-xs font-bold border-muted-foreground/20"
-                >
-                  <Phone className="h-3 w-3 text-info" /> Ambulance (102)
-                </Button>
-              </a>
+            <div className="rounded-xl border border-dashed border-warning/40 bg-warning/5 p-4">
+              <p className="text-xs font-bold uppercase tracking-widest text-warning">Emergency Contacts Missing</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                No emergency contacts are configured in the system yet. Add real contacts before using the guard dashboard operationally.
+              </p>
               {supervisorPhone && (
-                <a href={`tel:${supervisorPhone}`} className="inline-flex">
+                <a href={`tel:${supervisorPhone}`} className="mt-3 inline-flex">
                   <Button
                     variant="outline"
                     className="w-full h-10 justify-start gap-2 text-xs font-bold border-muted-foreground/20"
@@ -1326,7 +1305,7 @@ function GuardDashboardContent({ employeeId, guardId, fullName, guardCode }: Gua
                   </Button>
                 </a>
               )}
-            </>
+            </div>
           )}
         </CardContent>
       </Card>

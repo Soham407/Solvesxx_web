@@ -13,7 +13,7 @@ const GuardOnboardingSchema = z.object({
   phone: z.string().trim().min(6).max(20),
   email: z.string().trim().email().optional().or(z.literal("")),
   assigned_location_id: z.string().uuid(),
-  shift_id: z.string().uuid().optional().or(z.literal("")),
+  shift_id: z.string().uuid(),
   designation_id: z.string().uuid().optional().or(z.literal("")),
   grade: z.enum(["A", "B", "C", "D"]).default("C"),
 });
@@ -109,9 +109,7 @@ export async function POST(request: NextRequest) {
     ] = await Promise.all([
       supabaseAdmin.from("roles").select("id").eq("role_name", "security_guard").single(),
       supabaseAdmin.from("company_locations").select("id, location_name").eq("id", payload.assigned_location_id).maybeSingle(),
-      payload.shift_id
-        ? supabaseAdmin.from("shifts").select("id, shift_name").eq("id", payload.shift_id).maybeSingle()
-        : Promise.resolve({ data: null, error: null }),
+      supabaseAdmin.from("shifts").select("id, shift_name").eq("id", payload.shift_id).maybeSingle(),
       supabaseAdmin.from("users").select("id").eq("phone", payload.phone).limit(1).maybeSingle(),
       supabaseAdmin.from("employees").select("id").eq("phone", payload.phone).limit(1).maybeSingle(),
     ]);
@@ -124,7 +122,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Assigned location was not found" }, { status: 400 });
     }
 
-    if (payload.shift_id && (shiftResult.error || !shiftResult.data)) {
+    if (shiftResult.error || !shiftResult.data) {
       return NextResponse.json({ error: "Selected shift was not found" }, { status: 400 });
     }
 
@@ -233,25 +231,23 @@ export async function POST(request: NextRequest) {
 
       guardId = (guardRow as { id: string }).id;
 
-      if (payload.shift_id) {
-        const { data: shiftAssignmentRow, error: shiftAssignmentError } = await supabaseAdmin
-          .from("employee_shift_assignments")
-          .insert({
-            employee_id: employeeId,
-            shift_id: payload.shift_id,
-            assigned_from: new Date().toISOString().split("T")[0],
-            is_active: true,
-            assigned_by: null,
-          })
-          .select("id")
-          .single();
+      const { data: shiftAssignmentRow, error: shiftAssignmentError } = await supabaseAdmin
+        .from("employee_shift_assignments")
+        .insert({
+          employee_id: employeeId,
+          shift_id: payload.shift_id,
+          assigned_from: new Date().toISOString().split("T")[0],
+          is_active: true,
+          assigned_by: null,
+        })
+        .select("id")
+        .single();
 
-        if (shiftAssignmentError || !shiftAssignmentRow) {
-          throw shiftAssignmentError ?? new Error("Failed to assign shift");
-        }
-
-        shiftAssignmentId = (shiftAssignmentRow as { id: string }).id;
+      if (shiftAssignmentError || !shiftAssignmentRow) {
+        throw shiftAssignmentError ?? new Error("Failed to assign shift");
       }
+
+      shiftAssignmentId = (shiftAssignmentRow as { id: string }).id;
 
       return NextResponse.json(
         {

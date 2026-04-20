@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -16,6 +17,7 @@ import {
   SelectValue 
 } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -41,7 +43,29 @@ export default function CreateEmployeePage() {
     resolver: zodResolver(employeeSchema),
   });
 
+  const nonSecurityDesignations = useMemo(
+    () =>
+      designations.filter((designation) => {
+        const normalizedName = designation.designation_name.toLowerCase();
+        const normalizedDepartment = (designation.department || "").toLowerCase();
+
+        return (
+          normalizedDepartment !== "security" &&
+          normalizedDepartment !== "sec" &&
+          !normalizedName.includes("security") &&
+          !normalizedName.includes("guard") &&
+          !normalizedName.includes("supervisor")
+        );
+      }),
+    [designations],
+  );
+
   const onSubmit = async (data: EmployeeFormValues) => {
+    if (data.department === "sec") {
+      toast.error("Security guards must be onboarded from Security Ops so site and shift are assigned.");
+      return;
+    }
+
     const result = await createEmployee({
       first_name: data.firstName,
       last_name: data.lastName,
@@ -83,6 +107,17 @@ export default function CreateEmployeePage() {
           </Button>
         </div>
       </div>
+
+      <Alert>
+        <AlertTitle>Use Security Ops for guards</AlertTitle>
+        <AlertDescription>
+          This page is for general employees only. Security guards must be created from{" "}
+          <Link href="/services/security" className="font-semibold underline underline-offset-2">
+            Security Ops
+          </Link>{" "}
+          so login, assigned site, and active shift are provisioned together.
+        </AlertDescription>
+      </Alert>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
         {/* Personal Details */}
@@ -144,7 +179,6 @@ export default function CreateEmployeePage() {
                   <SelectItem value="it">Information Technology</SelectItem>
                   <SelectItem value="ops">Operations</SelectItem>
                   <SelectItem value="hr">Human Resources</SelectItem>
-                  <SelectItem value="sec">Security</SelectItem>
                 </SelectContent>
               </Select>
               {errors.department && <p className="text-xs text-critical font-medium">{errors.department.message}</p>}
@@ -162,7 +196,7 @@ export default function CreateEmployeePage() {
                   />
                 </SelectTrigger>
                 <SelectContent>
-                  {designations.map((designation) => (
+                  {nonSecurityDesignations.map((designation) => (
                     <SelectItem key={designation.id} value={designation.id}>
                       {designation.designation_name}
                     </SelectItem>
@@ -170,9 +204,9 @@ export default function CreateEmployeePage() {
                 </SelectContent>
               </Select>
               {errors.designationId && <p className="text-xs text-critical font-medium">{errors.designationId.message}</p>}
-              {!designationsLoading && designations.length === 0 && (
+              {!designationsLoading && nonSecurityDesignations.length === 0 && (
                 <p className="text-xs text-muted-foreground">
-                  Add a designation in Company Master before onboarding employees.
+                  Add a non-security designation in Company Master before onboarding employees.
                 </p>
               )}
             </div>
@@ -182,8 +216,8 @@ export default function CreateEmployeePage() {
         {/* Footer Actions */}
         <div className="flex items-center justify-end gap-4 p-6 bg-muted/20 border rounded-xl">
            <p className="text-xs text-muted-foreground mr-auto">
-             Note: This creates the employee record with department and designation.
-             User provisioning, role assignment, and operational location mapping still happen separately.
+             Note: This creates only a general employee record with department and designation.
+             Security guard onboarding must go through Security Ops, not this form.
            </p>
            <Button variant="outline" type="button" asChild>
              <Link href="/company/employees">Cancel</Link>

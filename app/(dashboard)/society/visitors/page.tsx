@@ -30,6 +30,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardDescription } from "@/components/ui/card";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -65,6 +71,8 @@ export default function VisitorManagementPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isRegistrationOpen, setIsRegistrationOpen] = useState(false);
   const [printVisitor, setPrintVisitor] = useState<Visitor | null>(null);
+  const [selectedVisitor, setSelectedVisitor] = useState<Visitor | null>(null);
+  const [denialReasonVisitor, setDenialReasonVisitor] = useState<Visitor | null>(null);
   const canManageFrequentVisitors =
     role === "admin" ||
     role === "super_admin" ||
@@ -243,7 +251,7 @@ export default function VisitorManagementPage() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 {row.original.rejection_reason && (
-                  <DropdownMenuItem onClick={() => alert(`Reason: ${row.original.rejection_reason}`)}>
+                  <DropdownMenuItem onClick={() => setDenialReasonVisitor(row.original)}>
                     <AlertCircle className="h-4 w-4 mr-2 text-critical" /> View Denial Reason
                   </DropdownMenuItem>
                 )}
@@ -256,7 +264,7 @@ export default function VisitorManagementPage() {
                 <DropdownMenuItem onClick={() => setPrintVisitor(row.original)}>
                   <Printer className="h-4 w-4 mr-2" /> Print Pass
                 </DropdownMenuItem>
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSelectedVisitor(row.original)}>
                    <User className="h-4 w-4 mr-2" /> View Details
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -454,6 +462,79 @@ export default function VisitorManagementPage() {
           </div>
         </>
       )}
+
+      <Dialog open={Boolean(selectedVisitor)} onOpenChange={(open) => !open && setSelectedVisitor(null)}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Visitor Details</DialogTitle>
+          </DialogHeader>
+          {selectedVisitor ? (
+            <div className="space-y-4 text-sm">
+              <div className="flex items-center gap-3">
+                <VisitorAvatar photoUrl={selectedVisitor.photo_url} name={selectedVisitor.visitor_name} className="h-14 w-14 border" />
+                <div>
+                  <div className="font-bold text-base">{selectedVisitor.visitor_name}</div>
+                  <div className="text-muted-foreground">{selectedVisitor.phone || "Phone not provided"}</div>
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl border p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Destination</div>
+                  <div className="mt-1 font-medium">
+                    {selectedVisitor.flat?.building?.building_name || "Unknown"} - {selectedVisitor.flat?.flat_number || "N/A"}
+                  </div>
+                </div>
+                <div className="rounded-xl border p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Purpose</div>
+                  <div className="mt-1 font-medium">{selectedVisitor.purpose || "Visit"}</div>
+                </div>
+                <div className="rounded-xl border p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Resident Decision</div>
+                  <div className="mt-1 font-medium">
+                    {selectedVisitor.approved_by_resident === true
+                      ? "Approved"
+                      : selectedVisitor.approved_by_resident === false
+                        ? "Denied"
+                        : "Pending approval"}
+                  </div>
+                </div>
+                <div className="rounded-xl border p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Entry Time</div>
+                  <div className="mt-1 font-medium">{new Date(selectedVisitor.entry_time).toLocaleString("en-IN")}</div>
+                </div>
+              </div>
+              {selectedVisitor.visitor_pass_number ? (
+                <div className="rounded-xl border p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Visitor Pass</div>
+                  <div className="mt-1 font-medium">{selectedVisitor.visitor_pass_number}</div>
+                </div>
+              ) : null}
+              {selectedVisitor.photo_url ? (
+                <div className="rounded-xl border p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Photo</div>
+                  <img src={selectedVisitor.photo_url} alt={selectedVisitor.visitor_name} className="mt-3 max-h-[360px] w-full rounded-lg border object-contain bg-muted/30" />
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(denialReasonVisitor)} onOpenChange={(open) => !open && setDenialReasonVisitor(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Resident Denial Reason</DialogTitle>
+          </DialogHeader>
+          {denialReasonVisitor ? (
+            <div className="space-y-3 text-sm">
+              <p className="font-medium">{denialReasonVisitor.visitor_name}</p>
+              <div className="rounded-xl border p-3 text-muted-foreground">
+                {denialReasonVisitor.rejection_reason || "No denial reason was captured."}
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

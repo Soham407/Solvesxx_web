@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { 
   AlertTriangle, 
   MapPin, 
@@ -17,7 +16,7 @@ import {
   ChevronRight,
   Loader2,
   RefreshCw,
-  Filter
+  Navigation as NavigationArrow
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +38,38 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { usePanicAlertHistory, PanicAlert, AlertType } from "@/hooks/usePanicAlertHistory";
 import { useEmergencyContacts } from "@/hooks/useEmergencyContacts";
+import { supabase } from "@/src/lib/supabaseClient";
+
+interface PanicAlertDetails {
+  id: string;
+  description: string | null;
+  photoUrl: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  alertTime: string;
+}
+
+function isHttpUrl(value: string) {
+  return /^https?:\/\//i.test(value);
+}
+
+function parseStorageRef(value: string | null) {
+  if (!value || isHttpUrl(value)) {
+    return null;
+  }
+
+  const normalized = value.replace(/^storage:\/\//, "");
+  const slashIndex = normalized.indexOf("/");
+
+  if (slashIndex <= 0) {
+    return null;
+  }
+
+  return {
+    bucket: normalized.slice(0, slashIndex),
+    path: normalized.slice(slashIndex + 1),
+  };
+}
 
 export default function PanicAlertsPage() {
   const {
@@ -48,6 +79,7 @@ export default function PanicAlertsPage() {
     isLoading,
     error,
     resolveAlert,
+    getAlertDetails,
     getAlertTypeLabel,
     getTimeAgo,
     filters,
@@ -61,6 +93,9 @@ export default function PanicAlertsPage() {
   const [selectedAlert, setSelectedAlert] = useState<PanicAlert | null>(null);
   const [resolutionNotes, setResolutionNotes] = useState("");
   const [isResolving, setIsResolving] = useState(false);
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  const [selectedAlertDetails, setSelectedAlertDetails] = useState<PanicAlertDetails | null>(null);
 
   // Handle resolve
   const handleResolve = async () => {
@@ -81,6 +116,54 @@ export default function PanicAlertsPage() {
   const openResolveDialog = (alert: PanicAlert) => {
     setSelectedAlert(alert);
     setResolveDialogOpen(true);
+  };
+
+  const openDetailsDialog = async (alert: PanicAlert) => {
+    setDetailsDialogOpen(true);
+    setIsLoadingDetails(true);
+    setSelectedAlertDetails(null);
+
+    try {
+      const result = await getAlertDetails(alert.id);
+
+      if (!result.success || !result.data) {
+        return;
+      }
+
+      const rawPhotoUrl = typeof result.data.photo_url === "string" ? result.data.photo_url : null;
+      let photoUrl = rawPhotoUrl;
+
+      const storageRef = parseStorageRef(rawPhotoUrl);
+      if (storageRef) {
+        const { data, error } = await supabase.storage.from(storageRef.bucket).createSignedUrl(storageRef.path, 60 * 60);
+        if (!error && data?.signedUrl) {
+          photoUrl = data.signedUrl;
+        }
+      }
+
+      setSelectedAlertDetails({
+        id: alert.id,
+        description: typeof result.data.description === "string" ? result.data.description : null,
+        photoUrl,
+        latitude: typeof result.data.latitude === "number" ? result.data.latitude : null,
+        longitude: typeof result.data.longitude === "number" ? result.data.longitude : null,
+        alertTime: typeof result.data.alert_time === "string" ? result.data.alert_time : alert.alert_time,
+      });
+    } finally {
+      setIsLoadingDetails(false);
+    }
+  };
+
+  const openAlertMap = (details: Pick<PanicAlertDetails, "latitude" | "longitude"> | Pick<PanicAlert, "latitude" | "longitude">) => {
+    if (details.latitude == null || details.longitude == null) {
+      return;
+    }
+
+    window.open(
+      `https://www.google.com/maps/search/?api=1&query=${details.latitude},${details.longitude}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
   };
 
   // Get guard name
@@ -117,14 +200,7 @@ export default function PanicAlertsPage() {
       <PageHeader
         title="Panic Response Center"
         description="Real-time emergency monitoring and SOS alert coordination hub."
-        actions={
-          <Button 
-            variant="destructive" 
-            className="gap-2 animate-pulse shadow-lg shadow-destructive/20 font-bold uppercase tracking-widest text-[10px] h-11 px-6"
-          >
-            <ShieldAlert className="h-4 w-4" /> Trigger Emergency
-          </Button>
-        }
+        actions={null}
       />
 
       {/* Filters */}
@@ -279,10 +355,20 @@ export default function PanicAlertsPage() {
                               <CheckCircle className="h-4 w-4" /> Resolve Incident
                             </Button>
                           )}
-                          <Button variant="outline" className="flex-1 gap-2 border-primary/20 hover:bg-primary/5">
+                          <Button
+                            variant="outline"
+                            className="flex-1 gap-2 border-primary/20 hover:bg-primary/5"
+                            onClick={() => openDetailsDialog(alert)}
+                          >
                             <ChevronRight className="h-4 w-4" /> View Details
                           </Button>
-                          <Button variant="ghost" size="icon" className="shrink-0 border">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="shrink-0 border"
+                            disabled={alert.latitude == null || alert.longitude == null}
+                            onClick={() => openAlertMap(alert)}
+                          >
                             <ExternalLink className="h-4 w-4" />
                           </Button>
                         </div>
@@ -401,6 +487,68 @@ export default function PanicAlertsPage() {
               Mark as Resolved
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Panic Alert Details</DialogTitle>
+          </DialogHeader>
+          {isLoadingDetails ? (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : selectedAlertDetails ? (
+            <div className="space-y-4 py-2">
+              <div className="rounded-xl border p-3">
+                <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Triggered At</div>
+                <div className="mt-1 text-sm font-medium">
+                  {new Date(selectedAlertDetails.alertTime).toLocaleString("en-IN")}
+                </div>
+              </div>
+              <div className="rounded-xl border p-3">
+                <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Notes</div>
+                <div className="mt-1 text-sm">
+                  {selectedAlertDetails.description || "No additional notes were attached."}
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl border p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Latitude</div>
+                  <div className="mt-1 text-sm font-medium">{selectedAlertDetails.latitude ?? "Not captured"}</div>
+                </div>
+                <div className="rounded-xl border p-3">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Longitude</div>
+                  <div className="mt-1 text-sm font-medium">{selectedAlertDetails.longitude ?? "Not captured"}</div>
+                </div>
+              </div>
+              {selectedAlertDetails.latitude != null && selectedAlertDetails.longitude != null ? (
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  onClick={() => openAlertMap(selectedAlertDetails)}
+                >
+                  <NavigationArrow className="h-4 w-4" />
+                  Open Location in Maps
+                </Button>
+              ) : null}
+              <div className="rounded-xl border p-3">
+                <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Evidence Image</div>
+                {selectedAlertDetails.photoUrl ? (
+                  <img
+                    src={selectedAlertDetails.photoUrl}
+                    alt="Panic alert evidence"
+                    className="mt-3 max-h-[420px] w-full rounded-lg border object-contain bg-muted/30"
+                  />
+                ) : (
+                  <div className="mt-2 text-sm text-muted-foreground">No image was attached to this alert.</div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="py-6 text-sm text-muted-foreground">Alert details could not be loaded.</div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
