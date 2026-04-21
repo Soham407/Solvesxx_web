@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase } from "@/src/lib/supabaseClient";
 
 interface FlatDetails {
@@ -55,18 +56,75 @@ interface ResidentState {
   resident: ResidentDetails | null;
   visitors: Visitor[];
   pendingApprovals: ResidentPendingVisitor[];
+  activeResidents: ResidentPresenceMember[];
   isLoading: boolean;
   isLoadingVisitors: boolean;
+  isLiveSyncConnected: boolean;
   error: string | null;
 }
 
-export function useResident(residentId?: string) {
+interface ResidentPresenceMember {
+  residentId: string | null;
+  surface: "mobile" | "web" | "unknown";
+  userId: string;
+  fullName: string;
+  joinedAt: string;
+}
+
+function normalizePresenceMembers(
+  state: Record<string, Array<Record<string, unknown>>>,
+  currentUserId?: string,
+): ResidentPresenceMember[] {
+  const members = Object.values(state)
+    .flat()
+    .map((entry) => {
+      const surface: "mobile" | "web" | "unknown" =
+        entry.surface === "mobile" || entry.surface === "web" ? entry.surface : "unknown";
+
+      return {
+        residentId: typeof entry.residentId === "string" ? entry.residentId : null,
+        surface,
+        userId: typeof entry.userId === "string" ? entry.userId : "",
+        fullName:
+          typeof entry.fullName === "string" && entry.fullName.trim().length
+            ? entry.fullName.trim()
+            : "Resident",
+        joinedAt:
+          typeof entry.joinedAt === "string" && entry.joinedAt.trim().length
+            ? entry.joinedAt
+            : new Date().toISOString(),
+      };
+    })
+    .filter((entry) => entry.userId && entry.userId !== currentUserId);
+
+  const deduped = new Map<string, (typeof members)[number]>();
+
+  for (const member of members) {
+    const existing = deduped.get(member.userId);
+
+    if (!existing || new Date(member.joinedAt).getTime() > new Date(existing.joinedAt).getTime()) {
+      deduped.set(member.userId, member);
+    }
+  }
+
+  return [...deduped.values()].sort((left, right) => left.fullName.localeCompare(right.fullName));
+}
+
+export function useResident(
+  residentId?: string,
+  options?: {
+    authUserId?: string;
+    displayName?: string | null;
+  },
+) {
   const [state, setState] = useState<ResidentState>({
     resident: null,
     visitors: [],
     pendingApprovals: [],
+    activeResidents: [],
     isLoading: true,
     isLoadingVisitors: true,
+    isLiveSyncConnected: false,
     error: null,
   });
 
@@ -400,6 +458,100 @@ export function useResident(residentId?: string) {
       fetchPendingApprovals();
     }
   }, [state.resident?.id, fetchPendingApprovals]);
+
+  useEffect(() => {
+    if (!state.resident?.flat?.id) {
+      setState((prev) => ({
+        ...prev,
+        activeResidents: [],
+        isLiveSyncConnected: false,
+      }));
+      return;
+    }
+
+    const channel = supabase
+      .channel(`resident-visitors:${state.resident.flat.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "visitors",
+          filter: `flat_id=eq.${state.resident.flat.id}`,
+        },
+        () => {
+          fetchVisitors();
+          fetchPendingApprovals();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchPendingApprovals, fetchVisitors, state.resident?.flat?.id]);
+
+  useEffect(() => {
+    if (!state.resident?.flat?.id || !options?.authUserId) {
+      setState((prev) => ({
+        ...prev,
+        activeResidents: [],
+        isLiveSyncConnected: false,
+      }));
+      return;
+    }
+
+    let presenceChannel: RealtimeChannel | null = supabase.channel(
+      `resident-presence:${state.resident.flat.id}`,
+      {
+        config: {
+          presence: {
+            key: options.authUserId,
+          },
+        },
+      },
+    );
+
+    presenceChannel
+      .on("presence", { event: "sync" }, () => {
+        if (!presenceChannel) return;
+
+        setState((prev) => ({
+          ...prev,
+          activeResidents: normalizePresenceMembers(
+            presenceChannel.presenceState(),
+            options.authUserId,
+          ),
+          isLiveSyncConnected: true,
+        }));
+      })
+      .subscribe(async (status) => {
+        if (status === "SUBSCRIBED") {
+          await presenceChannel?.track({
+            userId: options.authUserId,
+            residentId: state.resident?.id ?? null,
+            fullName: options.displayName ?? state.resident?.full_name ?? "Resident",
+            surface: "web",
+            joinedAt: new Date().toISOString(),
+          });
+        }
+
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          setState((prev) => ({
+            ...prev,
+            activeResidents: [],
+            isLiveSyncConnected: false,
+          }));
+        }
+      });
+
+    return () => {
+      if (presenceChannel) {
+        supabase.removeChannel(presenceChannel);
+        presenceChannel = null;
+      }
+    };
+  }, [options?.authUserId, options?.displayName, state.resident?.flat?.id, state.resident?.full_name, state.resident?.id]);
 
   return {
     ...state,

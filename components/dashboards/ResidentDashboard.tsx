@@ -120,6 +120,7 @@ export function ResidentDashboard() {
   // Get authenticated resident profile
   const { 
     residentId, 
+    fullName,
     isLoading: isProfileLoading, 
     error: profileError 
   } = useResidentProfile();
@@ -152,15 +153,23 @@ export function ResidentDashboard() {
     );
   }
 
-  return <ResidentDashboardContent residentId={residentId} authUserId={userId} />;
+  return (
+    <ResidentDashboardContent
+      residentId={residentId}
+      authUserId={userId}
+      residentName={fullName}
+    />
+  );
 }
 
 function ResidentDashboardContent({
   residentId,
   authUserId,
+  residentName,
 }: {
   residentId: string;
   authUserId: string;
+  residentName: string | null;
 }) {
   const { toast } = useToast();
   const searchParams = useSearchParams();
@@ -169,14 +178,19 @@ function ResidentDashboardContent({
   const {
     resident,
     pendingApprovals,
+    activeResidents,
     isLoading: isResidentLoading,
     error: residentError,
+    isLiveSyncConnected,
     inviteVisitor,
     approveVisitor: approveVisitorAction,
     denyVisitor: denyVisitorAction,
     toggleFrequentVisitor,
     refresh: refreshResident,
-  } = useResident(residentId);
+  } = useResident(residentId, {
+    authUserId,
+    displayName: residentName,
+  });
 
   // 2. Visitor data (filtered by flat)
   const flatId = resident?.flat?.id;
@@ -206,6 +220,8 @@ function ResidentDashboardContent({
   const [complaintPriority, setComplaintPriority] = useState<ServicePriority>("normal");
   const [isSubmittingComplaint, setIsSubmittingComplaint] = useState(false);
   const [isProcessingApproval, setIsProcessingApproval] = useState<string | null>(null);
+  const [denyDialogVisitorId, setDenyDialogVisitorId] = useState<string | null>(null);
+  const [denyReason, setDenyReason] = useState("");
 
   // KPI Calculations
   const today = new Date().toISOString().split("T")[0];
@@ -340,6 +356,23 @@ function ResidentDashboardContent({
     }
   }, [searchParams]);
 
+  useEffect(() => {
+    if (!denyDialogVisitorId) {
+      return;
+    }
+
+    const visitorStillPending = pendingApprovals.some((visitor) => visitor.id === denyDialogVisitorId);
+
+    if (!visitorStillPending) {
+      setDenyDialogVisitorId(null);
+      setDenyReason("");
+      toast({
+        title: "Queue updated",
+        description: "This visitor was already handled from another resident session.",
+      });
+    }
+  }, [denyDialogVisitorId, pendingApprovals, toast]);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<InviteFormData>(initialFormData);
   const [formErrors, setFormErrors] = useState<Partial<InviteFormData>>({});
@@ -385,8 +418,7 @@ function ResidentDashboardContent({
     }
   };
 
-  const handleDeny = async (visitorId: string) => {
-    const reason = window.prompt("Enter rejection reason (optional):") || "Security policy";
+  const handleDeny = async (visitorId: string, reason: string) => {
     setIsProcessingApproval(visitorId);
     const result = await denyVisitorAction(visitorId, reason);
     setIsProcessingApproval(null);
@@ -395,6 +427,8 @@ function ResidentDashboardContent({
     } else {
       toast({ title: "Entry Denied", description: "The guard has been notified." });
       refreshVisitors();
+      setDenyDialogVisitorId(null);
+      setDenyReason("");
     }
   };
 
@@ -453,6 +487,26 @@ function ResidentDashboardContent({
       {/* KPI Cards */}
       <DashboardKPIGrid kpis={kpis} isLoading={isLoadingVisitors || isLoadingRequests} />
 
+      <Card className="border-none shadow-card ring-1 ring-border">
+        <CardContent className="p-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-sm font-bold uppercase tracking-wide">
+              {isLiveSyncConnected ? "Live queue sync active" : "Live queue sync reconnecting"}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {activeResidents.length
+                ? `${activeResidents.map((resident) => resident.fullName).join(", ")} ${
+                    activeResidents.length === 1 ? "is" : "are"
+                  } also active for this flat.`
+                : "You are the only active resident session for this flat right now."}
+            </p>
+          </div>
+          <Badge variant="outline" className="text-[10px] font-bold uppercase">
+            {activeResidents.length} collaborator{activeResidents.length === 1 ? "" : "s"}
+          </Badge>
+        </CardContent>
+      </Card>
+
       {/* 🚨 PENDING APPROVALS ALERT area */}
       {pendingApprovals.length > 0 && (
         <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-500">
@@ -493,7 +547,10 @@ function ResidentDashboardContent({
                     <Button 
                       variant="outline" 
                       className="flex-1 sm:flex-none border-critical text-critical hover:bg-critical/10 font-bold uppercase text-[10px]"
-                      onClick={() => handleDeny(visitor.id)}
+                      onClick={() => {
+                        setDenyDialogVisitorId(visitor.id);
+                        setDenyReason("");
+                      }}
                       disabled={isProcessingApproval === visitor.id}
                     >
                       {isProcessingApproval === visitor.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4 mr-2" />}
@@ -755,6 +812,55 @@ function ResidentDashboardContent({
           </div>
         </CardContent>
       </Card>
+
+      <Dialog
+        open={Boolean(denyDialogVisitorId)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDenyDialogVisitorId(null);
+            setDenyReason("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Deny Visitor Entry</DialogTitle>
+            <DialogDescription>
+              Add a short reason so the guard and support team can understand why entry was denied.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="deny_reason">Reason</Label>
+            <Textarea
+              id="deny_reason"
+              placeholder="Security policy, unavailable to receive, ask visitor to reschedule..."
+              className="min-h-[110px] resize-none"
+              value={denyReason}
+              onChange={(e) => setDenyReason(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDenyDialogVisitorId(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (denyDialogVisitorId) {
+                  handleDeny(denyDialogVisitorId, denyReason.trim() || "Security policy");
+                }
+              }}
+              disabled={isProcessingApproval === denyDialogVisitorId}
+            >
+              {isProcessingApproval === denyDialogVisitorId ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Deny Entry"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

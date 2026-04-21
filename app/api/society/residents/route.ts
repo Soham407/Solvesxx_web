@@ -64,21 +64,53 @@ async function getAuthorizedResidentManager() {
   return { error: null, userId: user.id, roleName };
 }
 
-async function canManageFlat(flatId: string) {
-  const supabase = await createServerClient();
-  const { data: flatRecord, error: flatError } = await supabase
-    .from("flats")
+async function getManagedSocietyIds(userId: string) {
+  const supabaseAdmin = createServiceRoleClient();
+  const { data, error } = await supabaseAdmin
+    .from("societies")
     .select("id")
+    .eq("society_manager_id", userId);
+
+  if (error) {
+    throw error;
+  }
+
+  return new Set((data ?? []).map((row: any) => row.id as string));
+}
+
+async function canManageFlat(flatId: string, userId: string, roleName: string | null) {
+  const supabaseAdmin = createServiceRoleClient();
+  const { data: flatRecord, error: flatError } = await supabaseAdmin
+    .from("flats")
+    .select("id, buildings(society_id)")
     .eq("id", flatId)
     .maybeSingle();
 
-  return !flatError && !!flatRecord;
+  if (flatError || !flatRecord) {
+    return false;
+  }
+
+  if (roleName !== "society_manager") {
+    return true;
+  }
+
+  const managedSocietyIds = await getManagedSocietyIds(userId);
+  const buildingRecord = Array.isArray((flatRecord as any).buildings)
+    ? (flatRecord as any).buildings[0]
+    : (flatRecord as any).buildings;
+
+  return Boolean(buildingRecord?.society_id && managedSocietyIds.has(buildingRecord.society_id));
 }
 
 export async function GET() {
   try {
     const auth = await getAuthorizedResidentManager();
     if (auth.error) return auth.error;
+
+    const managedSocietyIds =
+      auth.roleName === "society_manager"
+        ? await getManagedSocietyIds(auth.userId!)
+        : null;
 
     const supabaseAdmin = createServiceRoleClient();
     const { data: residents, error: residentsError } = await supabaseAdmin
@@ -94,7 +126,7 @@ export async function GET() {
         flat_id,
         flats(
           flat_number,
-          buildings(building_name)
+          buildings(building_name, society_id)
         )
       `)
       .eq("is_active", true)
@@ -131,7 +163,14 @@ export async function GET() {
       }
     }
 
-    const payload = (residents ?? []).map((resident: any) => {
+    const scopedResidents = (residents ?? []).filter((resident: any) => {
+      if (!managedSocietyIds) return true;
+      const flatRecord = Array.isArray(resident.flats) ? resident.flats[0] : resident.flats;
+      const buildingRecord = Array.isArray(flatRecord?.buildings) ? flatRecord?.buildings[0] : flatRecord?.buildings;
+      return Boolean(buildingRecord?.society_id && managedSocietyIds.has(buildingRecord.society_id));
+    });
+
+    const payload = scopedResidents.map((resident: any) => {
       const linkedUser = resident.auth_user_id ? userLookup.get(resident.auth_user_id) : null;
       const flatRecord = Array.isArray(resident.flats) ? resident.flats[0] : resident.flats;
       const buildingRecord = Array.isArray(flatRecord?.buildings) ? flatRecord?.buildings[0] : flatRecord?.buildings;
@@ -265,7 +304,7 @@ export async function POST(request: NextRequest) {
 
     if (
       auth.roleName === "society_manager" &&
-      !(await canManageFlat(parsed.data.flat_id))
+      !(await canManageFlat(parsed.data.flat_id, auth.userId!, auth.roleName))
     ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }

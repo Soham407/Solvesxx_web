@@ -30,12 +30,14 @@ type AuthorizedResidentManager =
       supabase?: never;
       supabaseAdmin?: never;
       roleName?: never;
+      userId?: never;
     }
   | {
       error: null;
       supabase: Awaited<ReturnType<typeof createServerClient>>;
       supabaseAdmin: ReturnType<typeof createServiceRoleClient>;
       roleName: string;
+      userId: string;
     };
 
 async function getAuthorizedResidentManager(): Promise<AuthorizedResidentManager> {
@@ -79,7 +81,21 @@ async function getAuthorizedResidentManager(): Promise<AuthorizedResidentManager
     supabase,
     supabaseAdmin,
     roleName,
+    userId: user.id,
   };
+}
+
+async function getManagedSocietyIds(
+  supabaseAdmin: ReturnType<typeof createServiceRoleClient>,
+  userId: string
+) {
+  const { data, error } = await supabaseAdmin
+    .from("societies")
+    .select("id")
+    .eq("society_manager_id", userId);
+
+  if (error) throw error;
+  return new Set((data ?? []).map((row: any) => row.id as string));
 }
 
 /** Returns residents that have no auth_user_id yet (not provisioned as a login account). */
@@ -90,16 +106,28 @@ export async function GET() {
       return auth.error;
     }
 
-    const { data, error } = await auth.supabase
+    const managedSocietyIds =
+      auth.roleName === "society_manager"
+        ? await getManagedSocietyIds(auth.supabaseAdmin, auth.userId)
+        : null;
+
+    const { data, error } = await auth.supabaseAdmin
       .from("residents")
-      .select("id, full_name, resident_code, flats(flat_number, buildings(building_name))")
+      .select("id, full_name, resident_code, flats(flat_number, buildings(building_name, society_id))")
       .is("auth_user_id", null)
       .eq("is_active", true)
       .order("full_name");
 
     if (error) throw error;
 
-    return NextResponse.json({ residents: data || [] });
+    const scopedResidents = (data ?? []).filter((resident: any) => {
+      if (!managedSocietyIds) return true;
+      const flatRecord = Array.isArray(resident.flats) ? resident.flats[0] : resident.flats;
+      const buildingRecord = Array.isArray(flatRecord?.buildings) ? flatRecord?.buildings[0] : flatRecord?.buildings;
+      return Boolean(buildingRecord?.society_id && managedSocietyIds.has(buildingRecord.society_id));
+    });
+
+    return NextResponse.json({ residents: scopedResidents });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || "Failed to fetch residents" }, { status: 500 });
   }
@@ -138,6 +166,28 @@ export async function POST(request: Request) {
 
     if (!residentRecord || residentRecord.is_active === false) {
       return NextResponse.json({ error: "Resident not found" }, { status: 404 });
+    }
+
+    if (auth.roleName === "society_manager") {
+      const managedSocietyIds = await getManagedSocietyIds(auth.supabaseAdmin, auth.userId);
+      const { data: scopedResident, error: scopedResidentError } = await auth.supabaseAdmin
+        .from("residents")
+        .select("id, flats(buildings(society_id))")
+        .eq("id", parsed.data.resident_id)
+        .maybeSingle();
+
+      if (scopedResidentError) throw scopedResidentError;
+
+      const flatRecord = Array.isArray((scopedResident as any)?.flats)
+        ? (scopedResident as any).flats[0]
+        : (scopedResident as any)?.flats;
+      const buildingRecord = Array.isArray(flatRecord?.buildings)
+        ? flatRecord.buildings[0]
+        : flatRecord?.buildings;
+
+      if (!buildingRecord?.society_id || !managedSocietyIds.has(buildingRecord.society_id)) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
     }
 
     if (residentRecord.auth_user_id) {

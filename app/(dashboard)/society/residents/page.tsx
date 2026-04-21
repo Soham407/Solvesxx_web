@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import {
   Users,
   Home,
-  Car,
   Search,
   MoreHorizontal,
   Phone,
@@ -46,13 +45,14 @@ interface Resident {
   id: string;
   resident_code: string;
   full_name: string;
+  flat_id: string | null;
   flat_number: string;
   building_name: string;
   mobile: string;
-  family_count?: number; 
-  vehicle_numbers: string[];
+  call_phone: string | null;
   relation: "Owner" | "Tenant" | string;
   photo_url?: string;
+  is_primary_contact?: boolean;
   auth_linked: boolean;
   role_name: string | null;
   must_change_password: boolean;
@@ -82,6 +82,7 @@ export default function ResidentsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [formData, setFormData] = useState({ full_name: '', phone: '', relation: 'Owner', flat_id: '', email: '', temp_password: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedResident, setSelectedResident] = useState<Resident | null>(null);
 
   useEffect(() => {
     fetchResidents();
@@ -103,43 +104,60 @@ export default function ResidentsPage() {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await fetch("/api/society/residents", { method: "GET" });
-      const payload = await response.json();
-
-      if (!response.ok) {
-        throw new Error(payload.error || "Failed to load resident directory");
+      const supportResponse = await fetch("/api/society/residents", { method: "GET" });
+      const payload = await supportResponse.json();
+      if (!supportResponse.ok) {
+        throw new Error(payload.error || "Failed to load resident support data");
       }
 
-      let vehicleCount = 0;
-      const uniqueFlats = new Set<string>();
+      const residentIds = (payload.residents || []).map((resident: any) => resident.id).filter(Boolean);
+      const directoryResult =
+        residentIds.length > 0
+          ? await supabase
+              .from("resident_directory")
+              .select("id, full_name, flat_number, building_name, is_primary_contact, masked_phone")
+              .in("id", residentIds)
+              .eq("is_active", true)
+          : { data: [], error: null };
 
-      const formattedResidents: Resident[] = (payload.residents || []).map((r: any) => {
-        const flatNo = r.flat_number || "N/A";
-        const bldg = r.building_name || "";
+      if (directoryResult.error) {
+        throw directoryResult.error;
+      }
+
+      const uniqueFlats = new Set<string>();
+      const supportByResidentId = new Map<string, any>(
+        (payload.residents || []).map((resident: any) => [resident.id, resident])
+      );
+      const directoryByResidentId = new Map<string, any>(
+        ((directoryResult.data || []) as any[]).map((residentView) => [residentView.id, residentView])
+      );
+
+      const formattedResidents: Resident[] = (payload.residents || []).map((support: any) => {
+        const residentView = directoryByResidentId.get(support.id) ?? null;
+        const flatNo = support?.flat_number || residentView.flat_number || "N/A";
+        const bldg = support?.building_name || residentView.building_name || "";
         uniqueFlats.add(`${bldg}-${flatNo}`);
-        
-        // We will default to empty vehicles as it's not present in the resident directory view.
-        const vehicles: string[] = []; // Update this to match schema if a vehicles table exists
-        vehicleCount += vehicles.length;
 
         return {
-          id: r.id,
-          resident_code: r.resident_code || "",
-          full_name: r.full_name,
-          mobile: r.phone || "",
-          vehicle_numbers: vehicles,
-          relation: r.relation || "Resident",
+          id: support.id,
+          resident_code: support?.resident_code || "",
+          full_name: residentView?.full_name || support?.full_name || "Resident",
+          flat_id: support?.flat_id || null,
+          mobile: support?.phone || residentView?.masked_phone || "",
+          call_phone: support?.phone || null,
+          relation: support?.relation || "Resident",
           photo_url: undefined, // Update with correct profile photo field if there is one
+          is_primary_contact: Boolean(residentView?.is_primary_contact),
           flat_number: flatNo,
           building_name: bldg,
-          auth_linked: Boolean(r.auth_linked),
-          role_name: r.role_name || null,
-          must_change_password: Boolean(r.must_change_password),
-          active_push_tokens: Number(r.active_push_tokens || 0),
-          unread_notifications: Number(r.unread_notifications || 0),
-          total_visitors: Number(r.total_visitors || 0),
-          pending_visitors: Number(r.pending_visitors || 0),
-          denied_visitors: Number(r.denied_visitors || 0),
+          auth_linked: Boolean(support?.auth_linked),
+          role_name: support?.role_name || null,
+          must_change_password: Boolean(support?.must_change_password),
+          active_push_tokens: Number(support?.active_push_tokens || 0),
+          unread_notifications: Number(support?.unread_notifications || 0),
+          total_visitors: Number(support?.total_visitors || 0),
+          pending_visitors: Number(support?.pending_visitors || 0),
+          denied_visitors: Number(support?.denied_visitors || 0),
         };
       });
 
@@ -147,7 +165,7 @@ export default function ResidentsPage() {
       setStats({
         totalFlats: uniqueFlats.size,
         totalResidents: formattedResidents.length,
-        totalVehicles: vehicleCount
+        totalVehicles: formattedResidents.filter((resident) => resident.auth_linked).length
       });
     } catch (err: any) {
       console.error("Error fetching residents:", err);
@@ -159,14 +177,16 @@ export default function ResidentsPage() {
 
   const handleExportCSV = () => {
     if (residents.length === 0) return;
-    const headers = ["Name", "Contact", "Flat", "Building", "Relation", "Vehicles"];
+    const headers = ["Name", "Contact", "Flat", "Building", "Relation", "Login", "Push Tokens", "Unread Alerts"];
     const rows = residents.map(r => [
         `"${r.full_name}"`, 
         `"${r.mobile}"`, 
         `"${r.flat_number}"`, 
         `"${r.building_name}"`, 
         `"${r.relation}"`, 
-        `"${(r.vehicle_numbers || []).join(", ")}"`
+        `"${r.auth_linked ? "Linked" : "No Login"}"`,
+        `"${r.active_push_tokens}"`,
+        `"${r.unread_notifications}"`
     ]);
     
     const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
@@ -271,20 +291,12 @@ export default function ResidentsPage() {
       ),
     },
     {
-      accessorKey: "vehicle_numbers",
-      header: "Authorized Vehicles",
+      accessorKey: "is_primary_contact",
+      header: "Household Role",
       cell: ({ row }) => (
-        <div className="flex flex-wrap gap-1">
-          {row.original.vehicle_numbers && row.original.vehicle_numbers.length > 0 ? (
-             row.original.vehicle_numbers.map((v, i) => (
-               <Badge key={i} variant="outline" className="text-[9px] font-mono h-4 border-muted-foreground/20">
-                 <Car className="h-2.5 w-2.5 mr-1" /> {v}
-               </Badge>
-             ))
-          ) : (
-            <span className="text-xs text-muted-foreground italic">No Vehicles</span>
-          )}
-        </div>
+        <Badge variant="outline" className="text-[10px] uppercase font-bold px-2 py-0.5">
+          {row.original.is_primary_contact ? "Primary Contact" : "Family Member"}
+        </Badge>
       ),
     },
     {
@@ -316,7 +328,7 @@ export default function ResidentsPage() {
             {row.original.auth_linked ? "Auth Linked" : "No Login"}
           </Badge>
           <Badge variant="outline" className="text-[10px] uppercase font-bold px-2 py-0.5">
-            {row.original.building_name ? "Flat Linked" : "Flat Missing"}
+            {row.original.flat_id ? "Flat Linked" : "Flat Missing"}
           </Badge>
           {row.original.role_name && (
             <Badge variant="outline" className="text-[10px] uppercase font-bold px-2 py-0.5">
@@ -365,12 +377,27 @@ export default function ResidentsPage() {
     },
     {
       id: "actions",
-      cell: () => (
+      cell: ({ row }) => (
         <div className="flex items-center gap-1">
-             <Button variant="ghost" size="icon" className="h-8 w-8 text-primary">
+             <Button
+               variant="ghost"
+               size="icon"
+              className="h-8 w-8 text-primary"
+              disabled={!row.original.call_phone}
+              onClick={() => {
+                 if (row.original.call_phone) {
+                   window.location.href = `tel:${row.original.call_phone}`;
+                 }
+               }}
+             >
                 <Phone className="h-4 w-4" />
              </Button>
-             <Button variant="ghost" size="icon" className="h-8 w-8">
+             <Button
+               variant="ghost"
+               size="icon"
+               className="h-8 w-8"
+               onClick={() => setSelectedResident(row.original)}
+             >
                 <MoreHorizontal className="h-4 w-4" />
              </Button>
         </div>
@@ -406,7 +433,7 @@ export default function ResidentsPage() {
         {[
           { label: "Registered Flats", value: stats.totalFlats, icon: Home, sub: "Active residents only" },
           { label: "Total Residents", value: stats.totalResidents, icon: Users, sub: "Primary members" },
-          { label: "Verified Vehicles", value: stats.totalVehicles, icon: Car, sub: "Registered tags active" },
+          { label: "Login Linked", value: stats.totalVehicles, icon: Phone, sub: "Accounts ready for app use" },
         ].map((stat, i) => (
             <Card key={i} className="border-none shadow-card ring-1 ring-border p-4">
                  <div className="flex items-center gap-4">
@@ -532,6 +559,62 @@ export default function ResidentsPage() {
             <Button onClick={handleCreateResident} disabled={isSubmitting || !formData.full_name || !formData.flat_id}>
               {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Register"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(selectedResident)} onOpenChange={(open) => !open && setSelectedResident(null)}>
+        <DialogContent className="sm:max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle>Resident Support Details</DialogTitle>
+            <DialogDescription>
+              Provisioning and support signals for this resident account.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedResident && (
+            <div className="space-y-4 py-2 text-sm">
+              <div className="space-y-1">
+                <p className="font-semibold">{selectedResident.full_name}</p>
+                <p className="text-muted-foreground">
+                  {selectedResident.building_name ? `${selectedResident.building_name} / ` : ""}Flat {selectedResident.flat_number}
+                </p>
+                <p className="text-muted-foreground">{selectedResident.mobile || "No contact number"}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Card className="p-3">
+                  <div className="text-[10px] font-bold uppercase text-muted-foreground">Login</div>
+                  <div className="mt-1 font-semibold">{selectedResident.auth_linked ? "Linked" : "Missing"}</div>
+                </Card>
+                <Card className="p-3">
+                  <div className="text-[10px] font-bold uppercase text-muted-foreground">Flat Link</div>
+                  <div className="mt-1 font-semibold">{selectedResident.flat_id ? "Present" : "Missing"}</div>
+                </Card>
+                <Card className="p-3">
+                  <div className="text-[10px] font-bold uppercase text-muted-foreground">Push Tokens</div>
+                  <div className="mt-1 font-semibold">{selectedResident.active_push_tokens}</div>
+                </Card>
+                <Card className="p-3">
+                  <div className="text-[10px] font-bold uppercase text-muted-foreground">Unread Alerts</div>
+                  <div className="mt-1 font-semibold">{selectedResident.unread_notifications}</div>
+                </Card>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {selectedResident.must_change_password && (
+                  <Badge variant="outline" className="bg-info/5 text-info border-info/20">
+                    Password Reset Pending
+                  </Badge>
+                )}
+                {selectedResident.denied_visitors > 0 && (
+                  <Badge variant="outline" className="bg-critical/5 text-critical border-critical/20">
+                    {selectedResident.denied_visitors} denied visitors
+                  </Badge>
+                )}
+                <Badge variant="outline">{selectedResident.pending_visitors} pending visitors</Badge>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSelectedResident(null)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

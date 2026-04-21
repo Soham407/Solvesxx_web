@@ -78,17 +78,42 @@ async function getAuthorizedVisitorManager() {
   return { error: null, roleName, userId: user.id };
 }
 
-async function canManageVisitor(visitorId: string) {
-  // Use service role to bypass RLS for existence check; authorization is
-  // already enforced by getAuthorizedVisitorManager (role check).
+async function getManagedSocietyIds(userId: string) {
+  const supabaseAdmin = createServiceRoleClient();
+  const { data, error } = await supabaseAdmin
+    .from("societies")
+    .select("id")
+    .eq("society_manager_id", userId);
+
+  if (error) throw error;
+  return new Set((data ?? []).map((row: any) => row.id as string));
+}
+
+async function canManageVisitor(visitorId: string, userId: string, roleName: string | null) {
   const supabaseAdmin = createServiceRoleClient();
   const { data: visitorRecord, error: visitorError } = await supabaseAdmin
     .from("visitors")
-    .select("id")
+    .select("id, flats(buildings(society_id))")
     .eq("id", visitorId)
     .maybeSingle();
 
-  return !visitorError && !!visitorRecord;
+  if (visitorError || !visitorRecord) {
+    return false;
+  }
+
+  if (roleName !== "society_manager") {
+    return true;
+  }
+
+  const managedSocietyIds = await getManagedSocietyIds(userId);
+  const flatRecord = Array.isArray((visitorRecord as any).flats)
+    ? (visitorRecord as any).flats[0]
+    : (visitorRecord as any).flats;
+  const buildingRecord = Array.isArray(flatRecord?.buildings)
+    ? flatRecord.buildings[0]
+    : flatRecord?.buildings;
+
+  return Boolean(buildingRecord?.society_id && managedSocietyIds.has(buildingRecord.society_id));
 }
 
 export async function PATCH(
@@ -112,7 +137,7 @@ export async function PATCH(
 
     if (
       auth.roleName === "society_manager" &&
-      !(await canManageVisitor(visitorId))
+      !(await canManageVisitor(visitorId, auth.userId!, auth.roleName))
     ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }

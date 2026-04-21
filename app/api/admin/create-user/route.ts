@@ -106,6 +106,7 @@ export async function POST(req: NextRequest) {
 
     let finalEmployeeId = employee_id || null;
     let finalSupplierId = supplier_id || null;
+    let linkedResidentId: string | null = null;
 
     // --- Link existing or create new employee record for staff roles ---
     if (STAFF_ROLES.has(roleName) && !finalEmployeeId) {
@@ -145,7 +146,28 @@ export async function POST(req: NextRequest) {
         await supabaseAdmin.auth.admin.deleteUser(newUserId);
         return NextResponse.json({ error: "resident_id is required for resident role" }, { status: 400 });
       }
-      await supabaseAdmin.from("residents").update({ auth_user_id: newUserId }).eq("id", resident_id);
+      const { data: residentLinkRecord, error: residentLinkError } = await supabaseAdmin
+        .from("residents")
+        .update({ auth_user_id: newUserId })
+        .eq("id", resident_id)
+        .is("auth_user_id", null)
+        .select("id")
+        .maybeSingle();
+
+      if (residentLinkError) {
+        await supabaseAdmin.auth.admin.deleteUser(newUserId);
+        throw residentLinkError;
+      }
+
+      if (!residentLinkRecord) {
+        await supabaseAdmin.auth.admin.deleteUser(newUserId);
+        return NextResponse.json(
+          { error: "Resident not found or already linked to another account" },
+          { status: 409 }
+        );
+      }
+
+      linkedResidentId = resident_id;
     }
 
     // --- Link supplier record if role is supplier ---
@@ -171,6 +193,13 @@ export async function POST(req: NextRequest) {
       });
 
     if (insertError) {
+      if (linkedResidentId) {
+        await supabaseAdmin
+          .from("residents")
+          .update({ auth_user_id: null })
+          .eq("id", linkedResidentId)
+          .eq("auth_user_id", newUserId);
+      }
       await supabaseAdmin.auth.admin.deleteUser(newUserId);
       throw insertError;
     }
