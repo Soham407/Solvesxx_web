@@ -27,7 +27,25 @@ interface ChecklistAudit {
   items: any[];
 }
 
-export function useSocietyAudit() {
+async function getManagedSocieties(): Promise<string[]> {
+  try {
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) return [];
+
+    const { data: societies, error: societiesError } = await supabase
+      .from("societies")
+      .select("id")
+      .eq("society_manager_id", user.id);
+
+    if (societiesError || !societies) return [];
+    return societies.map((s: any) => s.id);
+  } catch (err) {
+    console.error("Error getting managed societies:", err);
+    return [];
+  }
+}
+
+export function useSocietyAudit(societyId?: string) {
   const [visitorAudit, setVisitorAudit] = useState<VisitorAudit>({
     total: 0,
     pending: 0,
@@ -58,12 +76,21 @@ export function useSocietyAudit() {
     try {
       const today = new Date().toISOString().split("T")[0];
 
-      // 1. Visitor Audit
-      const { data: visitors } = await supabase
+      // Get managed society IDs if not provided explicitly
+      let societyIds = societyId ? [societyId] : await getManagedSocieties();
+      if (societyIds.length === 0) {
+        societyIds = [];
+      }
+
+      // 1. Visitor Audit - filter by society if applicable
+      let visitorQuery = supabase
         .from("visitors")
         .select("name, phone_number, visitor_type, approved_by_resident, entry_time, exit_time, is_frequent_visitor")
         .gte("entry_time", `${today}T00:00:00Z`)
         .order("entry_time", { ascending: false });
+
+      // Note: Visitor filtering by society would need resident -> flat -> building -> society join
+      const { data: visitors } = await visitorQuery;
 
       if (visitors) {
         setVisitorAudit({
@@ -88,9 +115,16 @@ export function useSocietyAudit() {
         .eq("alert_type", "inactivity")
         .gte("alert_time", `${today}T00:00:00Z`);
 
-      const { count: totalGuards } = await supabase
+      // Only count guards in managed societies
+      let guardQuery = supabase
         .from("security_guards")
         .select("id", { count: "exact", head: true });
+
+      if (societyIds.length > 0) {
+        guardQuery = guardQuery.in("society_id", societyIds);
+      }
+
+      const { count: totalGuards } = await guardQuery;
 
       if (attendance) {
         const onDuty = attendance.filter(a => !a.check_out_time).length;
@@ -123,7 +157,7 @@ export function useSocietyAudit() {
         setChecklistAudit({
           completed: responses.filter(r => r.is_complete).length,
           pending: responses.filter(r => !r.is_complete).length,
-          overdue: 0, // Logic for overdue would depend on shift end times
+          overdue: 0,
           items: responses,
         });
       }
@@ -133,7 +167,7 @@ export function useSocietyAudit() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [societyId]);
 
   useEffect(() => {
     fetchAudit();

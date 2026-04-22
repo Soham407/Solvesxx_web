@@ -21,6 +21,24 @@ interface UseSocietyStatsReturn {
   refresh: () => Promise<void>;
 }
 
+async function getManagedSocieties(): Promise<string[]> {
+  try {
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) return [];
+
+    const { data: societies, error: societiesError } = await supabase
+      .from("societies")
+      .select("id")
+      .eq("society_manager_id", user.id);
+
+    if (societiesError || !societies) return [];
+    return societies.map((s: any) => s.id);
+  } catch (err) {
+    console.error("Error getting managed societies:", err);
+    return [];
+  }
+}
+
 export function useSocietyStats(societyId?: string): UseSocietyStatsReturn {
   const [stats, setStats] = useState<SocietyStats>({
     activeGuards: 0,
@@ -41,13 +59,20 @@ export function useSocietyStats(societyId?: string): UseSocietyStatsReturn {
     try {
       const today = new Date().toISOString().split("T")[0];
 
+      // Get managed society IDs if not provided explicitly
+      let societyIds = societyId ? [societyId] : await getManagedSocieties();
+      if (societyIds.length === 0) {
+        // Fallback: treat as admin with access to all
+        societyIds = [];
+      }
+
       // Get total and active guards for society
       let guardQuery = supabase
         .from("security_guards")
         .select("id, employee_id", { count: "exact" });
 
-      if (societyId) {
-        guardQuery = guardQuery.eq("society_id", societyId);
+      if (societyIds.length > 0) {
+        guardQuery = guardQuery.in("society_id", societyIds);
       }
 
       const { count: totalGuardsCount, error: guardError } = await guardQuery;

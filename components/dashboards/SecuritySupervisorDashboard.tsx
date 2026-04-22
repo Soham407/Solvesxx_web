@@ -1,6 +1,6 @@
 "use client";
 
-import { ShieldCheck, Users, ClipboardList, Map, AlertCircle, TrendingUp, CheckCircle2, MoreHorizontal, Bell, Clock, Loader2 } from "lucide-react";
+import { ShieldCheck, Users, ClipboardList, Map, AlertCircle, TrendingUp, CheckCircle2, MoreHorizontal, Bell, Clock, Loader2, AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,23 +12,47 @@ import { useEmployeeProfile } from "@/hooks/useEmployeeProfile";
 import { Skeleton } from "@/components/ui/skeleton";
 import { GuardLiveMap } from "./GuardLiveMap";
 
+interface ErrorBoundaryProps {
+  error?: string | null;
+  title?: string;
+}
 
+function ErrorFallback({ error, title }: ErrorBoundaryProps) {
+  return (
+    <Card className="border-critical/20 bg-critical/5">
+      <CardContent className="p-6 flex items-center gap-4 text-critical">
+        <AlertTriangle className="h-5 w-5 flex-shrink-0" />
+        <div>
+          <p className="font-semibold text-sm">{title || "Error loading data"}</p>
+          {error && <p className="text-xs text-muted-foreground mt-1">{error}</p>}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export function SecuritySupervisorDashboard() {
   const { 
     employeeId, 
-    isLoading: isProfileLoading 
+    isLoading: isProfileLoading,
+    error: profileError
   } = useEmployeeProfile();
 
-  const { stats, isLoading: isLoadingStats } = useSupervisorStats();
-  const { logs, isLoading: isLoadingLogs } = usePatrolLogs(undefined, 10);
+  const { stats, isLoading: isLoadingStats, error: statsError } = useSupervisorStats();
+  const { logs, isLoading: isLoadingLogs, error: logsError } = usePatrolLogs(undefined, 10);
   const { 
     unresolvedCount, 
     isLoading: isLoadingAlerts,
-    isConnected 
+    isConnected,
+    error: alertsError
   } = usePanicAlertSubscription();
 
   const isLoading = isProfileLoading || isLoadingStats || isLoadingLogs || isLoadingAlerts;
+
+  // Render error boundary if profile failed to load
+  if (profileError && !isProfileLoading) {
+    return <ErrorFallback error={profileError} title="Failed to load supervisor profile" />;
+  }
 
   return (
     <div className="space-y-8 pb-10">
@@ -53,56 +77,64 @@ export function SecuritySupervisorDashboard() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-4">
-          {[
-              { 
-                label: "Guards on Site", 
-                value: isLoadingStats ? "..." : `${stats.guardsOnSite}`, 
-                sub: `${stats.totalGuards} total guards`, 
-                icon: Users, 
-                color: "text-primary" 
-              },
-              { 
-                label: "Checkpoint Compliance", 
-                value: isLoadingStats ? "..." : `${stats.checkpointCompliance}%`, 
-                sub: "Last 4 hours", 
-                icon: Map, 
-                color: stats.checkpointCompliance >= 80 ? "text-success" : "text-warning" 
-              },
-              { 
-                label: "Pending Checklists", 
-                value: isLoadingStats ? "..." : stats.pendingChecklists.toString(), 
-                sub: "Awaiting completion", 
-                icon: ClipboardList, 
-                color: stats.pendingChecklists > 0 ? "text-warning" : "text-success" 
-              },
-              { 
-                label: "Unresolved Alerts", 
-                value: isLoadingAlerts ? "..." : unresolvedCount.toString(), 
-                sub: unresolvedCount > 0 ? "Active alerts" : "All clear", 
-                icon: AlertCircle, 
-                color: unresolvedCount > 0 ? "text-critical" : "text-success",
-                highlight: unresolvedCount > 0
-              },
-          ].map((stat, i) => (
-              <Card key={i} className={cn(
-                "border-none shadow-card ring-1 ring-border p-4",
-                stat.highlight && "ring-2 ring-critical/30 bg-critical/5"
-              )}>
-                  <div className="flex items-center gap-4 text-left">
-                      <div className={cn("h-10 w-10 rounded-xl bg-muted/50 flex items-center justify-center", stat.color)}>
-                          <stat.icon className="h-5 w-5" />
-                      </div>
-                      <div className="flex flex-col">
-                          <span className="text-xl font-bold">{stat.value}</span>
-                          <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">{stat.label}</span>
-                      </div>
-                  </div>
-              </Card>
-          ))}
+          {statsError ? (
+            <ErrorFallback error={statsError} title="Failed to load stats" />
+          ) : (
+            [
+                { 
+                  label: "Guards on Site", 
+                  value: isLoadingStats ? "..." : `${stats.guardsOnSite}`, 
+                  sub: `${stats.totalGuards} total guards`, 
+                  icon: Users, 
+                  color: "text-primary" 
+                },
+                { 
+                  label: "Checkpoint Compliance", 
+                  value: isLoadingStats ? "..." : `${stats.checkpointCompliance}%`, 
+                  sub: "Last 4 hours", 
+                  icon: Map, 
+                  color: stats.checkpointCompliance >= 80 ? "text-success" : "text-warning" 
+                },
+                { 
+                  label: "Pending Checklists", 
+                  value: isLoadingStats ? "..." : stats.pendingChecklists.toString(), 
+                  sub: "Awaiting completion", 
+                  icon: ClipboardList, 
+                  color: stats.pendingChecklists > 0 ? "text-warning" : "text-success" 
+                },
+                { 
+                  label: "Unresolved Alerts", 
+                  value: isLoadingAlerts ? "..." : unresolvedCount.toString(), 
+                  sub: unresolvedCount > 0 ? "Active alerts" : "All clear", 
+                  icon: AlertCircle, 
+                  color: unresolvedCount > 0 ? "text-critical" : "text-success",
+                  highlight: unresolvedCount > 0
+                },
+            ].map((stat, i) => (
+                <Card key={i} className={cn(
+                  "border-none shadow-card ring-1 ring-border p-4",
+                  stat.highlight && "ring-2 ring-critical/30 bg-critical/5"
+                )}>
+                    <div className="flex items-center gap-4 text-left">
+                        <div className={cn("h-10 w-10 rounded-xl bg-muted/50 flex items-center justify-center", stat.color)}>
+                            <stat.icon className="h-5 w-5" />
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-xl font-bold">{stat.value}</span>
+                            <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">{stat.label}</span>
+                        </div>
+                    </div>
+                </Card>
+            ))
+          )}
       </div>
 
       <div className="grid gap-6">
-        <GuardLiveMap />
+        {alertsError ? (
+          <ErrorFallback error={alertsError} title="Failed to load panic alerts" />
+        ) : (
+          <GuardLiveMap />
+        )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -111,42 +143,48 @@ export function SecuritySupervisorDashboard() {
                   <CardTitle className="text-sm font-bold uppercase ">Site Patrol Log Real-time</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
-                  <div className="divide-y text-left">
-                      {isLoadingLogs ? (
-                        <div className="p-8 flex items-center justify-center">
-                          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                        </div>
-                      ) : logs && logs.length > 0 ? (
-                        logs.map((log) => (
-                          <div key={log.id} className="p-4 flex items-center justify-between group hover:bg-muted/20">
-                              <div className="flex items-center gap-4">
-                                  <div className={cn("h-8 w-8 rounded-full flex items-center justify-center font-bold text-[10px]", log.status === "completed" ? "bg-success/10 text-success" : log.status === "overdue" ? "bg-critical/10 text-critical animate-pulse" : "bg-warning/10 text-warning")}>
-                                      {log.guardName.substring(0,2).toUpperCase()}
-                                  </div>
-                                  <div className="flex flex-col">
-                                      <span className="text-sm font-bold ">{log.guardName}</span>
-                                      <span className="text-[10px] text-muted-foreground font-medium uppercase">
-                                        {log.checkpointsVerified}/{log.totalCheckpoints} checkpoints verified
-                                      </span>
-                                  </div>
-                              </div>
-                              <div className="flex items-center gap-4">
-                                  <span className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
-                                      <Clock className="h-3 w-3" />
-                                      {log.patrolTime}
-                                  </span>
-                                  <Badge variant="outline" className={cn("text-[9px] font-bold uppercase", log.status === "completed" ? "bg-success/5 text-success border-success/20" : log.status === "overdue" ? "bg-critical/5 text-critical border-critical/20" : "bg-warning/5 text-warning border-warning/20")}>
-                                      {log.status}
-                                  </Badge>
-                              </div>
+                  {logsError ? (
+                    <div className="p-4">
+                      <ErrorFallback error={logsError} title="Failed to load patrol logs" />
+                    </div>
+                  ) : (
+                    <div className="divide-y text-left">
+                        {isLoadingLogs ? (
+                          <div className="p-8 flex items-center justify-center">
+                            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                           </div>
-                        ))
-                      ) : (
-                        <div className="p-8 text-center text-muted-foreground">
-                          No patrol activity recorded today.
-                        </div>
-                      )}
-                  </div>
+                        ) : logs && logs.length > 0 ? (
+                          logs.map((log) => (
+                            <div key={log.id} className="p-4 flex items-center justify-between group hover:bg-muted/20">
+                                <div className="flex items-center gap-4">
+                                    <div className={cn("h-8 w-8 rounded-full flex items-center justify-center font-bold text-[10px]", log.status === "completed" ? "bg-success/10 text-success" : log.status === "overdue" ? "bg-critical/10 text-critical animate-pulse" : "bg-warning/10 text-warning")}>
+                                        {log.guardName.substring(0,2).toUpperCase()}
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-sm font-bold ">{log.guardName}</span>
+                                        <span className="text-[10px] text-muted-foreground font-medium uppercase">
+                                          {log.checkpointsVerified}/{log.totalCheckpoints} checkpoints verified
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <span className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
+                                        <Clock className="h-3 w-3" />
+                                        {log.patrolTime}
+                                    </span>
+                                    <Badge variant="outline" className={cn("text-[9px] font-bold uppercase", log.status === "completed" ? "bg-success/5 text-success border-success/20" : log.status === "overdue" ? "bg-critical/5 text-critical border-critical/20" : "bg-warning/5 text-warning border-warning/20")}>
+                                        {log.status}
+                                    </Badge>
+                                </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="p-8 text-center text-muted-foreground">
+                            No patrol activity recorded today.
+                          </div>
+                        )}
+                    </div>
+                  )}
               </CardContent>
           </Card>
 

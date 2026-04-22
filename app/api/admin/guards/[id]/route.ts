@@ -4,7 +4,15 @@ import { z } from "zod";
 import { createAdminClient } from "@/src/lib/supabase/admin";
 import { createClient as createServerClient } from "@/src/lib/supabase/server";
 
-const ALLOWED_ROLES = new Set(["admin", "super_admin", "society_manager"]);
+interface RoleRecord {
+  role_name: string | null;
+}
+
+interface CallerRecord {
+  roles: RoleRecord | RoleRecord[] | null;
+}
+
+const ALLOWED_ROLES = new Set(["admin", "super_admin", "society_manager", "security_supervisor"]);
 
 const UpdateGuardSchema = z.object({
   assigned_location_id: z.string().uuid(),
@@ -53,9 +61,9 @@ async function authorizeGuardAdmin() {
     };
   }
 
-  const roleRecord = Array.isArray((callerRecord as any).roles)
-    ? (callerRecord as any).roles[0]
-    : (callerRecord as any).roles;
+  const roleRecord = Array.isArray(callerRecord.roles)
+    ? callerRecord.roles[0]
+    : callerRecord.roles;
   const roleName = roleRecord?.role_name ?? null;
 
   if (!roleName || !ALLOWED_ROLES.has(roleName)) {

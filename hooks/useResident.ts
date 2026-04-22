@@ -210,9 +210,9 @@ export function useResident(
     }
   }, [residentId]);
 
-  // Fetch visitors for the resident's flat (Security: Only their flat_id)
+  // Fetch visitors invited by this specific resident (Security: Only their resident_id)
   const fetchVisitors = useCallback(async () => {
-    if (!state.resident?.flat?.id) return;
+    if (!state.resident?.id) return;
 
     setState((prev) => ({ ...prev, isLoadingVisitors: true }));
 
@@ -232,7 +232,7 @@ export function useResident(
           approved_by_resident,
           is_frequent_visitor
         `)
-        .eq("flat_id", state.resident.flat.id) // Security: Filter by flat_id
+        .eq("resident_id", state.resident.id) // Security: Filter by resident_id (per-account, not per-flat)
         .order("entry_time", { ascending: false })
         .limit(20);
 
@@ -250,7 +250,7 @@ export function useResident(
         isLoadingVisitors: false,
       }));
     }
-  }, [state.resident?.flat?.id]);
+  }, [state.resident?.id]);
 
   const fetchPendingApprovals = useCallback(async () => {
     if (!state.resident?.id) return;
@@ -448,10 +448,10 @@ export function useResident(
 
   // Fetch visitors when resident data is loaded
   useEffect(() => {
-    if (state.resident?.flat?.id) {
+    if (state.resident?.id) {
       fetchVisitors();
     }
-  }, [state.resident?.flat?.id, fetchVisitors]);
+  }, [state.resident?.id, fetchVisitors]);
 
   useEffect(() => {
     if (state.resident?.id) {

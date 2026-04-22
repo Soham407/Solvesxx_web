@@ -4,6 +4,39 @@ import { z } from "zod";
 import { createServiceRoleClient } from "@/src/lib/platform/server";
 import { createClient as createServerClient } from "@/src/lib/supabase/server";
 
+interface RoleRecord {
+  role_name: string | null;
+}
+
+interface UserRecord {
+  roles: RoleRecord | RoleRecord[] | null;
+}
+
+interface FlatRecord {
+  flat_number?: string | null;
+  buildings: BuildingRecord | BuildingRecord[] | null;
+}
+
+interface BuildingRecord {
+  building_name?: string | null;
+  society_id: string;
+}
+
+interface VisitorRecord {
+  resident_id: string | null;
+  approved_by_resident: boolean | null;
+}
+
+interface NotificationRecord {
+  user_id: string | null;
+  is_read: boolean;
+}
+
+interface PushTokenRecord {
+  user_id: string | null;
+  is_active: boolean;
+}
+
 const CreateResidentSchema = z.object({
   flat_id: z.string().uuid(),
   full_name: z.string().trim().min(1).max(200),
@@ -48,9 +81,9 @@ async function getAuthorizedResidentManager() {
     };
   }
 
-  const roleRecord = Array.isArray((userRecord as any)?.roles)
-    ? (userRecord as any).roles[0]
-    : (userRecord as any)?.roles;
+  const roleRecord = Array.isArray(userRecord?.roles)
+    ? userRecord.roles[0]
+    : userRecord?.roles;
   const roleName = roleRecord?.role_name ?? null;
 
   if (!roleName || !RESIDENT_MANAGEMENT_ROLES.has(roleName)) {
@@ -95,9 +128,9 @@ async function canManageFlat(flatId: string, userId: string, roleName: string | 
   }
 
   const managedSocietyIds = await getManagedSocietyIds(userId);
-  const buildingRecord = Array.isArray((flatRecord as any).buildings)
-    ? (flatRecord as any).buildings[0]
-    : (flatRecord as any).buildings;
+  const buildingRecord = Array.isArray(flatRecord.buildings)
+    ? flatRecord.buildings[0]
+    : flatRecord.buildings;
 
   return Boolean(buildingRecord?.society_id && managedSocietyIds.has(buildingRecord.society_id));
 }
@@ -107,13 +140,15 @@ export async function GET() {
     const auth = await getAuthorizedResidentManager();
     if (auth.error) return auth.error;
 
-    const managedSocietyIds =
-      auth.roleName === "society_manager"
-        ? await getManagedSocietyIds(auth.userId!)
-        : null;
+    let managedSocietyIds: Set<string> | null = null;
+    if (auth.roleName === "society_manager") {
+      managedSocietyIds = await getManagedSocietyIds(auth.userId!);
+    }
 
     const supabaseAdmin = createServiceRoleClient();
-    const { data: residents, error: residentsError } = await supabaseAdmin
+    
+    // Build query - fetch all active residents with their flat and building info
+    let query = supabaseAdmin
       .from("residents")
       .select(`
         id,
@@ -131,6 +166,8 @@ export async function GET() {
       `)
       .eq("is_active", true)
       .order("full_name");
+
+    const { data: residents, error: residentsError } = await query;
 
     if (residentsError) throw residentsError;
 
@@ -152,13 +189,13 @@ export async function GET() {
       if (linkedUsersError) throw linkedUsersError;
 
       for (const record of linkedUsers ?? []) {
-        const roleRecord = Array.isArray((record as any).roles)
-          ? (record as any).roles[0]
-          : (record as any).roles;
-        userLookup.set((record as any).id, {
+        const roleRecord = Array.isArray(record.roles)
+          ? record.roles[0]
+          : record.roles;
+        userLookup.set(record.id, {
           role_name: roleRecord?.role_name ?? null,
-          must_change_password: (record as any).must_change_password ?? null,
-          phone: (record as any).phone ?? null,
+          must_change_password: record.must_change_password ?? null,
+          phone: record.phone ?? null,
         });
       }
     }
@@ -172,8 +209,8 @@ export async function GET() {
 
     const payload = scopedResidents.map((resident: any) => {
       const linkedUser = resident.auth_user_id ? userLookup.get(resident.auth_user_id) : null;
-      const flatRecord = Array.isArray(resident.flats) ? resident.flats[0] : resident.flats;
-      const buildingRecord = Array.isArray(flatRecord?.buildings) ? flatRecord?.buildings[0] : flatRecord?.buildings;
+      const flatRecord = Array.isArray(resident.flats) ? resident.flats[0] : resident.flats as FlatRecord | null;
+      const buildingRecord = Array.isArray(flatRecord?.buildings) ? flatRecord?.buildings[0] : flatRecord?.buildings as BuildingRecord | null;
 
       return {
         id: resident.id,
@@ -225,8 +262,8 @@ export async function GET() {
       string,
       { total: number; pending: number; denied: number }
     >();
-    for (const record of visitorCountsResult.data ?? []) {
-      const residentId = (record as any).resident_id as string | null;
+    for (const record of (visitorCountsResult.data ?? []) as VisitorRecord[]) {
+      const residentId = record.resident_id;
       if (!residentId) continue;
       const current = visitorStatsByResident.get(residentId) ?? {
         total: 0,
@@ -234,25 +271,25 @@ export async function GET() {
         denied: 0,
       };
       current.total += 1;
-      if ((record as any).approved_by_resident === null) current.pending += 1;
-      if ((record as any).approved_by_resident === false) current.denied += 1;
+      if (record.approved_by_resident === null) current.pending += 1;
+      if (record.approved_by_resident === false) current.denied += 1;
       visitorStatsByResident.set(residentId, current);
     }
 
     const unreadNotificationsByUser = new Map<string, number>();
-    for (const record of notificationCountsResult.data ?? []) {
-      const userId = (record as any).user_id as string | null;
+    for (const record of (notificationCountsResult.data ?? []) as NotificationRecord[]) {
+      const userId = record.user_id;
       if (!userId) continue;
-      if ((record as any).is_read === false) {
+      if (!record.is_read) {
         unreadNotificationsByUser.set(userId, (unreadNotificationsByUser.get(userId) ?? 0) + 1);
       }
     }
 
     const activePushTokensByUser = new Map<string, number>();
-    for (const record of pushTokenCountsResult.data ?? []) {
-      const userId = (record as any).user_id as string | null;
+    for (const record of (pushTokenCountsResult.data ?? []) as PushTokenRecord[]) {
+      const userId = record.user_id;
       if (!userId) continue;
-      if ((record as any).is_active !== false) {
+      if (record.is_active !== false) {
         activePushTokensByUser.set(userId, (activePushTokensByUser.get(userId) ?? 0) + 1);
       }
     }

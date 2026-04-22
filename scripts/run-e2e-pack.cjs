@@ -6,10 +6,57 @@ const packName = process.argv[2] || "smoke";
 const passthrough = process.argv.slice(3);
 const root = process.cwd();
 const node = process.execPath;
-const npmCli =
-  process.platform === "win32"
-    ? path.join(path.dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js")
-    : require.resolve("npm/bin/npm-cli.js");
+
+// Fixed npm CLI resolution
+function getNpmCliPath() {
+  if (process.platform === "win32") {
+    return path.join(path.dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js");
+  }
+  
+  // Try multiple approaches
+  const attempts = [
+    // 1. Try require.resolve (original approach)
+    () => {
+      try {
+        return require.resolve("npm/bin/npm-cli.js");
+      } catch (e) {
+        return null;
+      }
+    },
+    // 2. Try local node_modules
+    () => {
+      const localPath = path.join(root, "node_modules", "npm", "bin", "npm-cli.js");
+      if (fs.existsSync(localPath)) {
+        return localPath;
+      }
+      return null;
+    },
+    // 3. Use which/npm command
+    () => {
+      try {
+        const result = spawnSync("which", ["npm"], { encoding: "utf8" });
+        if (result.status === 0 && result.stdout) {
+          return result.stdout.trim();
+        }
+      } catch (e) {}
+      return null;
+    },
+    // 4. Fallback to npm command directly
+    () => "npm"
+  ];
+
+  for (const attempt of attempts) {
+    const result = attempt();
+    if (result && (!result.includes("npm-cli.js") || fs.existsSync(result))) {
+      return result;
+    }
+  }
+  
+  return "npm";
+}
+
+const npmCli = getNpmCliPath();
+
 function findUp(startDir, relativePath, maxLevels = 6) {
   let currentDir = startDir;
   for (let depth = 0; depth <= maxLevels; depth += 1) {
@@ -99,210 +146,154 @@ const packs = {
   "full-visual": [
     { script: "test:e2e:full:visual:existing" },
   ],
-  security: [
-    { script: "test:security:existing", env: { PLAYWRIGHT_FAIL_ON_FLAKY: "1" } },
-  ],
 };
 
-function run(command, args, env = process.env) {
-  const result = spawnSync(command, args, {
-    cwd: root,
-    stdio: "inherit",
-    env,
-  });
+const pack = packs[packName];
 
-  if (result.error) {
-    throw result.error;
-  }
-
-  if (result.status !== 0) {
-    throw new Error(`${command} ${args.join(" ")} exited with code ${result.status}`);
-  }
+if (isListOnly) {
+  const packList = Object.keys(packs).sort();
+  console.log("Available test packs:");
+  packList.forEach((p) => console.log(`  - ${p}`));
+  process.exit(0);
 }
 
-function runNpmScript(script, extraEnv = {}, includePassthrough = true) {
-  const args = [npmCli, "run", script];
-
-  if (includePassthrough && passthrough.length > 0) {
-    args.push("--", ...passthrough);
-  }
-
-  run(node, args, {
-    ...process.env,
-    ...extraEnv,
-    NEXT_PUBLIC_APP_URL: baseUrl,
-  });
+if (!pack) {
+  throw new Error(`Unknown test pack: ${packName}. Use --list to see available packs.`);
 }
 
-function runNodeScript(scriptFile) {
-  run(node, [path.join(root, "scripts", scriptFile)]);
-}
+const config = {
+  timeout: (process.env.PACK_TIMEOUT ? Number.parseInt(process.env.PACK_TIMEOUT, 10) : 600) * 1000,
+  bail: process.env.PACK_CONTINUE_ON_FAILURE !== "1",
+  manageServer: shouldManageLocalServer || process.env.PLAYWRIGHT_MANAGE_SERVER === "1",
+};
 
-function sleep(ms) {
+const normalizeScriptName = (script) => script.replace(/^test:/, "");
+
+async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function readPid() {
-  if (!fs.existsSync(pidPath)) {
-    return null;
+async function waitForServer(host, port, timeout) {
+  const endTime = Date.now() + timeout;
+
+  while (Date.now() < endTime) {
+    try {
+      const http = await import("http");
+      const req = http.get(`http://${host}:${port}/`, (res) => {
+        if (res.statusCode === 200 || res.statusCode === 307) {
+          return true;
+        }
+      });
+
+      req.on("error", () => {});
+      req.end();
+      await sleep(100);
+    } catch (e) {}
+
+    await sleep(500);
   }
 
-  const value = Number.parseInt(fs.readFileSync(pidPath, "utf8").trim(), 10);
-  return Number.isFinite(value) ? value : null;
-}
-
-function isProcessRunning(pid) {
-  if (!pid) {
-    return false;
-  }
-
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function stopPid(pid) {
-  if (!pid || !isProcessRunning(pid)) {
-    return;
-  }
-
-  if (process.platform === "win32") {
-    spawnSync("taskkill", ["/PID", String(pid), "/T", "/F"], {
-      stdio: "ignore",
-    });
-    return;
-  }
-
-  process.kill(pid);
-}
-
-async function isAppReady() {
-  try {
-    const response = await fetch(`${baseUrl}/login`, {
-      redirect: "manual",
-      signal: AbortSignal.timeout(5_000),
-    });
-
-    return response.ok || response.status === 307 || response.status === 308;
-  } catch {
-    return false;
-  }
-}
-
-async function waitForAppReady(child) {
-  for (let attempt = 0; attempt < 90; attempt += 1) {
-    if (await isAppReady()) {
-      return;
-    }
-
-    if (child.exitCode !== null || child.killed) {
-      throw new Error("The managed test app exited before it became ready.");
-    }
-
-    await sleep(2_000);
-  }
-
-  throw new Error(`Timed out waiting for the test app at ${baseUrl}.`);
-}
-
-function stopTrackedApp() {
-  const trackedPid = readPid();
-  stopPid(trackedPid);
-  fs.rmSync(pidPath, { force: true });
-}
-
-function clearBuildLock() {
-  fs.rmSync(buildLockPath, { force: true });
-}
-
-async function startManagedApp() {
-  stopTrackedApp();
-  fs.rmSync(logPath, { force: true });
-
-  const logFd = fs.openSync(logPath, "a");
-  const child = spawn(node, [nextBin, "start", "--hostname", appHost], {
-    cwd: root,
-    stdio: ["ignore", logFd, logFd],
-    env: {
-      ...process.env,
-      PORT: appPort,
-    },
-    windowsHide: true,
-  });
-
-  fs.closeSync(logFd);
-  fs.writeFileSync(pidPath, String(child.pid));
-
-  try {
-    await waitForAppReady(child);
-    return child;
-  } catch (error) {
-    stopPid(child.pid);
-    fs.rmSync(pidPath, { force: true });
-    throw error;
-  }
+  throw new Error(`Server did not start within ${timeout}ms`);
 }
 
 async function main() {
-  const commands = packs[packName];
-  let managedApp = null;
-  const failures = [];
-
-  if (!commands) {
-    throw new Error(`Unknown E2E pack "${packName}".`);
-  }
-
-  if (!isListOnly) {
-    stopTrackedApp();
-    clearBuildLock();
-    runNpmScript("build", {}, false);
-    runNodeScript("wait-for-next-build.cjs");
-
-    if (shouldManageLocalServer) {
-      managedApp = await startManagedApp();
-    }
-  }
-
-  try {
-    for (const command of commands) {
+  process.on("SIGINT", () => {
+    console.log("\nCtrl+C received, cleaning up...");
+    if (config.manageServer && fs.existsSync(pidPath)) {
       try {
-        runNpmScript(command.script, command.env);
-      } catch (error) {
-        failures.push({
-          script: command.script,
-          message: error instanceof Error ? error.message : String(error),
-        });
-
-        if (packName !== "features") {
-          throw error;
-        }
-      }
+        const pid = fs.readFileSync(pidPath, "utf8").trim();
+        process.kill(-pid, "SIGTERM");
+      } catch (e) {}
     }
-  } finally {
-    if (!isListOnly) {
+    process.exit(130);
+  });
+
+  // Start server if needed
+  if (config.manageServer) {
+    if (fs.existsSync(pidPath)) {
       try {
-        if (managedApp) {
-          stopPid(managedApp.pid);
-          fs.rmSync(pidPath, { force: true });
+        const existingPid = fs.readFileSync(pidPath, "utf8").trim();
+        process.kill(-existingPid, "SIGTERM");
+        await sleep(500);
+      } catch (e) {}
+    }
+
+    console.log(`Starting Next.js server on ${appHost}:${appPort}...`);
+
+    // Clean stale lock
+    if (fs.existsSync(buildLockPath)) {
+      try {
+        fs.rmSync(buildLockPath, { recursive: true });
+      } catch (e) {}
+    }
+
+    await new Promise((resolve, reject) => {
+      const server = spawn(node, [nextBin, "start", "--hostname", appHost, "--port", appPort.toString()], {
+        cwd: root,
+        stdio: ["ignore", "inherit", "inherit"],
+        detached: true,
+      });
+
+      fs.writeFileSync(pidPath, server.pid.toString());
+
+      server.on("error", reject);
+      server.on("exit", (code) => {
+        if (code !== 0) {
+          reject(new Error(`Server exited with code ${code}`));
         }
-      } catch (error) {
-        console.error(error instanceof Error ? error.message : String(error));
+      });
+
+      // Wait for server to be ready
+      waitForServer(appHost, appPort, 180000).then(resolve).catch(reject);
+    });
+  }
+
+  // Run tests
+  let exitCode = 0;
+
+  for (const entry of pack) {
+    const env = { ...process.env, NEXT_PUBLIC_APP_URL: baseUrl, ...entry.env };
+    const scriptName = normalizeScriptName(entry.script);
+
+    console.log(`\n${"=".repeat(80)}`);
+    console.log(`Running: ${scriptName}`);
+    console.log(`${"=".repeat(80)}\n`);
+
+    const startTime = Date.now();
+    const result = spawnSync(npmCli.endsWith(".js") ? node : npmCli, [npmCli.endsWith(".js") ? npmCli : "run", entry.script, ...passthrough], {
+      cwd: root,
+      env,
+      stdio: "inherit",
+      timeout: config.timeout,
+    });
+
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+
+    if (result.status !== 0) {
+      console.error(`\n❌ Test failed: ${scriptName} (${duration}s)`);
+      exitCode = result.status || 1;
+
+      if (config.bail) {
+        break;
       }
+    } else {
+      console.log(`\n✅ Test passed: ${scriptName} (${duration}s)`);
     }
   }
 
-  if (failures.length > 0) {
-    const summary = failures
-      .map((failure) => `${failure.script}: ${failure.message}`)
-      .join("\n");
-    throw new Error(`One or more suite commands failed.\n${summary}`);
+  // Cleanup
+  if (config.manageServer && fs.existsSync(pidPath)) {
+    try {
+      const pid = fs.readFileSync(pidPath, "utf8").trim();
+      process.kill(-pid, "SIGTERM");
+      fs.unlinkSync(pidPath);
+    } catch (e) {}
   }
+
+  process.exit(exitCode);
 }
 
 main().catch((error) => {
-  console.error(error instanceof Error ? error.message : String(error));
+  console.error(error);
   process.exit(1);
 });

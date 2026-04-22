@@ -57,22 +57,29 @@ async function validateAuth(req: Request): Promise<{ authorized: boolean; userId
     return { authorized: false };
   }
 
-  // Validate strictly as a Supabase user JWT — no service key shortcut
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-    {
-      global: { headers: { Authorization: authHeader } },
-      auth: { persistSession: false },
-    }
-  );
+  // Validate JWT (handles both HS256 and ES256)
+  try {
+    const token = authHeader.replace('Bearer ', '');
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: { headers: { Authorization: authHeader } },
+        auth: { persistSession: false },
+      }
+    );
 
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error || !user) {
+    // Pass token explicitly — works for both HS256 and ES256
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    if (!error && user) {
+      return { authorized: true, userId: user.id };
+    }
+
+    return { authorized: false };
+  } catch (e) {
+    console.error('Auth validation error:', e);
     return { authorized: false };
   }
-
-  return { authorized: true, userId: user.id };
 }
 
 Deno.serve(async (req) => {
@@ -129,6 +136,18 @@ Deno.serve(async (req) => {
               token: t.token,
               notification: { title, body },
               data: data || {},
+              android: {
+                priority: 'high',
+                notification: {
+                  channelId: 'high',
+                  priority: 'high',
+                  defaultVibrateTimings: true,
+                },
+              },
+              apns: {
+                headers: { 'apns-priority': '10' },
+                payload: { aps: { sound: 'default', badge: 1 } },
+              },
             });
             return { token: t.token, status: 'sent', error: null };
           } catch (error: any) {

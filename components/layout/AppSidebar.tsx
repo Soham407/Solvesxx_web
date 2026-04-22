@@ -178,6 +178,14 @@ const navigation: NavGroup[] = [
           */
         ],
       },
+      {
+        title: "Society Setup",
+        href: "/admin/societies",
+        icon: Building2,
+        children: [
+          { title: "Manage Societies", href: "/admin/societies" },
+        ],
+      },
     ],
   },
   {
