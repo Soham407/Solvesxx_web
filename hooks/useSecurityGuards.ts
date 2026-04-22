@@ -34,6 +34,7 @@ export interface SecurityGuard {
   employee?: {
     first_name: string;
     last_name: string;
+    employee_code?: string | null;
     phone: string;
     photo_url: string | null;
     auth_user_id?: string | null;
@@ -123,7 +124,7 @@ export function useSecurityGuards(initialFilters?: GuardFilters) {
         .from("security_guards")
         .select(`
           *,
-          employee:employees(first_name, last_name, phone, photo_url, auth_user_id),
+          employee:employees(first_name, last_name, employee_code, phone, photo_url, auth_user_id),
           assigned_location:company_locations(location_name, location_code, latitude, longitude, geo_fence_radius)
         `)
         .order("guard_code", { ascending: true });

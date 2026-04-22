@@ -22,6 +22,7 @@ import {
   LayoutGrid,
   HardDrive,
   ClipboardCheck,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BrandMark } from "@/components/branding/BrandLogo";
@@ -155,6 +156,11 @@ const navigation: NavGroup[] = [
           { title: "Plantation Services", href: "/services/plantation" },
           { title: "Printing & Ads", href: "/services/printing" },
         ],
+      },
+      {
+        title: "Guard Management",
+        href: "/admin/guards",
+        icon: ShieldCheck,
       },
     ],
   },
