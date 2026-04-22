@@ -1,29 +1,52 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
-import { createAdminClient } from "@/src/lib/supabase/admin";
+import { createServiceRoleClient } from "@/src/lib/platform/server";
+import { insertAuditLog } from "@/src/lib/platform/audit";
 import { createClient as createServerClient } from "@/src/lib/supabase/server";
-
-interface RoleRecord {
-  role_name: string | null;
-}
-
-interface CallerRecord {
-  roles: RoleRecord | RoleRecord[] | null;
-}
 
 const ALLOWED_ROLES = new Set(["admin", "super_admin", "society_manager", "security_supervisor"]);
 
 const UpdateGuardSchema = z.object({
-  assigned_location_id: z.string().uuid(),
+  assigned_location_id: z.string().uuid().optional(),
   shift_id: z.string().uuid().optional().or(z.literal("")),
-  is_active: z.boolean(),
+  is_active: z.boolean().optional(),
+  society_id: z.string().uuid().optional(),
 }).superRefine((value, ctx) => {
+  const isAssignmentUpdate =
+    value.assigned_location_id !== undefined ||
+    value.is_active !== undefined ||
+    value.shift_id !== undefined;
+
+  if (isAssignmentUpdate && !value.assigned_location_id) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["assigned_location_id"],
+      message: "Assigned location is required",
+    });
+  }
+
+  if (isAssignmentUpdate && value.is_active === undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["is_active"],
+      message: "Status is required",
+    });
+  }
+
   if (value.is_active && !value.shift_id) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ["shift_id"],
       message: "Active guards must have an assigned shift",
+    });
+  }
+
+  if (!isAssignmentUpdate && !value.society_id) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["society_id"],
+      message: "No guard update payload provided",
     });
   }
 });
@@ -34,6 +57,7 @@ type RouteContext = {
 
 async function authorizeGuardAdmin() {
   const supabase = await createServerClient();
+  const supabaseAdmin = createServiceRoleClient();
   const {
     data: { user },
     error: authError,
@@ -42,12 +66,12 @@ async function authorizeGuardAdmin() {
   if (authError || !user) {
     return {
       error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
-      supabase,
+      supabaseAdmin: null as ReturnType<typeof createServiceRoleClient> | null,
       userId: null as string | null,
     };
   }
 
-  const { data: callerRecord, error: callerError } = await supabase
+  const { data: callerRecord, error: callerError } = await supabaseAdmin
     .from("users")
     .select("roles(role_name)")
     .eq("id", user.id)
@@ -56,7 +80,7 @@ async function authorizeGuardAdmin() {
   if (callerError || !callerRecord) {
     return {
       error: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
-      supabase,
+      supabaseAdmin: null as ReturnType<typeof createServiceRoleClient> | null,
       userId: null as string | null,
     };
   }
@@ -69,14 +93,14 @@ async function authorizeGuardAdmin() {
   if (!roleName || !ALLOWED_ROLES.has(roleName)) {
     return {
       error: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
-      supabase,
+      supabaseAdmin: null as ReturnType<typeof createServiceRoleClient> | null,
       userId: null as string | null,
     };
   }
 
   return {
     error: null,
-    supabase,
+    supabaseAdmin,
     userId: user.id,
   };
 }
@@ -99,12 +123,16 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       );
     }
 
-    const supabaseAdmin = createAdminClient();
+    if (!auth.supabaseAdmin || !auth.userId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const supabaseAdmin = auth.supabaseAdmin;
     const shiftId = parsed.data.shift_id || null;
 
     const { data: guardRecord, error: guardError } = await supabaseAdmin
       .from("security_guards")
-      .select("id, employee_id")
+      .select("id, employee_id, society_id")
       .eq("id", params.id)
       .maybeSingle();
 
@@ -112,11 +140,60 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "Guard not found" }, { status: 404 });
     }
 
+    const isSocietyOnlyUpdate =
+      !!parsed.data.society_id &&
+      parsed.data.assigned_location_id === undefined &&
+      parsed.data.is_active === undefined;
+
+    if (isSocietyOnlyUpdate) {
+      const { data: societyRecord, error: societyError } = await supabaseAdmin
+        .from("societies")
+        .select("id, society_name")
+        .eq("id", parsed.data.society_id as string)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (societyError || !societyRecord) {
+        return NextResponse.json({ error: "Selected society not found" }, { status: 400 });
+      }
+
+      const { data: updatedGuard, error: societyUpdateError } = await supabaseAdmin
+        .from("security_guards")
+        .update({ society_id: parsed.data.society_id })
+        .eq("id", params.id)
+        .select("id, employee_id, society_id")
+        .single();
+
+      if (societyUpdateError || !updatedGuard) {
+        throw societyUpdateError ?? new Error("Failed to update guard society");
+      }
+
+      await insertAuditLog(supabaseAdmin, {
+        entityType: "security_guards",
+        entityId: params.id,
+        action: "guard.society_assigned",
+        actorId: auth.userId,
+        oldData: { society_id: guardRecord.society_id ?? null },
+        newData: updatedGuard,
+        metadata: {
+          employee_id: guardRecord.employee_id,
+          society_id: parsed.data.society_id,
+          society_name: societyRecord.society_name,
+        },
+      });
+
+      return NextResponse.json({
+        success: true,
+        society_id: parsed.data.society_id,
+        society_name: societyRecord.society_name,
+      });
+    }
+
     const [{ data: locationRecord, error: locationError }, shiftResult, employeeResult] = await Promise.all([
       supabaseAdmin
         .from("company_locations")
         .select("id, location_name")
-        .eq("id", parsed.data.assigned_location_id)
+        .eq("id", parsed.data.assigned_location_id as string)
         .maybeSingle(),
       shiftId
         ? supabaseAdmin.from("shifts").select("id, shift_name").eq("id", shiftId).maybeSingle()
@@ -149,10 +226,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     const { error: guardUpdateError } = await supabaseAdmin
       .from("security_guards")
-      .update({
-        assigned_location_id: parsed.data.assigned_location_id,
+        .update({
+        assigned_location_id: parsed.data.assigned_location_id!,
         shift_timing: null,
-        is_active: parsed.data.is_active,
+        is_active: parsed.data.is_active!,
       })
       .eq("id", params.id);
 
@@ -160,7 +237,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     const { error: employeeUpdateError } = await supabaseAdmin
       .from("employees")
-      .update({ is_active: parsed.data.is_active })
+      .update({ is_active: parsed.data.is_active! })
       .eq("id", employeeId);
 
     if (employeeUpdateError) throw employeeUpdateError;
@@ -168,7 +245,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (authUserId) {
       const { error: userUpdateError } = await supabaseAdmin
         .from("users")
-        .update({ is_active: parsed.data.is_active })
+        .update({ is_active: parsed.data.is_active! })
         .eq("id", authUserId);
 
       if (userUpdateError) throw userUpdateError;

@@ -186,6 +186,11 @@ const navigation: NavGroup[] = [
           { title: "Manage Societies", href: "/admin/societies" },
         ],
       },
+      {
+        title: "Residents",
+        href: "/admin/residents",
+        icon: Users,
+      },
     ],
   },
   {

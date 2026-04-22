@@ -44,6 +44,7 @@ import { useSecurityGuards, SecurityGuard, GuardGrade } from "@/hooks/useSecurit
 import { useCompanyLocations } from "@/hooks/useCompanyLocations";
 import { useShifts } from "@/hooks/useShifts";
 import { useDesignations } from "@/hooks/useDesignations";
+import { supabase } from "@/src/lib/supabaseClient";
 import {
   Dialog,
   DialogContent,
@@ -71,6 +72,11 @@ const INITIAL_EDIT_FORM = {
   shift_id: "",
   is_active: true,
 };
+
+interface SocietyOption {
+  id: string;
+  society_name: string;
+}
 
 export default function SecurityCommandPage() {
   const {
@@ -122,6 +128,11 @@ export default function SecurityCommandPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editForm, setEditForm] = useState(INITIAL_EDIT_FORM);
   const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
+  const [societyDialogOpen, setSocietyDialogOpen] = useState(false);
+  const [societies, setSocieties] = useState<SocietyOption[]>([]);
+  const [selectedSocietyId, setSelectedSocietyId] = useState("");
+  const [isLoadingSocieties, setIsLoadingSocieties] = useState(false);
+  const [isSubmittingSociety, setIsSubmittingSociety] = useState(false);
 
   const selectedShift = shifts.find((shift) => shift.id === onboardForm.shift_id);
   const selectedEditShift = shifts.find((shift) => shift.id === editForm.shift_id);
@@ -148,6 +159,35 @@ export default function SecurityCommandPage() {
       is_active: guard.is_active,
     });
     setEditDialogOpen(true);
+  };
+
+  const openSocietyDialog = async (guard: SecurityGuard) => {
+    setSelectedGuard(guard);
+    setSelectedSocietyId(guard.society_id || "");
+    setSocietyDialogOpen(true);
+
+    if (societies.length > 0) {
+      return;
+    }
+
+    setIsLoadingSocieties(true);
+    try {
+      const { data, error } = await supabase
+        .from("societies")
+        .select("id, society_name")
+        .eq("is_active", true)
+        .order("society_name", { ascending: true });
+
+      if (error) {
+        throw error;
+      }
+
+      setSocieties((data || []) as SocietyOption[]);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to load societies");
+    } finally {
+      setIsLoadingSocieties(false);
+    }
   };
 
   const handleSaveGuard = async () => {
@@ -179,6 +219,37 @@ export default function SecurityCommandPage() {
       toast.error(error instanceof Error ? error.message : "Failed to update guard");
     } finally {
       setIsSubmittingEdit(false);
+    }
+  };
+
+  const handleAssignSociety = async () => {
+    if (!selectedGuard || !selectedSocietyId) {
+      toast.error("Select a society to continue.");
+      return;
+    }
+
+    setIsSubmittingSociety(true);
+    try {
+      const response = await fetch(`/api/admin/guards/${selectedGuard.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ society_id: selectedSocietyId }),
+      });
+
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to assign society");
+      }
+
+      toast.success(`Guard linked to ${payload.society_name}`);
+      setSocietyDialogOpen(false);
+      setSelectedGuard(null);
+      setSelectedSocietyId("");
+      refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to assign society");
+    } finally {
+      setIsSubmittingSociety(false);
     }
   };
 
@@ -275,6 +346,15 @@ export default function SecurityCommandPage() {
             {row.original.assigned_location?.location_name || "Unassigned"}
           </span>
         </div>
+      ),
+    },
+    {
+      id: "society",
+      header: "Society",
+      cell: ({ row }) => (
+        <span className="text-sm">
+          {row.original.society?.society_name || "Unassigned"}
+        </span>
       ),
     },
     {
@@ -395,6 +475,9 @@ export default function SecurityCommandPage() {
               ) : null}
               <DropdownMenuItem onClick={() => openEditDialog(row.original)}>
                 Edit Assignment
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => void openSocietyDialog(row.original)}>
+                Assign to Society
               </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
@@ -825,6 +908,59 @@ export default function SecurityCommandPage() {
               </DialogFooter>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={societyDialogOpen}
+        onOpenChange={(open) => {
+          setSocietyDialogOpen(open);
+          if (!open) {
+            setSelectedGuard(null);
+            setSelectedSocietyId("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Assign Guard to Society</DialogTitle>
+            <DialogDescription>
+              Link this guard profile to the society they are responsible for.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="rounded-lg border bg-muted/40 p-3">
+              <p className="text-sm font-bold">
+                {selectedGuard?.employee?.first_name} {selectedGuard?.employee?.last_name}
+              </p>
+              <p className="text-xs text-muted-foreground">{selectedGuard?.guard_code}</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="guard_assign_society">Society</Label>
+              <Select
+                value={selectedSocietyId}
+                onValueChange={setSelectedSocietyId}
+                disabled={isLoadingSocieties}
+              >
+                <SelectTrigger id="guard_assign_society">
+                  <SelectValue placeholder={isLoadingSocieties ? "Loading societies..." : "Select society"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {societies.map((society) => (
+                    <SelectItem key={society.id} value={society.id}>
+                      {society.society_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSocietyDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleAssignSociety} disabled={isSubmittingSociety || isLoadingSocieties || !selectedSocietyId}>
+              {isSubmittingSociety ? "Saving..." : "Assign Society"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

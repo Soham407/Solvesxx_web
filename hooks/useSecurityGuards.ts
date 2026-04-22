@@ -26,6 +26,7 @@ export interface SecurityGuard {
   license_number: string | null;
   license_expiry: string | null;
   assigned_location_id: string | null;
+  society_id: string | null;
   shift_timing: string | null;
   is_active: boolean;
   created_at: string;
@@ -44,6 +45,9 @@ export interface SecurityGuard {
     longitude: number | null;
     geo_fence_radius: number | null;
   };
+  society?: {
+    society_name: string;
+  } | null;
   // Computed/fetched separately
   lastLocation?: GuardLocation;
   attendance?: {
@@ -83,6 +87,11 @@ export interface GuardFilters {
   locationId?: string;
 }
 
+interface SocietyOption {
+  id: string;
+  society_name: string;
+}
+
 export function useSecurityGuards(initialFilters?: GuardFilters) {
   const { toast } = useToast();
   const [guards, setGuards] = useState<SecurityGuard[]>([]);
@@ -110,7 +119,7 @@ export function useSecurityGuards(initialFilters?: GuardFilters) {
     setError(null);
 
     try {
-      let query = supabase
+      let query = (supabase as any)
         .from("security_guards")
         .select(`
           *,
@@ -134,7 +143,31 @@ export function useSecurityGuards(initialFilters?: GuardFilters) {
 
       // Map Supabase response to SecurityGuard interface
       // PostgREST returns joined data for employee and assigned_location as nested objects
-      const typedData: SecurityGuard[] = (data || []).map((row) => ({
+      const societyIds = Array.from(
+        new Set(
+          ((data || []) as any[])
+            .map((row) => row.society_id)
+            .filter((societyId): societyId is string => typeof societyId === "string" && societyId.length > 0),
+        ),
+      );
+
+      const { data: societyData, error: societyError } = societyIds.length
+        ? await (supabase as any)
+            .from("societies")
+            .select("id, society_name")
+            .in("id", societyIds)
+        : { data: [], error: null };
+
+      if (societyError) throw societyError;
+
+      const societyMap = new Map<string, SecurityGuard["society"]>(
+        ((societyData || []) as SocietyOption[]).map((society) => [
+          society.id,
+          { society_name: society.society_name },
+        ]),
+      );
+
+      const typedData: SecurityGuard[] = ((data || []) as any[]).map((row) => ({
         id: row.id,
         employee_id: row.employee_id,
         guard_code: row.guard_code,
@@ -143,11 +176,13 @@ export function useSecurityGuards(initialFilters?: GuardFilters) {
         license_number: row.license_number,
         license_expiry: row.license_expiry,
         assigned_location_id: row.assigned_location_id,
+        society_id: row.society_id ?? null,
         shift_timing: row.shift_timing,
         is_active: row.is_active,
         created_at: row.created_at,
         employee: row.employee as SecurityGuard["employee"],
         assigned_location: row.assigned_location as SecurityGuard["assigned_location"],
+        society: societyMap.get(row.society_id) ?? null,
       }));
 
       const { data: assignmentsData, error: assignmentsError } = await supabase
