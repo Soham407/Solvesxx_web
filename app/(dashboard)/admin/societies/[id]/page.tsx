@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ColumnDef } from "@tanstack/react-table";
-import { MoreHorizontal, Plus, Layers } from "lucide-react";
+import { Layers, MoreHorizontal, Plus } from "lucide-react";
 
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTable } from "@/components/shared/DataTable";
@@ -22,7 +22,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
@@ -109,7 +108,13 @@ export default function SocietyDetailPage() {
       if (result.success) setDialogOpen(false);
     } else {
       const result = await createBuilding(form);
-      if (result.success) setDialogOpen(false);
+      if (result.success) {
+        setDialogOpen(false);
+        // Auto-navigate to the new building so the user can add flats immediately
+        if (result.data?.id) {
+          router.push(`/admin/societies/${id}/buildings/${result.data.id}`);
+        }
+      }
     }
   }
 
@@ -152,35 +157,45 @@ export default function SocietyDetailPage() {
       {
         id: "actions",
         cell: ({ row }) => (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={() =>
-                  router.push(`/admin/societies/${id}/buildings/${row.original.id}`)
-                }
-              >
-                <Layers className="mr-2 h-4 w-4" />
-                View Flats
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => openEdit(row.original)}>
-                Edit Building
-              </DropdownMenuItem>
-              {row.original.is_active && (
-                <DropdownMenuItem
-                  className="text-destructive"
-                  onClick={() => deactivateBuilding(row.original.id)}
+          <div className="flex items-center gap-2 justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs"
+              onClick={(e) => {
+                e.stopPropagation();
+                router.push(`/admin/societies/${id}/buildings/${row.original.id}`);
+              }}
+            >
+              <Layers className="mr-1.5 h-3.5 w-3.5" />
+              Flats
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  Deactivate
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => openEdit(row.original)}>
+                  Edit Building
                 </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+                {row.original.is_active && (
+                  <DropdownMenuItem
+                    className="text-destructive"
+                    onClick={() => deactivateBuilding(row.original.id)}
+                  >
+                    Deactivate
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         ),
       },
     ],
@@ -228,7 +243,7 @@ export default function SocietyDetailPage() {
             <DialogDescription>
               {editing
                 ? "Update building details below."
-                : `Add a new building to ${society?.society_name ?? "this society"}.`}
+                : `Add a new building — you'll be taken to its flats page right after.`}
             </DialogDescription>
           </DialogHeader>
 
@@ -300,7 +315,7 @@ export default function SocietyDetailPage() {
                   isUpdating
                 }
               >
-                {editing ? "Save Changes" : "Add Building"}
+                {editing ? "Save Changes" : "Add & Go to Flats →"}
               </Button>
             </div>
           </div>
