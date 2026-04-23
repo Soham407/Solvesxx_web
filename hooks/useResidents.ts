@@ -34,6 +34,11 @@ export interface CreateResidentPayload {
   society_id: string;
 }
 
+export interface CreateResidentResult {
+  resident: ResidentRow | null;
+  temp_password: string;
+}
+
 export interface UpdateResidentPayload {
   id: string;
   first_name?: string;
@@ -202,7 +207,7 @@ export function useResidents() {
 
   const { execute: createResident, isLoading: isCreating } = useSupabaseMutation<
     CreateResidentPayload,
-    ResidentRow
+    CreateResidentResult
   >(
     async (payload) => {
       const res = await fetch("/api/admin/residents", {
@@ -213,7 +218,7 @@ export function useResidents() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed to create resident");
       query.refresh();
-      return json.data;
+      return { resident: json.data, temp_password: json.temp_password as string };
     },
     { successMessage: "Resident created" },
   );

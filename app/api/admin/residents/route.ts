@@ -362,9 +362,13 @@ export async function POST(request: NextRequest) {
 
     const residentRoleId = await fetchResidentRoleId(auth.supabaseAdmin);
 
+    const phoneLast4 = payload.phone.replace(/\D/g, "").slice(-4).padStart(4, "0");
+    const tempPassword = `Resident@${phoneLast4}`;
+
     const { data: authUser, error: createAuthError } = await auth.supabaseAdmin.auth.admin.createUser({
       email: payload.email,
       phone: payload.phone,
+      password: tempPassword,
       email_confirm: true,
       phone_confirm: true,
       user_metadata: {
@@ -421,7 +425,7 @@ export async function POST(request: NextRequest) {
         phone: payload.phone,
         role_id: residentRoleId,
         username,
-        must_change_password: false,
+        must_change_password: true,
         is_active: true,
       });
 
@@ -462,7 +466,7 @@ export async function POST(request: NextRequest) {
     const data = await fetchResidentList(auth.supabaseAdmin, payload.society_id);
     const createdResident = data.find((resident) => resident.id === residentRow?.id) ?? null;
 
-    return NextResponse.json({ data: createdResident }, { status: 201 });
+    return NextResponse.json({ data: createdResident, temp_password: tempPassword }, { status: 201 });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to create resident" },

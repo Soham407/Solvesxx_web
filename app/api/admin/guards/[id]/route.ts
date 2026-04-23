@@ -224,13 +224,18 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const employeeId = employeeResult.data.id;
     const authUserId = employeeResult.data.auth_user_id;
 
+    const guardFieldUpdate: Record<string, unknown> = {
+      assigned_location_id: parsed.data.assigned_location_id!,
+      shift_timing: null,
+      is_active: parsed.data.is_active!,
+    };
+    if (parsed.data.society_id) {
+      guardFieldUpdate.society_id = parsed.data.society_id;
+    }
+
     const { error: guardUpdateError } = await supabaseAdmin
       .from("security_guards")
-        .update({
-        assigned_location_id: parsed.data.assigned_location_id!,
-        shift_timing: null,
-        is_active: parsed.data.is_active!,
-      })
+      .update(guardFieldUpdate)
       .eq("id", params.id);
 
     if (guardUpdateError) throw guardUpdateError;

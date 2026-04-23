@@ -54,17 +54,24 @@ export function useGuardChecklist(employeeId: string | null) {
       const today = new Date();
       const todayStr = today.toISOString().split("T")[0];
 
-      // Fetch the security department checklist
-      const { data: checklist, error: checklistError } = await supabase
-        .from("daily_checklists")
-        .select("id, checklist_name, questions")
-        .eq("department", "security")
+      // Fetch the first active checklist assigned to this guard
+      const { data: assignment, error: assignmentError } = await supabase
+        .from("checklist_assignments")
+        .select("checklist:daily_checklists(id, checklist_name, questions)")
+        .eq("employee_id", employeeId)
         .eq("is_active", true)
+        .limit(1)
         .maybeSingle();
 
-      if (checklistError) {
-        throw checklistError;
+      if (assignmentError) {
+        throw assignmentError;
       }
+
+      const checklist = assignment
+        ? (Array.isArray(assignment.checklist)
+            ? assignment.checklist[0]
+            : assignment.checklist) as { id: string; checklist_name: string; questions: unknown } | null
+        : null;
 
       if (!checklist) {
         // No checklist defined yet

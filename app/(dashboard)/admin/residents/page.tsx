@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ColumnDef } from "@tanstack/react-table";
-import { MoreHorizontal, Plus } from "lucide-react";
+import { Copy, MoreHorizontal, Plus } from "lucide-react";
 
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTable } from "@/components/shared/DataTable";
@@ -36,6 +36,7 @@ import {
   UpdateResidentPayload,
   useResidents,
 } from "@/hooks/useResidents";
+import { toast } from "sonner";
 import { supabase } from "@/src/lib/supabaseClient";
 
 interface SocietyOption {
@@ -95,6 +96,8 @@ export default function ResidentsPage() {
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [credentialsDialogOpen, setCredentialsDialogOpen] = useState(false);
+  const [newCredentials, setNewCredentials] = useState<{ email: string; password: string } | null>(null);
   const [createForm, setCreateForm] = useState<CreateResidentPayload>(emptyCreateForm);
   const [editForm, setEditForm] = useState<UpdateResidentPayload>(emptyEditForm);
   const [societies, setSocieties] = useState<SocietyOption[]>([]);
@@ -227,12 +230,14 @@ export default function ResidentsPage() {
       flat_id: createForm.flat_id,
     });
 
-    if (result.success) {
+    if (result.success && result.data) {
       setCreateDialogOpen(false);
       setCreateForm(emptyCreateForm);
       setSelectedBuildingId("");
       setBuildings([]);
       setFlats([]);
+      setNewCredentials({ email: result.data.resident?.email ?? "", password: result.data.temp_password });
+      setCredentialsDialogOpen(true);
     }
   }
 
@@ -578,6 +583,57 @@ export default function ResidentsPage() {
                 {isUpdating ? "Saving..." : "Save Changes"}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={credentialsDialogOpen} onOpenChange={setCredentialsDialogOpen}>
+        <DialogContent className="sm:max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle>Resident Account Created</DialogTitle>
+            <DialogDescription>
+              Share these temporary credentials with the resident. They will be prompted to change
+              their password on first login.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 rounded-lg border bg-muted/40 p-4">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Email</p>
+              <div className="flex items-center gap-2">
+                <p className="flex-1 font-mono text-sm">{newCredentials?.email}</p>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(newCredentials?.email ?? "");
+                    toast.success("Email copied");
+                  }}
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Temporary Password</p>
+              <div className="flex items-center gap-2">
+                <p className="flex-1 font-mono text-sm">{newCredentials?.password}</p>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(newCredentials?.password ?? "");
+                    toast.success("Password copied");
+                  }}
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <Button onClick={() => setCredentialsDialogOpen(false)}>Done</Button>
           </div>
         </DialogContent>
       </Dialog>
