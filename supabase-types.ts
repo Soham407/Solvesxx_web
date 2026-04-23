@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -11,6 +11,31 @@ export type Database = {
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.1"
+  }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
@@ -872,6 +897,106 @@ export type Database = {
           },
         ]
       }
+      checklist_assignments: {
+        Row: {
+          assigned_at: string | null
+          assigned_by: string | null
+          checklist_id: string
+          employee_id: string
+          id: string
+          is_active: boolean
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          checklist_id: string
+          employee_id: string
+          id?: string
+          is_active?: boolean
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          checklist_id?: string
+          employee_id?: string
+          id?: string
+          is_active?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_assignments_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "daily_checklists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_assignments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklist_response_override_audit: {
+        Row: {
+          acted_at: string
+          acted_by: string
+          checklist_id: string
+          employee_id: string
+          guard_id: string | null
+          id: string
+          reason: string | null
+          response_id: string
+          status: string
+        }
+        Insert: {
+          acted_at?: string
+          acted_by: string
+          checklist_id: string
+          employee_id: string
+          guard_id?: string | null
+          id?: string
+          reason?: string | null
+          response_id: string
+          status: string
+        }
+        Update: {
+          acted_at?: string
+          acted_by?: string
+          checklist_id?: string
+          employee_id?: string
+          guard_id?: string | null
+          id?: string
+          reason?: string | null
+          response_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_response_override_audit_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_response_override_audit_guard_id_fkey"
+            columns: ["guard_id"]
+            isOneToOne: false
+            referencedRelation: "security_guards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_response_override_audit_response_id_fkey"
+            columns: ["response_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_responses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checklist_responses: {
         Row: {
           checklist_id: string
@@ -883,6 +1008,10 @@ export type Database = {
           latitude: number | null
           location_id: string | null
           longitude: number | null
+          overridden_at: string | null
+          overridden_by: string | null
+          override_reason: string | null
+          override_status: string
           response_date: string
           responses: Json
           submitted_at: string | null
@@ -897,6 +1026,10 @@ export type Database = {
           latitude?: number | null
           location_id?: string | null
           longitude?: number | null
+          overridden_at?: string | null
+          overridden_by?: string | null
+          override_reason?: string | null
+          override_status?: string
           response_date: string
           responses: Json
           submitted_at?: string | null
@@ -911,6 +1044,10 @@ export type Database = {
           latitude?: number | null
           location_id?: string | null
           longitude?: number | null
+          overridden_at?: string | null
+          overridden_by?: string | null
+          override_reason?: string | null
+          override_status?: string
           response_date?: string
           responses?: Json
           submitted_at?: string | null
@@ -1181,10 +1318,15 @@ export type Database = {
           created_at: string | null
           description: string | null
           id: string
+          input_type: string
           is_active: boolean
+          numeric_max_value: number | null
+          numeric_min_value: number | null
+          numeric_unit_label: string | null
           priority: number
           requires_photo: boolean
           requires_signature: boolean
+          requires_supervisor_override: boolean
           shift_id: string | null
           task_name: string
           updated_at: string | null
@@ -1195,10 +1337,15 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           id?: string
+          input_type?: string
           is_active?: boolean
+          numeric_max_value?: number | null
+          numeric_min_value?: number | null
+          numeric_unit_label?: string | null
           priority?: number
           requires_photo?: boolean
           requires_signature?: boolean
+          requires_supervisor_override?: boolean
           shift_id?: string | null
           task_name: string
           updated_at?: string | null
@@ -1209,10 +1356,15 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           id?: string
+          input_type?: string
           is_active?: boolean
+          numeric_max_value?: number | null
+          numeric_min_value?: number | null
+          numeric_unit_label?: string | null
           priority?: number
           requires_photo?: boolean
           requires_signature?: boolean
+          requires_supervisor_override?: boolean
           shift_id?: string | null
           task_name?: string
           updated_at?: string | null
@@ -2316,6 +2468,134 @@ export type Database = {
           tracked_at?: string
         }
         Relationships: []
+      }
+      guard_gps_tracking: {
+        Row: {
+          accuracy_meters: number | null
+          created_at: string | null
+          guard_id: string
+          id: string
+          is_within_fence: boolean | null
+          latitude: number
+          longitude: number
+          recorded_at: string | null
+          shift_id: string | null
+        }
+        Insert: {
+          accuracy_meters?: number | null
+          created_at?: string | null
+          guard_id: string
+          id?: string
+          is_within_fence?: boolean | null
+          latitude: number
+          longitude: number
+          recorded_at?: string | null
+          shift_id?: string | null
+        }
+        Update: {
+          accuracy_meters?: number | null
+          created_at?: string | null
+          guard_id?: string
+          id?: string
+          is_within_fence?: boolean | null
+          latitude?: number
+          longitude?: number
+          recorded_at?: string | null
+          shift_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guard_gps_tracking_guard_id_fkey"
+            columns: ["guard_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guard_gps_tracking_shift_id_fkey"
+            columns: ["shift_id"]
+            isOneToOne: false
+            referencedRelation: "shifts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guard_panic_alerts: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          created_at: string | null
+          guard_id: string
+          id: string
+          latitude: number
+          longitude: number
+          resolution_notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          shift_id: string | null
+          status: string | null
+          triggered_at: string | null
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          created_at?: string | null
+          guard_id: string
+          id?: string
+          latitude: number
+          longitude: number
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          shift_id?: string | null
+          status?: string | null
+          triggered_at?: string | null
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          created_at?: string | null
+          guard_id?: string
+          id?: string
+          latitude?: number
+          longitude?: number
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          shift_id?: string | null
+          status?: string | null
+          triggered_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guard_panic_alerts_acknowledged_by_fkey"
+            columns: ["acknowledged_by"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guard_panic_alerts_guard_id_fkey"
+            columns: ["guard_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guard_panic_alerts_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guard_panic_alerts_shift_id_fkey"
+            columns: ["shift_id"]
+            isOneToOne: false
+            referencedRelation: "shifts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       guard_patrol_logs: {
         Row: {
@@ -3696,6 +3976,7 @@ export type Database = {
           channel: string
           error_message: string | null
           id: string
+          notification_id: string | null
           recipient_phone: string | null
           sent_at: string | null
           status: string
@@ -3705,6 +3986,7 @@ export type Database = {
           channel: string
           error_message?: string | null
           id?: string
+          notification_id?: string | null
           recipient_phone?: string | null
           sent_at?: string | null
           status: string
@@ -3714,16 +3996,30 @@ export type Database = {
           channel?: string
           error_message?: string | null
           id?: string
+          notification_id?: string | null
           recipient_phone?: string | null
           sent_at?: string | null
           status?: string
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "notification_logs_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notifications: {
         Row: {
+          action_url: string | null
           created_at: string | null
+          data: Json
+          delivered_at: string | null
+          delivery_state: string
+          fallback_state: string
           id: string
           is_read: boolean | null
           message: string
@@ -3732,11 +4028,17 @@ export type Database = {
           read_at: string | null
           reference_id: string | null
           reference_type: string | null
+          sms_fallback_at: string | null
           title: string
           user_id: string
         }
         Insert: {
+          action_url?: string | null
           created_at?: string | null
+          data?: Json
+          delivered_at?: string | null
+          delivery_state?: string
+          fallback_state?: string
           id?: string
           is_read?: boolean | null
           message: string
@@ -3745,11 +4047,17 @@ export type Database = {
           read_at?: string | null
           reference_id?: string | null
           reference_type?: string | null
+          sms_fallback_at?: string | null
           title: string
           user_id: string
         }
         Update: {
+          action_url?: string | null
           created_at?: string | null
+          data?: Json
+          delivered_at?: string | null
+          delivery_state?: string
+          fallback_state?: string
           id?: string
           is_read?: boolean | null
           message?: string
@@ -3758,13 +4066,132 @@ export type Database = {
           read_at?: string | null
           reference_id?: string | null
           reference_type?: string | null
+          sms_fallback_at?: string | null
           title?: string
           user_id?: string
         }
         Relationships: []
       }
+      oversight_tickets: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          batch_number: string | null
+          category: string
+          created_at: string
+          created_by: string
+          evidence_urls: Json
+          id: string
+          inspection_outcome: string | null
+          linked_employee_id: string | null
+          location_name: string | null
+          material_issue_type: string | null
+          note: string
+          ordered_quantity: number | null
+          parent_ticket_id: string | null
+          received_quantity: number | null
+          resolution_notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          return_quantity: number | null
+          severity: string
+          shortage_quantity: number | null
+          source_visitor_id: string | null
+          status: string
+          subject_name: string
+          ticket_number: string | null
+          ticket_type: string
+          updated_at: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          batch_number?: string | null
+          category: string
+          created_at?: string
+          created_by: string
+          evidence_urls?: Json
+          id?: string
+          inspection_outcome?: string | null
+          linked_employee_id?: string | null
+          location_name?: string | null
+          material_issue_type?: string | null
+          note: string
+          ordered_quantity?: number | null
+          parent_ticket_id?: string | null
+          received_quantity?: number | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          return_quantity?: number | null
+          severity?: string
+          shortage_quantity?: number | null
+          source_visitor_id?: string | null
+          status?: string
+          subject_name: string
+          ticket_number?: string | null
+          ticket_type: string
+          updated_at?: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          batch_number?: string | null
+          category?: string
+          created_at?: string
+          created_by?: string
+          evidence_urls?: Json
+          id?: string
+          inspection_outcome?: string | null
+          linked_employee_id?: string | null
+          location_name?: string | null
+          material_issue_type?: string | null
+          note?: string
+          ordered_quantity?: number | null
+          parent_ticket_id?: string | null
+          received_quantity?: number | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          return_quantity?: number | null
+          severity?: string
+          shortage_quantity?: number | null
+          source_visitor_id?: string | null
+          status?: string
+          subject_name?: string
+          ticket_number?: string | null
+          ticket_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "oversight_tickets_linked_employee_id_fkey"
+            columns: ["linked_employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "oversight_tickets_parent_ticket_id_fkey"
+            columns: ["parent_ticket_id"]
+            isOneToOne: false
+            referencedRelation: "oversight_tickets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "oversight_tickets_source_visitor_id_fkey"
+            columns: ["source_visitor_id"]
+            isOneToOne: false
+            referencedRelation: "visitors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       panic_alerts: {
         Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          acknowledged_notes: string | null
           alert_time: string | null
           alert_type: Database["public"]["Enums"]["alert_type"]
           created_at: string | null
@@ -3775,11 +4202,17 @@ export type Database = {
           latitude: number | null
           location_id: string | null
           longitude: number | null
+          metadata: Json
+          photo_url: string | null
           resolution_notes: string | null
           resolved_at: string | null
           resolved_by: string | null
+          streaming_active: boolean
         }
         Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          acknowledged_notes?: string | null
           alert_time?: string | null
           alert_type: Database["public"]["Enums"]["alert_type"]
           created_at?: string | null
@@ -3790,11 +4223,17 @@ export type Database = {
           latitude?: number | null
           location_id?: string | null
           longitude?: number | null
+          metadata?: Json
+          photo_url?: string | null
           resolution_notes?: string | null
           resolved_at?: string | null
           resolved_by?: string | null
+          streaming_active?: boolean
         }
         Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          acknowledged_notes?: string | null
           alert_time?: string | null
           alert_type?: Database["public"]["Enums"]["alert_type"]
           created_at?: string | null
@@ -3805,9 +4244,12 @@ export type Database = {
           latitude?: number | null
           location_id?: string | null
           longitude?: number | null
+          metadata?: Json
+          photo_url?: string | null
           resolution_notes?: string | null
           resolved_at?: string | null
           resolved_by?: string | null
+          streaming_active?: boolean
         }
         Relationships: [
           {
@@ -3828,7 +4270,7 @@ export type Database = {
             foreignKeyName: "panic_alerts_resolved_by_fkey"
             columns: ["resolved_by"]
             isOneToOne: false
-            referencedRelation: "users"
+            referencedRelation: "employees"
             referencedColumns: ["id"]
           },
         ]
@@ -4252,14 +4694,7 @@ export type Database = {
             foreignKeyName: "personnel_dispatches_service_po_id_fkey"
             columns: ["service_po_id"]
             isOneToOne: false
-            referencedRelation: "purchase_orders"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "personnel_dispatches_service_po_id_fkey"
-            columns: ["service_po_id"]
-            isOneToOne: false
-            referencedRelation: "purchase_orders_with_details"
+            referencedRelation: "service_purchase_orders"
             referencedColumns: ["id"]
           },
           {
@@ -7368,6 +7803,7 @@ export type Database = {
         Row: {
           break_duration_minutes: number | null
           created_at: string | null
+          description: string | null
           duration_hours: number | null
           end_time: string
           grace_time_minutes: number | null
@@ -7382,6 +7818,7 @@ export type Database = {
         Insert: {
           break_duration_minutes?: number | null
           created_at?: string | null
+          description?: string | null
           duration_hours?: number | null
           end_time: string
           grace_time_minutes?: number | null
@@ -7396,6 +7833,7 @@ export type Database = {
         Update: {
           break_duration_minutes?: number | null
           created_at?: string | null
+          description?: string | null
           duration_hours?: number | null
           end_time?: string
           grace_time_minutes?: number | null
@@ -8290,11 +8728,68 @@ export type Database = {
           },
         ]
       }
+      visitor_photo_metadata: {
+        Row: {
+          created_at: string | null
+          file_size_bytes: number | null
+          guard_id: string
+          id: string
+          mime_type: string | null
+          photo_captured_at: string
+          storage_bucket: string | null
+          storage_path: string
+          uploaded_at: string | null
+          visitor_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          file_size_bytes?: number | null
+          guard_id: string
+          id?: string
+          mime_type?: string | null
+          photo_captured_at: string
+          storage_bucket?: string | null
+          storage_path: string
+          uploaded_at?: string | null
+          visitor_id: string
+        }
+        Update: {
+          created_at?: string | null
+          file_size_bytes?: number | null
+          guard_id?: string
+          id?: string
+          mime_type?: string | null
+          photo_captured_at?: string
+          storage_bucket?: string | null
+          storage_path?: string
+          uploaded_at?: string | null
+          visitor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visitor_photo_metadata_guard_id_fkey"
+            columns: ["guard_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visitor_photo_metadata_visitor_id_fkey"
+            columns: ["visitor_id"]
+            isOneToOne: false
+            referencedRelation: "visitors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       visitors: {
         Row: {
+          approval_deadline_at: string | null
+          approval_status: string
           approved_by_resident: boolean | null
           bypass_reason: string | null
           created_at: string | null
+          decision_at: string | null
           entry_guard_id: string | null
           entry_location_id: string | null
           entry_time: string | null
@@ -8303,8 +8798,10 @@ export type Database = {
           flat_id: string | null
           id: string
           is_frequent_visitor: boolean | null
+          notification_sent_at: string | null
           phone: string | null
           photo_url: string | null
+          pii_redacted_at: string | null
           purpose: string | null
           rejection_reason: string | null
           resident_id: string | null
@@ -8314,9 +8811,12 @@ export type Database = {
           visitor_type: string | null
         }
         Insert: {
+          approval_deadline_at?: string | null
+          approval_status?: string
           approved_by_resident?: boolean | null
           bypass_reason?: string | null
           created_at?: string | null
+          decision_at?: string | null
           entry_guard_id?: string | null
           entry_location_id?: string | null
           entry_time?: string | null
@@ -8325,8 +8825,10 @@ export type Database = {
           flat_id?: string | null
           id?: string
           is_frequent_visitor?: boolean | null
+          notification_sent_at?: string | null
           phone?: string | null
           photo_url?: string | null
+          pii_redacted_at?: string | null
           purpose?: string | null
           rejection_reason?: string | null
           resident_id?: string | null
@@ -8336,9 +8838,12 @@ export type Database = {
           visitor_type?: string | null
         }
         Update: {
+          approval_deadline_at?: string | null
+          approval_status?: string
           approved_by_resident?: boolean | null
           bypass_reason?: string | null
           created_at?: string | null
+          decision_at?: string | null
           entry_guard_id?: string | null
           entry_location_id?: string | null
           entry_time?: string | null
@@ -8347,8 +8852,10 @@ export type Database = {
           flat_id?: string | null
           id?: string
           is_frequent_visitor?: boolean | null
+          notification_sent_at?: string | null
           phone?: string | null
           photo_url?: string | null
+          pii_redacted_at?: string | null
           purpose?: string | null
           rejection_reason?: string | null
           resident_id?: string | null
@@ -9649,6 +10156,14 @@ export type Database = {
       }
     }
     Functions: {
+      acknowledge_mobile_panic_alert: {
+        Args: { p_alert_id: string; p_notes?: string }
+        Returns: Json
+      }
+      acknowledge_panic_alert: {
+        Args: { p_acknowledged_by: string; p_alert_id: string }
+        Returns: boolean
+      }
       approve_visitor: {
         Args: { p_user_id: string; p_visitor_id: string }
         Returns: Json
@@ -9690,8 +10205,74 @@ export type Database = {
         }
         Returns: boolean
       }
+      create_behavior_ticket: {
+        Args: {
+          p_category: string
+          p_evidence_urls?: Json
+          p_linked_employee_id?: string
+          p_location_name?: string
+          p_note: string
+          p_severity: string
+          p_subject_name: string
+        }
+        Returns: Json
+      }
+      create_material_ticket: {
+        Args: {
+          p_batch_number?: string
+          p_category: string
+          p_evidence_urls?: Json
+          p_inspection_outcome?: string
+          p_location_name?: string
+          p_material_issue_type: string
+          p_note: string
+          p_ordered_quantity?: number
+          p_received_quantity?: number
+          p_return_quantity?: number
+          p_severity?: string
+          p_source_visitor_id?: string
+          p_subject_name: string
+        }
+        Returns: Json
+      }
+      create_mobile_visitor:
+        | {
+            Args: {
+              p_flat_id: string
+              p_is_frequent_visitor?: boolean
+              p_phone: string
+              p_photo_url?: string
+              p_purpose: string
+              p_vehicle_number?: string
+              p_visitor_name: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_flat_id: string
+              p_is_frequent_visitor?: boolean
+              p_phone: string
+              p_photo_url?: string
+              p_purpose: string
+              p_vehicle_number?: string
+              p_visitor_name: string
+              p_visitor_type?: string
+            }
+            Returns: Json
+          }
       create_po_from_supplier_request: {
         Args: { p_request_id: string }
+        Returns: Json
+      }
+      create_resident_invited_visitor: {
+        Args: {
+          p_phone?: string
+          p_purpose?: string
+          p_vehicle_number?: string
+          p_visitor_name: string
+          p_visitor_type?: string
+        }
         Returns: Json
       }
       deny_visitor: {
@@ -9746,6 +10327,7 @@ export type Database = {
         Args: { p_reconciliation_id: string; p_user_id: string }
         Returns: Json
       }
+      expire_mobile_visitor_decisions: { Args: never; Returns: number }
       force_match_bill: {
         Args: { p_bill_id: string; p_evidence_url?: string; p_reason: string }
         Returns: boolean
@@ -9755,6 +10337,17 @@ export type Database = {
       generate_payroll_cycle: {
         Args: { p_cycle_id: string; p_user_id: string }
         Returns: Json
+      }
+      get_active_panic_alerts: {
+        Args: never
+        Returns: {
+          guard_name: string
+          id: string
+          latitude: number
+          longitude: number
+          status: string
+          triggered_at: string
+        }[]
       }
       get_clocked_in_guards: {
         Args: never
@@ -9792,6 +10385,40 @@ export type Database = {
           total_items: number
         }[]
       }
+      get_guard_checklist_items: {
+        Args: never
+        Returns: {
+          checklist_id: string
+          description: string
+          evidence_url: string
+          input_type: string
+          master_item_id: string
+          numeric_max_value: number
+          numeric_min_value: number
+          numeric_unit_label: string
+          overridden_at: string
+          overridden_by_name: string
+          override_reason: string
+          override_status: string
+          required_evidence: boolean
+          requires_supervisor_override: boolean
+          response_value: string
+          status: string
+          submitted_at: string
+          title: string
+        }[]
+      }
+      get_guard_emergency_contacts: {
+        Args: never
+        Returns: {
+          description: string
+          id: string
+          is_primary: boolean
+          label: string
+          phone: string
+          role: string
+        }[]
+      }
       get_guard_id: { Args: never; Returns: string }
       get_guard_last_position: {
         Args: { p_guard_id: string }
@@ -9802,12 +10429,139 @@ export type Database = {
           tracked_at: string
         }[]
       }
+      get_guard_location_history: {
+        Args: { p_guard_id: string; p_hours_back?: number }
+        Returns: {
+          accuracy_meters: number
+          is_within_fence: boolean
+          latitude: number
+          longitude: number
+          recorded_at: string
+        }[]
+      }
       get_guard_movement_variance: {
         Args: { p_duration_minutes?: number; p_guard_id: string }
         Returns: number
       }
+      get_guard_visitors: {
+        Args: { p_include_checked_out?: boolean }
+        Returns: {
+          approval_deadline_at: string
+          approval_status: string
+          approved_by_resident: boolean
+          decision_at: string
+          entry_location_name: string
+          entry_time: string
+          exit_time: string
+          flat_id: string
+          flat_label: string
+          id: string
+          is_frequent_visitor: boolean
+          phone: string
+          photo_url: string
+          purpose: string
+          rejection_reason: string
+          resident_id: string
+          resident_name: string
+          vehicle_number: string
+          visitor_name: string
+          visitor_type: string
+        }[]
+      }
+      get_mobile_oversight_tickets: {
+        Args: never
+        Returns: {
+          batch_number: string
+          category: string
+          created_at: string
+          evidence_urls: Json
+          id: string
+          inspection_outcome: string
+          location_name: string
+          material_issue_type: string
+          note: string
+          ordered_quantity: number
+          parent_ticket_id: string
+          received_quantity: number
+          return_quantity: number
+          severity: string
+          shortage_quantity: number
+          source_visitor_id: string
+          status: string
+          subject_name: string
+          ticket_number: string
+          ticket_type: string
+        }[]
+      }
       get_my_app_role: { Args: never; Returns: string }
       get_next_rtv_number: { Args: never; Returns: string }
+      get_oversight_alert_feed: {
+        Args: never
+        Returns: {
+          alert_type: string
+          created_at: string
+          guard_id: string
+          guard_name: string
+          id: string
+          location_name: string
+          note: string
+          status: string
+        }[]
+      }
+      get_oversight_attendance_log: {
+        Args: never
+        Returns: {
+          check_in_at: string
+          check_out_at: string
+          employee_name: string
+          geo_status: string
+          id: string
+          location_name: string
+          role_label: string
+          status: string
+        }[]
+      }
+      get_oversight_live_guards: {
+        Args: never
+        Returns: {
+          assigned_location_name: string
+          checklist_completed: number
+          checklist_total: number
+          current_shift_label: string
+          guard_code: string
+          guard_name: string
+          id: string
+          last_seen_at: string
+          latitude: number
+          longitude: number
+          status: string
+          visitors_handled_today: number
+        }[]
+      }
+      get_oversight_visitor_stats: {
+        Args: never
+        Returns: {
+          delivery_vehicles: number
+          gate_name: string
+          id: string
+          pending_approvals: number
+          visitors_this_week: number
+          visitors_today: number
+        }[]
+      }
+      get_panic_alert_status: { Args: { p_alert_id: string }; Returns: string }
+      get_pending_material_delivery_events: {
+        Args: never
+        Returns: {
+          entry_time: string
+          gate_name: string
+          id: string
+          photo_url: string
+          purpose: string
+          vehicle_number: string
+          visitor_name: string
+        }[]
+      }
       get_qr_batch_statistics: {
         Args: { p_society_id: string }
         Returns: {
@@ -9819,6 +10573,24 @@ export type Database = {
         }[]
       }
       get_resident_id: { Args: never; Returns: string }
+      get_resident_pending_visitors: {
+        Args: never
+        Returns: {
+          approval_deadline_at: string
+          approval_status: string
+          entry_time: string
+          flat_id: string
+          flat_label: string
+          id: string
+          is_frequent_visitor: boolean
+          phone: string
+          photo_url: string
+          purpose: string
+          rejection_reason: string
+          vehicle_number: string
+          visitor_name: string
+        }[]
+      }
       get_shift_checklist_items: {
         Args: { p_shift_id: string }
         Returns: {
@@ -10036,6 +10808,25 @@ export type Database = {
         }
         Returns: string
       }
+      map_leave_type_to_attendance_status: {
+        Args: { p_leave_type: string }
+        Returns: string
+      }
+      mobile_insert_notification: {
+        Args: {
+          p_action_url?: string
+          p_body: string
+          p_data?: Json
+          p_delivery_state?: string
+          p_fallback_state?: string
+          p_priority?: string
+          p_sms_fallback_at?: string
+          p_title: string
+          p_type: string
+          p_user_id: string
+        }
+        Returns: string
+      }
       proc_check_login_blocked: {
         Args: { p_ip: unknown }
         Returns: {
@@ -10053,6 +10844,44 @@ export type Database = {
         }[]
       }
       process_overdue_alerts: { Args: never; Returns: undefined }
+      purge_expired_visitor_personal_data: { Args: never; Returns: number }
+      record_guard_gps_tracking: {
+        Args: {
+          p_accuracy_meters?: number
+          p_guard_id: string
+          p_is_within_fence?: boolean
+          p_latitude: number
+          p_longitude: number
+          p_shift_id?: string
+        }
+        Returns: string
+      }
+      reopen_guard_checklist: {
+        Args: { p_checklist_id?: string; p_guard_id: string; p_reason: string }
+        Returns: Json
+      }
+      resolve_mobile_panic_alert: {
+        Args: { p_alert_id: string; p_notes?: string }
+        Returns: Json
+      }
+      resolve_panic_alert: {
+        Args: {
+          p_alert_id: string
+          p_resolution_notes?: string
+          p_resolved_by: string
+        }
+        Returns: boolean
+      }
+      search_resident_destinations: {
+        Args: { p_search?: string }
+        Returns: {
+          flat_id: string
+          flat_label: string
+          resident_id: string
+          resident_name: string
+          resident_phone: string
+        }[]
+      }
       search_residents: {
         Args: { p_query: string; p_society_id?: string }
         Returns: {
@@ -10065,9 +10894,60 @@ export type Database = {
           profile_photo_url: string
         }[]
       }
+      send_custom_sms: {
+        Args: { p_message: string; p_phone_number: string }
+        Returns: Json
+      }
+      send_panic_alert_sms: {
+        Args: {
+          p_alert_type: string
+          p_guard_name: string
+          p_guard_phone?: string
+          p_latitude?: number
+          p_longitude?: number
+          p_manager_phone?: string
+        }
+        Returns: Json
+      }
+      send_push_notification_to_manager: {
+        Args: {
+          p_alert_type: string
+          p_guard_name: string
+          p_latitude?: number
+          p_longitude?: number
+        }
+        Returns: Json
+      }
+      service_request_can_bridge_to_bill_generated: {
+        Args: { p_request_id: string }
+        Returns: boolean
+      }
+      set_resident_frequent_visitor: {
+        Args: { p_is_frequent: boolean; p_visitor_id: string }
+        Returns: Json
+      }
+      start_mobile_panic_alert: {
+        Args: {
+          p_alert_type?: string
+          p_description?: string
+          p_latitude?: number
+          p_longitude?: number
+          p_metadata?: Json
+          p_photo_url?: string
+        }
+        Returns: Json
+      }
       start_service_task: {
         Args: { p_before_photo_url?: string; p_request_id: string }
         Returns: boolean
+      }
+      submit_mobile_guard_checklist: {
+        Args: {
+          p_checklist_id: string
+          p_is_complete?: boolean
+          p_responses: Json
+        }
+        Returns: Json
       }
       supplier_transition_service_po_status: {
         Args: {
@@ -10078,6 +10958,10 @@ export type Database = {
           p_spo_id: string
         }
         Returns: Json
+      }
+      sync_leave_application_attendance: {
+        Args: { p_leave_application_id: string }
+        Returns: undefined
       }
       text_to_bytea: { Args: { data: string }; Returns: string }
       transition_po_status: {
@@ -10092,11 +10976,56 @@ export type Database = {
         Returns: Json
       }
       trigger_checklist_check: { Args: never; Returns: undefined }
+      trigger_daily_mobile_checklist_reminders: {
+        Args: never
+        Returns: undefined
+      }
       trigger_inactivity_check: { Args: never; Returns: undefined }
+      trigger_mobile_notification_queue: { Args: never; Returns: undefined }
+      trigger_panic_alert: {
+        Args: {
+          p_guard_id: string
+          p_latitude: number
+          p_longitude: number
+          p_shift_id?: string
+        }
+        Returns: string
+      }
       trigger_shift_end_checklist_reminder: { Args: never; Returns: undefined }
+      update_oversight_ticket_status: {
+        Args: {
+          p_resolution_notes?: string
+          p_status: string
+          p_ticket_id: string
+        }
+        Returns: Json
+      }
+      update_panic_alert_location: {
+        Args: {
+          p_alert_id: string
+          p_captured_at?: string
+          p_latitude: number
+          p_longitude: number
+        }
+        Returns: boolean
+      }
       update_po_receipt_status: {
         Args: { p_po_id: string; p_user_id: string }
         Returns: Json
+      }
+      upsert_employee_salary_component: {
+        Args: {
+          p_amount: number
+          p_component_id: string
+          p_effective_from: string
+          p_employee_id: string
+          p_notes?: string
+        }
+        Returns: string
+      }
+      upsert_push_token: {
+        Args: { p_device_type?: string; p_token: string; p_token_type?: string }
+        Returns: string
       }
       urlencode:
         | { Args: { data: Json }; Returns: string }
@@ -10172,11 +11101,11 @@ export type Database = {
         | "offer_letter"
         | "relieving_letter"
         | "address_proof"
-        | "psara_license"
-        | "id_proof"
         | "police_verification"
         | "medical_certificate"
         | "other"
+        | "psara_license"
+        | "id_proof"
       financial_period_status: "open" | "closing" | "closed"
       financial_period_type: "monthly" | "quarterly" | "yearly"
       grn_item_quality_status: "accepted" | "rejected" | "partial"
@@ -10438,6 +11367,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       alert_type: [
@@ -10491,11 +11423,11 @@ export const Constants = {
         "offer_letter",
         "relieving_letter",
         "address_proof",
-        "psara_license",
-        "id_proof",
         "police_verification",
         "medical_certificate",
         "other",
+        "psara_license",
+        "id_proof",
       ],
       financial_period_status: ["open", "closing", "closed"],
       financial_period_type: ["monthly", "quarterly", "yearly"],
