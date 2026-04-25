@@ -357,7 +357,7 @@ export default function AdminGuardsPage() {
   const columns = useMemo<ColumnDef<SecurityGuard>[]>(
     () => [
       {
-        accessorKey: "employee.first_name",
+        accessorKey: "guard_code",
         header: "Guard Name",
         cell: ({ row }) => {
           const fullName =
