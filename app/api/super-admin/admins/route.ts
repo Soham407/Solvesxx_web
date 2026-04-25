@@ -194,6 +194,7 @@ export async function POST(request: NextRequest) {
           role_id: roleRecord.id,
           username,
           is_active: true,
+          must_change_password: true,
         },
         { onConflict: "id" }
       )
