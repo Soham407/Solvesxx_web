@@ -51,6 +51,8 @@ const RESIDENT_MANAGEMENT_ROLES = new Set([
   "admin",
   "super_admin",
   "society_manager",
+  "security_supervisor",
+  "security_guard",
 ]);
 
 async function getAuthorizedResidentManager() {
@@ -328,6 +330,11 @@ export async function POST(request: NextRequest) {
   try {
     const auth = await getAuthorizedResidentManager();
     if (auth.error) return auth.error;
+
+    // Restrict creation to non-security roles
+    if (auth.roleName === "security_supervisor" || auth.roleName === "security_guard") {
+      return NextResponse.json({ error: "Forbidden: Security personnel cannot create residents" }, { status: 403 });
+    }
 
     const body = await request.json();
     const parsed = CreateResidentSchema.safeParse(body);

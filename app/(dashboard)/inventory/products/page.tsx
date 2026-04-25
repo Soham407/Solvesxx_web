@@ -49,6 +49,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useProducts, Product } from "@/hooks/useProducts";
 import { useProductCategories } from "@/hooks/useProductCategories";
 import { useProductSubcategories } from "@/hooks/useProductSubcategories";
+import { useAuth } from "@/hooks/useAuth";
 
 interface ProductFormData {
   product_code: string;
@@ -80,6 +81,9 @@ const EMPTY_PRODUCT_FORM: ProductFormData = {
 
 export default function ProductsPage() {
   const { toast } = useToast();
+  const { role } = useAuth();
+  const canManage = role === "admin" || role === "super_admin" || role === "storekeeper";
+  
   const {
     products,
     stats,
@@ -395,124 +399,131 @@ export default function ProductsPage() {
     </div>
   );
 
-  const columns: ColumnDef<Product>[] = [
-    {
-      accessorKey: "product_name",
-      header: "Product Details",
-      cell: ({ row }) => (
-        <div className="flex flex-col gap-1">
-          <span className="font-bold text-sm">{row.original.product_name}</span>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="h-4 px-1.5 py-0 text-[8px] uppercase font-mono">
-              {row.original.product_code}
-            </Badge>
-            {row.original.category && (
-              <span className="text-[10px] text-muted-foreground">
-                {row.original.category.category_name}
-              </span>
-            )}
-          </div>
-        </div>
-      ),
-    },
-    {
-      accessorKey: "current_stock",
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="gap-1 -ml-4"
-        >
-          Stock Level
-          <ArrowUpDown className="h-3 w-3" />
-        </Button>
-      ),
-      cell: ({ row }) => {
-        const stockStatus = getStockStatus(row.original);
-        return (
-          <div className="flex items-center gap-3">
-            <div className="flex flex-col">
-              <span className="text-lg font-bold">{row.original.current_stock}</span>
-              <span className="text-[10px] text-muted-foreground">
-                Min: {row.original.min_stock_level}
-              </span>
+  const columns: ColumnDef<Product>[] = useMemo(() => {
+    const baseColumns: ColumnDef<Product>[] = [
+      {
+        accessorKey: "product_name",
+        header: "Product Details",
+        cell: ({ row }) => (
+          <div className="flex flex-col gap-1">
+            <span className="font-bold text-sm">{row.original.product_name}</span>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="h-4 px-1.5 py-0 text-[8px] uppercase font-mono">
+                {row.original.product_code}
+              </Badge>
+              {row.original.category && (
+                <span className="text-[10px] text-muted-foreground">
+                  {row.original.category.category_name}
+                </span>
+              )}
             </div>
-            <Badge variant="outline" className={cn("text-[10px] font-bold", stockStatus.color)}>
-              {stockStatus.label}
-            </Badge>
           </div>
-        );
+        ),
       },
-    },
-    {
-      accessorKey: "unit_of_measurement",
-      header: "Unit",
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">
-          {row.original.unit_of_measurement || "Pieces"}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "base_rate",
-      header: "Rate",
-      cell: ({ row }) => (
-        <span className="text-sm font-bold">
-          {formatCurrency(row.original.base_rate)}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "status",
-      header: "Status",
-      cell: ({ row }) => (
-        <Badge
-          variant="outline"
-          className={cn(
-            row.original.status === "active"
-              ? "bg-success/10 text-success"
-              : "bg-muted text-muted-foreground"
-          )}
-        >
-          {row.original.status}
-        </Badge>
-      ),
-    },
-    {
-      id: "actions",
-      cell: ({ row }) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button size="icon" variant="ghost" className="h-8 w-8">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => openEditDialog(row.original)}>
-              <Edit className="h-4 w-4 mr-2" /> Edit Product
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => openStockDialog(row.original)}>
-              <Edit className="h-4 w-4 mr-2" /> Update Stock
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() =>
-                openConfirmDialog(row.original.status === "active" ? "archive" : "restore", row.original)
-              }
-            >
-              <Archive className="h-4 w-4 mr-2" />
-              {row.original.status === "active" ? "Archive Product" : "Restore Product"}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => openConfirmDialog("delete", row.original)}
-              className="text-destructive"
-            >
-              <Trash2 className="h-4 w-4 mr-2" /> Delete Product
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
-    },
-  ];
+      {
+        accessorKey: "current_stock",
+        header: ({ column }) => (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="gap-1 -ml-4"
+          >
+            Stock Level
+            <ArrowUpDown className="h-3 w-3" />
+          </Button>
+        ),
+        cell: ({ row }) => {
+          const stockStatus = getStockStatus(row.original);
+          return (
+            <div className="flex items-center gap-3">
+              <div className="flex flex-col">
+                <span className="text-lg font-bold">{row.original.current_stock}</span>
+                <span className="text-[10px] text-muted-foreground">
+                  Min: {row.original.min_stock_level}
+                </span>
+              </div>
+              <Badge variant="outline" className={cn("text-[10px] font-bold", stockStatus.color)}>
+                {stockStatus.label}
+              </Badge>
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: "unit_of_measurement",
+        header: "Unit",
+        cell: ({ row }) => (
+          <span className="text-sm text-muted-foreground">
+            {row.original.unit_of_measurement || "Pieces"}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "base_rate",
+        header: "Rate",
+        cell: ({ row }) => (
+          <span className="text-sm font-bold">
+            {formatCurrency(row.original.base_rate)}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }) => (
+          <Badge
+            variant="outline"
+            className={cn(
+              row.original.status === "active"
+                ? "bg-success/10 text-success"
+                : "bg-muted text-muted-foreground"
+            )}
+          >
+            {row.original.status}
+          </Badge>
+        ),
+      },
+    ];
+
+    if (canManage) {
+      baseColumns.push({
+        id: "actions",
+        cell: ({ row }) => (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="icon" variant="ghost" className="h-8 w-8">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => openEditDialog(row.original)}>
+                <Edit className="h-4 w-4 mr-2" /> Edit Product
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => openStockDialog(row.original)}>
+                <Edit className="h-4 w-4 mr-2" /> Update Stock
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() =>
+                  openConfirmDialog(row.original.status === "active" ? "archive" : "restore", row.original)
+                }
+              >
+                <Archive className="h-4 w-4 mr-2" />
+                {row.original.status === "active" ? "Archive Product" : "Restore Product"}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => openConfirmDialog("delete", row.original)}
+                className="text-destructive"
+              >
+                <Trash2 className="h-4 w-4 mr-2" /> Delete Product
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ),
+      });
+    }
+
+    return baseColumns;
+  }, [canManage, getStockStatus, formatCurrency]);
 
   if (isLoading) {
     return (
@@ -543,9 +554,11 @@ export default function ProductsPage() {
             <Button variant="outline" onClick={refresh} className="gap-2">
               <RefreshCw className="h-4 w-4" /> Refresh
             </Button>
-            <Button className="gap-2 shadow-lg shadow-primary/20" onClick={openCreateDialog}>
-              <Plus className="h-4 w-4" /> Add Product
-            </Button>
+            {canManage && (
+              <Button className="gap-2 shadow-lg shadow-primary/20" onClick={openCreateDialog}>
+                <Plus className="h-4 w-4" /> Add Product
+              </Button>
+            )}
           </div>
         }
       />

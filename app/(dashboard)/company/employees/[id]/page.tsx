@@ -74,8 +74,10 @@ export default function EmployeeDetailPage() {
     getDownloadUrl,
     formatFileSize,
   } = useEmployeeDocuments({ employee_id: id as string });
-  const employeeDocuments = documents.filter((doc) => doc.employee_id === (id as string));
+  
+  const canManageEmployees = role === "admin" || role === "super_admin" || role === "society_manager" || role === "company_hod";
   const canManageCompensation = role === "admin" || role === "super_admin";
+  const employeeDocuments = documents.filter((doc) => doc.employee_id === (id as string));
   const isGuardProfile = employee?.role_name === "security_guard" || Boolean(employee?.guard_profile_id);
   const profileRoleLabel = employee?.role_name || employee?.role || employee?.designation_name || "Employee";
   const profileLocation = employee?.assigned_location_name || employee?.department || "Operations";
@@ -194,10 +196,12 @@ export default function EmployeeDetailPage() {
               Payroll Setup
             </Button>
           )}
-          <Button className="gap-2 shadow-md">
-            <Edit3 className="h-4 w-4" />
-            Edit Profile
-          </Button>
+          {canManageEmployees && (
+            <Button className="gap-2 shadow-md">
+              <Edit3 className="h-4 w-4" />
+              Edit Profile
+            </Button>
+          )}
         </div>
       </div>
 
@@ -258,15 +262,17 @@ export default function EmployeeDetailPage() {
               <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-2">
-               <Button
-                 variant="outline"
-                 className="justify-start gap-3 h-11 border-dashed hover:border-primary hover:text-primary transition-all"
-                 onClick={handleResetSecurityCredentials}
-                 disabled={isResettingCredentials || !employee.auth_user_id}
-               >
-                  {isResettingCredentials ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-                  Reset Security Credentials
-               </Button>
+               {canManageEmployees && (
+                 <Button
+                   variant="outline"
+                   className="justify-start gap-3 h-11 border-dashed hover:border-primary hover:text-primary transition-all"
+                   onClick={handleResetSecurityCredentials}
+                   disabled={isResettingCredentials || !employee.auth_user_id}
+                 >
+                    {isResettingCredentials ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                    Reset Security Credentials
+                 </Button>
+               )}
                <Button variant="outline" className="justify-start gap-3 h-11 border-dashed hover:border-primary hover:text-primary transition-all">
                   <History className="h-4 w-4" />
                   View Attendance History
@@ -279,14 +285,16 @@ export default function EmployeeDetailPage() {
                     </Link>
                  </Button>
                )}
-               <Button
-                 variant="outline"
-                 className="justify-start gap-3 h-11 border-dashed hover:border-primary hover:text-primary transition-all"
-                 onClick={() => setActiveTab("compensation")}
-               >
-                  <Briefcase className="h-4 w-4" />
-                  Manage Payroll Setup
-               </Button>
+               {canManageCompensation && (
+                 <Button
+                   variant="outline"
+                   className="justify-start gap-3 h-11 border-dashed hover:border-primary hover:text-primary transition-all"
+                   onClick={() => setActiveTab("compensation")}
+                 >
+                    <Briefcase className="h-4 w-4" />
+                    Manage Payroll Setup
+                 </Button>
+               )}
             </CardContent>
           </Card>
           {credentialResult && (

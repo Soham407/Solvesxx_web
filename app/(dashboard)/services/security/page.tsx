@@ -44,6 +44,7 @@ import { useSecurityGuards, SecurityGuard, GuardGrade } from "@/hooks/useSecurit
 import { useCompanyLocations } from "@/hooks/useCompanyLocations";
 import { useShifts } from "@/hooks/useShifts";
 import { useDesignations } from "@/hooks/useDesignations";
+import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/src/lib/supabaseClient";
 import {
   Dialog,
@@ -79,6 +80,7 @@ interface SocietyOption {
 }
 
 export default function SecurityCommandPage() {
+  const { role } = useAuth();
   const {
     guards,
     activeGuards,
@@ -466,7 +468,7 @@ export default function SecurityCommandPage() {
             </Button>
           </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              {row.original.employee_id ? (
+              {row.original.employee_id && role !== "security_supervisor" ? (
                 <DropdownMenuItem asChild>
                   <Link href={`/company/employees/${row.original.employee_id}`}>
                     Open Profile

@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 import { useSupervisorStats } from "@/hooks/useSupervisorStats";
 import { usePatrolLogs } from "@/hooks/usePatrolLogs";
 import { usePanicAlertSubscription } from "@/hooks/usePanicAlertSubscription";
@@ -70,9 +71,11 @@ export function SecuritySupervisorDashboard() {
           </p>
         </div>
         <div className="flex gap-2">
-            <Button className="gap-2 font-bold shadow-lg shadow-primary/20 bg-primary">
-                <ShieldCheck className="h-4 w-4" /> Personnel Audit
-            </Button>
+            <Link href="/services/security">
+              <Button className="gap-2 font-bold shadow-lg shadow-primary/20 bg-primary">
+                  <ShieldCheck className="h-4 w-4" /> Personnel Audit
+              </Button>
+            </Link>
         </div>
       </div>
 
@@ -210,12 +213,16 @@ export function SecuritySupervisorDashboard() {
                         </p>
                     </div>
                     <div className="space-y-4 pt-4">
-                        <Button variant="outline" className="w-full text-[10px] font-bold uppercase h-10 border-muted-foreground/20">
-                          Check Late Comers
-                        </Button>
-                        <Button variant="ghost" className="w-full text-[10px] font-bold uppercase h-10 text-primary">
-                          View Shift Roster
-                        </Button>
+                        <Link href="/hrms/attendance">
+                          <Button variant="outline" className="w-full text-[10px] font-bold uppercase h-10 border-muted-foreground/20">
+                            Check Late Comers
+                          </Button>
+                        </Link>
+                        <Link href="/admin/guards">
+                          <Button variant="ghost" className="w-full text-[10px] font-bold uppercase h-10 text-primary">
+                            Manage Guard Assignments
+                          </Button>
+                        </Link>
                     </div>
               </CardContent>
           </Card>
