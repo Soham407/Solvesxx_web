@@ -1,6 +1,6 @@
 ﻿# FacilityPro â€” Project Context
 
-> **Last Updated:** 2026-03-30 (Resident auth hardening: `/society/residents` now uses `resident_directory`, `/api/residents/unlinked` supports resident provisioning, resident profile lookup is `auth_user_id`-only; HRMS audit fixes route attendance page reads through `useAttendance`, payroll attendance summaries use `log_date`, and auto punch-out cron now preserves audit fields; ASSET-001 restores `/scan/[id]`, routes QR batch generation through `useQrCodes`, and syncs service evidence RPCs with `job_sessions`; SUPPLIER-001 expands `useSupplierPortal` to supplier-scoped service orders, service acknowledgments, live profile self-service, and auto PO creation on accepted indents)
+> **Last Updated:** 2026-04-25 (Enhanced admin creation flow with temporary password generation and structured invitation UI for superadmins; cleanup of unused clipboard logic on admin management page)
 > Paste this at the start of every AI session for instant context.
 
 ---
@@ -242,7 +242,7 @@ return () => { supabase.removeChannel(channel); };
 12. **Service lookup pattern**: Use `service_code` (e.g., `PST-CON`, `PRN-ADV`) to find services dynamically â€” never hardcode UUIDs.
 
 
-13. **Platform settings/RBAC**: Super Admin settings now use module-level platform permissions (`platform.dashboard.view`, `platform.admin_accounts.manage`, `platform.rbac.manage`, `platform.audit_logs.view`, `platform.config.manage`) defined in `src/types/platform.ts` and `src/lib/platform/permissions.ts`. Admin invite/reset flows now surface secure generated setup and recovery links from the server for environments where direct invite email delivery is unavailable.
+13. **Platform settings/RBAC**: Super Admin settings now use module-level platform permissions (`platform.dashboard.view`, `platform.admin_accounts.manage`, `platform.rbac.manage`, `platform.audit_logs.view`, `platform.config.manage`) defined in `src/types/platform.ts` and `src/lib/platform/permissions.ts`. Admin invite/reset flows now surface secure generated setup and recovery links from the server along with a temporary password for initial signup, for environments where direct invite email delivery is unavailable.
 
 ---
 

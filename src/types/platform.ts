@@ -33,6 +33,7 @@ export interface AdminAccessLink {
   url: string;
   type: "signup" | "recovery";
   deliveryMethod: "generated_link" | "supabase_email";
+  temporaryPassword?: string;
 }
 
 export interface InviteAdminResponse {

@@ -232,17 +232,6 @@ export default function SuperAdminAccountsPage() {
     }
   };
 
-  const handleCopyLink = async () => {
-    if (!latestAccessLink) return;
-
-    try {
-      await navigator.clipboard.writeText(latestAccessLink.accessLink.url);
-      toast.success("Access link copied");
-    } catch {
-      toast.error("Failed to copy access link");
-    }
-  };
-
   const handleSaveEdit = async () => {
     if (!selectedAdmin) return;
 
@@ -288,21 +277,78 @@ export default function SuperAdminAccountsPage() {
       {latestAccessLink && (
         <Alert>
           <Link2 className="h-4 w-4" />
-          <AlertDescription className="space-y-3">
-            <p>
-              {latestAccessLink.kind === "invite"
-                ? `A secure setup link is ready for ${latestAccessLink.email}. Share it through a trusted channel so the new admin can finish activating the account.`
-                : `A secure password reset link is ready for ${latestAccessLink.email}. Share it through a trusted channel to complete the reset.`}
-            </p>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Input readOnly value={latestAccessLink.accessLink.url} className="font-mono text-xs" />
-              <Button variant="outline" type="button" onClick={handleCopyLink} className="gap-2">
-                <Copy className="h-4 w-4" />
-                Copy Link
-              </Button>
+          <AlertDescription className="space-y-4">
+            <div className="space-y-2">
+              <p className="font-medium text-foreground">
+                {latestAccessLink.kind === "invite"
+                  ? `Success! Admin account created for ${latestAccessLink.email}.`
+                  : `Success! Password reset initiated for ${latestAccessLink.email}.`}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {latestAccessLink.kind === "invite"
+                  ? "Share the setup link and temporary password below with the new admin."
+                  : "Share the recovery link below with the admin to complete the reset."}
+              </p>
+            </div>
+
+            <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                  Setup Link
+                </Label>
+                <div className="flex gap-2">
+                  <Input
+                    readOnly
+                    value={latestAccessLink.accessLink.url}
+                    className="font-mono text-xs bg-background"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => {
+                      navigator.clipboard.writeText(latestAccessLink.accessLink.url);
+                      toast.success("Link copied");
+                    }}
+                    title="Copy Link"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {latestAccessLink.accessLink.temporaryPassword && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                    Temporary Password
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      readOnly
+                      value={latestAccessLink.accessLink.temporaryPassword}
+                      className="font-mono text-xs bg-background"
+                    />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                        navigator.clipboard.writeText(
+                          latestAccessLink.accessLink.temporaryPassword!
+                        );
+                        toast.success("Password copied");
+                      }}
+                      title="Copy Password"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end">
               <Button
                 variant="ghost"
-                type="button"
+                size="sm"
                 onClick={() => setLatestAccessLink(null)}
               >
                 Dismiss

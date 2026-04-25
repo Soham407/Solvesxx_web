@@ -71,10 +71,11 @@ async function provisionAdminAccessLink(adminClient: any, email: string): Promis
   authUserId: string;
   accessLink: AdminAccessLink;
 }> {
+  const temporaryPassword = createTemporaryPassword();
   const signupResult = await adminClient.auth.admin.generateLink({
     type: "signup",
     email,
-    password: createTemporaryPassword(),
+    password: temporaryPassword,
   });
 
   if (!signupResult.error && signupResult.data?.user?.id && signupResult.data?.properties?.action_link) {
@@ -84,6 +85,7 @@ async function provisionAdminAccessLink(adminClient: any, email: string): Promis
         url: signupResult.data.properties.action_link,
         type: "signup",
         deliveryMethod: "generated_link",
+        temporaryPassword,
       },
     };
   }

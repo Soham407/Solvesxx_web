@@ -1,6 +1,6 @@
 # FacilityPro — Implementation Phases & Module Status
 
-> **Last Updated:** 2026-03-30 (Resident module hardening: privacy-safe resident directory view wired into `/society/residents`, resident provisioning route added for unlinked resident rows, `must_change_password` regression coverage added; HRMS audit fixes hardened attendance reads, payroll attendance summaries, and auto punch-out cron audit fields; ASSET-001 now routes maintenance schedules through service requests, syncs job sessions to the evidence RPCs, and restores the `/scan/[id]` QR landing page; SUPPLIER-001 hardens the supplier portal with auto-created POs on indent acceptance, supplier-scoped service orders and acknowledgments, and self-service supplier profile/rates/availability editing)
+> **Last Updated:** 2026-04-25 (Enhanced admin creation flow with temporary password generation and structured invitation UI for superadmins; cleanup of unused clipboard logic on admin management page)
 
 > **Purpose:** This file is the single source of truth for what is built, what's partially built, and what's missing.
 > Paste the relevant section when starting a new AI session.
@@ -233,6 +233,7 @@ All located in `components/dashboards/`. Accessible via `/dashboard` with admin 
 | Feature | Status | Notes |
 |---------|--------|-------|
 | Notification Bell | ✅ FULL | `useNotifications` hook ✅, `NotificationBell.tsx` component ✅ (badge, dropdown, mark-all-read, Realtime). Wired into `TopNav.tsx` line 195 |
+| Admin Invitation Flow | ✅ FULL | Temporary password generation and structured invitation UI for superadmins. Lives in `/settings/admins` |
 | Guard Mobile PWA | ✅ FULL | `public/manifest.json` ✅, `<link rel="manifest">` in layout ✅. `next-pwa` installed, `withPWA` in `next.config.ts`, service worker generated on prod build |
 | Auto-Punch-Out Cron | ✅ FULL | `auto_punch_out_idle_employees()` pg_cron job, forward-fixed by `20260330000006_hr_001_hrms_audit_fixes.sql` to set `is_auto_punch_out`, `absent_breach`, `total_hours`, and idempotent scheduling |
 | Chemical Expiry Cron | ✅ FULL | `detect_chemical_expiry()` pg_cron job via migration `20260316000006_chemical_expiry.sql` |
@@ -319,6 +320,11 @@ All items from `previousplan.md` Sprints 1–5 completed:
 | `20260331000001_service_deployment_indent_flow.sql` | request service deployment fields (`service_type`, `service_grade`, `start_date`, `site_location_id`) plus indent linkage fields (`service_request_id`, `supplier_id`) |
 
 ---
+
+### Completed This Session (2026-04-25)
+- ✅ Enhanced admin creation flow with temporary password generation and improved invitation UI.
+- ✅ Structured invitation alert with individual copy buttons for setup link and password.
+- ✅ Cleanup of unused clipboard logic on the admin management page.
 
 ### Completed This Session (2026-03-31)
 - ✅ Service deployment buyer flow extended with grade/role, headcount, shift, start date, duration, and site location capture

@@ -2,13 +2,13 @@
 
 > **Purpose:** Living scratchpad for cross-session continuity. Update this at the END of every session.
 > Do NOT duplicate PHASES.md (status ledger) or CONTEXT.md (architecture reference).
-> Last Updated: 2026-03-31 (SALE-BILL-001 Sale Bill Generation built)
+> Last Updated: 2026-04-22 (Enhanced admin creation flow built)
 
 ---
 
 ## Current Status
 
-**Sprint:** SALE-BILL-001 complete — Admin sale bill generation and buyer society filtering ✅ DONE.
+**Sprint:** Admin Management Enhancements ✅ DONE.
 
 **Overall health:** All 14 role dashboards ✅, all PRD gaps closed ✅, zero known mocks ✅, RLS verified ✅, 184 FK indexes applied ✅, pre-commit type-check active ✅, E2E tests wired ✅.
 
@@ -18,6 +18,7 @@
 
 | Date | What | Key Files |
 |------|------|-----------|
+| 2026-04-22 | **Admin Management Enhancements** — Enhanced admin creation flow with temporary password generation and improved invitation UI. | `app/api/super-admin/admins/route.ts`, `app/(dashboard)/settings/admins/page.tsx`, `src/types/platform.ts` |
 | 2026-03-31 | **SALE-BILL-001 Sale Bill Generation** — Built Admin generation workflow, request linkage, and buyer society filtering. | `app/(dashboard)/finance/sale-bills/page.tsx`, `hooks/useSaleBills.ts`, `hooks/useBuyerInvoices.ts`, `supabase/migrations/20260401000008_sale_bills_enhancements.sql` |
 | 2026-03-30 | **SEC-001 Guard / Security Hardening** — Panic alert resolution audit fields, shift status in `/guard`, GPS clock-in enforcement. | `supabase/migrations/20260330000001_sec_001_guard_security_fixes.sql`, `components/dashboards/GuardDashboard.tsx`, `hooks/useAttendance.ts` |
 | 2026-03-30 | **HR-001 HRMS Audit Fixes** — Payroll attendance logic, BGV status tracking, auto punch-out cron hardening. | `supabase/migrations/20260330000006_hr_001_hrms_audit_fixes.sql`, `hooks/usePayroll.ts`, `hooks/useAttendance.ts` |
