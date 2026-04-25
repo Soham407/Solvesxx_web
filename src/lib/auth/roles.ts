@@ -34,12 +34,12 @@ export const ROLE_ACCESS: Record<AppRole, string[]> = {
   security_guard: ["/dashboard", "/guard", "/test-guard", "/society", "/hrms/attendance", "/hrms/leave"],
   security_supervisor: [
     "/dashboard",
-    "/guard",
-    "/test-guard",
-    "/tickets",
-    "/society",
+    "/tickets/behavior",
+    "/tickets/incidents",
+    "/society/visitors",
+    "/society/residents",
+    "/society/panic-alerts",
     "/hrms/attendance",
-    "/hrms/leave",
     "/services/security",
     "/admin/guards"
   ],
