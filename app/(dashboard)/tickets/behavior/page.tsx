@@ -53,7 +53,7 @@ import {
 } from "@/components/ui/select";
 
 export default function BehaviorTicketsPage() {
-  const { tickets, isLoading, stats, createTicket, updateStatus, refresh } = useBehaviorTickets();
+  const { tickets, isLoading, stats, createTicket, updateStatus, refresh, uploadEvidence } = useBehaviorTickets();
   const { employees } = useEmployees();
 
   // Dialog states
@@ -65,19 +65,37 @@ export default function BehaviorTicketsPage() {
     severity: "low",
     description: "",
   });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const [resolutionDialogOpen, setResolutionDialogOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<BehaviorTicket | null>(null);
   const [resolution, setResolution] = useState("");
   const [newStatus, setNewStatus] = useState("");
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setSelectedFile(e.target.files[0]);
+    }
+  };
+
   const handleReport = async () => {
     setIsSubmitting(true);
     try {
-      const result = await createTicket(formData);
+      let evidence_urls: string[] = [];
+      if (selectedFile) {
+        const url = await uploadEvidence(selectedFile);
+        if (url) evidence_urls.push(url);
+      }
+
+      const result = await createTicket({
+        ...formData,
+        evidence_urls: evidence_urls.length > 0 ? evidence_urls : undefined
+      });
+
       if (result.success) {
         setReportDialogOpen(false);
         setFormData({ employee_id: "", category: "", severity: "low", description: "" });
+        setSelectedFile(null);
       }
     } finally {
       setIsSubmitting(false);
@@ -288,6 +306,7 @@ export default function BehaviorTicketsPage() {
                     <SelectItem value="sleeping_on_duty">Sleeping on Duty</SelectItem>
                     <SelectItem value="rudeness">Insubordination / Rudeness</SelectItem>
                     <SelectItem value="absence">Unauthorized Absence</SelectItem>
+                    <SelectItem value="unauthorized_entry">Unauthorized Entry</SelectItem>
                     <SelectItem value="uniform_issue">Uniform / Grooming</SelectItem>
                     <SelectItem value="late_arrival">Late Arrival</SelectItem>
                     <SelectItem value="mobile_use">Excessive Mobile Use</SelectItem>
@@ -318,6 +337,19 @@ export default function BehaviorTicketsPage() {
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="evidence">Evidence / Attachment (Photo/Document)</Label>
+              <Input 
+                id="evidence" 
+                type="file" 
+                onChange={handleFileChange}
+                className="cursor-pointer"
+                accept="image/*,application/pdf"
+              />
+              {selectedFile && (
+                <p className="text-xs text-info font-medium">Selected: {selectedFile.name}</p>
+              )}
             </div>
           </div>
           <DialogFooter>

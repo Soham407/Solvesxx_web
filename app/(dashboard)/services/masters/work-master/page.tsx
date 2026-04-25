@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTable } from "@/components/shared/DataTable";
 import { Button } from "@/components/ui/button";
@@ -13,19 +14,24 @@ import {
   RefreshCw,
   Briefcase,
   Link2,
-  AlertCircle
+  AlertCircle,
+  Edit,
+  Trash2
 } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { useWorkMaster } from "@/hooks/useWorkMaster";
+import { useWorkMaster, WorkMaster } from "@/hooks/useWorkMaster";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { WorkMasterDialog } from "@/components/dialogs/WorkMasterDialog";
+import { LinkWorkDialog } from "@/components/dialogs/LinkWorkDialog";
+import { supabase } from "@/src/lib/supabaseClient";
 
 export default function WorkMasterPage() {
   const { 
@@ -36,6 +42,32 @@ export default function WorkMasterPage() {
     refresh 
   } = useWorkMaster();
 
+  const [isWorkDialogOpen, setIsWorkDialogOpen] = useState(false);
+  const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
+  const [selectedWorkItem, setSelectedWorkItem] = useState<WorkMaster | null>(null);
+
+  const handleCreate = () => {
+    setSelectedWorkItem(null);
+    setIsWorkDialogOpen(true);
+  };
+
+  const handleEdit = (item: WorkMaster) => {
+    setSelectedWorkItem(item);
+    setIsWorkDialogOpen(true);
+  };
+
+  const handleLink = (item: WorkMaster) => {
+    setSelectedWorkItem(item);
+    setIsLinkDialogOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (confirm("Are you sure you want to deactivate this work item?")) {
+      await supabase.from("work_master").update({ is_active: false } as any).eq("id", id);
+      refresh();
+    }
+  };
+
   const stats = {
     total: workItems.length,
     linked: serviceWorkLinks.length,
@@ -44,7 +76,7 @@ export default function WorkMasterPage() {
       : 0,
   };
 
-  const columns: ColumnDef<any>[] = [
+  const columns: ColumnDef<WorkMaster>[] = [
     {
       accessorKey: "work_code",
       header: "Work Code",
@@ -53,7 +85,7 @@ export default function WorkMasterPage() {
           <div className="h-8 w-8 rounded-lg bg-primary/5 flex items-center justify-center">
             <Wrench className="h-4 w-4 text-primary" />
           </div>
-          <div className="flex flex-col">
+          <div className="flex flex-col text-left">
             <span className="font-mono font-bold text-xs">{row.getValue("work_code")}</span>
             <span className="text-[10px] text-muted-foreground">{row.original.work_name}</span>
           </div>
@@ -64,7 +96,7 @@ export default function WorkMasterPage() {
       accessorKey: "description",
       header: "Description",
       cell: ({ row }) => (
-        <span className="text-xs text-muted-foreground truncate max-w-[200px] block">
+        <span className="text-xs text-muted-foreground truncate max-w-[200px] block text-left">
           {row.getValue("description") || "No description"}
         </span>
       ),
@@ -98,7 +130,7 @@ export default function WorkMasterPage() {
     },
     {
       id: "actions",
-      cell: () => (
+      cell: ({ row }) => (
         <div className="flex items-center gap-1">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -107,9 +139,18 @@ export default function WorkMasterPage() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem>Edit Work Item</DropdownMenuItem>
-              <DropdownMenuItem>Link to Service</DropdownMenuItem>
-              <DropdownMenuItem>View History</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleEdit(row.original)} className="gap-2">
+                <Edit className="h-4 w-4" /> Edit Work Item
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleLink(row.original)} className="gap-2">
+                <Link2 className="h-4 w-4" /> Link to Service
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => handleDelete(row.original.id)} 
+                className="gap-2 text-destructive focus:text-destructive"
+              >
+                <Trash2 className="h-4 w-4" /> Deactivate
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -132,7 +173,7 @@ export default function WorkMasterPage() {
             >
               <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} /> Refresh
             </Button>
-            <Button className="gap-2 shadow-lg shadow-primary/20">
+            <Button className="gap-2 shadow-lg shadow-primary/20" onClick={handleCreate}>
               <Plus className="h-4 w-4" /> Add Work Item
             </Button>
           </div>
@@ -168,7 +209,7 @@ export default function WorkMasterPage() {
             <div className="h-10 w-10 rounded-xl bg-info/10 text-info flex items-center justify-center">
               <Link2 className="h-5 w-5" />
             </div>
-            <div className="flex flex-col">
+            <div className="flex flex-col text-left">
               {isLoading ? (
                 <div className="h-8 w-12 bg-muted animate-pulse rounded" />
               ) : (
@@ -184,7 +225,7 @@ export default function WorkMasterPage() {
             <div className="h-10 w-10 rounded-xl bg-warning/10 text-warning flex items-center justify-center">
               <Clock className="h-5 w-5" />
             </div>
-            <div className="flex flex-col">
+            <div className="flex flex-col text-left">
               {isLoading ? (
                 <div className="h-8 w-12 bg-muted animate-pulse rounded" />
               ) : (
@@ -197,7 +238,7 @@ export default function WorkMasterPage() {
       </div>
 
       <Card className="border-none shadow-card ring-1 ring-border">
-        <CardHeader>
+        <CardHeader className="text-left">
           <CardTitle className="text-sm font-bold">Work Items Library</CardTitle>
           <CardDescription className="text-xs">
             Standardized tasks and job types for service delivery
@@ -209,14 +250,14 @@ export default function WorkMasterPage() {
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : (
-            <DataTable columns={columns} data={workItems} searchKey="work_code" />
+            <DataTable columns={columns} data={workItems} searchKey="work_name" />
           )}
         </CardContent>
       </Card>
 
       {/* Service-Work Links Section */}
       <Card className="border-none shadow-card ring-1 ring-border">
-        <CardHeader>
+        <CardHeader className="text-left">
           <CardTitle className="text-sm font-bold">Service-Work Mappings</CardTitle>
           <CardDescription className="text-xs">
             Work items linked to specific service categories
@@ -240,9 +281,9 @@ export default function WorkMasterPage() {
                     </Badge>
                     <span className="text-xs font-medium">{link.service?.service_name}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Link2 className="h-3 w-3" />
-                    <span className="text-xs">{link.work?.work_name}</span>
+                  <div className="flex items-center gap-2 text-muted-foreground text-left">
+                    <Link2 className="h-3 w-3 shrink-0" />
+                    <span className="text-xs truncate">{link.work?.work_name}</span>
                   </div>
                 </div>
               ))}
@@ -254,6 +295,20 @@ export default function WorkMasterPage() {
           )}
         </CardContent>
       </Card>
+
+      <WorkMasterDialog 
+        open={isWorkDialogOpen}
+        onOpenChange={setIsWorkDialogOpen}
+        workItem={selectedWorkItem}
+        onSuccess={refresh}
+      />
+
+      <LinkWorkDialog 
+        open={isLinkDialogOpen}
+        onOpenChange={setIsLinkDialogOpen}
+        workItem={selectedWorkItem}
+        onSuccess={refresh}
+      />
     </div>
   );
 }

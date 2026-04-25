@@ -35,12 +35,14 @@ export interface CreateTicketDTO {
   severity: string;
   description: string;
   reported_by?: string;
+  evidence_urls?: string[];
 }
 
 export function useBehaviorTickets() {
   const { toast } = useToast();
   const [tickets, setTickets] = useState<BehaviorTicket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isUploading, setIsUploading] = useState(false);
   const [stats, setStats] = useState({
     active: 0,
     underReview: 0,
@@ -89,6 +91,36 @@ export function useBehaviorTickets() {
     }
   }, [toast]);
 
+  const uploadEvidence = async (file: File): Promise<string | null> => {
+    try {
+      setIsUploading(true);
+      const fileExt = file.name.split('.').pop();
+      const fileName = `evidence/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('behavior-evidence')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('behavior-evidence')
+        .getPublicUrl(fileName);
+
+      return urlData.publicUrl;
+    } catch (err: any) {
+      console.error('Error uploading evidence:', err);
+      toast({
+        title: "Upload Failed",
+        description: err.message || "Failed to upload evidence file",
+        variant: "destructive"
+      });
+      return null;
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const createTicket = async (ticket: CreateTicketDTO) => {
     try {
       // Get current user if reported_by is not set
@@ -110,11 +142,13 @@ export function useBehaviorTickets() {
         .from('employee_behavior_tickets')
         .insert({
           employee_id: ticket.employee_id,
-          category: ticket.category as "sleeping_on_duty" | "rudeness" | "absence" | "uniform_issue" | "unauthorized_entry" | "late_arrival" | "mobile_use" | "other",
+          category: ticket.category as any,
           severity: ticket.severity,
           description: ticket.description,
           reported_by: reporterId,
-          status: 'open'
+          evidence_urls: ticket.evidence_urls || null,
+          status: 'open',
+          incident_date: new Date().toISOString(), // Required field in schema
         });
 
       if (error) throw error;
@@ -163,6 +197,7 @@ export function useBehaviorTickets() {
     stats,
     createTicket,
     updateStatus,
+    uploadEvidence,
     refresh: fetchTickets
   };
 }

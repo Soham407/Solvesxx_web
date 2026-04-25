@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTable } from "@/components/shared/DataTable";
 import { Button } from "@/components/ui/button";
@@ -15,13 +16,15 @@ import {
   RefreshCw,
   AlertCircle,
   Star,
-  Phone
+  Phone,
+  Edit,
+  Trash2
 } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { useVendorWiseServices } from "@/hooks/useVendorWiseServices";
+import { useVendorWiseServices, VendorWiseService } from "@/hooks/useVendorWiseServices";
 import { formatCurrency } from "@/src/lib/utils/currency";
 import {
   DropdownMenu,
@@ -29,14 +32,35 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { VendorServiceDialog } from "@/components/dialogs/VendorServiceDialog";
 
 export default function VendorServiceMappingPage() {
   const { 
     vendorServices, 
     isLoading, 
     error, 
-    refresh 
+    refresh,
+    updateVendorService
   } = useVendorWiseServices();
+
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedMapping, setSelectedMapping] = useState<VendorWiseService | null>(null);
+
+  const handleCreate = () => {
+    setSelectedMapping(null);
+    setIsDialogOpen(true);
+  };
+
+  const handleEdit = (mapping: VendorWiseService) => {
+    setSelectedMapping(mapping);
+    setIsDialogOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (confirm("Are you sure you want to deactivate this authorization?")) {
+      await updateVendorService(id, { is_active: false });
+    }
+  };
 
   const stats = {
     total: vendorServices.length,
@@ -45,7 +69,7 @@ export default function VendorServiceMappingPage() {
     services: new Set(vendorServices.map(vs => vs.service_id)).size,
   };
 
-  const columns: ColumnDef<any>[] = [
+  const columns: ColumnDef<VendorWiseService>[] = [
     {
       accessorKey: "supplier.supplier_name",
       header: "Service Vendor",
@@ -124,7 +148,7 @@ export default function VendorServiceMappingPage() {
     },
     {
       id: "actions",
-      cell: () => (
+      cell: ({ row }) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -132,9 +156,15 @@ export default function VendorServiceMappingPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem>Edit Mapping</DropdownMenuItem>
-            <DropdownMenuItem>View Supplier Details</DropdownMenuItem>
-            <DropdownMenuItem>Rate History</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleEdit(row.original)} className="gap-2">
+              <Edit className="h-4 w-4" /> Edit Mapping
+            </DropdownMenuItem>
+            <DropdownMenuItem 
+              onClick={() => handleDelete(row.original.id)} 
+              className="gap-2 text-destructive focus:text-destructive"
+            >
+              <Trash2 className="h-4 w-4" /> Deactivate
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -156,7 +186,7 @@ export default function VendorServiceMappingPage() {
             >
               <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} /> Refresh
             </Button>
-            <Button className="gap-2 shadow-lg shadow-primary/20">
+            <Button className="gap-2 shadow-lg shadow-primary/20" onClick={handleCreate}>
               <Link2 className="h-4 w-4" /> New Authorization
             </Button>
           </div>
@@ -253,6 +283,13 @@ export default function VendorServiceMappingPage() {
           )}
         </CardContent>
       </Card>
+
+      <VendorServiceDialog 
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        mapping={selectedMapping}
+        onSuccess={refresh}
+      />
     </div>
   );
 }

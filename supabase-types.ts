@@ -10494,6 +10494,7 @@ export type Database = {
         }[]
       }
       get_my_app_role: { Args: never; Returns: string }
+      get_my_managed_societies: { Args: never; Returns: string[] }
       get_next_rtv_number: { Args: never; Returns: string }
       get_oversight_alert_feed: {
         Args: never

@@ -124,6 +124,12 @@ export function useBuyerRequests() {
       setIsLoading(true);
       setError(null);
 
+      const currentUserId = (await supabase.auth.getUser()).data.user?.id;
+      if (!currentUserId) {
+        setRequests([]);
+        return;
+      }
+
       const { data, error } = await supabase
         .from("requests")
         .select(`
@@ -132,6 +138,7 @@ export function useBuyerRequests() {
           company_locations!location_id (location_name),
           site_location:company_locations!site_location_id (location_name)
         `)
+        .eq("buyer_id", currentUserId)
         .order("created_at", { ascending: false });
 
       if (error) throw error;

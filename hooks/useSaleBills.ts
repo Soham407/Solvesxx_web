@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { supabase as supabaseClient } from "@/src/lib/supabaseClient";
+import { useAuth } from "@/hooks/useAuth";
 const supabase = supabaseClient as any;
 
 // ============================================
@@ -120,6 +121,7 @@ export function useSaleBills(filters?: {
   paymentStatus?: PaymentStatus;
   clientId?: string;
 }) {
+  const { userId } = useAuth();
   const [state, setState] = useState<UseSaleBillsState>({
     bills: [],
     isLoading: true,
@@ -258,19 +260,38 @@ export function useSaleBills(filters?: {
       const bill = state.bills.find(b => b.id === billId);
       if (!bill) throw new Error("Bill not found");
 
-      const { error } = await supabase
-        .from("sale_bills")
-        .update({
-          payment_status: "paid",
-          status: "acknowledged",
-          paid_amount: bill.total_amount,
-          due_amount: 0,
-          last_payment_date: new Date().toISOString().split("T")[0],
-          paid_at: new Date().toISOString(),
-        })
-        .eq("id", billId);
+      const paymentDate = new Date().toISOString().split("T")[0];
+      const { data: method, error: methodError } = await supabase
+        .from("payment_methods")
+        .select("id")
+        .eq("is_active", true)
+        .eq("gateway", "manual")
+        .limit(1)
+        .maybeSingle();
 
-      if (error) throw error;
+      if (methodError) throw methodError;
+      if (!method?.id) {
+        throw new Error("No active manual payment method available");
+      }
+
+      const { error: paymentError } = await supabase
+        .from("payments")
+        .insert([{
+          payment_type: "receipt",
+          reference_type: "sale_bill",
+          reference_id: billId,
+          amount: bill.due_amount || bill.total_amount,
+          payment_method_id: method.id,
+          payment_date: paymentDate,
+          notes: `Marked paid from sale bills screen for invoice ${bill.invoice_number}`,
+          payer_id: bill.client_id,
+          payee_id: userId,
+          gateway_log: {},
+          status: "completed",
+          processed_by: userId,
+        }]);
+
+      if (paymentError) throw paymentError;
 
       await fetchBills();
       return true;
@@ -280,7 +301,7 @@ export function useSaleBills(filters?: {
       setState((prev) => ({ ...prev, isLoading: false, error: errorMessage }));
       return false;
     }
-  }, [state.bills, fetchBills]);
+  }, [state.bills, fetchBills, userId]);
 
   useEffect(() => {
     fetchBills();

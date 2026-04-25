@@ -8,11 +8,19 @@ const supabase = supabaseClient as any;
 // TYPES
 // ============================================
 
-export type InvoiceStatus = "draft" | "sent" | "acknowledged" | "disputed";
-export type PaymentStatus = "unpaid" | "partial" | "paid";
+export type InvoiceStatus =
+  | "draft"
+  | "sent"
+  | "acknowledged"
+  | "disputed"
+  | "cancelled"
+  | "submitted"
+  | "approved";
+export type PaymentStatus = "unpaid" | "partial" | "paid" | "overdue";
 
 export interface BuyerInvoice {
   id: string;
+  sale_bill_id?: string;
   invoice_number: string;
   client_id: string | null;
   contract_id: string | null;
@@ -114,6 +122,9 @@ const STATUS_TRANSITIONS: Record<InvoiceStatus, InvoiceStatus[]> = {
   draft: ["sent", "disputed"],
   sent: ["acknowledged", "disputed"],
   acknowledged: ["disputed"],
+  cancelled: [],
+  submitted: ["approved", "disputed"],
+  approved: ["disputed"],
   disputed: ["draft", "sent"],
 };
 
@@ -122,6 +133,9 @@ export const INVOICE_STATUS_CONFIG: Record<InvoiceStatus, { label: string; class
   draft: { label: "Draft", className: "bg-muted text-muted-foreground border-border" },
   sent: { label: "Sent", className: "bg-info/10 text-info border-info/20" },
   acknowledged: { label: "Acknowledged", className: "bg-success/10 text-success border-success/20" },
+  cancelled: { label: "Cancelled", className: "bg-muted text-muted-foreground border-border" },
+  submitted: { label: "Submitted", className: "bg-info/10 text-info border-info/20" },
+  approved: { label: "Approved", className: "bg-success/10 text-success border-success/20" },
   disputed: { label: "Disputed", className: "bg-critical/10 text-critical border-critical/20" },
 };
 
@@ -129,6 +143,7 @@ export const PAYMENT_STATUS_CONFIG: Record<PaymentStatus, { label: string; class
   unpaid: { label: "Unpaid", className: "bg-critical/10 text-critical border-critical/20" },
   partial: { label: "Partial", className: "bg-warning/10 text-warning border-warning/20" },
   paid: { label: "Paid", className: "bg-success/10 text-success border-success/20" },
+  overdue: { label: "Overdue", className: "bg-critical text-critical-foreground" },
 };
 
 // ============================================
@@ -182,30 +197,9 @@ export function useBuyerInvoices(filters?: {
     try {
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
-      let effectiveClientId = filters?.clientId;
-
-      // If user is a buyer, we must find their society_id
-      if (role === 'buyer' && userId) {
-        const { data: residentData } = await supabase
-          .from("residents")
-          .select(`
-            flats!inner (
-              buildings!inner (
-                society_id
-              )
-            )
-          `)
-          .eq("auth_user_id", userId)
-          .single();
-        
-        const societyId = (residentData as any)?.flats?.buildings?.society_id;
-        if (societyId) {
-          effectiveClientId = societyId;
-        } else {
-          // If no society found for buyer, return empty
-          setState((prev) => ({ ...prev, invoices: [], isLoading: false }));
-          return;
-        }
+      if (role === "buyer" && !userId) {
+        setState((prev) => ({ ...prev, invoices: [], isLoading: false }));
+        return;
       }
 
       let query = supabase
@@ -218,6 +212,12 @@ export function useBuyerInvoices(filters?: {
           ),
           contracts!contract_id (
             contract_number
+          ),
+          requests!request_id (
+            id,
+            buyer_id,
+            request_number,
+            title
           )
         `)
         .order("created_at", { ascending: false });
@@ -229,21 +229,26 @@ export function useBuyerInvoices(filters?: {
       if (filters?.paymentStatus) {
         query = query.eq("payment_status", filters.paymentStatus);
       }
-      if (effectiveClientId) {
-        query = query.eq("client_id", effectiveClientId);
+      if (filters?.clientId) {
+        query = query.eq("client_id", filters.clientId);
       }
       if (filters?.contractId) {
         query = query.eq("contract_id", filters.contractId);
       }
 
-      const { data, error } = await query;
+      const { data: billRows, error } = await query;
 
       if (error) throw error;
 
+      const scopedBills = ((billRows || []) as any[]).filter((bill) => {
+        if (role !== "buyer") return true;
+        return bill.requests?.buyer_id === userId;
+      });
+
       const requestIds = Array.from(
         new Set(
-          ((data || []) as Array<{ request_id?: string | null }>)
-            .map((row) => row.request_id)
+          scopedBills
+            .map((bill: any) => bill.request_id)
             .filter((value): value is string => Boolean(value))
         )
       );
@@ -263,13 +268,18 @@ export function useBuyerInvoices(filters?: {
         );
       }
 
-      // Transform data
-      const invoicesWithDetails: BuyerInvoice[] = (data || []).map((invoice: any) => ({
-        ...invoice,
-        client_name: invoice.societies?.society_name || "Unknown",
-        client_code: invoice.societies?.society_code || "N/A",
-        contract_number: invoice.contracts?.contract_number || null,
-        feedback_submitted: invoice.request_id ? feedbackRequestIds.has(invoice.request_id) : null,
+      const invoicesWithDetails: BuyerInvoice[] = scopedBills.map((bill: any) => ({
+        ...bill,
+        sale_bill_id: bill.id,
+        invoice_number:
+          bill.invoice_number ||
+          `INV-${String(bill.id).slice(0, 8).toUpperCase()}`,
+        client_name: bill.societies?.society_name || bill.requests?.title || "Unknown",
+        client_code: bill.societies?.society_code || bill.requests?.request_number || "N/A",
+        contract_number: bill.contracts?.contract_number || null,
+        supplier_name: null,
+        feedback_submitted: bill.request_id ? feedbackRequestIds.has(bill.request_id) : null,
+        total_items: null,
       }));
 
       setState((prev) => ({
@@ -286,7 +296,7 @@ export function useBuyerInvoices(filters?: {
         error: errorMessage,
       }));
     }
-  }, [filters?.status, filters?.paymentStatus, filters?.clientId, filters?.contractId]);
+  }, [filters?.status, filters?.paymentStatus, filters?.clientId, filters?.contractId, role, userId]);
 
   // ============================================
   // FETCH INVOICE ITEMS
@@ -297,9 +307,6 @@ export function useBuyerInvoices(filters?: {
         .from("sale_bill_items")
         .select(`
           *,
-          services!service_id (
-            service_name
-          ),
           products!product_id (
             product_name
           )
@@ -311,7 +318,7 @@ export function useBuyerInvoices(filters?: {
 
       const itemsWithDetails: InvoiceItem[] = (data || []).map((item: any) => ({
         ...item,
-        service_name: item.services?.service_name || null,
+        sale_bill_id: item.sale_bill_id,
         product_name: item.products?.product_name || null,
       }));
 
@@ -864,8 +871,8 @@ export function useBuyerInvoices(filters?: {
     return {
       totalInvoices: invoices.length,
       draftInvoices: invoices.filter((i) => i.status === "draft").length,
-      sentInvoices: invoices.filter((i) => i.status === "sent").length,
-      acknowledgedInvoices: invoices.filter((i) => i.status === "acknowledged").length,
+      sentInvoices: invoices.filter((i) => ["sent", "submitted"].includes(i.status)).length,
+      acknowledgedInvoices: invoices.filter((i) => ["acknowledged", "approved"].includes(i.status)).length,
       disputedInvoices: invoices.filter((i) => i.status === "disputed").length,
       unpaidInvoices: invoices.filter((i) => i.payment_status === "unpaid").length,
       partiallyPaid: invoices.filter((i) => i.payment_status === "partial").length,

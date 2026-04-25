@@ -33,6 +33,11 @@ import { StepperTimeline } from "@/components/shared/StepperTimeline";
 import Link from "next/link";
 import { EmployeeCompensationPanel } from "@/components/forms/EmployeeCompensationPanel";
 import { useAuth } from "@/hooks/useAuth";
+import {
+  DOCUMENT_STATUS_CONFIG,
+  DOCUMENT_TYPE_LABELS,
+  useEmployeeDocuments,
+} from "@/hooks/useEmployeeDocuments";
 import { useEmployees } from "@/hooks/useEmployees";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -59,8 +64,17 @@ export default function EmployeeDetailPage() {
   const [isResettingCredentials, setIsResettingCredentials] = useState(false);
   const [credentialResult, setCredentialResult] = useState<null | { temporary_password: string; email: string | null }>(null);
   const [copiedPassword, setCopiedPassword] = useState(false);
+  const [isOpeningDocumentId, setIsOpeningDocumentId] = useState<string | null>(null);
   
   const employee = getEmployeeById(id as string);
+  const {
+    documents,
+    isLoading: isDocumentsLoading,
+    error: documentsError,
+    getDownloadUrl,
+    formatFileSize,
+  } = useEmployeeDocuments({ employee_id: id as string });
+  const employeeDocuments = documents.filter((doc) => doc.employee_id === (id as string));
   const canManageCompensation = role === "admin" || role === "super_admin";
   const isGuardProfile = employee?.role_name === "security_guard" || Boolean(employee?.guard_profile_id);
   const profileRoleLabel = employee?.role_name || employee?.role || employee?.designation_name || "Employee";
@@ -108,6 +122,21 @@ export default function EmployeeDetailPage() {
       toast.error(error instanceof Error ? error.message : "Failed to reset security credentials");
     } finally {
       setIsResettingCredentials(false);
+    }
+  };
+
+  const handleOpenDocument = async (filePath: string, documentId: string) => {
+    setIsOpeningDocumentId(documentId);
+    try {
+      const url = await getDownloadUrl(filePath);
+      if (!url) {
+        throw new Error("Failed to generate document link");
+      }
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to open document");
+    } finally {
+      setIsOpeningDocumentId(null);
     }
   };
 
@@ -447,26 +476,56 @@ export default function EmployeeDetailPage() {
 
             <TabsContent value="documents" className="pt-6">
                <div className="grid gap-4">
-                  {[
-                    { name: "Identity Proof.pdf", size: "1.2 MB", type: "ID Proof" },
-                    { name: "Employment Contract.pdf", size: "2.5 MB", type: "Legal" },
-                    { name: "Security Bond.pdf", size: "850 KB", type: "Security" },
-                  ].map((doc) => (
-                    <div key={doc.name} className="flex items-center justify-between p-4 rounded-xl border bg-card hover:shadow-md transition-shadow group">
+                  {isDocumentsLoading ? (
+                    <div className="flex items-center justify-center rounded-xl border bg-card p-8 text-sm text-muted-foreground">
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Loading documents...
+                    </div>
+                  ) : documentsError ? (
+                    <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
+                      {documentsError}
+                    </div>
+                  ) : employeeDocuments.length === 0 ? (
+                    <div className="rounded-xl border border-dashed bg-card p-8 text-center text-sm text-muted-foreground">
+                      No documents uploaded for this employee yet.
+                    </div>
+                  ) : (
+                    employeeDocuments.map((doc) => {
+                      const statusConfig = DOCUMENT_STATUS_CONFIG[doc.status];
+                      const typeLabel = DOCUMENT_TYPE_LABELS[doc.document_type] || doc.document_type;
+
+                      return (
+                        <div key={doc.id} className="flex items-center justify-between p-4 rounded-xl border bg-card hover:shadow-md transition-shadow group">
                        <div className="flex items-center gap-4">
                           <div className="h-12 w-12 rounded-xl bg-primary/5 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
                              <FileText className="h-6 w-6 text-primary" />
                           </div>
                           <div className="flex flex-col">
-                             <span className="font-bold text-sm ">{doc.name}</span>
-                             <span className="text-xs text-muted-foreground">{doc.type} • {doc.size}</span>
+                             <span className="font-bold text-sm ">{doc.document_name || doc.file_name}</span>
+                             <span className="text-xs text-muted-foreground">
+                               {typeLabel} • {formatFileSize(doc.file_size)}
+                             </span>
+                             <span className={`mt-1 inline-flex w-fit rounded-full border px-2 py-0.5 text-[10px] font-semibold ${statusConfig.className}`}>
+                               {statusConfig.label}
+                             </span>
                           </div>
                        </div>
-                       <Button variant="ghost" size="icon">
-                          <ArrowUpRight className="h-4 w-4" />
+                       <Button
+                         variant="ghost"
+                         size="icon"
+                         onClick={() => handleOpenDocument(doc.file_path, doc.id)}
+                         disabled={isOpeningDocumentId === doc.id}
+                       >
+                          {isOpeningDocumentId === doc.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <ArrowUpRight className="h-4 w-4" />
+                          )}
                        </Button>
                     </div>
-                  ))}
+                      );
+                    })
+                  )}
                   <Button variant="outline" className="border-dashed h-20 text-muted-foreground hover:text-primary hover:border-primary transition-all">
                      + Upload New Document
                   </Button>

@@ -88,7 +88,7 @@ export default function BuyerBillingPage() {
       const success = await recordTransaction({
         type: 'receipt',
         referenceType: 'sale_bill',
-        referenceId: selectedInvoice.id,
+        referenceId: selectedInvoice.sale_bill_id || selectedInvoice.id,
         amount: amountNum,
         methodId: selectedMethodId,
         date: paymentDate,

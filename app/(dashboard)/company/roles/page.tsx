@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTable } from "@/components/shared/DataTable";
 import { Button } from "@/components/ui/button";
@@ -10,15 +11,37 @@ import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useRoles } from "@/hooks/useRoles";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 
 interface Role {
   id: string;
+  roleId: string;
   name: string;
   description: string | null;
   userCount: number;
@@ -27,11 +50,82 @@ interface Role {
 }
 
 export default function RolesPage() {
-  const { roles, isLoading, error, refresh } = useRoles();
+  const { roles, isLoading, error, isSubmitting, refresh, createRole, updateRole, deleteRole } = useRoles();
+  const [selectedRole, setSelectedRole] = useState<Role | null>(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [formMode, setFormMode] = useState<"create" | "edit">("create");
+  const [roleName, setRoleName] = useState("");
+  const [roleDescription, setRoleDescription] = useState("");
+
+  const openCreateDialog = () => {
+    setFormMode("create");
+    setSelectedRole(null);
+    setRoleName("");
+    setRoleDescription("");
+    setIsFormOpen(true);
+  };
+
+  const openEditDialog = (role: Role) => {
+    setFormMode("edit");
+    setSelectedRole(role);
+    setRoleName(role.name);
+    setRoleDescription(role.description || "");
+    setIsFormOpen(true);
+  };
+
+  const openDeleteDialog = (role: Role) => {
+    setSelectedRole(role);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleSaveRole = async () => {
+    if (!roleName.trim()) {
+      toast.error("Role name is required");
+      return;
+    }
+
+    try {
+      if (formMode === "create") {
+        await createRole({
+          name: roleName,
+          description: roleDescription,
+        });
+        toast.success("Role created");
+      } else if (selectedRole) {
+        await updateRole(selectedRole.roleId, {
+          name: roleName,
+          description: roleDescription,
+        });
+        toast.success("Role updated");
+      }
+
+      setIsFormOpen(false);
+      setSelectedRole(null);
+      setRoleName("");
+      setRoleDescription("");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to save role");
+    }
+  };
+
+  const handleDeleteRole = async () => {
+    if (!selectedRole) return;
+
+    try {
+      await deleteRole(selectedRole.roleId);
+      toast.success("Role deleted");
+      setIsDeleteDialogOpen(false);
+      setSelectedRole(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete role");
+    }
+  };
 
   // Transform roles data for the table
   const data: Role[] = roles.map(role => ({
     id: role.id.substring(0, 8).toUpperCase(),
+    roleId: role.id,
     name: role.name,
     description: role.description || "No description available",
     userCount: role.userCount,
@@ -110,7 +204,7 @@ export default function RolesPage() {
     },
     {
       id: "actions",
-      cell: () => (
+      cell: ({ row }) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -118,10 +212,10 @@ export default function RolesPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-40">
-            <DropdownMenuItem className="gap-2">
+            <DropdownMenuItem className="gap-2" onClick={() => openEditDialog(row.original)}>
               <Lock className="h-3.5 w-3.5" /> Edit Permissions
             </DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive gap-2">
+            <DropdownMenuItem className="text-destructive gap-2" onClick={() => openDeleteDialog(row.original)}>
               Delete Role
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -141,11 +235,11 @@ export default function RolesPage() {
               variant="outline" 
               className="gap-2"
               onClick={refresh}
-              disabled={isLoading}
+              disabled={isLoading || isSubmitting}
             >
-              <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} /> Refresh
+              <RefreshCw className={cn("h-4 w-4", (isLoading || isSubmitting) && "animate-spin")} /> Refresh
             </Button>
-            <Button className="gap-2 shadow-sm">
+            <Button className="gap-2 shadow-sm" onClick={openCreateDialog}>
               <Plus className="h-4 w-4" /> Create New Role
             </Button>
           </div>
@@ -167,6 +261,71 @@ export default function RolesPage() {
       ) : (
         <DataTable columns={columns} data={data} searchKey="name" />
       )}
+
+      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+        <DialogContent size="default">
+          <DialogHeader>
+            <DialogTitle>{formMode === "create" ? "Create Role" : "Edit Role"}</DialogTitle>
+            <DialogDescription>
+              {formMode === "create"
+                ? "Create a role using a supported system role name."
+                : "Update the role display name and description."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="role-name" className="text-sm font-medium">Role Name</label>
+              <Input
+                id="role-name"
+                value={roleName}
+                onChange={(event) => setRoleName(event.target.value)}
+                placeholder="e.g. Site Supervisor"
+                disabled={isSubmitting}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="role-description" className="text-sm font-medium">Description</label>
+              <Textarea
+                id="role-description"
+                value={roleDescription}
+                onChange={(event) => setRoleDescription(event.target.value)}
+                placeholder="Short description for this role"
+                disabled={isSubmitting}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsFormOpen(false)} disabled={isSubmitting}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveRole} disabled={isSubmitting}>
+              {isSubmitting ? "Saving..." : formMode === "create" ? "Create Role" : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete role?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {selectedRole
+                ? `This will permanently delete ${selectedRole.name}. Existing users linked to it may block the delete at the database layer.`
+                : "This action cannot be undone."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteRole} disabled={isSubmitting}>
+              {isSubmitting ? "Deleting..." : "Delete Role"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Employee {
   id: string;
@@ -60,6 +61,7 @@ interface UseEmployeesReturn extends UseEmployeesState {
  * Used for employee selection dropdowns, assignment, etc.
  */
 export function useEmployees(options?: { includeInactive?: boolean }): UseEmployeesReturn {
+  const { role, userId } = useAuth();
   const [state, setState] = useState<UseEmployeesState>({
     employees: [],
     isLoading: true,
@@ -70,6 +72,15 @@ export function useEmployees(options?: { includeInactive?: boolean }): UseEmploy
   const fetchEmployees = useCallback(async () => {
     try {
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
+
+      // Fetch managed societies for non-admin roles to enable explicit filtering
+      let managedSocietyIds: string[] = [];
+      const isAdmin = role === "admin" || role === "super_admin";
+      
+      if (!isAdmin && role) {
+        const { data: societies } = await supabase.rpc("get_my_managed_societies");
+        managedSocietyIds = societies || [];
+      }
 
       let query = supabase
         .from("employees")
@@ -93,6 +104,10 @@ export function useEmployees(options?: { includeInactive?: boolean }): UseEmploy
       if (!includeInactive) {
         query = query.eq("is_active", true);
       }
+
+      // Explicit filtering for non-admins if society bridge is available.
+      // Note: RLS handles the actual security (harden_security_guard_rls.sql).
+      // We rely on RLS to filter the primary employees list based on the security_guards bridge.
 
       const { data, error } = await query;
 

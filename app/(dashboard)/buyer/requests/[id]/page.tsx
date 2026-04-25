@@ -54,7 +54,7 @@ export default function BuyerRequestDetailsPage() {
     }
   }, [requestId, requests, fetchRequestItems]);
 
-  const handleDecision = async (status: 'material_acknowledged' | 'indent_rejected', reason?: string) => {
+  const handleDecision = async (status: 'material_acknowledged' | 'rejected', reason?: string) => {
     const success = await updateRequestStatus(requestId, status as RequestStatus, reason);
     if (success) {
       toast({
@@ -247,7 +247,7 @@ export default function BuyerRequestDetailsPage() {
                   className="w-full gap-2 text-critical hover:text-critical"
                   onClick={() => {
                     const reason = prompt("Enter reason for rejection:");
-                    if (reason) handleDecision('indent_rejected', reason);
+                    if (reason) handleDecision('rejected', reason);
                   }}
                 >
                   <XCircle className="h-4 w-4" /> Reject Delivery
@@ -310,4 +310,3 @@ function TimelineItem({ label, date, active, done, icon: Icon }: { label: string
     </div>
   );
 }
-

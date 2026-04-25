@@ -293,7 +293,7 @@ Below is a categorized list of all hooks. **Always check if a hook already exist
 `useRoles`, `useEmployees`, `useEmployeeProfile`, `useEmployeeDocuments`
 
 ### Inventory & Supply
-`useProducts`, `useInventory`, `useWarehouses`, `useSuppliers`, `useSupplierProducts`, `useSupplierRates`, `useSupplierRateSubscription`, `useSaleProductRates`, `useSaleRateSubscription`, `useReorderAlerts`, `useServices`, `useWaitlist`
+`useProducts`, `useProductCategories`, `useProductSubcategories`, `useInventory`, `useWarehouses`, `useSuppliers`, `useSupplierProducts`, `useSupplierRates`, `useSupplierRateSubscription`, `useSaleProductRates`, `useSaleRateSubscription`, `useReorderAlerts`, `useServices`, `useWaitlist`
 
 ### Procurement
 `useIndents`, `usePurchaseOrders`, `usePurchaseOrderList`, `usePurchaseOrderDetails`, `useGRN`, `useSupplierBills` (bill number generation via `generateBillNumber()`, document upload to storage via `uploadBillDocument(billId, supplierId, file)`)
@@ -327,5 +327,4 @@ Below is a categorized list of all hooks. **Always check if a hook already exist
 
 ### Platform
 `useAuditLogs`, `useNotifications`, `usePlatformAdminAccounts`, `usePlatformAuditLogs`, `usePlatformConfig`, `usePlatformRolePermissions`, `useSupabaseMutation`, `useSupabaseQuery`, `useSystemConfig`, `useUsers`
-
 

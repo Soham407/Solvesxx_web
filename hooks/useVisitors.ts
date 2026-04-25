@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
 import { useToast } from "@/components/ui/use-toast";
 import { sanitizeLikeInput } from "@/lib/sanitize";
+import { useAuth } from "@/hooks/useAuth";
 
 /**
  * Visitor Management Hook
@@ -92,9 +93,11 @@ export interface VisitorFilters {
   dateFrom?: string;
   dateTo?: string;
   searchTerm?: string;
+  societyId?: string;
 }
 
 export function useVisitors(initialFilters?: VisitorFilters) {
+  const { role, userId } = useAuth();
   const { toast } = useToast();
   const [visitors, setVisitors] = useState<Visitor[]>([]);
   const [activeVisitors, setActiveVisitors] = useState<Visitor[]>([]);
@@ -121,14 +124,26 @@ export function useVisitors(initialFilters?: VisitorFilters) {
     setError(null);
 
     try {
+      // Fetch managed societies for non-admin roles to enable explicit filtering
+      let managedSocietyIds: string[] = [];
+      const isAdmin = role === "admin" || role === "super_admin";
+      
+      if (!isAdmin && role) {
+        const { data: societies } = await supabase.rpc("get_my_managed_societies");
+        managedSocietyIds = societies || [];
+      }
+
       let query = supabase
         .from("visitors")
         .select(
           `
           *,
-          flat:flats(
+          flat:flats!inner(
             flat_number,
-            building:buildings(building_name)
+            building:buildings!inner(
+              building_name,
+              society_id
+            )
           ),
           resident:residents(full_name, phone),
           entry_guard:security_guards!visitors_entry_guard_id_fkey(
@@ -138,6 +153,13 @@ export function useVisitors(initialFilters?: VisitorFilters) {
         `,
         )
         .order("entry_time", { ascending: false });
+
+      // Apply tenant filter for non-admins
+      if (!isAdmin && managedSocietyIds.length > 0) {
+        query = query.in("flat.building.society_id", managedSocietyIds);
+      } else if (filters.societyId) {
+        query = query.eq("flat.building.society_id", filters.societyId);
+      }
 
       // Apply filters
       if (filters.status === "active") {

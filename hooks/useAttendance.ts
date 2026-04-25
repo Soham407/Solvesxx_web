@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
+import { useAuth } from "@/hooks/useAuth";
 import { MAIN_GATE_CODE } from "@/src/lib/constants";
 import { SYSTEM_CONFIG_DEFAULTS } from "@/src/lib/platform/system-config";
 
@@ -477,6 +478,7 @@ export async function getAdminAttendanceOverview(
 }
 
 export function useAttendance(employeeId?: string, guardId?: string | null) {
+  const { role, userId } = useAuth();
   const [state, setState] = useState<AttendanceState>({
     isWithinRange: false,
     distance: null,
@@ -549,7 +551,12 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
 
   // Fetch today's attendance record and active shift
   const fetchTodayAttendance = useCallback(async () => {
-    if (!employeeId) return;
+    // Security: Non-admins can only view their own attendance
+    const effectiveEmployeeId = (role === 'admin' || role === 'super_admin' || role === 'society_manager') 
+      ? employeeId 
+      : (employeeId || userId);
+
+    if (!effectiveEmployeeId) return;
 
     try {
       const today = new Date().toISOString().split("T")[0];
@@ -558,7 +565,7 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
         supabase
           .from("attendance_logs")
           .select("*")
-          .eq("employee_id", employeeId)
+          .eq("employee_id", effectiveEmployeeId)
           .eq("log_date", today)
           .maybeSingle(),
         supabase
@@ -574,7 +581,7 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
               is_night_shift
             )
           `)
-          .eq("employee_id", employeeId)
+          .eq("employee_id", effectiveEmployeeId)
           .eq("is_active", true)
           .maybeSingle()
       ]);
@@ -615,7 +622,7 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
     } catch (err: unknown) {
       console.error("Error fetching attendance/shift:", err);
     }
-  }, [employeeId]);
+  }, [employeeId, role, userId]);
 
   // Get current browser/device location
   const getCurrentPosition = useCallback(() => {

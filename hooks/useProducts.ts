@@ -69,6 +69,7 @@ export interface CreateProductDTO {
 }
 
 export interface UpdateProductDTO {
+  product_code?: string;
   product_name?: string;
   category_id?: string;
   subcategory_id?: string;
