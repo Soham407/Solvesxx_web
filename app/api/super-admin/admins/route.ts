@@ -72,17 +72,42 @@ async function provisionAdminAccessLink(adminClient: any, email: string): Promis
   accessLink: AdminAccessLink;
 }> {
   const temporaryPassword = createTemporaryPassword();
-  const signupResult = await adminClient.auth.admin.generateLink({
-    type: "signup",
+  
+  // 1. Try to create the user directly with email_confirm: true
+  // This ensures they can login immediately with the password if they don't use the link.
+  const { data: userData, error: createError } = await adminClient.auth.admin.createUser({
     email,
     password: temporaryPassword,
+    email_confirm: true,
+    user_metadata: {
+      must_change_password: true,
+    }
   });
 
-  if (!signupResult.error && signupResult.data?.user?.id && signupResult.data?.properties?.action_link) {
+  if (!createError && userData?.user?.id) {
+    // Generate a recovery link to serve as the "setup" link
+    const recoveryResult = await adminClient.auth.admin.generateLink({
+      type: "recovery",
+      email,
+    });
+
+    if (recoveryResult.data?.properties?.action_link) {
+      return {
+        authUserId: userData.user.id,
+        accessLink: {
+          url: recoveryResult.data.properties.action_link,
+          type: "signup",
+          deliveryMethod: "generated_link",
+          temporaryPassword,
+        },
+      };
+    }
+    
+    // Fallback if recovery link generation fails but user was created
     return {
-      authUserId: signupResult.data.user.id,
+      authUserId: userData.user.id,
       accessLink: {
-        url: signupResult.data.properties.action_link,
+        url: `${process.env.NEXT_PUBLIC_APP_URL || ""}/login`,
         type: "signup",
         deliveryMethod: "generated_link",
         temporaryPassword,
@@ -90,13 +115,15 @@ async function provisionAdminAccessLink(adminClient: any, email: string): Promis
     };
   }
 
-  const signupMessage = signupResult.error?.message?.toLowerCase() ?? "";
+  // 2. Fallback: If user already exists, generate a recovery/reset link
+  const signupMessage = createError?.message?.toLowerCase() ?? "";
   const alreadyExists =
     signupMessage.includes("already registered") ||
-    signupMessage.includes("already been registered");
+    signupMessage.includes("already been registered") ||
+    createError?.status === 422;
 
   if (!alreadyExists) {
-    throw signupResult.error ?? new Error("Failed to generate admin setup link");
+    throw createError ?? new Error("Failed to generate admin setup link");
   }
 
   const recoveryResult = await adminClient.auth.admin.generateLink({
