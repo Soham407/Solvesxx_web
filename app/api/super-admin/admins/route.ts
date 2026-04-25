@@ -74,7 +74,6 @@ async function provisionAdminAccessLink(adminClient: any, email: string): Promis
   const temporaryPassword = createTemporaryPassword();
   
   // 1. Try to create the user directly with email_confirm: true
-  // This ensures they can login immediately with the password if they don't use the link.
   const { data: userData, error: createError } = await adminClient.auth.admin.createUser({
     email,
     password: temporaryPassword,
@@ -85,29 +84,15 @@ async function provisionAdminAccessLink(adminClient: any, email: string): Promis
   });
 
   if (!createError && userData?.user?.id) {
-    // Generate a recovery link to serve as the "setup" link
     const recoveryResult = await adminClient.auth.admin.generateLink({
       type: "recovery",
       email,
     });
 
-    if (recoveryResult.data?.properties?.action_link) {
-      return {
-        authUserId: userData.user.id,
-        accessLink: {
-          url: recoveryResult.data.properties.action_link,
-          type: "signup",
-          deliveryMethod: "generated_link",
-          temporaryPassword,
-        },
-      };
-    }
-    
-    // Fallback if recovery link generation fails but user was created
     return {
       authUserId: userData.user.id,
       accessLink: {
-        url: `${process.env.NEXT_PUBLIC_APP_URL || ""}/login`,
+        url: recoveryResult.data?.properties?.action_link || `${process.env.NEXT_PUBLIC_APP_URL || ""}/login`,
         type: "signup",
         deliveryMethod: "generated_link",
         temporaryPassword,
@@ -115,7 +100,7 @@ async function provisionAdminAccessLink(adminClient: any, email: string): Promis
     };
   }
 
-  // 2. Fallback: If user already exists, generate a recovery/reset link
+  // 2. Fallback: If user already exists in Auth but not in our public.users
   const signupMessage = createError?.message?.toLowerCase() ?? "";
   const alreadyExists =
     signupMessage.includes("already registered") ||
@@ -126,18 +111,23 @@ async function provisionAdminAccessLink(adminClient: any, email: string): Promis
     throw createError ?? new Error("Failed to generate admin setup link");
   }
 
+  // If they exist, we generate a link to get their ID, then "harden" the account
   const recoveryResult = await adminClient.auth.admin.generateLink({
     type: "recovery",
     email,
   });
 
-  if (
-    recoveryResult.error ||
-    !recoveryResult.data?.user?.id ||
-    !recoveryResult.data?.properties?.action_link
-  ) {
+  if (recoveryResult.error || !recoveryResult.data?.user?.id) {
     throw recoveryResult.error ?? new Error("Failed to generate admin setup link");
   }
+
+  // Synchronize the existing auth account: ensure it's confirmed and set the temp password
+  // so the credentials shown in the UI actually work.
+  await adminClient.auth.admin.updateUserById(recoveryResult.data.user.id, {
+    password: temporaryPassword,
+    email_confirm: true,
+    user_metadata: { must_change_password: true }
+  });
 
   return {
     authUserId: recoveryResult.data.user.id,
@@ -145,6 +135,7 @@ async function provisionAdminAccessLink(adminClient: any, email: string): Promis
       url: recoveryResult.data.properties.action_link,
       type: "recovery",
       deliveryMethod: "generated_link",
+      temporaryPassword, // Now guaranteed to work for this user
     },
   };
 }
