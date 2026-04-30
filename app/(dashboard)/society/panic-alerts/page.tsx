@@ -368,6 +368,8 @@ export default function PanicAlertsPage() {
                             className="shrink-0 border"
                             disabled={alert.latitude == null || alert.longitude == null}
                             onClick={() => openAlertMap(alert)}
+                            aria-label="View on map"
+                            title="View on map"
                           >
                             <ExternalLink className="h-4 w-4" />
                           </Button>
