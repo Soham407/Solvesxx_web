@@ -53,4 +53,19 @@ describe("sale bills workflow", () => {
       ])
     ).toBe(true);
   });
+
+  it("verifies buyer workflow has a dedicated e2e path for request, payment, and feedback", async () => {
+    const buyerWorkflowSpec = await readRepoFile("e2e/buyer-request-invoice-payment-feedback.spec.ts");
+
+    expect(
+      sourceContainsAll(buyerWorkflowSpec, [
+        "Buyer Request → Invoice → Payment → Feedback",
+        "/buyer/requests",
+        "/buyer/invoices",
+        "pay now",
+        "buyer_feedback",
+        "toBe(\"completed\")",
+      ])
+    ).toBe(true);
+  });
 });
