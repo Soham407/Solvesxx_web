@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
 import { useAuth } from "@/hooks/useAuth";
+import { assembleEmployeeDirectory } from "@/src/lib/workforce/boundary";
 
 interface Employee {
   id: string;
@@ -154,77 +155,12 @@ export function useEmployees(options?: { includeInactive?: boolean }): UseEmploy
       if (guardsResult.error) throw guardsResult.error;
       if (shiftsResult.error) throw shiftsResult.error;
 
-      const userMap = new Map<string, {
-        linked_user_id: string | null;
-        role_name: string | null;
-        must_change_password: boolean;
-      }>();
-      (usersResult.data || []).forEach((record: any) => {
-        if (!record.employee_id || userMap.has(record.employee_id)) return;
-        const roleRecord = Array.isArray(record.roles) ? record.roles[0] : record.roles;
-        userMap.set(record.employee_id, {
-          linked_user_id: record.id ?? null,
-          role_name: roleRecord?.role_name ?? null,
-          must_change_password: Boolean(record.must_change_password),
-        });
-      });
-
-      const guardMap = new Map<string, {
-        guard_profile_id: string | null;
-        guard_code: string | null;
-        assigned_location_id: string | null;
-        assigned_location_name: string | null;
-        guard_is_active: boolean;
-      }>();
-      (guardsResult.data || []).forEach((record: any) => {
-        if (!record.employee_id || guardMap.has(record.employee_id)) return;
-        const assignedLocation = Array.isArray(record.assigned_location)
-          ? record.assigned_location[0]
-          : record.assigned_location;
-
-        guardMap.set(record.employee_id, {
-          guard_profile_id: record.id ?? null,
-          guard_code: record.guard_code ?? null,
-          assigned_location_id: record.assigned_location_id ?? null,
-          assigned_location_name: assignedLocation?.location_name ?? null,
-          guard_is_active: record.is_active !== false,
-        });
-      });
-
-      const shiftMap = new Map<string, { shift_id: string | null; shift_name: string | null }>();
-      (shiftsResult.data || []).forEach((record: any) => {
-        if (!record.employee_id || shiftMap.has(record.employee_id)) return;
-        const shiftRecord = Array.isArray(record.shifts) ? record.shifts[0] : record.shifts;
-        shiftMap.set(record.employee_id, {
-          shift_id: record.shift_id ?? null,
-          shift_name: shiftRecord?.shift_name ?? null,
-        });
-      });
-
-      // Transform data to include full_name
-      const employeesWithFullName: Employee[] = (data || []).map((emp: any) => {
-        // Handle relation returns
-        const desigInfo = Array.isArray(emp.designations) ? emp.designations[0] : emp.designations;
-        const linkedUser = userMap.get(emp.id);
-        const linkedGuard = guardMap.get(emp.id);
-        const activeShift = shiftMap.get(emp.id);
-        
-        return {
-          ...emp,
-          full_name: [emp.first_name, emp.last_name].filter(Boolean).join(" ").trim() || "Unknown",
-          designation_name: desigInfo?.designation_name || emp.department || "Employee",
-          linked_user_id: linkedUser?.linked_user_id ?? null,
-          role_name: linkedUser?.role_name ?? null,
-          must_change_password: linkedUser?.must_change_password ?? false,
-          guard_profile_id: linkedGuard?.guard_profile_id ?? null,
-          guard_code: linkedGuard?.guard_code ?? null,
-          assigned_location_id: linkedGuard?.assigned_location_id ?? null,
-          assigned_location_name: linkedGuard?.assigned_location_name ?? null,
-          guard_is_active: linkedGuard?.guard_is_active ?? false,
-          shift_id: activeShift?.shift_id ?? null,
-          shift_name: activeShift?.shift_name ?? null,
-        };
-      });
+      const employeesWithFullName: Employee[] = assembleEmployeeDirectory({
+        employees: data || [],
+        users: usersResult.data || [],
+        guards: guardsResult.data || [],
+        shifts: shiftsResult.data || [],
+      }) as Employee[];
 
       setState({
         employees: employeesWithFullName,

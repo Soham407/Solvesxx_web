@@ -107,8 +107,9 @@ describe("service delivery contracts", () => {
 
     expect(
       sourceContainsAll(employeeProfileSource, [
-        '.eq("auth_user_id", user.id)',
-        "employeeId: directEmployee.id",
+        "resolveCurrentWorkforceActor",
+        "employeeId: actor.employeeId",
+        "residentId: actor.residentId",
       ])
     ).toBe(true);
 
