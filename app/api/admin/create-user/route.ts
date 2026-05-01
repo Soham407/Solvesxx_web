@@ -75,6 +75,57 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Cannot provision admin-tier accounts via this endpoint" }, { status: 403 });
     }
 
+    let finalEmployeeId = employee_id || null;
+    const finalSupplierId = supplier_id || null;
+
+    if (roleName === "resident" && finalEmployeeId) {
+      return NextResponse.json(
+        { error: "Resident accounts cannot be linked to employee records" },
+        { status: 400 }
+      );
+    }
+
+    // --- Validate existing employee linkage before creating auth user ---
+    if (finalEmployeeId) {
+      const { data: existingEmployee, error: existingEmployeeError } = await supabase
+        .from("employees")
+        .select("id, auth_user_id")
+        .eq("id", finalEmployeeId)
+        .maybeSingle();
+
+      if (existingEmployeeError) {
+        throw existingEmployeeError;
+      }
+
+      if (!existingEmployee) {
+        return NextResponse.json({ error: "Invalid employee_id" }, { status: 400 });
+      }
+
+      if ((existingEmployee as any).auth_user_id) {
+        return NextResponse.json(
+          { error: "Employee is already linked to another login" },
+          { status: 409 }
+        );
+      }
+
+      const { data: linkedUser, error: linkedUserError } = await supabase
+        .from("users")
+        .select("id")
+        .eq("employee_id", finalEmployeeId)
+        .maybeSingle();
+
+      if (linkedUserError && linkedUserError.code !== "PGRST116") {
+        throw linkedUserError;
+      }
+
+      if (linkedUser) {
+        return NextResponse.json(
+          { error: "Employee is already linked to another login" },
+          { status: 409 }
+        );
+      }
+    }
+
     // --- Auto-generate password ---
     const tempPassword = crypto.randomBytes(8).toString("hex");
 
@@ -104,8 +155,6 @@ export async function POST(req: NextRequest) {
     const baseUsername = email.split("@")[0].toLowerCase().replace(/[^a-z0-9._-]/g, "");
     const username = `${baseUsername}_${Date.now().toString(36)}`;
 
-    let finalEmployeeId = employee_id || null;
-    let finalSupplierId = supplier_id || null;
     let linkedResidentId: string | null = null;
 
     // --- Link existing or create new employee record for staff roles ---
@@ -136,8 +185,27 @@ export async function POST(req: NextRequest) {
       }
       finalEmployeeId = (newEmployee as any).id;
     } else if (finalEmployeeId) {
-       // Link existing employee
-       await supabaseAdmin.from("employees").update({ auth_user_id: newUserId }).eq("id", finalEmployeeId);
+      // Link existing employee only if still unlinked to prevent races.
+      const { data: linkedEmployee, error: linkEmployeeError } = await supabaseAdmin
+        .from("employees")
+        .update({ auth_user_id: newUserId })
+        .eq("id", finalEmployeeId)
+        .is("auth_user_id", null)
+        .select("id")
+        .maybeSingle();
+
+      if (linkEmployeeError) {
+        await supabaseAdmin.auth.admin.deleteUser(newUserId);
+        throw linkEmployeeError;
+      }
+
+      if (!linkedEmployee) {
+        await supabaseAdmin.auth.admin.deleteUser(newUserId);
+        return NextResponse.json(
+          { error: "Employee is already linked to another login" },
+          { status: 409 }
+        );
+      }
     }
 
     // --- Link resident record if role is resident ---

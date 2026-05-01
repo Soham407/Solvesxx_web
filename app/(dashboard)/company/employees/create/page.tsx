@@ -37,7 +37,7 @@ type EmployeeFormValues = z.infer<typeof employeeSchema>;
 
 export default function CreateEmployeePage() {
   const router = useRouter();
-  const { createEmployee } = useEmployees();
+  const { createEmployee, employees } = useEmployees({ includeInactive: true });
   const { designations, isLoading: designationsLoading } = useDesignations();
   const { register, handleSubmit, formState: { errors, isSubmitting }, setValue } = useForm<EmployeeFormValues>({
     resolver: zodResolver(employeeSchema),
@@ -59,6 +59,23 @@ export default function CreateEmployeePage() {
       }),
     [designations],
   );
+
+  const departmentOptions = useMemo(() => {
+    const fromDesignations = designations.map((designation) => designation.department);
+    const fromEmployees = employees.map((employee) => employee.department);
+
+    return Array.from(
+      new Set(
+        [...fromDesignations, ...fromEmployees]
+          .map((department) => (department || "").trim())
+          .filter((department) => department.length > 0)
+          .filter((department) => {
+            const normalized = department.toLowerCase();
+            return normalized !== "security" && normalized !== "sec";
+          })
+      )
+    ).sort((a, b) => a.localeCompare(b));
+  }, [designations, employees]);
 
   const onSubmit = async (data: EmployeeFormValues) => {
     if (data.department === "sec") {
@@ -176,12 +193,19 @@ export default function CreateEmployeePage() {
                   <SelectValue placeholder="Select Department" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="it">Information Technology</SelectItem>
-                  <SelectItem value="ops">Operations</SelectItem>
-                  <SelectItem value="hr">Human Resources</SelectItem>
+                  {departmentOptions.map((department) => (
+                    <SelectItem key={department} value={department}>
+                      {department}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               {errors.department && <p className="text-xs text-critical font-medium">{errors.department.message}</p>}
+              {departmentOptions.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Add departments through designation and employee master data first.
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Designation</Label>
@@ -217,6 +241,7 @@ export default function CreateEmployeePage() {
         <div className="flex items-center justify-end gap-4 p-6 bg-muted/20 border rounded-xl">
            <p className="text-xs text-muted-foreground mr-auto">
              Note: This creates only a general employee record with department and designation.
+             User provisioning, role assignment, and operational location mapping still happen separately.
              Security guard onboarding must go through Security Ops, not this form.
            </p>
            <Button variant="outline" type="button" asChild>
