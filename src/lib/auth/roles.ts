@@ -18,6 +18,14 @@ export type AppRole =
   | "ac_technician"
   | "pest_control_technician";
 
+export const ROLE_LANDING_PATHS: Partial<Record<AppRole, string>> = {
+  buyer: "/buyer",
+  supplier: "/supplier",
+  vendor: "/supplier",
+  resident: "/resident",
+  delivery_boy: "/delivery",
+};
+
 /**
  * Role-based access mapping
  * Each role can access paths starting with these prefixes
@@ -68,4 +76,12 @@ export function hasAccess(role: AppRole, pathname: string): boolean {
   if (pathname === "/dashboard") return true;
 
   return prefixes.some(prefix => pathname.startsWith(prefix));
+}
+
+export function getRoleLandingPath(role: AppRole | null | undefined): string {
+  if (!role) {
+    return "/dashboard";
+  }
+
+  return ROLE_LANDING_PATHS[role] ?? "/dashboard";
 }

@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { type AppRole } from "@/src/lib/auth/roles";
+import { getRoleLandingPath, type AppRole } from "@/src/lib/auth/roles";
 import { isRouteFrozen } from "@/src/lib/featureFlags";
 import { canAccessPath } from "@/src/lib/platform/permissions";
 import { updateSession } from "@/src/lib/supabase/middleware";
@@ -56,9 +56,12 @@ export async function proxy(request: NextRequest) {
   }
 
   if (pathname === "/") {
-    const { user } = await updateSession(request);
+    const { user, role, isActive } = await updateSession(request);
     if (user) {
-      return NextResponse.redirect(new URL("/dashboard", request.url));
+      if (!role || isActive === false) {
+        return NextResponse.next();
+      }
+      return NextResponse.redirect(new URL(getRoleLandingPath(role as AppRole), request.url));
     }
     return NextResponse.next();
   }
@@ -75,7 +78,7 @@ export async function proxy(request: NextRequest) {
           return NextResponse.next();
         }
 
-        return NextResponse.redirect(new URL("/dashboard", request.url));
+        return NextResponse.redirect(new URL(getRoleLandingPath(role as AppRole), request.url));
       }
     }
     return NextResponse.next();
@@ -140,9 +143,9 @@ export async function proxy(request: NextRequest) {
       );
     }
 
-    const dashboardUrl = new URL("/dashboard", request.url);
-    dashboardUrl.searchParams.set("error", "forbidden");
-    return NextResponse.redirect(dashboardUrl);
+    const landingUrl = new URL(getRoleLandingPath(role as AppRole), request.url);
+    landingUrl.searchParams.set("error", "forbidden");
+    return NextResponse.redirect(landingUrl);
   }
 
   if (isRouteFrozen(pathname)) {
@@ -150,9 +153,9 @@ export async function proxy(request: NextRequest) {
       return NextResponse.json({ error: "Feature not enabled" }, { status: 403 });
     }
 
-    const dashboardUrl = new URL("/dashboard", request.url);
-    dashboardUrl.searchParams.set("error", "feature_disabled");
-    return NextResponse.redirect(dashboardUrl);
+    const landingUrl = new URL(getRoleLandingPath(role as AppRole), request.url);
+    landingUrl.searchParams.set("error", "feature_disabled");
+    return NextResponse.redirect(landingUrl);
   }
 
   return supabaseResponse;

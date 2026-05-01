@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { hasAccess } from "@/src/lib/auth/roles";
+import { getRoleLandingPath, hasAccess } from "@/src/lib/auth/roles";
 
 describe("hasAccess", () => {
   it("grants full access to admin-tier roles", () => {
@@ -32,5 +32,15 @@ describe("hasAccess", () => {
     expect(hasAccess("account", "/company/users")).toBe(false);
     expect(hasAccess("ac_technician", "/services/ac")).toBe(true);
     expect(hasAccess("ac_technician", "/services/pest-control")).toBe(false);
+  });
+
+  it("resolves role-aware landing routes for portal roles", () => {
+    expect(getRoleLandingPath("buyer")).toBe("/buyer");
+    expect(getRoleLandingPath("supplier")).toBe("/supplier");
+    expect(getRoleLandingPath("vendor")).toBe("/supplier");
+    expect(getRoleLandingPath("resident")).toBe("/resident");
+    expect(getRoleLandingPath("delivery_boy")).toBe("/delivery");
+    expect(getRoleLandingPath("admin")).toBe("/dashboard");
+    expect(getRoleLandingPath(null)).toBe("/dashboard");
   });
 });

@@ -16,6 +16,7 @@ import { AlertTriangle, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { canAccessPath } from "@/src/lib/platform/permissions";
+import { getRoleLandingPath } from "@/src/lib/auth/roles";
 
 interface RouteGuardProps {
   children: React.ReactNode;
@@ -66,12 +67,7 @@ export function RouteGuard({ children }: RouteGuardProps) {
             <Button 
               className="w-full" 
               onClick={() => {
-                // Resident special redirect
-                if (role === "resident") {
-                  router.push('/society/my-flat');
-                } else {
-                  router.push('/dashboard');
-                }
+                router.push(getRoleLandingPath(role));
               }}
             >
               Return to Safe Area
@@ -105,7 +101,7 @@ export function RouteGuard({ children }: RouteGuardProps) {
             </div>
             <Button 
               className="w-full" 
-              onClick={() => router.push('/dashboard')}
+              onClick={() => router.push(getRoleLandingPath(role))}
             >
               Return to Dashboard
             </Button>

@@ -3,9 +3,11 @@
 import { useAuth } from "@/hooks/useAuth";
 import { redirect } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { canAccessPath } from "@/src/lib/platform/permissions";
+import { getRoleLandingPath } from "@/src/lib/auth/roles";
 
 export default function SupplierLayout({ children }: { children: React.ReactNode }) {
-  const { user, role, isLoading } = useAuth();
+  const { user, role, permissions, isLoading } = useAuth();
 
   if (isLoading) {
     return (
@@ -15,9 +17,12 @@ export default function SupplierLayout({ children }: { children: React.ReactNode
     );
   }
 
-  // Allow 'admin', 'supplier', or 'vendor' roles
-  if (!user || (role !== "admin" && role !== "supplier" && role !== "vendor")) {
-    redirect("/dashboard");
+  if (!user) {
+    redirect("/login");
+  }
+
+  if (!role || !canAccessPath(role, permissions, "/supplier")) {
+    redirect(getRoleLandingPath(role));
   }
 
   return <div className="p-6 space-y-6">{children}</div>;
