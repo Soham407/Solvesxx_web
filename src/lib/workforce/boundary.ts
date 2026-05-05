@@ -214,12 +214,18 @@ export async function resolveWorkforceIdentityByPhone(phone: string): Promise<Wo
 
     if (error) throw error;
     if (data) {
+      const { data: userData } = await supabaseAdmin
+        .from("users")
+        .select("email")
+        .eq("id", data.auth_user_id)
+        .maybeSingle();
+
       return {
         actorKind: "resident",
         authUserId: data.auth_user_id ?? "",
         employeeId: null,
         fullName: data.full_name ?? null,
-        email: null,
+        email: userData?.email ?? null,
         roleName: "resident",
         residentId: data.id,
         flatId: data.flat_id ?? null,
