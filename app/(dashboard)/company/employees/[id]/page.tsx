@@ -85,7 +85,7 @@ export default function EmployeeDetailPage() {
     ? [
         { label: "Auth account", ok: Boolean(employee.auth_user_id), value: employee.email || "Missing login" },
         { label: "Public user link", ok: Boolean(employee.linked_user_id), value: employee.role_name || "Role missing" },
-        { label: "Employee record", ok: true, value: employee.employee_code || employee.id.slice(0, 8) },
+        { label: "Employee record", ok: true, value: employee.employee_code || employee.full_name || "Employee" },
         { label: "Guard profile", ok: isGuardProfile && Boolean(employee.guard_profile_id), value: employee.guard_code || "Not provisioned" },
         { label: "Assigned location", ok: Boolean(employee.assigned_location_id), value: employee.assigned_location_name || "Unassigned" },
         { label: "Active shift", ok: Boolean(employee.shift_id), value: employee.shift_name || "No active shift" },
@@ -232,7 +232,7 @@ export default function EmployeeDetailPage() {
                     </div>
                     <div className="flex flex-col">
                        <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Email</span>
-                       <span className="text-sm font-medium">{employee.email || "N/A"}</span>
+                       <span className="text-sm font-medium">{employee.email || "Not provided"}</span>
                     </div>
                  </div>
                  <div className="flex items-center gap-3">
@@ -241,7 +241,7 @@ export default function EmployeeDetailPage() {
                     </div>
                     <div className="flex flex-col">
                        <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Phone</span>
-                       <span className="text-sm font-medium">{employee.phone || "N/A"}</span>
+                       <span className="text-sm font-medium">{employee.phone || "Not provided"}</span>
                     </div>
                  </div>
                  <div className="flex items-center gap-3">
@@ -366,7 +366,7 @@ export default function EmployeeDetailPage() {
                        <div className="flex justify-between py-2 border-b border-dashed">
                           <span className="text-sm text-muted-foreground">Joined Date</span>
                           <span className="text-sm font-bold">
-                            {employee.created_at ? new Date(employee.created_at).toLocaleDateString() : "N/A"}
+                            {employee.created_at ? new Date(employee.created_at).toLocaleDateString() : "Not set"}
                           </span>
                        </div>
                     </CardContent>

@@ -5,6 +5,8 @@ import { createClient as createServerClient } from "@/src/lib/supabase/server";
 /** Roles permitted to trigger password resets */
 const ALLOWED_ROLES = ["admin", "super_admin"];
 const ADMIN_ROLE_NAMES = new Set(["admin", "super_admin"]);
+type RoleRecord = { role_name?: string | null };
+type UserRoleRow = { roles?: RoleRecord | RoleRecord[] | null };
 
 export async function POST(req: NextRequest) {
   try {
@@ -33,7 +35,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const roleName = (userRecord as any)?.roles?.role_name as string | undefined;
+    const callerRow = userRecord as UserRoleRow | null;
+    const roleRecord = Array.isArray(callerRow?.roles) ? callerRow.roles[0] : callerRow?.roles;
+    const roleName = roleRecord?.role_name as string | undefined;
 
     if (!roleName || !ALLOWED_ROLES.includes(roleName)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -56,9 +60,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Target user not found" }, { status: 404 });
     }
 
-    const targetRole = Array.isArray((targetUser as any).roles)
-      ? (targetUser as any).roles[0]
-      : (targetUser as any).roles;
+    const targetRow = targetUser as UserRoleRow | null;
+    const targetRole = Array.isArray(targetRow?.roles) ? targetRow.roles[0] : targetRow?.roles;
 
     if (
       ADMIN_ROLE_NAMES.has(targetRole?.role_name ?? "") &&
@@ -83,7 +86,10 @@ export async function POST(req: NextRequest) {
     if (error) throw error;
 
     return NextResponse.json({ success: true });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || "Failed to send reset link" }, { status: 500 });
+  } catch (err: unknown) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Failed to send reset link" },
+      { status: 500 }
+    );
   }
 }

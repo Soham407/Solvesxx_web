@@ -8,7 +8,7 @@
 -- -----------------------------------------------------------
 DROP POLICY IF EXISTS "Residents can view their own record" ON residents;
 DROP POLICY IF EXISTS "Residents can update their own record" ON residents;
-DROP POLICY IF EXISTS "Guards can view residents" ON residents;so wh
+DROP POLICY IF EXISTS "Guards can view residents" ON residents;
 DROP POLICY IF EXISTS "Supervisors can view all residents" ON residents;
 DROP POLICY IF EXISTS "Admins can manage residents" ON residents;
 DROP POLICY IF EXISTS "residents_society_manager_insert" ON residents;

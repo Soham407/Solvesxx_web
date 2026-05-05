@@ -1,10 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase as supabaseClient } from "@/src/lib/supabaseClient";
+import { supabase } from "@/src/lib/supabaseClient";
 import { useToast } from "@/components/ui/use-toast";
-
-const supabase = supabaseClient as any;
+import type { Json } from "@/src/types/supabase";
 
 export interface PersonnelDetail {
   name: string;
@@ -40,6 +39,75 @@ export interface CreateDeliveryNoteDTO {
   remarks?: string;
 }
 
+type ServiceDeliveryNoteRow = Omit<ServiceDeliveryNote, "personnel_details"> & {
+  personnel_details: Json;
+  service_purchase_order?: {
+    spo_number?: string | null;
+    supplier?: { supplier_name?: string | null } | null;
+  } | null;
+};
+
+function normalizeServiceDeliveryNoteRows(rows: unknown): ServiceDeliveryNoteRow[] {
+  return Array.isArray(rows) ? (rows as ServiceDeliveryNoteRow[]) : [];
+}
+
+function toPersonnelDetailsJson(details: PersonnelDetail[]): Json {
+  return JSON.parse(JSON.stringify(details)) as Json;
+}
+
+function normalizePersonnelDetail(detail: unknown): PersonnelDetail | null {
+  if (
+    detail &&
+    typeof detail === "object" &&
+    !Array.isArray(detail) &&
+    typeof (detail as { name?: unknown }).name === "string" &&
+    typeof (detail as { id_proof_type?: unknown }).id_proof_type === "string" &&
+    typeof (detail as { id_proof_number?: unknown }).id_proof_number === "string" &&
+    typeof (detail as { qualification?: unknown }).qualification === "string" &&
+    typeof (detail as { contact?: unknown }).contact === "string"
+  ) {
+    return {
+      name: (detail as { name: string }).name,
+      id_proof_type: (detail as { id_proof_type: string }).id_proof_type,
+      id_proof_number: (detail as { id_proof_number: string }).id_proof_number,
+      qualification: (detail as { qualification: string }).qualification,
+      contact: (detail as { contact: string }).contact,
+      photo_url: (detail as { photo_url?: string }).photo_url,
+    };
+  }
+
+  return null;
+}
+
+function mapServiceDeliveryNoteRows(rows: ServiceDeliveryNoteRow[]): ServiceDeliveryNote[] {
+  return rows.map((row) => ({
+    id: row.id,
+    delivery_note_number: row.delivery_note_number,
+    po_id: row.po_id,
+    delivery_date: row.delivery_date,
+    personnel_details: parsePersonnelDetails(row.personnel_details),
+    verified_by: row.verified_by,
+    verified_at: row.verified_at,
+    status: row.status as ServiceDeliveryNote["status"],
+    remarks: row.remarks,
+    created_by: row.created_by,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    po_number: row.service_purchase_order?.spo_number,
+    supplier_name: row.service_purchase_order?.supplier?.supplier_name,
+  }));
+}
+
+function parsePersonnelDetails(details: Json): PersonnelDetail[] {
+  if (!Array.isArray(details)) {
+    return [];
+  }
+
+  return details
+    .map(normalizePersonnelDetail)
+    .filter((detail): detail is PersonnelDetail => detail !== null);
+}
+
 export function useServiceDeliveryNotes(poId?: string) {
   const { toast } = useToast();
   const [notes, setNotes] = useState<ServiceDeliveryNote[]>([]);
@@ -68,11 +136,7 @@ export function useServiceDeliveryNotes(poId?: string) {
       const { data, error: fetchError } = await query;
       if (fetchError) throw fetchError;
 
-      const mapped = (data || []).map((row: any) => ({
-        ...row,
-        po_number: row.service_purchase_order?.spo_number,
-        supplier_name: row.service_purchase_order?.supplier?.supplier_name,
-      }));
+      const mapped = mapServiceDeliveryNoteRows(normalizeServiceDeliveryNoteRows(data));
 
       setNotes(mapped);
     } catch (err) {
@@ -89,9 +153,10 @@ export function useServiceDeliveryNotes(poId?: string) {
       const { data, error: insertError } = await supabase
         .from("service_delivery_notes")
         .insert({
+          delivery_note_number: `SDN-${Date.now()}`,
           po_id: dto.po_id,
           delivery_date: dto.delivery_date,
-          personnel_details: dto.personnel_details,
+          personnel_details: toPersonnelDetailsJson(dto.personnel_details),
           remarks: dto.remarks || null,
           status: "pending",
           created_by: user?.id,
@@ -111,7 +176,7 @@ export function useServiceDeliveryNotes(poId?: string) {
 
       if (transitionError) throw transitionError;
 
-      const rpcResult = transitionResult as any;
+      const rpcResult = transitionResult as { success?: boolean; error?: string } | null;
       if (!rpcResult?.success) {
         throw new Error(rpcResult?.error || "Failed to advance service order after delivery note upload");
       }
@@ -119,7 +184,7 @@ export function useServiceDeliveryNotes(poId?: string) {
       toast({ title: "Delivery Note Submitted", description: "Awaiting admin verification." });
       fetchNotes();
       return { success: true, data };
-    } catch (err) {
+    } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to create delivery note";
       toast({ title: "Error", description: msg, variant: "destructive" });
       return { success: false, error: msg };
@@ -149,7 +214,7 @@ export function useServiceDeliveryNotes(poId?: string) {
       toast({ title: "Delivery Note Verified", description: "Deployment confirmed." });
       fetchNotes();
       return { success: true };
-    } catch (err) {
+    } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to verify note";
       toast({ title: "Error", description: msg, variant: "destructive" });
       return { success: false, error: msg };
@@ -168,7 +233,7 @@ export function useServiceDeliveryNotes(poId?: string) {
       toast({ title: "Delivery Note Rejected", description: "Supplier notified.", variant: "destructive" });
       fetchNotes();
       return { success: true };
-    } catch (err) {
+    } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to reject note";
       toast({ title: "Error", description: msg, variant: "destructive" });
       return { success: false, error: msg };

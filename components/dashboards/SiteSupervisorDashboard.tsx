@@ -16,6 +16,7 @@ export function SiteSupervisorDashboard() {
   const { dispatches, isLoading: dispatchLoading } = usePersonnelDispatches();
   const { tickets, isLoading: ticketsLoading } = useBehaviorTickets();
   const { data: records, isLoading: attendanceLoading } = useAnalyticsData("attendance");
+  const attendanceRecords = records as Array<{ check_in_time?: string | null; created_at?: string | null }>;
 
 
   const isLoading = reqLoading || dispatchLoading || ticketsLoading || attendanceLoading;
@@ -41,7 +42,7 @@ export function SiteSupervisorDashboard() {
     try { return isToday(parseISO(d.dispatch_date || d.created_at)); } catch { return false; }
   }) || [];
   const openIncidents = tickets?.filter(t => t.status === "open" || t.status === "under_review") || [];
-  const todayAttendance = records?.filter(r => {
+  const todayAttendance = attendanceRecords?.filter(r => {
     try { return isToday(parseISO(r.check_in_time || r.created_at)); } catch { return false; }
   }) || [];
 
@@ -107,10 +108,10 @@ export function SiteSupervisorDashboard() {
           <CardContent className="p-0">
             {activeDeployments.length > 0 ? (
               <div className="divide-y">
-                {activeDeployments.slice(0, 6).map((req: any) => (
+                {activeDeployments.slice(0, 6).map((req) => (
                   <div key={req.id} className="flex items-center justify-between px-4 py-3 hover:bg-muted/5 transition-colors">
                     <div>
-                      <p className="text-sm font-semibold">{req.item_description || req.service_name || "Service Request"}</p>
+                      <p className="text-sm font-semibold">{req.description || req.service_name || "Service Request"}</p>
                       <p className="text-xs text-muted-foreground">
                         {req.request_number}
                         {req.priority ? ` • ${req.priority} priority` : ""}
@@ -137,7 +138,7 @@ export function SiteSupervisorDashboard() {
           <CardContent className="p-0">
             {openIncidents.length > 0 ? (
               <div className="divide-y">
-                {openIncidents.slice(0, 6).map((ticket: any) => (
+                {openIncidents.slice(0, 6).map((ticket) => (
                   <div key={ticket.id} className="flex items-center justify-between px-4 py-3 hover:bg-muted/5 transition-colors">
                     <div>
                       <p className="text-sm font-semibold">{ticket.category?.replace(/_/g, " ") || "Incident"}</p>
@@ -169,7 +170,7 @@ export function SiteSupervisorDashboard() {
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y">
-              {dispatches.slice(0, 5).map((dispatch: any) => (
+              {dispatches.slice(0, 5).map((dispatch) => (
                 <div key={dispatch.id} className="flex items-center justify-between px-4 py-3 hover:bg-muted/5 transition-colors">
                   <div>
                     <p className="text-sm font-semibold">{dispatch.dispatch_number || "Dispatch"}</p>

@@ -31,6 +31,36 @@ import { supabase } from "@/src/lib/supabaseClient";
 import { toast } from "sonner";
 import { canAccessPath } from "@/src/lib/platform/permissions";
 
+interface InvoiceExportRow {
+  invoice_number: string;
+  clients?: {
+    client_name: string | null;
+  } | null;
+  total_amount: number | null;
+  tax_amount: number | null;
+  payment_status: string | null;
+  last_payment_date: string | null;
+}
+
+interface SupplierBillExportRow {
+  bill_number: string;
+  suppliers?: {
+    supplier_name: string | null;
+  } | null;
+  total_amount: number | null;
+  status: string | null;
+  payment_status: string | null;
+  last_payment_date: string | null;
+}
+
+function normalizeInvoiceExportRows(rows: unknown): InvoiceExportRow[] {
+  return Array.isArray(rows) ? (rows as InvoiceExportRow[]) : [];
+}
+
+function normalizeSupplierBillExportRows(rows: unknown): SupplierBillExportRow[] {
+  return Array.isArray(rows) ? (rows as SupplierBillExportRow[]) : [];
+}
+
 export default function ComplianceDashboard() {
   const { user, role, permissions } = useAuth();
   const { snapshots, isLoading, createMonthlySnapshot, exportToCSV, refresh } = useCompliance();
@@ -79,9 +109,9 @@ export default function ComplianceDashboard() {
       
       if (error) throw error;
 
-      const exportData = data.map(item => ({
+      const exportData = normalizeInvoiceExportRows(data).map((item) => ({
         "Invoice #": item.invoice_number,
-        "Buyer": (item.clients as any)?.client_name || "N/A",
+        "Buyer": item.clients?.client_name || "Not set",
         "Total (Paise)": item.total_amount,
         "Total (INR)": toRupees(item.total_amount || 0),
         "Tax (INR)": toRupees(item.tax_amount || 0),
@@ -91,8 +121,8 @@ export default function ComplianceDashboard() {
 
       exportToCSV("Buyer_Invoices_Report", exportData, Object.keys(exportData[0]));
       toast.success("Invoices report exported");
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to export invoices");
     } finally {
       setIsExporting(false);
     }
@@ -114,9 +144,9 @@ export default function ComplianceDashboard() {
       
       if (error) throw error;
 
-      const exportData = data.map(item => ({
+      const exportData = normalizeSupplierBillExportRows(data).map((item) => ({
         "Bill #": item.bill_number,
-        "Supplier": (item.suppliers as any)?.supplier_name || "N/A",
+        "Supplier": item.suppliers?.supplier_name || "Not set",
         "Amount (INR)": toRupees(item.total_amount || 0),
         "Audit Status": item.status,
         "Payment Status": item.payment_status,
@@ -125,8 +155,8 @@ export default function ComplianceDashboard() {
 
       exportToCSV("Supplier_Bills_Report", exportData, Object.keys(exportData[0]));
       toast.success("Supplier report exported");
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to export supplier bills");
     } finally {
       setIsExporting(false);
     }
@@ -148,8 +178,8 @@ export default function ComplianceDashboard() {
       }));
       exportToCSV("Audit_Trail", exportData, Object.keys(exportData[0]));
       toast.success("Audit trail exported");
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to export audit logs");
     } finally {
       setIsExporting(false);
     }
@@ -178,8 +208,8 @@ export default function ComplianceDashboard() {
 
       exportToCSV("Outstanding_Aging_Report", exportData, Object.keys(exportData[0]));
       toast.success("Aging report exported");
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to export aging report");
     } finally {
       setIsExporting(false);
     }
@@ -359,5 +389,3 @@ export default function ComplianceDashboard() {
     </div>
   );
 }
-
-

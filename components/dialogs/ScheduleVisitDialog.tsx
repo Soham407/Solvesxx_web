@@ -28,17 +28,28 @@ import { CalendarIcon, Clock, Wrench, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/src/lib/supabaseClient";
+import type { Database } from "@/src/types/supabase";
 
 interface ScheduleVisitDialogProps {
   children: React.ReactNode;
   serviceType?: string;
 }
 
+type VisitPriority = Database["public"]["Enums"]["service_priority"];
+type ScheduleVisitFormState = {
+  location: string;
+  contactPerson: string;
+  contactPhone: string;
+  description: string;
+  priority: VisitPriority;
+  preferredTime: string;
+};
+
 export function ScheduleVisitDialog({ children, serviceType = "AC Service" }: ScheduleVisitDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [date, setDate] = useState<Date>();
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<ScheduleVisitFormState>({
     location: "",
     contactPerson: "",
     contactPhone: "",
@@ -61,18 +72,24 @@ export function ScheduleVisitDialog({ children, serviceType = "AC Service" }: Sc
     try {
       setIsSubmitting(true);
 
+      const summaryParts = [
+        `Location: ${formData.location}`,
+        formData.contactPerson ? `Contact: ${formData.contactPerson}` : null,
+        formData.contactPhone ? `Phone: ${formData.contactPhone}` : null,
+        formData.preferredTime ? `Preferred time: ${formData.preferredTime}` : null,
+        formData.description ? `Notes: ${formData.description}` : null,
+      ].filter(Boolean);
+
       const { error } = await supabase.from("service_requests").insert({
+        request_number: `SR-${Date.now()}`,
         title: `Scheduled ${serviceType} Visit`,
-        description: formData.description,
-        location_name: formData.location,
-        contact_person: formData.contactPerson,
-        contact_phone: formData.contactPhone,
-        preferred_date: date.toISOString(),
-        preferred_time: formData.preferredTime,
+        description: summaryParts.join("\n"),
         priority: formData.priority,
-        status: "scheduled",
-        created_at: new Date().toISOString(),
-      } as any);
+        status: "open",
+        type: "scheduled_visit",
+        scheduled_date: date.toISOString().slice(0, 10),
+        scheduled_time: formData.preferredTime || null,
+      });
 
       if (error) throw error;
 
@@ -194,7 +211,7 @@ export function ScheduleVisitDialog({ children, serviceType = "AC Service" }: Sc
             <Label>Priority</Label>
             <Select
               value={formData.priority}
-              onValueChange={(value) => setFormData({ ...formData, priority: value })}
+              onValueChange={(value) => setFormData({ ...formData, priority: value as VisitPriority })}
             >
               <SelectTrigger>
                 <SelectValue />

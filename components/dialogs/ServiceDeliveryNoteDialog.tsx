@@ -25,6 +25,7 @@ import { Plus, Trash2, Users, Loader2, Download, CheckCircle2, AlertCircle } fro
 import { useServiceDeliveryNotes } from "@/hooks/useServiceDeliveryNotes";
 import { useEmployees } from "@/hooks/useEmployees";
 import { usePersonnelDispatches } from "@/hooks/usePersonnelDispatches";
+import type { PersonnelDetail, ServiceDeliveryNote } from "@/hooks/useServiceDeliveryNotes";
 import {
   Select,
   SelectContent,
@@ -74,7 +75,7 @@ export function ServiceDeliveryNoteDialog({
 }: ServiceDeliveryNoteDialogProps) {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [createdSDN, setCreatedSDN] = useState<any>(null);
+  const [createdSDN, setCreatedSDN] = useState<ServiceDeliveryNote | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [conflicts, setConflicts] = useState<Record<number, string>>({});
   const [dispatchIssues, setDispatchIssues] = useState<string[]>([]);
@@ -111,7 +112,7 @@ export function ServiceDeliveryNoteDialog({
           // We use createDispatch's logic or a separate check
           // For simplicity, we just use a direct query here or assume the hook will handle it
           // But the task says "highlight ... before the user submits"
-          const { data: overlaps } = await (supabase as any)
+          const { data: overlaps } = await supabase
             .from("personnel_dispatches")
             .select(`
               start_date, 
@@ -192,7 +193,15 @@ export function ServiceDeliveryNoteDialog({
         });
       }
 
-      setCreatedSDN(result.data);
+      setCreatedSDN(
+        result.data
+          ? {
+              ...result.data,
+              status: "pending" as ServiceDeliveryNote["status"],
+              personnel_details: values.personnel,
+            }
+          : null
+      );
       form.reset();
       onSuccess?.();
     }
@@ -212,7 +221,7 @@ export function ServiceDeliveryNoteDialog({
 
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
-      doc.text(`SDN ID: ${createdSDN.id || "N/A"}`, 20, 34);
+      doc.text(`SDN: ${createdSDN.delivery_note_number || "Not set"}`, 20, 34);
       doc.text(`PO Number: ${poNumber}`, 20, 42);
       doc.text(
         `Delivery Date: ${createdSDN.delivery_date || new Date().toISOString().split("T")[0]}`,
@@ -224,13 +233,13 @@ export function ServiceDeliveryNoteDialog({
         doc.text(`Remarks: ${createdSDN.remarks}`, 20, 66);
       }
 
-      const personnel: any[] = createdSDN.personnel_details || [];
+      const personnel: PersonnelDetail[] = createdSDN.personnel_details || [];
       if (personnel.length > 0) {
         doc.setFont("helvetica", "bold");
         doc.text("Personnel Deployed:", 20, 80);
         doc.setFont("helvetica", "normal");
         let y = 90;
-        personnel.forEach((p: any, idx: number) => {
+        personnel.forEach((p, idx) => {
           doc.text(
             `${idx + 1}. ${p.name} — ${p.qualification} | ${p.id_proof_type}: ${p.id_proof_number} | ${p.contact}`,
             20,
@@ -243,7 +252,7 @@ export function ServiceDeliveryNoteDialog({
         doc.text(`Total Headcount: ${personnel.length}`, 20, y + 4);
       }
 
-      const fileName = `SDN-${(createdSDN.id || "draft").substring(0, 8).toUpperCase()}.pdf`;
+      const fileName = `${createdSDN.delivery_note_number || "SDN-DRAFT"}.pdf`;
       doc.save(fileName);
     } finally {
       setIsDownloading(false);

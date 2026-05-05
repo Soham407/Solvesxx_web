@@ -3,114 +3,36 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase as supabaseClient } from "@/src/lib/supabaseClient";
 import { useAuth } from "@/hooks/useAuth";
-const supabase = supabaseClient as any;
+import { notifySocietyManager } from "@/src/lib/notifications/notifySocietyManager";
+import { notifyAdminTierUsers } from "@/src/lib/notifications/notifyAdminTierUsers";
+import {
+  INVOICE_STATUS_CONFIG,
+  PAYMENT_STATUS_CONFIG,
+  mapSaleBillRows,
+  type CreateSaleBillInput,
+  type InvoiceStatus,
+  type PaymentStatus,
+  type SaleBill,
+  type SaleBillItem,
+  type SaleBillRow,
+} from "@/src/lib/sale-bills/saleBillTransforms";
 
-// ============================================
-// TYPES
-// ============================================
+export type {
+  CreateSaleBillInput,
+  InvoiceStatus,
+  PaymentStatus,
+  SaleBill,
+  SaleBillItem,
+} from "@/src/lib/sale-bills/saleBillTransforms";
 
-export type InvoiceStatus = "draft" | "sent" | "acknowledged" | "disputed" | "cancelled";
-export type PaymentStatus = "unpaid" | "partial" | "paid" | "overdue";
-
-export interface SaleBill {
-  id: string;
-  invoice_number: string;
-  client_id: string | null;
-  contract_id: string | null;
-  request_id?: string | null;
-  invoice_date: string;
-  due_date: string | null;
-  status: InvoiceStatus;
-  payment_status: PaymentStatus;
-  subtotal: number; // In paise
-  tax_amount: number; // In paise
-  discount_amount: number; // In paise
-  total_amount: number; // In paise
-  paid_amount: number; // In paise
-  due_amount: number; // In paise
-  last_payment_date: string | null;
-  paid_at?: string | null;
-  billing_period_start: string | null;
-  billing_period_end: string | null;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-  created_by: string | null;
-  updated_by: string | null;
-  // Joined data
-  client_name?: string;
-  client_code?: string;
-  contract_number?: string;
-  request_number?: string;
-}
-
-export interface SaleBillItem {
-  id: string;
-  sale_bill_id: string;
-  service_id: string | null;
-  product_id: string | null;
-  item_description: string | null;
-  quantity: number;
-  unit_of_measure: string;
-  unit_price: number; // In paise
-  tax_rate: number;
-  tax_amount: number; // In paise
-  discount_amount: number; // In paise
-  line_total: number; // In paise
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-  // Joined data
-  service_name?: string;
-  product_name?: string;
-}
-
-export interface CreateSaleBillInput {
-  client_id: string;
-  contract_id?: string;
-  request_id?: string;
-  invoice_date?: string;
-  due_date?: string;
-  billing_period_start?: string;
-  billing_period_end?: string;
-  subtotal?: number; // In paise
-  tax_amount?: number; // In paise
-  discount_amount?: number; // In paise
-  total_amount?: number; // In paise
-  notes?: string;
-  items: Array<{
-    service_id?: string;
-    product_id?: string;
-    item_description?: string;
-    quantity: number;
-    unit_of_measure?: string;
-    unit_price: number; // In paise
-    tax_rate?: number;
-    notes?: string;
-  }>;
-}
+export { INVOICE_STATUS_CONFIG, PAYMENT_STATUS_CONFIG } from "@/src/lib/sale-bills/saleBillTransforms";
+const supabase = supabaseClient;
 
 interface UseSaleBillsState {
   bills: SaleBill[];
   isLoading: boolean;
   error: string | null;
 }
-
-// Status display configuration
-export const INVOICE_STATUS_CONFIG: Record<InvoiceStatus, { label: string; className: string }> = {
-  draft: { label: "Draft", className: "bg-muted text-muted-foreground border-border" },
-  sent: { label: "Sent", className: "bg-info/10 text-info border-info/20" },
-  acknowledged: { label: "Acknowledged", className: "bg-success/10 text-success border-success/20" },
-  disputed: { label: "Disputed", className: "bg-critical/10 text-critical border-critical/20" },
-  cancelled: { label: "Cancelled", className: "bg-muted text-muted-foreground border-border" },
-};
-
-export const PAYMENT_STATUS_CONFIG: Record<PaymentStatus, { label: string; className: string }> = {
-  unpaid: { label: "Unpaid", className: "bg-critical/10 text-critical border-critical/20" },
-  partial: { label: "Partial", className: "bg-warning/10 text-warning border-warning/20" },
-  paid: { label: "Paid", className: "bg-success/10 text-success border-success/20" },
-  overdue: { label: "Overdue", className: "bg-critical text-critical-foreground" },
-};
 
 // ============================================
 // HOOK
@@ -156,13 +78,7 @@ export function useSaleBills(filters?: {
       const { data, error } = await query;
       if (error) throw error;
 
-      const billsWithDetails: SaleBill[] = (data || []).map((bill: any) => ({
-        ...bill,
-        client_name: bill.societies?.society_name || "Unknown",
-        client_code: bill.societies?.society_code || "N/A",
-        contract_number: bill.contracts?.contract_number || null,
-        request_number: bill.requests?.request_number || null,
-      }));
+      const billsWithDetails: SaleBill[] = mapSaleBillRows((data || []) as SaleBillRow[]);
 
       setState((prev) => ({
         ...prev,
@@ -243,6 +159,21 @@ export function useSaleBills(filters?: {
 
       if (itemsError) throw itemsError;
 
+      try {
+        if (bill.client_id) {
+          await notifySocietyManager({
+            societyId: bill.client_id,
+            title: "New Sale Bill Generated",
+            body: `Invoice ${bill.invoice_number || bill.id} has been generated and sent for review.`,
+            notificationType: "sale_bill_generated",
+            referenceId: bill.id,
+            referenceType: "sale_bill",
+          });
+        }
+      } catch (notifyErr) {
+        console.error("Failed to notify society manager about sale bill:", notifyErr);
+      }
+
       await fetchBills();
       return bill as SaleBill;
     } catch (err: unknown) {
@@ -256,11 +187,12 @@ export function useSaleBills(filters?: {
   const markPaid = useCallback(async (billId: string): Promise<boolean> => {
     try {
       setState(prev => ({ ...prev, isLoading: true }));
-      
+
       const bill = state.bills.find(b => b.id === billId);
       if (!bill) throw new Error("Bill not found");
 
-      const paymentDate = new Date().toISOString().split("T")[0];
+      const paidAt = new Date().toISOString();
+      const paymentDate = paidAt.split("T")[0];
       const { data: method, error: methodError } = await supabase
         .from("payment_methods")
         .select("id")
@@ -289,9 +221,45 @@ export function useSaleBills(filters?: {
           gateway_log: {},
           status: "completed",
           processed_by: userId,
-        }]);
+      }]);
 
       if (paymentError) throw paymentError;
+
+      const { error: billUpdateError } = await supabase
+        .from("sale_bills")
+        .update({
+          payment_status: "paid",
+          paid_amount: bill.total_amount,
+          due_amount: 0,
+          last_payment_date: paymentDate,
+          paid_at: paidAt,
+        })
+        .eq("id", billId);
+
+      if (billUpdateError) throw billUpdateError;
+
+      try {
+        if (bill.client_id) {
+          await notifySocietyManager({
+            societyId: bill.client_id,
+            title: "Sale Bill Payment Received",
+            body: `Invoice ${bill.invoice_number} has been marked paid.`,
+            notificationType: "sale_bill_paid",
+            referenceId: billId,
+            referenceType: "sale_bill",
+          });
+        }
+
+        await notifyAdminTierUsers({
+          title: "Sale Bill Paid",
+          body: `Invoice ${bill.invoice_number} was marked paid.`,
+          notificationType: "sale_bill_paid",
+          referenceId: billId,
+          referenceType: "sale_bill",
+        });
+      } catch (notifyErr) {
+        console.error("Failed to notify payment recipients:", notifyErr);
+      }
 
       await fetchBills();
       return true;

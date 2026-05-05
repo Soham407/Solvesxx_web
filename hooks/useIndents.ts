@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
+import { notifyEmployee } from "@/src/lib/notifications/notifyEmployee";
+import { mapIndentItems, mapIndents } from "@/src/lib/indents/indentTransforms";
 
 // ============================================
 // TYPES
@@ -103,6 +105,61 @@ export interface CreateIndentItemInput {
   notes?: string;
 }
 
+type IndentRow = {
+  id: string;
+  indent_number: string | null;
+  requester_id: string;
+  department: string | null;
+  location_id: string | null;
+  society_id: string | null;
+  title: string | null;
+  purpose: string | null;
+  required_date: string | null;
+  priority: string | null;
+  status: IndentStatus;
+  total_items: number | null;
+  total_estimated_value: number | null;
+  submitted_at: string | null;
+  submitted_by: string | null;
+  approved_at: string | null;
+  approved_by: string | null;
+  approver_notes: string | null;
+  rejected_at: string | null;
+  rejected_by: string | null;
+  rejection_reason: string | null;
+  po_created_at: string | null;
+  linked_po_id: string | null;
+  notes: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  created_by: string | null;
+  updated_by: string | null;
+  employees?: {
+    employee_code?: string | null;
+    first_name?: string | null;
+    last_name?: string | null;
+  } | null;
+  company_locations?: { location_name?: string | null } | null;
+  societies?: { society_name?: string | null } | null;
+};
+
+type IndentItemRow = {
+  id: string;
+  indent_id: string;
+  product_id: string | null;
+  item_description: string | null;
+  specifications: string | null;
+  requested_quantity: number;
+  unit_of_measure: string;
+  estimated_unit_price: number | null;
+  estimated_total: number | null;
+  approved_quantity: number | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  products?: { product_name?: string | null; product_code?: string | null } | null;
+};
+
 interface UseIndentsState {
   indents: Indent[];
   items: IndentItem[];
@@ -147,6 +204,14 @@ const canTransition = (currentStatus: IndentStatus, targetStatus: IndentStatus):
 };
 
 import { toRupees, toPaise, formatCurrency } from "@/src/lib/utils/currency";
+
+function normalizeIndentRows(rows: unknown): IndentRow[] {
+  return Array.isArray(rows) ? (rows as IndentRow[]) : [];
+}
+
+function normalizeIndentItemRows(rows: unknown): IndentItemRow[] {
+  return Array.isArray(rows) ? (rows as IndentItemRow[]) : [];
+}
 
 // ============================================
 // HOOK
@@ -205,15 +270,7 @@ export function useIndents(filters?: { status?: IndentStatus; department?: strin
       if (error) throw error;
 
       // Transform data
-      const indentsWithDetails: Indent[] = (data || []).map((indent: any) => ({
-        ...indent,
-        requester_name: indent.employees
-          ? [indent.employees.first_name, indent.employees.last_name].filter(Boolean).join(" ").trim()
-          : "Unknown",
-        requester_code: indent.employees?.employee_code || "N/A",
-        location_name: indent.company_locations?.location_name || null,
-        society_name: indent.societies?.society_name || null,
-      }));
+      const indentsWithDetails = mapIndents(normalizeIndentRows(data));
 
       setState((prev) => ({
         ...prev,
@@ -250,11 +307,7 @@ export function useIndents(filters?: { status?: IndentStatus; department?: strin
 
       if (error) throw error;
 
-      const itemsWithDetails: IndentItem[] = (data || []).map((item: any) => ({
-        ...item,
-        product_name: item.products?.product_name || null,
-        product_code: item.products?.product_code || null,
-      }));
+      const itemsWithDetails = mapIndentItems(normalizeIndentItemRows(data));
 
       setState((prev) => ({ ...prev, items: itemsWithDetails }));
       return itemsWithDetails;
@@ -396,6 +449,17 @@ export function useIndents(filters?: { status?: IndentStatus; department?: strin
 
       if (error) throw error;
 
+      if (indent.requester_id) {
+        await notifyEmployee({
+          employeeId: indent.requester_id,
+          title: "Indent Approved",
+          body: `Your indent ${indent.indent_number} has been approved.`,
+          notificationType: "indent_approved",
+          referenceId: indentId,
+          referenceType: "indent",
+        });
+      }
+
       await fetchIndents();
       return true;
     } catch (err: unknown) {
@@ -462,7 +526,7 @@ export function useIndents(filters?: { status?: IndentStatus; department?: strin
   ): Promise<IndentItem | null> => {
     try {
       // Recalculate estimated_total if quantity or price changed
-      const updateData: any = { ...updates };
+      const updateData: Record<string, unknown> = { ...updates };
       if (updates.estimated_unit_price !== undefined || updates.requested_quantity !== undefined) {
         const item = state.items.find((i) => i.id === itemId);
         if (item) {
@@ -582,6 +646,14 @@ export function useIndents(filters?: { status?: IndentStatus; department?: strin
     approvedQuantities?: Record<string, number> // itemId -> approved quantity
   ): Promise<boolean> => {
     try {
+      const { data: indent } = await supabase
+        .from("indents")
+        .select("id, indent_number, requester_id, status")
+        .eq("id", indentId)
+        .single();
+
+      if (!indent) throw new Error("Indent not found");
+
       const indentStatus = state.indents.find((indent) => indent.id === indentId)?.status
         ?? await fetchIndentStatus(indentId);
       if (!indentStatus) throw new Error("Indent not found");
@@ -614,6 +686,17 @@ export function useIndents(filters?: { status?: IndentStatus; department?: strin
 
       if (error) throw error;
 
+      if (indent.requester_id) {
+        await notifyEmployee({
+          employeeId: indent.requester_id,
+          title: "Indent Approved",
+          body: `Your indent ${indent.indent_number} has been approved.`,
+          notificationType: "indent_approved",
+          referenceId: indentId,
+          referenceType: "indent",
+        });
+      }
+
       await fetchIndents();
       return true;
     } catch (err: unknown) {
@@ -637,7 +720,12 @@ export function useIndents(filters?: { status?: IndentStatus; department?: strin
         throw new Error("Rejection reason is required");
       }
 
-      const indent = state.indents.find((i) => i.id === indentId);
+      const { data: indent } = await supabase
+        .from("indents")
+        .select("id, indent_number, requester_id, status")
+        .eq("id", indentId)
+        .single();
+
       if (!indent) throw new Error("Indent not found");
 
       if (!canTransition(indent.status, "rejected")) {
@@ -655,6 +743,18 @@ export function useIndents(filters?: { status?: IndentStatus; department?: strin
         .eq("id", indentId);
 
       if (error) throw error;
+
+      if (indent.requester_id) {
+        await notifyEmployee({
+          employeeId: indent.requester_id,
+          title: "Indent Rejected",
+          body: `Your indent ${indent.indent_number} was rejected${rejection_reason ? `: ${rejection_reason}` : "."}`,
+          notificationType: "indent_rejected",
+          referenceId: indentId,
+          referenceType: "indent",
+          priority: "high",
+        });
+      }
 
       await fetchIndents();
       return true;

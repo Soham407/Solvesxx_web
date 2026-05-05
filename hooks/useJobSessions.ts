@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase as supabaseClient } from "@/src/lib/supabaseClient";
-const supabase = supabaseClient as any;
+import { supabase } from "@/src/lib/supabaseClient";
 import type {
   JobSession,
   JobSessionInsert,
@@ -11,6 +10,13 @@ import type {
   StartJobSessionForm,
   CompleteJobSessionForm,
 } from "@/src/types/operations";
+import {
+  getActiveJobSession,
+  isPestControlJobRequest,
+  mapJobSessionWithPhotos,
+  mapJobSessionsWithPhotos,
+  type JobSessionRow,
+} from "@/src/lib/job-sessions/jobSessionTransforms";
 
 interface UseJobSessionsState {
   sessions: JobSessionWithPhotos[];
@@ -70,19 +76,8 @@ export function useJobSessions(serviceRequestId?: string, technicianId?: string)
 
       if (error) throw error;
 
-      const sessionsWithPhotos: JobSessionWithPhotos[] = (data || []).map((session) => ({
-        ...session,
-        photos: session.job_photos || [],
-        service_request: session.service_request ? {
-          ...session.service_request,
-          location: session.service_request.location || undefined
-        } : undefined,
-      }));
-
-      // Find active session (started but not completed)
-      const active = sessionsWithPhotos.find(
-        (s) => s.status === "started" || s.status === "paused"
-      );
+      const sessionsWithPhotos = mapJobSessionsWithPhotos(data as JobSessionRow[] | null | undefined);
+      const active = getActiveJobSession(sessionsWithPhotos);
 
       setState({
         sessions: sessionsWithPhotos,
@@ -151,9 +146,6 @@ export function useJobSessions(serviceRequestId?: string, technicianId?: string)
   const startSession = useCallback(
     async (data: StartJobSessionForm): Promise<{ success: boolean; error?: string; data?: JobSession }> => {
       try {
-        // Enforce the pre-job PPE gate for pest-control work using the
-        // live `service_requests_with_details` view and the dedicated
-        // `pest_control_ppe_verifications` table.
         const { data: serviceRequest, error: serviceError } = await supabase
           .from("service_requests_with_details")
           .select("service_name, service_code")
@@ -162,15 +154,7 @@ export function useJobSessions(serviceRequestId?: string, technicianId?: string)
 
         if (serviceError) throw serviceError;
 
-        const serviceName = String(serviceRequest?.service_name || "").toLowerCase();
-        const serviceCode = String(serviceRequest?.service_code || "");
-        const isPestControlJob =
-          serviceCode === "PST-CON" ||
-          serviceName.includes("pest control") ||
-          serviceName.includes("pest") ||
-          serviceName.includes("pst-con");
-
-        if (isPestControlJob) {
+        if (isPestControlJobRequest(serviceRequest)) {
           const { data: ppeVerifications, error: ppeError } = await supabase
             .from("pest_control_ppe_verifications")
             .select("id")
@@ -315,22 +299,13 @@ export function useJobSessions(serviceRequestId?: string, technicianId?: string)
       try {
         const session = await getSessionRecord(id);
         
-        // Enforce PPE verification for pest control jobs
         const { data: serviceRequest } = await supabase
           .from("service_requests_with_details")
           .select("service_name, service_code")
           .eq("id", session.service_request_id)
           .maybeSingle();
 
-        const serviceName = String(serviceRequest?.service_name || "").toLowerCase();
-        const serviceCode = String(serviceRequest?.service_code || "");
-        const isPestControlJob =
-          serviceCode === "PST-CON" ||
-          serviceName.includes("pest control") ||
-          serviceName.includes("pest") ||
-          serviceName.includes("pst-con");
-
-        if (isPestControlJob) {
+        if (isPestControlJobRequest(serviceRequest)) {
           const { data: ppeVerifications, error: ppeError } = await supabase
             .from("pest_control_ppe_verifications")
             .select("id, all_items_checked")
@@ -451,10 +426,7 @@ export function useJobSessions(serviceRequestId?: string, technicianId?: string)
 
         if (error) throw error;
 
-        return {
-          ...data,
-          photos: data.job_photos || [],
-        };
+        return mapJobSessionWithPhotos(data as JobSessionRow);
       } catch (err: unknown) {
         console.error("Error fetching session by ID:", err);
         return null;
@@ -478,10 +450,7 @@ export function useJobSessions(serviceRequestId?: string, technicianId?: string)
 
         if (error) throw error;
 
-        return (data || []).map((session) => ({
-          ...session,
-          photos: session.job_photos || [],
-        }));
+        return mapJobSessionsWithPhotos(data as JobSessionRow[] | null | undefined);
       } catch (err: unknown) {
         console.error("Error fetching sessions by request:", err);
         return [];
@@ -505,10 +474,7 @@ export function useJobSessions(serviceRequestId?: string, technicianId?: string)
 
         if (error) throw error;
 
-        return (data || []).map((session) => ({
-          ...session,
-          photos: session.job_photos || [],
-        }));
+        return mapJobSessionsWithPhotos(data as JobSessionRow[] | null | undefined);
       } catch (err: unknown) {
         console.error("Error fetching sessions by technician:", err);
         return [];

@@ -2,18 +2,19 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
+import {
+  canTransitionCandidateStatus,
+  fetchBgvReadiness as fetchBgvReadiness,
+  type CandidateStatus,
+} from "@/src/lib/candidates/candidateTransforms";
+
+const REQUIRED_BGV_TYPES = ["police", "address", "education", "employment"] as const;
+
+export type { CandidateStatus } from "@/src/lib/candidates/candidateTransforms";
 
 // ============================================
 // TYPES
 // ============================================
-
-export type CandidateStatus = 
-  | "screening" 
-  | "interviewing" 
-  | "background_check" 
-  | "offered" 
-  | "hired" 
-  | "rejected";
 
 export interface Candidate {
   id: string;
@@ -142,65 +143,6 @@ interface UseCandidatesFilters {
   status?: CandidateStatus;
   department?: string;
   search?: string;
-}
-
-// Valid status transitions
-const STATUS_TRANSITIONS: Record<CandidateStatus, CandidateStatus[]> = {
-  screening: ["interviewing", "rejected"],
-  interviewing: ["background_check", "rejected"],
-  background_check: ["offered", "rejected"],
-  offered: ["hired", "rejected"],
-  hired: [], // Terminal state
-  rejected: [], // Terminal state (could allow reconsideration in future)
-};
-
-const REQUIRED_BGV_TYPES = ["police", "address", "education", "employment"] as const;
-
-async function fetchBgvReadiness(candidateIds: string[]) {
-  if (candidateIds.length === 0) {
-    return new Map<string, boolean>();
-  }
-
-  const { data, error } = await supabase
-    .from("background_verifications")
-    .select("candidate_id, verification_type, status")
-    .in("candidate_id", candidateIds)
-    .in("verification_type", [...REQUIRED_BGV_TYPES]);
-
-  if (error) {
-    throw error;
-  }
-
-  const recordsByCandidate = new Map<
-    string,
-    Array<{ verification_type: string; status: string }>
-  >();
-
-  for (const row of data || []) {
-    if (!row.candidate_id) {
-      continue;
-    }
-
-    const existing = recordsByCandidate.get(row.candidate_id) || [];
-    existing.push({
-      verification_type: row.verification_type,
-      status: row.status,
-    });
-    recordsByCandidate.set(row.candidate_id, existing);
-  }
-
-  return new Map(
-    candidateIds.map((candidateId) => {
-      const records = recordsByCandidate.get(candidateId) || [];
-      const isReady = REQUIRED_BGV_TYPES.every((type) =>
-        records.some(
-          (record) =>
-            record.verification_type === type && record.status === "verified"
-        )
-      );
-      return [candidateId, isReady];
-    })
-  );
 }
 
 // ============================================
@@ -397,8 +339,15 @@ export function useCandidates(initialFilters?: UseCandidatesFilters) {
       }
 
       // Validate status transition
-      const allowedTransitions = STATUS_TRANSITIONS[candidate.status];
-      if (!allowedTransitions.includes(newStatus)) {
+      if (!canTransitionCandidateStatus(candidate, newStatus)) {
+        const allowedTransitions = {
+          screening: ["interviewing", "rejected"],
+          interviewing: ["background_check", "rejected"],
+          background_check: ["offered", "rejected"],
+          offered: ["hired", "rejected"],
+          hired: [],
+          rejected: [],
+        }[candidate.status];
         throw new Error(
           `Invalid status transition from '${candidate.status}' to '${newStatus}'. ` +
           `Allowed transitions: ${allowedTransitions.join(", ") || "none"}`
@@ -417,7 +366,7 @@ export function useCandidates(initialFilters?: UseCandidatesFilters) {
       }
 
       // Build update payload
-      const updatePayload: Record<string, any> = {
+      const updatePayload: Record<string, unknown> = {
         status: newStatus,
         status_changed_at: new Date().toISOString(),
         ...additionalData,
@@ -652,7 +601,7 @@ export function useCandidates(initialFilters?: UseCandidatesFilters) {
         return false;
       }
 
-      return STATUS_TRANSITIONS[candidate.status].includes(targetStatus);
+      return canTransitionCandidateStatus(candidate, targetStatus);
     },
     [state.candidates]
   );
@@ -690,7 +639,7 @@ export function useCandidates(initialFilters?: UseCandidatesFilters) {
       }
 
       // Build update payload
-      const updatePayload: Record<string, any> = {
+      const updatePayload: Record<string, unknown> = {
         interview_date: interviewData.interview_date,
         interview_notes: interviewData.interview_notes || candidate.interview_notes,
       };
@@ -776,8 +725,6 @@ export function useCandidates(initialFilters?: UseCandidatesFilters) {
     updateCandidateStatus,
     uploadBGVDocument: async (file: File, candidateId: string): Promise<string | null> => {
       try {
-        const supabaseAny = supabase as any;
-
         if (!['application/pdf', 'image/jpeg', 'image/png'].includes(file.type)) {
           throw new Error('Only PDF, JPEG, and PNG files are allowed');
         }
@@ -796,7 +743,7 @@ export function useCandidates(initialFilters?: UseCandidatesFilters) {
         if (uploadError) throw uploadError;
 
         const verificationTypes = ["police", "address", "education", "employment"] as const;
-        const { data: existingVerifications, error: fetchError } = await supabaseAny
+        const { data: existingVerifications, error: fetchError } = await supabase
           .from("background_verifications")
           .select("id, verification_type")
           .eq("candidate_id", candidateId)
@@ -805,7 +752,10 @@ export function useCandidates(initialFilters?: UseCandidatesFilters) {
         if (fetchError) throw fetchError;
 
         const existingByType = new Map(
-          (existingVerifications || []).map((verification: any) => [
+          (existingVerifications || []).map((verification: {
+            id: string;
+            verification_type: string;
+          }) => [
             verification.verification_type,
             verification.id,
           ])
@@ -813,7 +763,7 @@ export function useCandidates(initialFilters?: UseCandidatesFilters) {
 
         const missingTypes = verificationTypes.filter((type) => !existingByType.has(type));
         if (missingTypes.length > 0) {
-          const { error: insertError } = await supabaseAny
+          const { error: insertError } = await supabase
             .from("background_verifications")
             .insert(
               missingTypes.map((type) => ({
@@ -830,7 +780,7 @@ export function useCandidates(initialFilters?: UseCandidatesFilters) {
 
         const existingIds = [...existingByType.values()];
         if (existingIds.length > 0) {
-          const { error: updateError } = await supabaseAny
+          const { error: updateError } = await supabase
             .from("background_verifications")
             .update({ verification_document_url: filePath })
             .in("id", existingIds);

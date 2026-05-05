@@ -17,6 +17,7 @@ import {
 import { useBuyerRequests } from "@/hooks/useBuyerRequests";
 import { useProducts } from "@/hooks/useProducts";
 import {
+  normalizeServiceType,
   SERVICE_TYPE_OPTIONS,
   serviceTypeLabel,
   useServiceDeploymentMasters,
@@ -41,9 +42,9 @@ const CATEGORY_TITLE_MAP: Record<string, string> = {
   pest_control: "Pest Control Services Request",
   pest_supplies: "Pest Control Supplies Request",
   plantation: "Plantation Services Request",
-  printing: "Printing Services Request",
   security: "Security Services Request",
   security_materials: "Security Panel Materials Request",
+  service: "Service Deployment Request",
   staffing: "Staffing Services Request",
   stationery: "Stationery Supplies Request",
 };
@@ -53,8 +54,8 @@ const SERVICE_CATEGORY_MAP: Record<string, string> = {
   housekeeping: "staffing",
   pest_control: "pest_control",
   plantation: "plantation",
-  printing: "printing",
   security: "security",
+  service: "security",
   staffing: "staffing",
 };
 
@@ -75,7 +76,8 @@ export default function NewBuyerRequestPage() {
   } = useServiceDeploymentMasters();
 
   const categorySlug = searchParams.get("category") || "";
-  const initialServiceType = SERVICE_CATEGORY_MAP[categorySlug] || "";
+  const serviceTypeParam = searchParams.get("service_type") || "";
+  const initialServiceType = normalizeServiceType(serviceTypeParam) || SERVICE_CATEGORY_MAP[categorySlug] || "";
 
   const [requestMode, setRequestMode] = useState<"material" | "service">(
     initialServiceType ? "service" : "material"
@@ -101,6 +103,12 @@ export default function NewBuyerRequestPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isServiceRequest = requestMode === "service";
+
+  useEffect(() => {
+    if (categorySlug === "printing" || serviceTypeParam === "printing") {
+      router.replace("/buyer");
+    }
+  }, [categorySlug, router, serviceTypeParam]);
 
   const productCategories = useMemo(() => {
     const seen = new Set<string>();
@@ -305,10 +313,10 @@ export default function NewBuyerRequestPage() {
         });
         router.push("/buyer/requests");
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: "Submission Failed",
-        description: err.message,
+        description: err instanceof Error ? err.message : "Failed to submit request",
         variant: "destructive",
       });
     } finally {
@@ -417,17 +425,23 @@ export default function NewBuyerRequestPage() {
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="grid gap-2">
-                <Label htmlFor="location">{isServiceRequest ? "Buyer Location (Society)" : "Delivery Site (Society)"}</Label>
+                <Label htmlFor="location">{isServiceRequest ? "Buyer Location (Society)" : "Delivery Site"}</Label>
                 <Select value={locationId} onValueChange={setLocationId} required>
                   <SelectTrigger id="location">
                     <SelectValue placeholder="Select location" />
                   </SelectTrigger>
                   <SelectContent>
-                    {societies.map((society) => (
-                      <SelectItem key={society.id} value={society.id}>
-                        {society.society_name}
-                      </SelectItem>
-                    ))}
+                    {isServiceRequest
+                      ? societies.map((society) => (
+                          <SelectItem key={society.id} value={society.id}>
+                            {society.society_name}
+                          </SelectItem>
+                        ))
+                      : companyLocations.map((loc) => (
+                          <SelectItem key={loc.id} value={loc.id}>
+                            {loc.location_name}
+                          </SelectItem>
+                        ))}
                   </SelectContent>
                 </Select>
               </div>

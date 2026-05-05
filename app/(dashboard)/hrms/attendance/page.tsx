@@ -7,6 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   UserCheck,
   MapPin,
   Camera,
@@ -40,11 +47,19 @@ import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/hooks/useAuth";
 import { useEmployeeProfile } from "@/hooks/useEmployeeProfile";
 import {
+  buildAdminAttendanceStats,
+  buildPersonalAttendanceStats,
+  calculateDistanceMeters,
   getAdminAttendanceOverview,
   getEmployeeAttendanceHistory,
   type AdminAttendanceOverviewRecord,
-  type PersonalAttendanceHistoryRecord,
 } from "@/hooks/useAttendance";
+import type {
+  AdminAttendanceStats,
+  PersonalAttendanceHistoryRecord,
+  PersonalAttendanceStats,
+} from "@/src/lib/attendance/attendanceTransforms";
+import { toast } from "sonner";
 
 // Roles that get the full admin attendance management view
 const ATTENDANCE_MANAGER_ROLES = new Set([
@@ -56,44 +71,63 @@ const ATTENDANCE_MANAGER_ROLES = new Set([
   "hr_manager",
 ]);
 
-// Haversine formula to calculate distance between two coordinates
-function haversineDistance(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-): number {
-  const R = 6371e3;
-  const φ1 = (lat1 * Math.PI) / 180;
-  const φ2 = (lat2 * Math.PI) / 180;
-  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
-
 type AttendanceRecord = AdminAttendanceOverviewRecord;
 
-interface AttendanceStats {
-  onDuty: number;
-  absent: number;
-  avgPunchIn: string;
-  lateArrivals: number;
-}
+type PersonalAttendanceRow = {
+  id: string;
+  log_date: string;
+  check_in_time: string | null;
+  check_out_time: string | null;
+  check_in_selfie_url?: string | null;
+  check_in_latitude?: number | null;
+  check_in_longitude?: number | null;
+  status: string | null;
+};
+
+type AdminAttendanceRow = {
+  employee_id: string;
+  employee_code?: string | null;
+  check_in_time: string | null;
+  check_out_time: string | null;
+  check_in_latitude?: number | null;
+  check_in_longitude?: number | null;
+  check_in_selfie_url?: string | null;
+  check_in_location_id?: string | null;
+  status: string | null;
+  employees?: {
+    first_name?: string | null;
+    last_name?: string | null;
+    employee_code?: string | null;
+  } | null;
+};
+
+type EmployeeShiftRow = {
+  employee_id: string;
+  shifts?: {
+    shift_name?: string | null;
+    start_time?: string | null;
+    end_time?: string | null;
+  } | {
+    shift_name?: string | null;
+    start_time?: string | null;
+    end_time?: string | null;
+  }[] | null;
+};
+
+type CompanyLocationRow = {
+  id: string;
+  latitude: number | null;
+  longitude: number | null;
+  geo_fence_radius: number | null;
+};
+
+type AttendanceStats = AdminAttendanceStats;
 
 // ─── Personal (guard/employee) view ────────────────────────────────────────
 
 type PersonalRecord = PersonalAttendanceHistoryRecord;
 
-interface PersonalStats {
-  presentDays: number;
-  absentDays: number;
-  lateDays: number;
-  attendancePct: number;
-}
+type PersonalStats = PersonalAttendanceStats;
 
 function MyAttendanceView({ employeeId }: { employeeId: string }) {
   const [records, setRecords] = useState<PersonalRecord[]>([]);
@@ -158,7 +192,7 @@ function MyAttendanceView({ employeeId }: { employeeId: string }) {
         return `${shift.shift_name} (${shift.start_time?.substring(0, 5)}–${shift.end_time?.substring(0, 5)})`;
       })();
 
-      const mapped: PersonalRecord[] = (data || []).map((log: any) => {
+      const mapped: PersonalRecord[] = (data || []).map((log: PersonalAttendanceRow) => {
         let status: PersonalRecord["status"] = "Present";
         if (log.status === "absent") status = "Absent";
         else if (log.status === "late") status = "Late";
@@ -217,19 +251,7 @@ function MyAttendanceView({ employeeId }: { employeeId: string }) {
       setRecords(mapped);
       */
 
-      const total = mapped.length;
-      const present = mapped.filter(
-        (r) => r.status === "Present" || r.status === "Late"
-      ).length;
-      const absent = mapped.filter((r) => r.status === "Absent").length;
-      const late = mapped.filter((r) => r.status === "Late").length;
-
-      setStats({
-        presentDays: present,
-        absentDays: absent,
-        lateDays: late,
-        attendancePct: total > 0 ? Math.round((present / total) * 100) : 0,
-      });
+      setStats(buildPersonalAttendanceStats(mapped));
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to load attendance"
@@ -499,6 +521,9 @@ function MyAttendanceView({ employeeId }: { employeeId: string }) {
 
 function AdminAttendanceView() {
   const [data, setData] = useState<AttendanceRecord[]>([]);
+  const [selectedSelfie, setSelectedSelfie] = useState<string | null>(null);
+  const [selectedEntry, setSelectedEntry] = useState<AttendanceRecord | null>(null);
+  const [, setEditingEntry] = useState<AttendanceRecord | null>(null);
   const [stats, setStats] = useState<AttendanceStats>({
     onDuty: 0,
     absent: 0,
@@ -540,7 +565,7 @@ function AdminAttendanceView() {
 
       if (attendanceError) throw attendanceError;
 
-      const employeeIds = attendanceData?.map((a: any) => a.employee_id) || [];
+      const employeeIds = attendanceData?.map((a: AdminAttendanceRow) => a.employee_id) || [];
       let shiftMap: Record<string, string> = {};
 
       if (employeeIds.length > 0) {
@@ -557,7 +582,7 @@ function AdminAttendanceView() {
           .in("employee_id", employeeIds);
 
         if (!shiftError && shiftData) {
-          shiftData.forEach((s: any) => {
+          shiftData.forEach((s: EmployeeShiftRow) => {
             const shift = Array.isArray(s.shifts) ? s.shifts[0] : s.shifts;
             if (shift) {
               shiftMap[s.employee_id] = `${shift.shift_name} (${shift.start_time?.substring(0, 5)}-${shift.end_time?.substring(0, 5)})`;
@@ -574,7 +599,7 @@ function AdminAttendanceView() {
         string,
         { lat: number; lng: number; radiusMeters: number }
       > = {};
-      (allLocations || []).forEach((loc: any) => {
+      (allLocations || []).forEach((loc: CompanyLocationRow) => {
         if (loc.latitude && loc.longitude) {
           locationsMap[loc.id] = {
             lat: Number(loc.latitude),
@@ -585,7 +610,7 @@ function AdminAttendanceView() {
       });
 
       const records: AttendanceRecord[] = (attendanceData || []).map(
-        (log: any) => {
+        (log: AdminAttendanceRow) => {
           const emp = log.employees || {};
           const fullName =
             `${emp.first_name || ""} ${emp.last_name || ""}`.trim() ||
@@ -611,7 +636,7 @@ function AdminAttendanceView() {
             log.check_in_longitude &&
             siteCoords
           ) {
-            const distance = haversineDistance(
+            const distance = calculateDistanceMeters(
               log.check_in_latitude,
               log.check_in_longitude,
               siteCoords.lat,
@@ -633,7 +658,7 @@ function AdminAttendanceView() {
           }
 
           return {
-            id: log.employee_code || log.employee_id?.substring(0, 8),
+            id: log.employee_code || fullName || "Employee",
             employee: fullName,
             employeeId: log.employee_id,
             shift: shiftMap[log.employee_id] || "General Shift",
@@ -661,33 +686,7 @@ function AdminAttendanceView() {
       setData(records);
       */
 
-      const onDuty = records.filter(
-        (r) => r.status === "Present" && !r.checkOutTimestamp
-      ).length;
-      const absent = records.filter((r) => r.status === "Absent").length;
-      const late = records.filter((r) => r.status === "Late").length;
-
-      const punchInTimes = records
-        .filter((r) => r.checkInTimestamp)
-        .map((r) => {
-          const checkInDate = new Date(r.checkInTimestamp as string);
-          return checkInDate.getHours() * 60 + checkInDate.getMinutes();
-        });
-
-      const avgPunchIn =
-        punchInTimes.length > 0
-          ? Math.round(
-              punchInTimes.reduce((a, b) => a + b, 0) / punchInTimes.length
-            )
-          : null;
-
-      const avgPunchInStr = avgPunchIn
-        ? `${String(Math.floor(avgPunchIn / 60)).padStart(2, "0")}:${String(
-            avgPunchIn % 60
-          ).padStart(2, "0")}`
-        : "--:--";
-
-      setStats({ onDuty, absent, avgPunchIn: avgPunchInStr, lateArrivals: late });
+      setStats(buildAdminAttendanceStats(records));
     } catch (err) {
       console.error("Error fetching attendance:", err);
       setError(
@@ -701,6 +700,43 @@ function AdminAttendanceView() {
   useEffect(() => {
     fetchAttendanceData();
   }, []);
+
+  const handleExportMonthly = () => {
+    const headers = [
+      "Employee",
+      "Shift",
+      "Check In",
+      "Check Out",
+      "Location",
+      "Verification",
+      "Status",
+      "Latitude",
+      "Longitude",
+      "Overtime Hours",
+    ];
+    const rows = data.map((record) => [
+      record.employee,
+      record.shift,
+      record.checkIn,
+      record.checkOut || "",
+      record.location,
+      record.verification,
+      record.status,
+      record.latitude?.toString() || "",
+      record.longitude?.toString() || "",
+      record.overtimeHours.toString(),
+    ]);
+    const csv = [headers, ...rows]
+      .map((row) => row.map((value) => `"${value.replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "attendance-export.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const columns: ColumnDef<AttendanceRecord>[] = [
     {
@@ -827,9 +863,20 @@ function AdminAttendanceView() {
     },
     {
       id: "actions",
-      cell: () => (
+      cell: ({ row }) => (
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-primary">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-primary"
+            onClick={() => {
+              if (row.original.selfie_url) {
+                setSelectedSelfie(row.original.selfie_url);
+              } else {
+                toast.info("No selfie captured for this entry");
+              }
+            }}
+          >
             <Camera className="h-4 w-4" />
           </Button>
           <DropdownMenu>
@@ -839,8 +886,14 @@ function AdminAttendanceView() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem>View Details</DropdownMenuItem>
-              <DropdownMenuItem>Edit Entry</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSelectedEntry(row.original)}>
+                View Details
+              </DropdownMenuItem>
+              <ManualAdjustmentDialog employeeId={row.original.employeeId} employeeName={row.original.employee}>
+                <DropdownMenuItem onClick={() => setEditingEntry(row.original)}>
+                  Edit Entry
+                </DropdownMenuItem>
+              </ManualAdjustmentDialog>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -866,7 +919,7 @@ function AdminAttendanceView() {
               />
               Refresh
             </Button>
-            <Button variant="outline" className="gap-2">
+            <Button variant="outline" className="gap-2" onClick={handleExportMonthly}>
               <Calendar className="h-4 w-4" /> Export Monthly
             </Button>
             <ManualAdjustmentDialog>
@@ -997,7 +1050,7 @@ function AdminAttendanceView() {
                   No attendance data for shift compliance analysis.
                 </div>
               ) : (
-                data.map((record: any) => {
+                data.map((record) => {
                   const shiftStart = record.startTime || "09:00:00";
                   const punchIn = record.checkInTimestamp || null;
                   let lateMinutes = 0;
@@ -1085,6 +1138,54 @@ function AdminAttendanceView() {
           )}
         </TabsContent>
       </Tabs>
+
+      <Dialog open={!!selectedSelfie} onOpenChange={(open) => !open && setSelectedSelfie(null)}>
+        <DialogContent size="lg">
+          <DialogHeader>
+            <DialogTitle>Attendance Selfie</DialogTitle>
+            <DialogDescription>Captured verification image for this attendance entry.</DialogDescription>
+          </DialogHeader>
+          {selectedSelfie && (
+            <div className="overflow-hidden rounded-lg border bg-muted">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={selectedSelfie} alt="Attendance selfie" className="max-h-[70vh] w-full object-contain" />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!selectedEntry} onOpenChange={(open) => !open && setSelectedEntry(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Attendance Details</DialogTitle>
+            <DialogDescription>{selectedEntry?.employee}</DialogDescription>
+          </DialogHeader>
+          {selectedEntry && (
+            <div className="grid gap-3 text-sm">
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Clock-in</span>
+                <span className="font-medium">{selectedEntry.checkInTimestamp || selectedEntry.checkIn}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Clock-out</span>
+                <span className="font-medium">{selectedEntry.checkOutTimestamp || selectedEntry.checkOut || "-"}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">GPS coordinates</span>
+                <span className="font-medium">
+                  {selectedEntry.latitude !== undefined && selectedEntry.longitude !== undefined
+                    ? `${selectedEntry.latitude}, ${selectedEntry.longitude}`
+                    : "-"}
+                </span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Notes</span>
+                <span className="font-medium text-right">{selectedEntry.location} / {selectedEntry.verification}</span>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

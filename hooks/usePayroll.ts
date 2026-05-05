@@ -4,25 +4,23 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
 import { formatCurrency as centralizedFormatCurrency, toPaise } from "@/src/lib/utils/currency";
 import { toast } from "sonner";
-
-// ============================================
-// TYPES
-// ============================================
-
-export type PayrollCycleStatus =
-  | "draft"
-  | "processing"
-  | "computed"
-  | "approved"
-  | "disbursed"
-  | "cancelled";
-
-export type PayslipStatus =
-  | "draft"
-  | "computed"
-  | "approved"
-  | "processed"
-  | "disputed";
+import { downloadPayslipPdf as buildAndSavePayslipPdf } from "@/src/lib/payroll/payslipPdf";
+import {
+  getCycleDisplayName as formatCycleDisplayName,
+  type PayrollCycleStatus,
+  type PayslipStatus,
+} from "@/src/lib/payroll/payrollDisplay";
+import {
+  buildAttendanceSummaryMap,
+  mapPayrollCyclePayslips,
+  mapPayrollPayslips,
+  resolveStandardShiftHours,
+  summarizeAttendanceLogs,
+  type PayrollAttendanceSummaryRow,
+  type PayrollAttendanceLogRow,
+  type PayrollShiftAssignmentRow,
+  type PayrollPayslipRow,
+} from "@/src/lib/payroll/payrollTransforms";
 
 export interface PayrollCycle {
   id: string;
@@ -140,6 +138,11 @@ export interface AttendanceData {
   overtime_hours: number;
 }
 
+type GeneratePayrollResult = {
+  success?: boolean;
+  error?: string;
+} | null;
+
 interface UsePayrollState {
   cycles: PayrollCycle[];
   payslips: Payslip[];
@@ -147,83 +150,12 @@ interface UsePayrollState {
   error: string | null;
 }
 
-// Status display configuration
-export const CYCLE_STATUS_CONFIG: Record<PayrollCycleStatus, { label: string; className: string }> = {
-  draft: { label: "Draft", className: "bg-muted text-muted-foreground border-border" },
-  processing: { label: "Processing", className: "bg-info/10 text-info border-info/20 animate-pulse" },
-  computed: { label: "Computed", className: "bg-warning/10 text-warning border-warning/20" },
-  approved: { label: "Approved", className: "bg-primary/10 text-primary border-primary/20" },
-  disbursed: { label: "Disbursed", className: "bg-success/10 text-success border-success/20" },
-  cancelled: { label: "Cancelled", className: "bg-critical/10 text-critical border-critical/20" },
-};
-
-export const PAYSLIP_STATUS_CONFIG: Record<PayslipStatus, { label: string; className: string }> = {
-  draft: { label: "Draft", className: "bg-muted text-muted-foreground border-border" },
-  computed: { label: "Computed", className: "bg-warning/10 text-warning border-warning/20" },
-  approved: { label: "Approved", className: "bg-primary/10 text-primary border-primary/20" },
-  processed: { label: "Processed", className: "bg-success/10 text-success border-success/20" },
-  disputed: { label: "Disputed", className: "bg-critical/10 text-critical border-critical/20" },
-};
-
-// Month names for display
-export const MONTH_NAMES = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December"
-];
+export { CYCLE_STATUS_CONFIG, PAYSLIP_STATUS_CONFIG, MONTH_NAMES } from "@/src/lib/payroll/payrollDisplay";
+export type { PayrollCycleStatus, PayslipStatus } from "@/src/lib/payroll/payrollDisplay";
 
 // ============================================
 // SALARY CALCULATION HELPERS
 // ============================================
-
-function createEmptyAttendanceData(): AttendanceData {
-  return {
-    present_days: 0,
-    absent_days: 0,
-    leave_days: 0,
-    overtime_hours: 0,
-  };
-}
-
-function summarizeAttendanceLogs(
-  logs: Array<{
-    status: string | null;
-    total_hours: number | null;
-    standard_hours: number | null;
-  }>,
-): AttendanceData {
-  const summary = createEmptyAttendanceData();
-
-  logs.forEach((log) => {
-    if (log.status === "present" || log.status === "late") {
-      summary.present_days += 1;
-    } else if (
-      log.status === "absent" ||
-      log.status === "absent_breach" ||
-      log.status === "unpaid_leave"
-    ) {
-      summary.absent_days += 1;
-    } else if (
-      [
-        "leave",
-        "on_leave",
-        "paid_leave",
-        "sick_leave",
-        "casual_leave",
-        "earned_leave",
-      ].includes(
-        log.status || "",
-      )
-    ) {
-      summary.leave_days += 1;
-    }
-
-    const standardHours = log.standard_hours ?? 8;
-    const workedHours = log.total_hours ?? 0;
-    summary.overtime_hours += Math.max(0, workedHours - standardHours);
-  });
-
-  return summary;
-}
 
 // ============================================
 // HOOK
@@ -295,15 +227,7 @@ export function usePayroll(selectedCycleId?: string) {
       if (error) throw error;
 
       // Transform data
-      const payslipsWithDetails: Payslip[] = (data || []).map((ps: any) => ({
-        ...ps,
-        employee_name: ps.employees
-          ? [ps.employees.first_name, ps.employees.last_name].filter(Boolean).join(" ").trim()
-          : "Unknown",
-        employee_code: ps.employees?.employee_code || "N/A",
-        department: ps.employees?.department || null,
-        cycle_code: ps.payroll_cycles?.cycle_code || null,
-      }));
+      const payslipsWithDetails: Payslip[] = mapPayrollPayslips((data || []) as PayrollPayslipRow[]);
 
       setState((prev) => ({
         ...prev,
@@ -380,7 +304,7 @@ export function usePayroll(selectedCycleId?: string) {
         p_user_id: user.id,
       });
       if (rpcError) throw rpcError;
-      const rpcResult = result as any;
+      const rpcResult = result as GeneratePayrollResult;
       if (!rpcResult?.success) throw new Error(rpcResult?.error || 'Payroll generation failed');
 
       // Re-fetch the cycle and payslips after server-side generation
@@ -408,7 +332,9 @@ export function usePayroll(selectedCycleId?: string) {
     }
   ): Promise<Payslip | null> => {
     try {
-      const updateData: Record<string, any> = { status: newStatus };
+      const updateData: Partial<Pick<Payslip, "status" | "payment_mode" | "payment_reference" | "paid_at">> = {
+        status: newStatus,
+      };
 
       if (newStatus === "processed" && paymentDetails) {
         updateData.payment_mode = paymentDetails.payment_mode;
@@ -537,10 +463,7 @@ export function usePayroll(selectedCycleId?: string) {
 
       if (error) throw error;
 
-      return (data || []).map((ps: any) => ({
-        ...ps,
-        cycle_code: ps.payroll_cycles?.cycle_code,
-      }));
+      return mapPayrollCyclePayslips((data || []) as PayrollPayslipRow[]);
     } catch (err: unknown) {
       console.error("Error fetching employee payslips:", err);
       return [];
@@ -567,7 +490,7 @@ export function usePayroll(selectedCycleId?: string) {
   }, []);
 
   const getCycleDisplayName = useCallback((cycle: PayrollCycle): string => {
-    return `${MONTH_NAMES[cycle.period_month - 1]} ${cycle.period_year}`;
+    return formatCycleDisplayName(cycle.period_month, cycle.period_year);
   }, []);
 
   const refresh = useCallback(() => {
@@ -583,69 +506,15 @@ export function usePayroll(selectedCycleId?: string) {
       const payslip = state.payslips.find(p => p.id === payslipId);
       if (!payslip) throw new Error("Payslip not found");
 
-      // Dynamic import to avoid loading heavy lib unless needed
-      // @ts-ignore
-      const jsPDF = (await import("jspdf")).default;
-      // @ts-ignore
-      const autoTable = (await import("jspdf-autotable")).default;
+      const result = await buildAndSavePayslipPdf(payslip, formatCurrency);
+      if (!result.success) throw result.error ?? new Error("Failed to generate PDF");
 
-      const doc = new jsPDF();
-      
-      // Header
-      doc.setFontSize(18);
-      doc.text("PAYSLIP", 105, 15, { align: "center" });
-      
-      doc.setFontSize(10);
-      doc.text(`Payslip #: ${payslip.payslip_number}`, 14, 25);
-      doc.text(`Period: ${payslip.cycle_code || 'N/A'}`, 14, 30);
-      doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 35);
-      
-      // Employee Details Table
-      (doc as any).autoTable({
-        startY: 40,
-        head: [['Employee Details', '']],
-        body: [
-          ['Name', payslip.employee_name || 'N/A'],
-          ['ID', payslip.employee_code || 'N/A'],
-          ['Department', payslip.department || 'N/A'],
-          ['Bank Account', payslip.bank_account_number || 'N/A'],
-          ['PAN / Tax ID', 'XXXX-XXXX-XXXX'] // Placeholder for privacy
-        ],
-        theme: 'grid',
-        headStyles: { fillColor: [41, 128, 185] },
-        styles: { fontSize: 10, cellPadding: 3 }
-      });
-
-      // Earnings & Deductions Table
-      (doc as any).autoTable({
-        startY: (doc as any).lastAutoTable.finalY + 10,
-        head: [['Earnings', 'Amount', 'Deductions', 'Amount']],
-        body: [
-          ['Basic Salary', formatCurrency(payslip.basic_salary), 'PF', formatCurrency(payslip.pf_deduction)],
-          ['HRA', formatCurrency(payslip.hra), 'ESIC', formatCurrency(payslip.esic_deduction)],
-          ['Special Allowance', formatCurrency(payslip.special_allowance), 'Prof. Tax', formatCurrency(payslip.professional_tax)],
-          ['Overtime', formatCurrency(payslip.overtime_amount), 'TDS', formatCurrency(payslip.tds)],
-          ['Total Earnings', formatCurrency(payslip.gross_salary), 'Total Deductions', formatCurrency(payslip.total_deductions)]
-        ],
-        theme: 'striped',
-        headStyles: { fillColor: [52, 73, 94] },
-        foot: [['', '', 'NET PAYABLE', formatCurrency(payslip.net_payable)]],
-        footStyles: { fillColor: [46, 204, 113], fontStyle: 'bold' }
-      });
-
-      // Footer / Disclaimer
-      const finalY = (doc as any).lastAutoTable.finalY + 20;
-      doc.setFontSize(8);
-      doc.setTextColor(100);
-      doc.text("This is valid proof of income generated by the Organization's Operational Truth Engine.", 14, finalY);
-      
-      doc.save(`Payslip_${payslip.payslip_number}.pdf`);
       toast.success("Payslip downloaded successfully");
       return true;
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("PDF Generation Error:", err);
-      const msg = typeof err?.message === 'string' ? err.message : '';
+      const msg = err instanceof Error ? err.message : '';
       toast.error(msg.includes("Cannot find module") 
         ? "Dependencies missing. Run: npm install jspdf jspdf-autotable" 
         : "Failed to generate PDF");
@@ -696,16 +565,17 @@ export function usePayroll(selectedCycleId?: string) {
       if (attendanceResult.error) throw attendanceResult.error;
       if (shiftResult.error) throw shiftResult.error;
 
-      const rawShift = shiftResult.data?.shifts;
-      const shift = Array.isArray(rawShift) ? rawShift[0] : rawShift;
-      const standardHours = Number(shift?.duration_hours) || 8;
+      const standardHours = shiftResult.data
+        ? resolveStandardShiftHours(shiftResult.data as PayrollShiftAssignmentRow)
+        : 8;
 
+      const leaveStatuses: string[] = ["paid_leave", "unpaid_leave"];
       return summarizeAttendanceLogs(
-        (attendanceResult.data || []).map((row: any) => ({
+        (attendanceResult.data || []).map((row: { status: string | null; total_hours: number | null }) => ({
           status: row.status ?? null,
-          total_hours: row.total_hours ?? null,
+          total_hours: leaveStatuses.includes(row.status ?? "") ? 0 : (row.total_hours ?? null),
           standard_hours: standardHours,
-        })),
+        })) as PayrollAttendanceSummaryRow[],
       );
     } catch (rpcError) {
       console.error('Attendance data fetch failed:', rpcError);
@@ -744,39 +614,17 @@ export function usePayroll(selectedCycleId?: string) {
       if (shiftResult.error) throw shiftResult.error;
 
       const standardHoursByEmployee = new Map<string, number>();
-      (shiftResult.data || []).forEach((assignment: any) => {
-        const rawShift = assignment.shifts;
-        const shift = Array.isArray(rawShift) ? rawShift[0] : rawShift;
-        standardHoursByEmployee.set(
-          assignment.employee_id,
-          Number(shift?.duration_hours) || 8,
-        );
+      (shiftResult.data || []).forEach((assignment: PayrollShiftAssignmentRow) => {
+        standardHoursByEmployee.set(assignment.employee_id, resolveStandardShiftHours(assignment));
       });
 
-      const groupedLogs = new Map<
-        string,
-        Array<{
-          status: string | null;
-          total_hours: number | null;
-          standard_hours: number | null;
-        }>
-      >();
-
-      (attendanceResult.data || []).forEach((row: any) => {
-        const employeeLogs = groupedLogs.get(row.employee_id) || [];
-        employeeLogs.push({
-          status: row.status ?? null,
-          total_hours: row.total_hours ?? null,
-          standard_hours: standardHoursByEmployee.get(row.employee_id) ?? 8,
-        });
-        groupedLogs.set(row.employee_id, employeeLogs);
-      });
+      const summaryMap = buildAttendanceSummaryMap(
+        (attendanceResult.data || []) as PayrollAttendanceLogRow[],
+        standardHoursByEmployee,
+      );
 
       employeeIds.forEach((employeeId) => {
-        result.set(
-          employeeId,
-          summarizeAttendanceLogs(groupedLogs.get(employeeId) || []),
-        );
+        result.set(employeeId, summaryMap.get(employeeId) || summarizeAttendanceLogs([]));
       });
 
       return result;

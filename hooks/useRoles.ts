@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
+import type { Database } from "@/supabase-types";
 
 export interface Role {
   id: string;
@@ -100,12 +101,12 @@ export function useRoles() {
 
       // Aggregate user counts
       const countMap: Record<string, number> = {};
-      (userCounts || []).forEach((u: any) => {
+      (userCounts || []).forEach((u: { role_id: string | null }) => {
         countMap[u.role_id] = (countMap[u.role_id] || 0) + 1;
       });
 
       // Transform data
-      const roles: Role[] = rolesData.map((role: any) => ({
+      const roles: Role[] = rolesData.map((role) => ({
         id: role.id,
         name: role.role_display_name,
         roleKey: role.role_name,
@@ -148,7 +149,7 @@ export function useRoles() {
       const { data, error } = await supabase
         .from("roles")
         .insert({
-          role_name: roleKey as any,
+          role_name: roleKey as Database["public"]["Tables"]["roles"]["Insert"]["role_name"],
           role_display_name: input.name.trim(),
           description: input.description?.trim() || null,
           permissions: [],

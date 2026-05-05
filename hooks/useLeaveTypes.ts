@@ -1,29 +1,20 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase as supabaseTyped } from "@/src/lib/supabaseClient";
+import { supabase } from "@/src/lib/supabaseClient";
 import { toast } from "sonner";
+import {
+  mapLeaveTypeRow,
+  toDbLeaveType,
+  type CreateLeaveTypeInput,
+  type LeaveType,
+  type LeaveTypeRow,
+} from "@/src/lib/hrms/leaveTypeTransforms";
 
-const supabase = supabaseTyped as any;
-
-export interface LeaveType {
-  id: string;
-  leave_name: string;
-  yearly_quota: number;
-  is_paid: boolean;
-  can_carry_forward: boolean;
-  max_carry_forward: number | null;
-  is_active: boolean;
-  created_at: string;
-}
-
-export interface CreateLeaveTypeInput {
-  leave_name: string;
-  yearly_quota: number;
-  is_paid: boolean;
-  can_carry_forward: boolean;
-  max_carry_forward?: number | null;
-}
+export type {
+  CreateLeaveTypeInput,
+  LeaveType,
+} from "@/src/lib/hrms/leaveTypeTransforms";
 
 export function useLeaveTypes() {
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
@@ -39,9 +30,9 @@ export function useLeaveTypes() {
         .select("*")
         .order("leave_name");
       if (fetchError) throw fetchError;
-      setLeaveTypes((data || []) as LeaveType[]);
-    } catch (err: any) {
-      setError(err.message || "Failed to load leave types");
+      setLeaveTypes(((data || []) as LeaveTypeRow[]).map(mapLeaveTypeRow));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to load leave types");
     } finally {
       setIsLoading(false);
     }
@@ -51,27 +42,37 @@ export function useLeaveTypes() {
     try {
       const { error } = await supabase.from("leave_types").insert({
         ...input,
+        leave_type: toDbLeaveType(input.is_paid),
+        requires_approval: !input.is_paid,
         is_active: true,
       });
       if (error) throw error;
       toast.success("Leave type created");
       fetchLeaveTypes();
       return true;
-    } catch (err: any) {
-      toast.error(err.message || "Failed to create leave type");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to create leave type");
       return false;
     }
   };
 
   const updateLeaveType = async (id: string, input: Partial<CreateLeaveTypeInput>) => {
     try {
-      const { error } = await supabase.from("leave_types").update(input).eq("id", id);
+      const { error } = await supabase.from("leave_types").update({
+        ...input,
+        ...(input.is_paid !== undefined
+          ? {
+              leave_type: toDbLeaveType(input.is_paid),
+              requires_approval: !input.is_paid,
+            }
+          : {}),
+      }).eq("id", id);
       if (error) throw error;
       toast.success("Leave type updated");
       fetchLeaveTypes();
       return true;
-    } catch (err: any) {
-      toast.error(err.message || "Failed to update leave type");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to update leave type");
       return false;
     }
   };

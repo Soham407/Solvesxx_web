@@ -21,26 +21,38 @@ WHERE NOT EXISTS (SELECT 1 FROM public.emergency_contacts WHERE phone_number = v
 
 
 -- 2. Fix the 12 functions with mutable search_path (and add to the 2 trigger functions just in case)
-ALTER FUNCTION check_geofence(double precision, double precision, double precision, double precision, double precision) SET search_path = public;
-ALTER FUNCTION detect_expiring_items(integer) SET search_path = public;
-ALTER FUNCTION validate_bill_for_payout(uuid) SET search_path = public;
-ALTER FUNCTION get_shift_checklist_items(uuid) SET search_path = public;
-ALTER FUNCTION get_guard_checklist_completion(uuid, date) SET search_path = public;
-ALTER FUNCTION has_active_checklist_alert(uuid, date) SET search_path = public;
-ALTER FUNCTION get_shift_time_info(uuid) SET search_path = public;
-ALTER FUNCTION detect_incomplete_checklists(numeric, boolean) SET search_path = public;
-ALTER FUNCTION get_clocked_in_guards() SET search_path = public;
-ALTER FUNCTION get_guard_last_position(uuid) SET search_path = public;
-ALTER FUNCTION has_active_inactivity_alert(uuid) SET search_path = public;
-ALTER FUNCTION detect_inactive_guards(integer) SET search_path = public;
+DO $$
+BEGIN
+  BEGIN EXECUTE 'ALTER FUNCTION public.check_geofence(double precision, double precision, double precision, double precision, double precision) SET search_path = public'; EXCEPTION WHEN undefined_function THEN NULL; END;
+  BEGIN EXECUTE 'ALTER FUNCTION public.detect_expiring_items(integer) SET search_path = public'; EXCEPTION WHEN undefined_function THEN NULL; END;
+  BEGIN EXECUTE 'ALTER FUNCTION public.validate_bill_for_payout(uuid) SET search_path = public'; EXCEPTION WHEN undefined_function THEN NULL; END;
+  BEGIN EXECUTE 'ALTER FUNCTION public.get_shift_checklist_items(uuid) SET search_path = public'; EXCEPTION WHEN undefined_function THEN NULL; END;
+  BEGIN EXECUTE 'ALTER FUNCTION public.get_guard_checklist_completion(uuid, date) SET search_path = public'; EXCEPTION WHEN undefined_function THEN NULL; END;
+  BEGIN EXECUTE 'ALTER FUNCTION public.has_active_checklist_alert(uuid, date) SET search_path = public'; EXCEPTION WHEN undefined_function THEN NULL; END;
+  BEGIN EXECUTE 'ALTER FUNCTION public.get_shift_time_info(uuid) SET search_path = public'; EXCEPTION WHEN undefined_function THEN NULL; END;
+  BEGIN EXECUTE 'ALTER FUNCTION public.detect_incomplete_checklists(numeric, boolean) SET search_path = public'; EXCEPTION WHEN undefined_function THEN NULL; END;
+  BEGIN EXECUTE 'ALTER FUNCTION public.get_clocked_in_guards() SET search_path = public'; EXCEPTION WHEN undefined_function THEN NULL; END;
+  BEGIN EXECUTE 'ALTER FUNCTION public.get_guard_last_position(uuid) SET search_path = public'; EXCEPTION WHEN undefined_function THEN NULL; END;
+  BEGIN EXECUTE 'ALTER FUNCTION public.has_active_inactivity_alert(uuid) SET search_path = public'; EXCEPTION WHEN undefined_function THEN NULL; END;
+  BEGIN EXECUTE 'ALTER FUNCTION public.detect_inactive_guards(integer) SET search_path = public'; EXCEPTION WHEN undefined_function THEN NULL; END;
 
--- Plus other functions that are security definer without search path
-ALTER FUNCTION trigger_checklist_check() SET search_path = public;
-ALTER FUNCTION trigger_inactivity_check() SET search_path = public;
+  BEGIN EXECUTE 'ALTER FUNCTION public.trigger_checklist_check() SET search_path = public'; EXCEPTION WHEN undefined_function THEN NULL; END;
+  BEGIN EXECUTE 'ALTER FUNCTION public.trigger_inactivity_check() SET search_path = public'; EXCEPTION WHEN undefined_function THEN NULL; END;
+END
+$$;
 
 -- 3. Enable RLS on material_arrival_evidence and storage_deletion_queue
 ALTER TABLE public.material_arrival_evidence ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.storage_deletion_queue ENABLE ROW LEVEL SECURITY;
 
 -- 4. Change unused SECURITY DEFINER view (expiry_tracking) to SECURITY INVOKER
-ALTER VIEW public.expiry_tracking SET (security_invoker = true);;
+DO $$
+BEGIN
+  BEGIN
+    EXECUTE 'ALTER VIEW public.expiry_tracking SET (security_invoker = true)';
+  EXCEPTION
+    WHEN undefined_table THEN NULL;
+    WHEN undefined_object THEN NULL;
+  END;
+END
+$$;;

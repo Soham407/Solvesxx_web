@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase as supabaseTyped } from "@/src/lib/supabaseClient";
 import { useToast } from "@/components/ui/use-toast";
 
-const supabase = supabaseTyped as any;
+const supabase = supabaseTyped;
 import {
   SupplierProductExtended,
   SupplierProductDisplay,
@@ -13,8 +13,30 @@ import {
   UpdateSupplierProductForm,
   MutationResult,
   SupplierForProduct,
+  SupplierStatus,
 } from "@/src/types/supply-chain";
 import { sanitizeLikeInput } from "@/lib/sanitize";
+
+type SupplierProductRow = {
+  id: string;
+  supplier_id: string | null;
+  product_id: string | null;
+  created_at: string | null;
+  supplier?: {
+    id: string;
+    supplier_name: string;
+    supplier_code?: string | null;
+    status?: string | null;
+    tier?: number | null;
+    is_active?: boolean | null;
+  } | null;
+  product?: {
+    id: string;
+    product_name: string;
+    product_code?: string | null;
+    unit_of_measurement?: string | null;
+  } | null;
+};
 
 /**
  * Supplier Products Hook
@@ -69,18 +91,9 @@ export function useSupplierProducts(initialFilters?: SupplierProductFilters) {
         query = query.eq("product_id", filters.product_id);
       }
 
-      if (filters.is_preferred !== undefined) {
-        query = query.eq("is_preferred", filters.is_preferred);
-      }
-
-      if (filters.is_active !== undefined) {
-        query = query.eq("is_active", filters.is_active);
-      }
-
       if (filters.searchTerm) {
-        // Search in supplier name or product name via related tables
-        // Note: This is a simplified search - for complex searches, consider using a view
-        query = query.or(`supplier_sku.ilike.%${sanitizeLikeInput(filters.searchTerm)}%`);
+        const term = sanitizeLikeInput(filters.searchTerm);
+        query = query.or(`supplier_id.ilike.%${term}%,product_id.ilike.%${term}%`);
       }
 
       const { data, error, count } = await query;
@@ -88,12 +101,23 @@ export function useSupplierProducts(initialFilters?: SupplierProductFilters) {
       if (error) throw error;
 
       // Transform data to SupplierProductDisplay format
-      const mappings: SupplierProductDisplay[] = (data || []).map((item: any) => ({
-        ...item,
-        supplier: item.supplier,
+      const mappings: SupplierProductDisplay[] = ((data as SupplierProductRow[] | null) ?? []).map((item) => ({
+        id: item.id,
+        supplier_id: item.supplier_id,
+        product_id: item.product_id,
+        created_at: item.created_at,
+        supplier: item.supplier ? {
+          id: item.supplier.id,
+          supplier_name: item.supplier.supplier_name,
+          supplier_code: item.supplier.supplier_code,
+          status: item.supplier.status as SupplierStatus | undefined,
+          tier: item.supplier.tier,
+        } : undefined,
         product: item.product ? {
-          ...item.product,
-          unit: item.product.unit_of_measurement,
+          id: item.product.id,
+          product_name: item.product.product_name,
+          product_code: item.product.product_code,
+          unit: item.product.unit_of_measurement ?? undefined,
         } : undefined,
       }));
 
@@ -127,15 +151,6 @@ export function useSupplierProducts(initialFilters?: SupplierProductFilters) {
         .insert({
           supplier_id: data.supplier_id,
           product_id: data.product_id,
-          supplier_sku: data.supplier_sku,
-          lead_time_days: data.lead_time_days || 7,
-          min_order_quantity: data.min_order_quantity || 1,
-          max_order_quantity: data.max_order_quantity,
-          is_preferred: data.is_preferred || false,
-          preference_rank: data.preference_rank || 0,
-          pack_size: data.pack_size,
-          case_size: data.case_size,
-          is_active: true,
         })
         .select()
         .single();
@@ -202,25 +217,12 @@ export function useSupplierProducts(initialFilters?: SupplierProductFilters) {
     updates: UpdateSupplierProductForm
   ): Promise<MutationResult<SupplierProductExtended>> => {
     try {
-      const { data, error } = await supabase
-        .from("supplier_products")
-        .update({
-          ...updates,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", mappingId)
-        .select()
-        .single();
-
-      if (error) throw error;
-
       toast({
-        title: "Mapping Updated",
-        description: "Supplier product details have been updated",
+        title: "Mapping Update Not Supported",
+        description: "The current supplier_products table only stores supplier/product links.",
+        variant: "destructive",
       });
-
-      await fetchMappings();
-      return { success: true, data: data as SupplierProductExtended };
+      return { success: false, error: "Mapping updates are not supported by the current schema" };
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Failed to update mapping";
       toast({
@@ -239,33 +241,12 @@ export function useSupplierProducts(initialFilters?: SupplierProductFilters) {
     preferenceRank: number = 1
   ): Promise<MutationResult> => {
     try {
-      // First, unset any existing preferred supplier for this product
-      await supabase
-        .from("supplier_products")
-        .update({ is_preferred: false, preference_rank: 0 })
-        .eq("product_id", productId)
-        .eq("is_preferred", true);
-
-      // Set the new preferred supplier
-      const { error } = await supabase
-        .from("supplier_products")
-        .update({
-          is_preferred: true,
-          preference_rank: preferenceRank,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("product_id", productId)
-        .eq("supplier_id", supplierId);
-
-      if (error) throw error;
-
       toast({
-        title: "Preferred Supplier Set",
-        description: "This supplier is now the preferred source for this product",
+        title: "Preferred Supplier Not Supported",
+        description: "Preferred supplier ranking is not stored in the current supplier_products table.",
+        variant: "destructive",
       });
-
-      await fetchMappings();
-      return { success: true };
+      return { success: false, error: "Preferred supplier ranking is not supported by the current schema" };
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Failed to set preferred supplier";
       toast({
@@ -282,24 +263,12 @@ export function useSupplierProducts(initialFilters?: SupplierProductFilters) {
     mappingId: string
   ): Promise<MutationResult> => {
     try {
-      const { error } = await supabase
-        .from("supplier_products")
-        .update({
-          is_preferred: false,
-          preference_rank: 0,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", mappingId);
-
-      if (error) throw error;
-
       toast({
-        title: "Preferred Status Removed",
-        description: "Supplier is no longer the preferred source for this product",
+        title: "Preferred Supplier Not Supported",
+        description: "Preferred supplier ranking is not stored in the current supplier_products table.",
+        variant: "destructive",
       });
-
-      await fetchMappings();
-      return { success: true };
+      return { success: false, error: "Preferred supplier ranking is not supported by the current schema" };
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Failed to remove preferred status";
       toast({
@@ -317,25 +286,12 @@ export function useSupplierProducts(initialFilters?: SupplierProductFilters) {
     isActive: boolean
   ): Promise<MutationResult> => {
     try {
-      const { error } = await supabase
-        .from("supplier_products")
-        .update({
-          is_active: isActive,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", mappingId);
-
-      if (error) throw error;
-
       toast({
-        title: isActive ? "Mapping Activated" : "Mapping Deactivated",
-        description: isActive 
-          ? "Supplier-product link is now active" 
-          : "Supplier-product link has been deactivated",
+        title: "Active Status Not Supported",
+        description: "The current supplier_products table does not store active/inactive state.",
+        variant: "destructive",
       });
-
-      await fetchMappings();
-      return { success: true };
+      return { success: false, error: "Active status is not supported by the current schema" };
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Failed to toggle status";
       toast({
@@ -359,7 +315,6 @@ export function useSupplierProducts(initialFilters?: SupplierProductFilters) {
           product:products(id, product_name, product_code, unit_of_measurement)
         `)
         .eq("supplier_id", supplierId)
-        .eq("is_active", true)
         .order("product_id");
 
       if (error) throw error;
@@ -379,12 +334,10 @@ export function useSupplierProducts(initialFilters?: SupplierProductFilters) {
         .from("supplier_products")
         .select(`
           *,
-          supplier:suppliers(id, supplier_name, supplier_code, status, tier, is_active, overall_score)
+          supplier:suppliers(id, supplier_name, supplier_code, status, tier, is_active)
         `)
         .eq("product_id", productId)
-        .eq("is_active", true)
-        .order("is_preferred", { ascending: false })
-        .order("preference_rank", { ascending: true });
+        .order("supplier_id");
 
       if (error) throw error;
       return (data || []) as SupplierProductDisplay[];
@@ -406,8 +359,6 @@ export function useSupplierProducts(initialFilters?: SupplierProductFilters) {
           supplier:suppliers(id, supplier_name, supplier_code, status, tier, is_active)
         `)
         .eq("product_id", productId)
-        .eq("is_preferred", true)
-        .eq("is_active", true)
         .single();
 
       if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows
@@ -424,34 +375,26 @@ export function useSupplierProducts(initialFilters?: SupplierProductFilters) {
     asOfDate?: string
   ): Promise<SupplierForProduct[]> => {
     try {
-      const { data, error } = await supabase
-        .rpc('get_suppliers_for_product', {
-          p_product_id: productId,
-          p_as_of: asOfDate || new Date().toISOString().split('T')[0],
-        });
-
-      if (error) throw error;
-      return (data || []) as unknown as SupplierForProduct[];
-    } catch (err: unknown) {
-      console.error("Error calling get_suppliers_for_product:", err);
-      // Fallback to basic query if function doesn't exist yet
       const suppliers = await getSuppliersByProduct(productId);
       return suppliers.map(sp => ({
         supplier_id: sp.supplier_id,
-        supplier_name: sp.supplier?.supplier_name || 'Unknown',
+        supplier_name: sp.supplier?.supplier_name || "Unknown",
         supplier_code: sp.supplier?.supplier_code || null,
         supplier_type: null,
-        is_preferred: sp.is_preferred || false,
-        preference_rank: sp.preference_rank || 999,
+        is_preferred: false,
+        preference_rank: 999,
         current_rate: null,
         discount_percentage: null,
         gst_percentage: null,
-        lead_time_days: sp.lead_time_days || 7,
-        min_order_quantity: sp.min_order_quantity || 1,
-        max_order_quantity: sp.max_order_quantity || null,
+        lead_time_days: 7,
+        min_order_quantity: 1,
+        max_order_quantity: null,
         overall_score: 0,
         tier: sp.supplier?.tier || 3,
-      })) as unknown as SupplierForProduct[];
+      })) as SupplierForProduct[];
+    } catch (err: unknown) {
+      console.error("Error fetching suppliers for product:", err);
+      return [];
     }
   }, [getSuppliersByProduct]);
 

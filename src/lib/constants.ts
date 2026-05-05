@@ -305,6 +305,7 @@ export const RTV_STATUS = {
   IN_TRANSIT: 'in_transit',
   ACCEPTED_BY_VENDOR: 'accepted_by_vendor',
   CREDIT_NOTE_ISSUED: 'credit_note_issued',
+  CREDIT_ISSUED: 'credit_issued',
   REJECTED_BY_VENDOR: 'rejected_by_vendor',
 } as const;
 
@@ -313,6 +314,7 @@ export const RTV_STATUS_LABELS: Record<string, string> = {
   in_transit: 'In Transit',
   accepted_by_vendor: 'Accepted by Vendor',
   credit_note_issued: 'Credit Note Issued',
+  credit_issued: 'Credit Issued',
   rejected_by_vendor: 'Rejected by Vendor',
 };
 
@@ -321,6 +323,7 @@ export const RTV_STATUS_COLORS: Record<string, string> = {
   in_transit: 'text-info',
   accepted_by_vendor: 'text-success',
   credit_note_issued: 'text-primary',
+  credit_issued: 'text-primary',
   rejected_by_vendor: 'text-critical',
 };
 

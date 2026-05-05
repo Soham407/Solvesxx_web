@@ -56,11 +56,39 @@ import { formatCurrency } from "@/src/lib/utils/currency";
 import { useReconciliation } from "@/hooks/useReconciliation";
 import { toast } from "sonner";
 
+function getBillStatusMeta(status: SupplierBill["status"]) {
+  const config = BILL_STATUS_CONFIG[status] || { label: status, className: "" };
+  const iconClassName =
+    status === "approved" ? "text-success" : status === "disputed" ? "text-critical" : "text-warning";
+
+  return { label: config.label, className: config.className, iconClassName };
+}
+
+function getPaymentStatusMeta(status: SupplierBill["payment_status"]) {
+  return PAYMENT_STATUS_CONFIG[status] || { label: status, className: "" };
+}
+
+function summarizeSupplierBills(
+  bills: SupplierBill[],
+  reconciliations: Array<{ status: string }> | null | undefined,
+) {
+  const accountsPayable = bills.reduce((acc, bill) => acc + (bill.due_amount || 0), 0);
+  const approvedPayouts = bills
+    .filter((bill) => bill.status === "approved")
+    .reduce((acc, bill) => acc + (bill.total_amount || 0), 0);
+  const pendingVerification = bills.filter((bill) => bill.status === "submitted" || bill.status === "draft").length;
+  const auditDiscrepancies = Array.isArray(reconciliations)
+    ? reconciliations.filter((row) => row.status === "discrepancy").length
+    : 0;
+
+  return { accountsPayable, approvedPayouts, pendingVerification, auditDiscrepancies };
+}
+
 export default function SupplierBillsPage() {
     const { userId, role } = useAuth();
-  const { bills, isLoading: billsLoading, error, refresh: refreshBills } = useSupplierBills() as any;
+  const { bills, isLoading: billsLoading, error, refresh: refreshBills } = useSupplierBills();
   const { reconciliations, isLoading: reconLoading } = useReconciliation();
-  const { methods, recordTransaction, validateBillForPayout, forceMatchBill } = useFinance() as any;
+  const { methods, recordTransaction, validateBillForPayout, forceMatchBill } = useFinance();
 
   const [selectedBill, setSelectedBill] = useState<SupplierBill | null>(null);
   
@@ -80,7 +108,7 @@ export default function SupplierBillsPage() {
   const [isValidating, setIsValidating] = useState(false);
 
   const isLoading = billsLoading || reconLoading;
-  const manualMethods = methods.filter((method: any) => method.gateway === "manual");
+  const manualMethods = methods.filter((method) => method.gateway === "manual");
 
   const openPayoutModal = async (bill: SupplierBill) => {
     setIsValidating(true);
@@ -200,7 +228,7 @@ export default function SupplierBillsPage() {
           </div>
           <div className="flex flex-col text-left">
             <span className="font-bold text-sm ">{row.original.supplier_name}</span>
-            <span className="text-[10px] text-muted-foreground uppercase font-bold ">REF: {row.original.po_number || "N/A"} • {row.original.bill_number}</span>
+            <span className="text-[10px] text-muted-foreground uppercase font-bold ">REF: {row.original.po_number || "Not linked"} • {row.original.bill_number}</span>
           </div>
         </div>
       ),
@@ -226,15 +254,14 @@ export default function SupplierBillsPage() {
       accessorKey: "status",
       header: "Audit Verification",
       cell: ({ row }) => {
-          const status = row.original.status;
-          const config = BILL_STATUS_CONFIG[status as keyof typeof BILL_STATUS_CONFIG] || { label: status, className: "" };
+          const meta = getBillStatusMeta(row.original.status);
           return (
             <div className="flex items-center gap-2">
                 <FileCheck2 className={cn(
                     "h-3.5 w-3.5",
-                    status === "approved" ? "text-success" : status === "disputed" ? "text-critical" : "text-warning"
+                    meta.iconClassName
                 )} />
-                <span className="text-[10px] font-bold uppercase ">{config.label}</span>
+                <span className="text-[10px] font-bold uppercase ">{meta.label}</span>
             </div>
           );
       },
@@ -243,8 +270,7 @@ export default function SupplierBillsPage() {
       accessorKey: "payment_status",
       header: "Payout Truth",
       cell: ({ row }) => {
-          const val = row.original.payment_status as string;
-          const config = PAYMENT_STATUS_CONFIG[val as keyof typeof PAYMENT_STATUS_CONFIG] || { label: val, className: "" };
+          const config = getPaymentStatusMeta(row.original.payment_status);
           return (
             <Badge variant="outline" className={cn("font-bold text-[10px] uppercase h-5", config.className)}>
                 {config.label}
@@ -312,15 +338,8 @@ export default function SupplierBillsPage() {
 
 
   // Calculate summary stats
-  const accountsPayable = displayBills.reduce((acc: number, bill: SupplierBill) => acc + (bill.due_amount || 0), 0);
-  const approvedPayouts = displayBills
-    .filter((b: SupplierBill) => b.status === "approved")
-    .reduce((acc: number, bill: SupplierBill) => acc + (bill.total_amount || 0), 0);
-  const pendingVerification = displayBills
-    .filter((b: SupplierBill) => b.status === "submitted" || b.status === "draft")
-    .length;
-
-    const auditDiscrepancies = Array.isArray(reconciliations) ? reconciliations.filter(r => r.status === "discrepancy").length : 0;
+  const { accountsPayable, approvedPayouts, pendingVerification, auditDiscrepancies } =
+    summarizeSupplierBills(displayBills, reconciliations);
 
   return (
     <div className="animate-fade-in space-y-8 pb-20">
@@ -334,9 +353,11 @@ export default function SupplierBillsPage() {
                   <ArrowRightLeft className="h-4 w-4" /> Reconciliation Sheet
                </Link>
             </Button>
-            <Button className="gap-2 shadow-lg shadow-primary/20">
-               <Plus className="h-4 w-4" /> New Bill Intake
-            </Button>
+            <Link href="/supplier/bills/new">
+              <Button className="gap-2 shadow-lg shadow-primary/20">
+                 <Plus className="h-4 w-4" /> New Bill Intake
+              </Button>
+            </Link>
           </div>
         }
       />
@@ -421,7 +442,7 @@ export default function SupplierBillsPage() {
                   <SelectValue placeholder="Select method" />
                 </SelectTrigger>
                 <SelectContent>
-                  {manualMethods.map((m: any) => (
+                  {manualMethods.map((m) => (
                     <SelectItem key={m.id} value={m.id}>{m.method_name}</SelectItem>
                   ))}
                 </SelectContent>

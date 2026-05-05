@@ -10,15 +10,7 @@ CREATE TABLE IF NOT EXISTS service_acknowledgments (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 ALTER TABLE service_acknowledgments ENABLE ROW LEVEL SECURITY;
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies
-    WHERE tablename = 'service_acknowledgments'
-    AND policyname = 'Admin and site supervisor can manage acknowledgments'
-  ) THEN
-    EXECUTE 'CREATE POLICY "Admin and site supervisor can manage acknowledgments"
-      ON service_acknowledgments FOR ALL TO authenticated
-      USING (true) WITH CHECK (true)';
-  END IF;
-END $$;;
+DROP POLICY IF EXISTS "Admin and site supervisor can manage acknowledgments" ON service_acknowledgments;
+CREATE POLICY "Admin and site supervisor can manage acknowledgments"
+  ON service_acknowledgments FOR ALL TO authenticated
+  USING (true) WITH CHECK (true);;

@@ -1,6 +1,6 @@
 "use client";
 
-import { Wrench, Camera, CheckCircle, Clock, MapPin, AlertCircle, Loader2, Navigation, FileText, FlaskConical } from "lucide-react";
+import { Wrench, CheckCircle, Clock, MapPin, AlertCircle, Loader2, Navigation, FileText, FlaskConical } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -90,15 +90,6 @@ export function PestControlTechnicianDashboard() {
     }
   };
 
-  const handleAddPhoto = () => {
-    if (activeSession?.id) {
-      toast({
-        title: "Photo Upload",
-        description: "Photo upload feature is being developed. Coming soon!",
-      });
-    }
-  };
-
   const handleViewServiceLog = () => {
     router.push("/service-requests?tab=history");
   };
@@ -112,7 +103,7 @@ export function PestControlTechnicianDashboard() {
       <div className="flex flex-col text-left">
         <h1 className="text-xl font-bold">Pest Control Technician Portal</h1>
         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-          Welcome, {fullName || "Technician"} • {employeeId ? "ID: " + employeeId.substring(0, 8) : "Loading..."}
+          Welcome, {fullName || "Technician"}
         </p>
       </div>
 
@@ -135,10 +126,10 @@ export function PestControlTechnicianDashboard() {
             <div>
               <h3 className="text-lg font-bold">{activeSession.service_request?.title || "Active Job Session"}</h3>
               <div className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground uppercase mt-1">
-                <MapPin className="h-3 w-3" /> {activeSession.service_request?.location?.location_name || "Location TBD"}
+                <MapPin className="h-3 w-3" /> {activeSession.service_request?.location?.location_name || "Location not set"}
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex">
               <Button
                 onClick={handleStartWork}
                 disabled={isStartingWork}
@@ -146,14 +137,6 @@ export function PestControlTechnicianDashboard() {
                 aria-label="Navigate to job location"
               >
                 {isStartingWork ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Navigation className="h-3.5 w-3.5" />} Navigate
-              </Button>
-              <Button
-                variant="outline"
-                onClick={handleAddPhoto}
-                className="flex-1 font-bold uppercase text-[10px] tracking-widest gap-2 h-10 border-muted-foreground/20"
-                aria-label="Add photo to current job"
-              >
-                <Camera className="h-3.5 w-3.5" /> Add Photo
               </Button>
             </div>
           </div>
@@ -217,7 +200,7 @@ export function PestControlTechnicianDashboard() {
               </div>
               <div className="flex items-center justify-between pt-3 border-t">
                 <div className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground">
-                  <MapPin className="h-3 w-3" /> {job.location_name || "TBD"}
+                  <MapPin className="h-3 w-3" /> {job.location_name || "Location not set"}
                 </div>
                 <div className="flex items-center gap-1.5 text-[10px] font-bold text-primary uppercase">
                   <Clock className="h-3 w-3" />

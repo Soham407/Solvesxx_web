@@ -74,7 +74,7 @@ export function DesignationDialog({
         designation_name: designation.designation_name,
         designation_code: designation.designation_code,
         department: designation.department || "",
-        level: (designation.level as any) || "junior",
+        level: designation.level || "junior",
         description: designation.description || "",
         is_active: designation.is_active ?? true,
       });
@@ -161,7 +161,7 @@ export function DesignationDialog({
                 <Label className="text-xs font-bold uppercase">Level</Label>
                 <Select
                   value={form.watch("level")}
-                  onValueChange={(val: any) => form.setValue("level", val)}
+                  onValueChange={(val) => form.setValue("level", val as FormOutput["level"])}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select level" />

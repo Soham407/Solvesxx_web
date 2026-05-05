@@ -35,12 +35,15 @@ CREATE TABLE IF NOT EXISTS rtv_tickets (
 -- RLS
 ALTER TABLE rtv_tickets ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Allow authenticated read on rtv_tickets" ON rtv_tickets;
 CREATE POLICY "Allow authenticated read on rtv_tickets" ON rtv_tickets
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Allow authenticated insert on rtv_tickets" ON rtv_tickets;
 CREATE POLICY "Allow authenticated insert on rtv_tickets" ON rtv_tickets
     FOR INSERT TO authenticated WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Allow authenticated update on rtv_tickets" ON rtv_tickets;
 CREATE POLICY "Allow authenticated update on rtv_tickets" ON rtv_tickets
     FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
 
@@ -51,5 +54,17 @@ CREATE TRIGGER update_rtv_tickets_updated_at
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Enable Realtime
-ALTER PUBLICATION supabase_realtime ADD TABLE rtv_tickets;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_publication_tables
+        WHERE pubname = 'supabase_realtime'
+          AND schemaname = 'public'
+          AND tablename = 'rtv_tickets'
+    ) THEN
+        EXECUTE 'ALTER PUBLICATION supabase_realtime ADD TABLE public.rtv_tickets';
+    END IF;
+END
+$$;
 ;

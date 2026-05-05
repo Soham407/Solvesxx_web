@@ -4,62 +4,23 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
 import { useToast } from "@/components/ui/use-toast";
 import { sendLeaveApprovalNotification } from "@/src/lib/notifications";
+import {
+  buildLeaveBalances,
+  buildLeaveStats,
+  type CreateLeaveApplicationDTO,
+  type LeaveApplication,
+  type LeaveApplicationRow,
+  type LeaveBalance,
+  type LeaveType,
+  type LeaveStats,
+} from "@/src/lib/leave-applications/leaveTransforms";
 
-export interface LeaveType {
-  id: string;
-  leave_type: string;
-  leave_name: string;
-  yearly_quota: number;
-  can_carry_forward: boolean;
-  max_carry_forward: number;
-  requires_approval: boolean;
-  description: string | null;
-  is_active: boolean;
-}
-
-export interface LeaveApplication {
-  id: string;
-  employee_id: string;
-  leave_type_id: string;
-  from_date: string;
-  to_date: string;
-  number_of_days: number;
-  reason: string;
-  status: "pending" | "approved" | "rejected";
-  approved_by: string | null;
-  approved_at: string | null;
-  rejection_reason: string | null;
-  created_at: string;
-  updated_at: string;
-  // Joined data
-  employee?: {
-    first_name: string;
-    last_name: string;
-    employee_code: string;
-    photo_url?: string | null;
-  };
-  leave_type?: LeaveType;
-  approver?: {
-    first_name: string;
-    last_name: string;
-  };
-}
-
-export interface CreateLeaveApplicationDTO {
-  leave_type_id: string;
-  from_date: string;
-  to_date: string;
-  reason: string;
-}
-
-interface LeaveBalance {
-  leave_type: string;
-  leave_name: string;
-  yearly_quota: number;
-  used: number;
-  pending: number;
-  available: number;
-}
+export type {
+  CreateLeaveApplicationDTO,
+  LeaveApplication,
+  LeaveBalance,
+  LeaveType,
+} from "@/src/lib/leave-applications/leaveTransforms";
 
 interface UseLeaveApplicationsState {
   applications: LeaveApplication[];
@@ -76,7 +37,7 @@ export function useLeaveApplications(employeeId?: string) {
   const [error, setError] = useState<string | null>(null);
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [leaveBalance, setLeaveBalance] = useState<LeaveBalance[]>([]);
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState<LeaveStats>({
     pendingRequests: 0,
     onLeaveToday: 0,
     approvedMonth: 0,
@@ -121,10 +82,10 @@ export function useLeaveApplications(employeeId?: string) {
         query = query.eq('employee_id', employeeId);
       }
 
-      const { data, error: fetchError } = await (query as any);
+      const { data, error: fetchError } = await query;
       if (fetchError) throw fetchError;
 
-      const apps = data as LeaveApplication[];
+      const apps = (data || []) as LeaveApplicationRow[];
       setLeaves(apps);
 
       const types = await fetchLeaveTypes();
@@ -132,60 +93,8 @@ export function useLeaveApplications(employeeId?: string) {
       // Calculate stats
       const today = new Date().toISOString().split('T')[0];
       const currentMonth = new Date().getMonth();
-      
-      const pending = apps.filter(l => l.status === 'pending').length;
-      const onLeave = apps.filter(l => 
-        l.status === 'approved' && 
-        l.from_date <= today && 
-        l.to_date >= today
-      ).length;
-      const approvedM = apps.filter(l => 
-        l.status === 'approved' && 
-        new Date(l.created_at).getMonth() === currentMonth
-      ).length;
-      const rejectedM = apps.filter(l => 
-        l.status === 'rejected' && 
-        new Date(l.created_at).getMonth() === currentMonth
-      ).length;
-
-      setStats({
-        pendingRequests: pending,
-        onLeaveToday: onLeave,
-        approvedMonth: approvedM,
-        rejectedMonth: rejectedM
-      });
-
-      // Calculate leave balance
-      const balanceMap: Record<string, LeaveBalance> = {};
-      types.forEach(lt => {
-        balanceMap[lt.id] = {
-          leave_type: lt.leave_type,
-          leave_name: lt.leave_name,
-          yearly_quota: lt.yearly_quota,
-          used: 0,
-          pending: 0,
-          available: lt.yearly_quota,
-        };
-      });
-
-      if (employeeId && apps) {
-        const currentYear = new Date().getFullYear();
-        apps.forEach(app => {
-          const appYear = new Date(app.from_date).getFullYear();
-          if (appYear === currentYear && balanceMap[app.leave_type_id]) {
-            if (app.status === 'approved') {
-              balanceMap[app.leave_type_id].used += app.number_of_days;
-            } else if (app.status === 'pending') {
-              balanceMap[app.leave_type_id].pending += app.number_of_days;
-            }
-          }
-        });
-
-        Object.values(balanceMap).forEach(balance => {
-          balance.available = balance.yearly_quota - balance.used - balance.pending;
-        });
-      }
-      setLeaveBalance(Object.values(balanceMap));
+      setStats(buildLeaveStats(apps, today, currentMonth));
+      setLeaveBalance(buildLeaveBalances(types, apps, employeeId));
 
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch leave applications';
@@ -242,14 +151,15 @@ export function useLeaveApplications(employeeId?: string) {
 
       fetchApplications();
       return { success: true, data };
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to submit leave application";
       console.error('Error applying for leave:', err);
       toast({
         title: "Error",
-        description: err.message || "Failed to submit leave application",
+        description: message,
         variant: "destructive",
       });
-      return { success: false, error: err.message };
+      return { success: false, error: message };
     }
   };
 
@@ -266,7 +176,7 @@ export function useLeaveApplications(employeeId?: string) {
         if (emp) approverId = emp.id;
       }
 
-      const updateData: any = { 
+      const updateData: Record<string, unknown> = { 
         status,
         approved_by: approverId,
         approved_at: new Date().toISOString(),
@@ -285,11 +195,16 @@ export function useLeaveApplications(employeeId?: string) {
       if (error) throw error;
 
       // Get employee user ID for notification
+      type LeaveDataRow = {
+        employee_id: string;
+        leave_type?: { leave_name?: string | null } | null;
+      };
+
       const { data: leaveData } = await supabase
         .from('leave_applications')
         .select('employee_id, leave_type:leave_types(leave_name)')
         .eq('id', id)
-        .single();
+        .single<LeaveDataRow>();
 
       if (leaveData) {
         const { data: empData } = await supabase
@@ -302,43 +217,19 @@ export function useLeaveApplications(employeeId?: string) {
           const approverName = approverId ? 'your manager' : 'admin';
           await sendLeaveApprovalNotification(
             empData.auth_user_id,
-            (leaveData as any).leave_type?.leave_name || 'leave',
+            leaveData?.leave_type?.leave_name || 'leave',
             status,
             approverName
           );
-
-          // UI-H1 Fix: Also insert a row into the notifications table so the
-          // in-app notification centre shows the leave decision.
-          const leaveTypeName = (leaveData as any).leave_type?.leave_name || 'leave';
-          try {
-            await supabase.from('notifications').insert({
-              user_id: empData.auth_user_id,
-              notification_type: 'leave_status_update',
-              title: `Leave Request ${status === 'approved' ? 'Approved' : 'Rejected'}`,
-              message: `Your ${leaveTypeName} leave request has been ${status} by ${approverName}.`,
-              reference_id: id,
-              reference_type: 'leave_application',
-            });
-          } catch (notifyErr) {
-            // Non-fatal: log but don't fail the mutation
-            console.error('Failed to insert leave notification row:', notifyErr);
-          }
         }
 
-        // Send SMS notification
         if (empData?.phone) {
-          try {
-            await supabase.functions.invoke('send-notification', {
-              body: {
-                mobile: empData.phone,
-                title: `Leave ${status === 'approved' ? 'Approved' : 'Rejected'}`,
-                body: `Your leave application has been ${status}${status === 'rejected' && reason ? ': ' + reason : ''}.`,
-                channel: 'sms',
-              },
-            });
-          } catch (notifyError) {
-            console.error('Failed to send SMS notification:', notifyError);
-          }
+          // Browser-side SMS delivery is intentionally not attempted here.
+          // The in-app notification row is the reliable source of truth; any
+          // transport fan-out should happen server-side.
+          console.info(
+            `Leave approval notification recorded for ${empData.phone}; SMS delivery is deferred to server-side transport.`
+          );
         }
       }
 
@@ -348,7 +239,7 @@ export function useLeaveApplications(employeeId?: string) {
       });
 
       fetchApplications();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error updating leave status:', err);
       toast({
         title: "Error",
@@ -376,7 +267,7 @@ export function useLeaveApplications(employeeId?: string) {
         title: "Application Cancelled",
         description: "Your leave application has been cancelled.",
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error cancelling application:', err);
       toast({
         title: "Error",

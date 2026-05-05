@@ -32,6 +32,25 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+function getEmployeeInitials(fullName: string | null | undefined): string {
+  return (
+    fullName
+      ?.split(" ")
+      .map((part) => part[0])
+      .join("")
+      .substring(0, 2)
+      .toUpperCase() || "UN"
+  );
+}
+
+function getEmployeeStatusActionLabel(isActive: boolean): string {
+  return isActive ? "Deactivate" : "Activate";
+}
+
+function getEmployeeStatusToastMessage(isActive: boolean): string {
+  return isActive ? "Employee deactivated" : "Employee activated";
+}
+
 export default function EmployeesPage() {
   const { employees, isLoading, error, refresh } = useEmployees({ includeInactive: true });
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
@@ -64,7 +83,7 @@ export default function EmployeesPage() {
       if (!response.ok) {
         throw new Error(payload.error || "Failed to update employee");
       }
-      toast.success(selectedEmployee.is_active ? "Employee deactivated" : "Employee activated");
+      toast.success(getEmployeeStatusToastMessage(selectedEmployee.is_active));
       setIsStatusDialogOpen(false);
       setSelectedEmployee(null);
       refresh();
@@ -108,15 +127,15 @@ export default function EmployeesPage() {
         const emp = row.original;
         return (
           <div className="flex items-center gap-3">
-            <Avatar className="h-8 w-8">
+              <Avatar className="h-8 w-8">
               <AvatarImage src={emp.photo_url || undefined} />
               <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-bold">
-                {emp.full_name?.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase() || "UN"}
+                {getEmployeeInitials(emp.full_name)}
               </AvatarFallback>
             </Avatar>
             <div className="flex flex-col">
               <span className="font-semibold text-sm">{emp.full_name}</span>
-              <span className="text-xs text-muted-foreground">{emp.employee_code || emp.id.substring(0, 8)}</span>
+              <span className="text-xs text-muted-foreground">{emp.employee_code || "Employee"}</span>
             </div>
           </div>
         );
@@ -146,7 +165,7 @@ export default function EmployeesPage() {
       accessorKey: "date_of_joining",
       header: "Joined Date",
       cell: ({ row }) => {
-        if (!row.original.date_of_joining) return "N/A";
+        if (!row.original.date_of_joining) return "Not set";
         return new Date(row.original.date_of_joining).toLocaleDateString();
       }
     },
@@ -173,7 +192,7 @@ export default function EmployeesPage() {
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => openStatusDialog(row.original)}>
               <UserX className="mr-2 h-4 w-4" />
-              {row.original.is_active ? "Deactivate" : "Activate"}
+              {getEmployeeStatusActionLabel(row.original.is_active)}
             </DropdownMenuItem>
             <DropdownMenuItem
               className="text-destructive"

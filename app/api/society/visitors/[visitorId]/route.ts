@@ -34,6 +34,16 @@ const VISITOR_MANAGEMENT_ROLES = new Set([
   ...FREQUENT_VISITOR_ROLES,
 ]);
 
+type RoleRow = { role_name?: string | null };
+type UserRoleRow = { roles?: RoleRow | RoleRow[] | null };
+type VisitorFlatRow = {
+  flats?: {
+    buildings?: { society_id?: string | null } | { society_id?: string | null }[] | null;
+  } | {
+    buildings?: { society_id?: string | null } | { society_id?: string | null }[] | null;
+  }[] | null;
+};
+
 async function getAuthorizedVisitorManager() {
   const supabase = await createServerClient();
   const supabaseAdmin = createServiceRoleClient();
@@ -62,9 +72,8 @@ async function getAuthorizedVisitorManager() {
     };
   }
 
-  const roleRecord = Array.isArray((userRecord as any)?.roles)
-    ? (userRecord as any).roles[0]
-    : (userRecord as any)?.roles;
+  const userRow = userRecord as UserRoleRow | null;
+  const roleRecord = Array.isArray(userRow?.roles) ? userRow.roles[0] : userRow?.roles;
   const roleName = roleRecord?.role_name ?? null;
 
   if (!roleName || !VISITOR_MANAGEMENT_ROLES.has(roleName)) {
@@ -86,7 +95,7 @@ async function getManagedSocietyIds(userId: string) {
     .eq("society_manager_id", userId);
 
   if (error) throw error;
-  return new Set((data ?? []).map((row: any) => row.id as string));
+  return new Set((data ?? []).map((row) => row.id as string));
 }
 
 async function canManageVisitor(visitorId: string, userId: string, roleName: string | null) {
@@ -106,9 +115,8 @@ async function canManageVisitor(visitorId: string, userId: string, roleName: str
   }
 
   const managedSocietyIds = await getManagedSocietyIds(userId);
-  const flatRecord = Array.isArray((visitorRecord as any).flats)
-    ? (visitorRecord as any).flats[0]
-    : (visitorRecord as any).flats;
+  const visitorRow = visitorRecord as VisitorFlatRow | null;
+  const flatRecord = Array.isArray(visitorRow?.flats) ? visitorRow.flats[0] : visitorRow?.flats;
   const buildingRecord = Array.isArray(flatRecord?.buildings)
     ? flatRecord.buildings[0]
     : flatRecord?.buildings;

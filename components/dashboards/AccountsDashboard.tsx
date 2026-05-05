@@ -44,8 +44,8 @@ export function AccountsDashboard() {
 
   const isLoading = billsLoading || invoicesLoading || reconLoading || complianceLoading;
 
-  const billStats = useMemo(() => getBillStatistics(), [bills]);
-  const invoiceStats = useMemo(() => getInvoiceStatistics(), [invoices]);
+  const billStats = getBillStatistics();
+  const invoiceStats = getInvoiceStatistics();
 
   const discrepancyCount = useMemo(
     () => reconciliations.filter((r) => r.status === "discrepancy").length,

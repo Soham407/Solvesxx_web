@@ -5,15 +5,12 @@ import { format } from "date-fns";
 import { ColumnDef } from "@tanstack/react-table";
 import {
   KeyRound,
-  Copy,
-  Link2,
   MoreHorizontal,
   Plus,
   ShieldCheck,
   UserCog,
   AlertCircle,
 } from "lucide-react";
-import { toast } from "sonner";
 
 import { usePlatformAdminAccounts } from "@/hooks/usePlatformAdminAccounts";
 import { useAuth } from "@/hooks/useAuth";
@@ -23,28 +20,20 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { AdminAccessLinkNotice } from "@/components/settings/AdminAccessLinkNotice";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
+  AdminInviteDialog,
+  type AdminInviteFormState,
+} from "@/components/settings/AdminInviteDialog";
+import {
+  AdminEditDialog,
+  type AdminEditFormState,
+} from "@/components/settings/AdminEditDialog";
 import type { AdminAccessLink, AdminAccount } from "@/src/types/platform";
 
 const EMPTY_INVITE_FORM = {
@@ -70,10 +59,10 @@ export default function SuperAdminAccountsPage() {
   } = usePlatformAdminAccounts();
 
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
-  const [inviteForm, setInviteForm] = useState(EMPTY_INVITE_FORM);
+  const [inviteForm, setInviteForm] = useState<AdminInviteFormState>(EMPTY_INVITE_FORM);
   const [selectedAdmin, setSelectedAdmin] = useState<AdminAccount | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [editForm, setEditForm] = useState({
+  const [editForm, setEditForm] = useState<AdminEditFormState>({
     fullName: "",
     phone: "",
     roleName: "admin" as "admin" | "super_admin",
@@ -275,226 +264,33 @@ export default function SuperAdminAccountsPage() {
       )}
 
       {latestAccessLink && (
-        <Alert>
-          <Link2 className="h-4 w-4" />
-          <AlertDescription className="space-y-4">
-            <div className="space-y-2">
-              <p className="font-medium text-foreground">
-                {latestAccessLink.kind === "invite"
-                  ? `Success! Admin account created for ${latestAccessLink.email}.`
-                  : `Success! Password reset initiated for ${latestAccessLink.email}.`}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {latestAccessLink.kind === "invite"
-                  ? "Share the setup link and temporary password below with the new admin."
-                  : "Share the recovery link below with the admin to complete the reset."}
-              </p>
-            </div>
-
-            <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                  Setup Link
-                </Label>
-                <div className="flex gap-2">
-                  <Input
-                    readOnly
-                    value={latestAccessLink.accessLink.url}
-                    className="font-mono text-xs bg-background"
-                  />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => {
-                      navigator.clipboard.writeText(latestAccessLink.accessLink.url);
-                      toast.success("Link copied");
-                    }}
-                    title="Copy Link"
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              {latestAccessLink.accessLink.temporaryPassword && (
-                <div className="space-y-1.5">
-                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                    Temporary Password
-                  </Label>
-                  <div className="flex gap-2">
-                    <Input
-                      readOnly
-                      value={latestAccessLink.accessLink.temporaryPassword}
-                      className="font-mono text-xs bg-background"
-                    />
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => {
-                        navigator.clipboard.writeText(
-                          latestAccessLink.accessLink.temporaryPassword!
-                        );
-                        toast.success("Password copied");
-                      }}
-                      title="Copy Password"
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex justify-end">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setLatestAccessLink(null)}
-              >
-                Dismiss
-              </Button>
-            </div>
-          </AlertDescription>
-        </Alert>
+        <AdminAccessLinkNotice
+          kind={latestAccessLink.kind}
+          email={latestAccessLink.email}
+          accessLink={latestAccessLink.accessLink}
+          onDismiss={() => setLatestAccessLink(null)}
+        />
       )}
 
       <DataTable columns={columns} data={admins} searchKey="fullName" isLoading={isLoading} />
 
-      <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
-        <DialogContent className="sm:max-w-[480px]">
-          <DialogHeader>
-            <DialogTitle>Invite Admin</DialogTitle>
-            <DialogDescription>
-              Create a new admin-tier account and generate a secure setup link.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Full Name</Label>
-              <Input
-                value={inviteForm.fullName}
-                onChange={(event) =>
-                  setInviteForm((current) => ({ ...current, fullName: event.target.value }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Email</Label>
-              <Input
-                type="email"
-                value={inviteForm.email}
-                onChange={(event) =>
-                  setInviteForm((current) => ({ ...current, email: event.target.value }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Phone</Label>
-              <Input
-                value={inviteForm.phone}
-                onChange={(event) =>
-                  setInviteForm((current) => ({ ...current, phone: event.target.value }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Role</Label>
-              <Select
-                value={inviteForm.roleName}
-                onValueChange={(value: "admin" | "super_admin") =>
-                  setInviteForm((current) => ({ ...current, roleName: value }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">Administrator</SelectItem>
-                  <SelectItem value="super_admin">Super Admin</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setInviteDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleInvite} disabled={isInviting}>
-                Create Admin
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <AdminInviteDialog
+        open={inviteDialogOpen}
+        form={inviteForm}
+        isSubmitting={isInviting}
+        onOpenChange={setInviteDialogOpen}
+        onChange={setInviteForm}
+        onSubmit={handleInvite}
+      />
 
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="sm:max-w-[480px]">
-          <DialogHeader>
-            <DialogTitle>Edit Admin Account</DialogTitle>
-            <DialogDescription>
-              Adjust role assignment, contact info, or account status.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Full Name</Label>
-              <Input
-                value={editForm.fullName}
-                onChange={(event) =>
-                  setEditForm((current) => ({ ...current, fullName: event.target.value }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Phone</Label>
-              <Input
-                value={editForm.phone}
-                onChange={(event) =>
-                  setEditForm((current) => ({ ...current, phone: event.target.value }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Role</Label>
-              <Select
-                value={editForm.roleName}
-                onValueChange={(value: "admin" | "super_admin") =>
-                  setEditForm((current) => ({ ...current, roleName: value }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">Administrator</SelectItem>
-                  <SelectItem value="super_admin">Super Admin</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center justify-between rounded-lg border border-border/60 p-3">
-              <div>
-                <p className="text-sm font-medium">Account Active</p>
-                <p className="text-xs text-muted-foreground">
-                  Suspended accounts are blocked at middleware on the next request.
-                </p>
-              </div>
-              <Switch
-                checked={editForm.isActive}
-                onCheckedChange={(checked) =>
-                  setEditForm((current) => ({ ...current, isActive: checked }))
-                }
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleSaveEdit} disabled={isUpdating}>
-                Save Changes
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <AdminEditDialog
+        open={editDialogOpen}
+        form={editForm}
+        isSubmitting={isUpdating}
+        onOpenChange={setEditDialogOpen}
+        onChange={setEditForm}
+        onSubmit={handleSaveEdit}
+      />
     </div>
   );
 }

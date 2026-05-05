@@ -20,7 +20,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
@@ -36,11 +35,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useSecurityGuards, type SecurityGuard } from "@/hooks/useSecurityGuards";
 import { supabase } from "@/src/lib/supabaseClient";
 import { toast } from "sonner";
-
-interface SocietyOption {
-  id: string;
-  society_name: string;
-}
 
 interface LocationOption {
   id: string;
@@ -61,6 +55,52 @@ interface ChecklistOption {
   frequency: string;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function normalizeLocationOptions(rows: unknown): LocationOption[] {
+  if (!Array.isArray(rows)) return [];
+  return rows.filter(isRecord).map((row) => ({
+    id: typeof row.id === "string" ? row.id : "",
+    location_name: typeof row.location_name === "string" ? row.location_name : "",
+    location_code: typeof row.location_code === "string" ? row.location_code : "",
+  })).filter((row) => row.id && row.location_name);
+}
+
+function normalizeShiftOptions(rows: unknown): ShiftOption[] {
+  if (!Array.isArray(rows)) return [];
+  return rows.filter(isRecord).map((row) => ({
+    id: typeof row.id === "string" ? row.id : "",
+    shift_name: typeof row.shift_name === "string" ? row.shift_name : "",
+    shift_code: typeof row.shift_code === "string" ? row.shift_code : "",
+  })).filter((row) => row.id && row.shift_name);
+}
+
+function normalizeChecklistOptions(rows: unknown): ChecklistOption[] {
+  if (!Array.isArray(rows)) return [];
+  return rows.filter(isRecord).map((row) => ({
+    id: typeof row.id === "string" ? row.id : "",
+    checklist_name: typeof row.checklist_name === "string" ? row.checklist_name : "",
+    checklist_code: typeof row.checklist_code === "string" ? row.checklist_code : "",
+    frequency: typeof row.frequency === "string" ? row.frequency : "",
+  })).filter((row) => row.id && row.checklist_name);
+}
+
+function getGuardName(guard?: {
+  first_name?: string | null;
+  last_name?: string | null;
+} | null) {
+  return [guard?.first_name, guard?.last_name].filter(Boolean).join(" ") || "Guard";
+}
+
+function getGuardIdentity(guard?: {
+  employee_code?: string | null;
+  guard_code?: string | null;
+} | null) {
+  return guard?.employee_code ?? guard?.guard_code ?? "—";
+}
+
 function StatCard({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-xl border bg-card p-5 shadow-sm">
@@ -75,15 +115,11 @@ function StatCard({ label, value }: { label: string; value: number }) {
 export default function AdminGuardsPage() {
   const { guards, isLoading, refresh } = useSecurityGuards();
 
-  // Society-only dialog
-  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [selectedGuard, setSelectedGuard] = useState<SecurityGuard | null>(null);
-  const [selectedSocietyId, setSelectedSocietyId] = useState("");
 
   // Full assignment dialog
   const [fullAssignDialogOpen, setFullAssignDialogOpen] = useState(false);
   const [fullGuard, setFullGuard] = useState<SecurityGuard | null>(null);
-  const [fullSocietyId, setFullSocietyId] = useState("");
   const [fullLocationId, setFullLocationId] = useState("");
   const [fullShiftId, setFullShiftId] = useState("");
   const [fullIsActive, setFullIsActive] = useState(false);
@@ -96,7 +132,6 @@ export default function AdminGuardsPage() {
   const [isLoadingChecklists, setIsLoadingChecklists] = useState(false);
 
   // Shared options
-  const [societies, setSocieties] = useState<SocietyOption[]>([]);
   const [locations, setLocations] = useState<LocationOption[]>([]);
   const [shifts, setShifts] = useState<ShiftOption[]>([]);
   const [isLoadingOptions, setIsLoadingOptions] = useState(false);
@@ -109,12 +144,7 @@ export default function AdminGuardsPage() {
       setIsLoadingOptions(true);
 
       try {
-        const [societiesResult, locationsResult, shiftsResult] = await Promise.all([
-          supabase
-            .from("societies")
-            .select("id, society_name")
-            .eq("is_active", true)
-            .order("society_name", { ascending: true }),
+        const [locationsResult, shiftsResult] = await Promise.all([
           supabase
             .from("company_locations")
             .select("id, location_name, location_code")
@@ -129,13 +159,11 @@ export default function AdminGuardsPage() {
 
         if (!active) return;
 
-        if (societiesResult.error) throw societiesResult.error;
         if (locationsResult.error) throw locationsResult.error;
         if (shiftsResult.error) throw shiftsResult.error;
 
-        setSocieties((societiesResult.data ?? []) as SocietyOption[]);
-        setLocations((locationsResult.data ?? []) as LocationOption[]);
-        setShifts((shiftsResult.data ?? []) as ShiftOption[]);
+        setLocations(normalizeLocationOptions(locationsResult.data));
+        setShifts(normalizeShiftOptions(shiftsResult.data));
       } catch (error) {
         if (active) {
           toast.error(error instanceof Error ? error.message : "Failed to load options");
@@ -152,61 +180,16 @@ export default function AdminGuardsPage() {
     };
   }, []);
 
-  function openAssignDialog(guard: SecurityGuard) {
-    setSelectedGuard(guard);
-    setSelectedSocietyId(guard.society_id ?? "");
-    setAssignDialogOpen(true);
-  }
-
   function openFullAssignDialog(guard: SecurityGuard) {
     setFullGuard(guard);
-    setFullSocietyId(guard.society_id ?? "");
     setFullLocationId(guard.assigned_location_id ?? "");
     setFullShiftId(guard.currentShift?.id ?? "");
     setFullIsActive(guard.is_active ?? false);
     setFullAssignDialogOpen(true);
   }
 
-  async function handleAssignSociety() {
-    if (!selectedGuard || !selectedSocietyId) {
-      toast.error("Select a society to continue.");
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      const response = await fetch(`/api/admin/guards/${selectedGuard.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ society_id: selectedSocietyId }),
-      });
-
-      const payload = await response.json();
-
-      if (!response.ok) {
-        throw new Error(payload.error || "Failed to assign society");
-      }
-
-      toast.success(`Guard linked to ${payload.society_name}`);
-      setAssignDialogOpen(false);
-      setSelectedGuard(null);
-      setSelectedSocietyId("");
-      await refresh();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to assign society");
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
   async function handleFullAssign() {
     if (!fullGuard) return;
-
-    if (!fullSocietyId) {
-      toast.error("Select a society.");
-      return;
-    }
     if (!fullLocationId) {
       toast.error("Select a location.");
       return;
@@ -223,7 +206,6 @@ export default function AdminGuardsPage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          society_id: fullSocietyId,
           assigned_location_id: fullLocationId,
           shift_id: fullShiftId || "",
           is_active: fullIsActive,
@@ -273,9 +255,15 @@ export default function AdminGuardsPage() {
       if (checklistsResult.error) throw checklistsResult.error;
       if (assignmentsResult.error) throw assignmentsResult.error;
 
-      setChecklists((checklistsResult.data ?? []) as ChecklistOption[]);
+      setChecklists(normalizeChecklistOptions(checklistsResult.data));
       setAssignedChecklistIds(
-        new Set((assignmentsResult.data ?? []).map((a: { checklist_id: string }) => a.checklist_id)),
+        new Set(
+          Array.isArray(assignmentsResult.data)
+            ? assignmentsResult.data
+                .filter((assignment): assignment is { checklist_id: string } => isRecord(assignment) && typeof assignment.checklist_id === "string")
+                .map((assignment) => assignment.checklist_id)
+            : [],
+        ),
       );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to load checklists");
@@ -349,7 +337,7 @@ export default function AdminGuardsPage() {
     () => ({
       total: guards.length,
       active: guards.filter((guard) => guard.is_active).length,
-      assigned: guards.filter((guard) => Boolean(guard.society?.society_name)).length,
+      assigned: guards.filter((guard) => Boolean(guard.assigned_location_id)).length,
     }),
     [guards],
   );
@@ -360,15 +348,9 @@ export default function AdminGuardsPage() {
         accessorKey: "guard_code",
         header: "Guard Name",
         cell: ({ row }) => {
-          const fullName =
-            [row.original.employee?.first_name, row.original.employee?.last_name]
-              .filter(Boolean)
-              .join(" ")
-              .trim() || "Guard";
-
           return (
             <div className="space-y-0.5">
-              <p className="font-semibold">{fullName}</p>
+              <p className="font-semibold">{getGuardName(row.original.employee)}</p>
               <p className="text-xs text-muted-foreground font-mono">{row.original.guard_code}</p>
             </div>
           );
@@ -388,13 +370,6 @@ export default function AdminGuardsPage() {
           <span className="text-sm">
             {row.original.currentShift?.shift_name ?? row.original.shift_timing ?? "—"}
           </span>
-        ),
-      },
-      {
-        id: "society",
-        header: "Assigned Society",
-        cell: ({ row }) => (
-          <span className="text-sm">{row.original.society?.society_name ?? "Unassigned"}</span>
         ),
       },
       {
@@ -427,10 +402,6 @@ export default function AdminGuardsPage() {
               <DropdownMenuItem onClick={() => void openChecklistDialog(row.original)}>
                 Assign Checklists
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => openAssignDialog(row.original)}>
-                Change Society Only
-              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         ),
@@ -443,7 +414,7 @@ export default function AdminGuardsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Guard Management"
-        description="Review security guard profiles and link each guard to the correct society."
+        description="Review security guard profiles and link each guard to the correct location and shift."
         actions={
           <Button variant="outline" onClick={() => void refresh()}>
             <ShieldCheck className="mr-2 h-4 w-4" />
@@ -455,7 +426,7 @@ export default function AdminGuardsPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <StatCard label="Total Guards" value={pageStats.total} />
         <StatCard label="Active" value={pageStats.active} />
-        <StatCard label="Society Assigned" value={pageStats.assigned} />
+        <StatCard label="Location Assigned" value={pageStats.assigned} />
       </div>
 
       <DataTable
@@ -464,71 +435,6 @@ export default function AdminGuardsPage() {
         isLoading={isLoading}
         searchKey="guard_code"
       />
-
-      {/* Society-only dialog */}
-      <Dialog
-        open={assignDialogOpen}
-        onOpenChange={(open) => {
-          setAssignDialogOpen(open);
-          if (!open) {
-            setSelectedGuard(null);
-            setSelectedSocietyId("");
-          }
-        }}
-      >
-        <DialogContent className="sm:max-w-[420px]">
-          <DialogHeader>
-            <DialogTitle>Change Society</DialogTitle>
-            <DialogDescription>
-              Re-link this guard to a different society without changing their location or shift.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="rounded-lg border bg-muted/40 p-3">
-              <p className="text-sm font-bold">
-                {[selectedGuard?.employee?.first_name, selectedGuard?.employee?.last_name]
-                  .filter(Boolean)
-                  .join(" ") || "Guard"}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {selectedGuard?.employee?.employee_code ?? selectedGuard?.guard_code}
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="admin_guard_assign_society">Society</Label>
-              <Select
-                value={selectedSocietyId}
-                onValueChange={setSelectedSocietyId}
-                disabled={isLoadingOptions}
-              >
-                <SelectTrigger id="admin_guard_assign_society">
-                  <SelectValue
-                    placeholder={isLoadingOptions ? "Loading..." : "Select society"}
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {societies.map((society) => (
-                    <SelectItem key={society.id} value={society.id}>
-                      {society.society_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAssignDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => void handleAssignSociety()}
-              disabled={isSubmitting || isLoadingOptions || !selectedSocietyId}
-            >
-              {isSubmitting ? "Saving..." : "Update Society"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Checklist assignment dialog */}
       <Dialog
@@ -548,12 +454,12 @@ export default function AdminGuardsPage() {
           <div className="grid gap-4 py-4">
             <div className="rounded-lg border bg-muted/40 p-3">
               <p className="text-sm font-bold">
-                {[checklistGuard?.employee?.first_name, checklistGuard?.employee?.last_name]
-                  .filter(Boolean)
-                  .join(" ") || "Guard"}
+                {getGuardName(checklistGuard?.employee)}
               </p>
               <p className="text-xs text-muted-foreground">
-                {checklistGuard?.employee?.employee_code ?? checklistGuard?.guard_code}
+                {getGuardIdentity(checklistGuard?.employee) !== "—"
+                  ? getGuardIdentity(checklistGuard?.employee)
+                  : checklistGuard?.guard_code}
               </p>
             </div>
 
@@ -615,40 +521,17 @@ export default function AdminGuardsPage() {
           <DialogHeader>
             <DialogTitle>Assign Location & Shift</DialogTitle>
             <DialogDescription>
-              Set this guard&apos;s society, assigned gate/location, shift, and active status in one
-              step.
+              Set this guard&apos;s assigned gate/location, shift, and active status in one step.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="rounded-lg border bg-muted/40 p-3">
               <p className="text-sm font-bold">
-                {[fullGuard?.employee?.first_name, fullGuard?.employee?.last_name]
-                  .filter(Boolean)
-                  .join(" ") || "Guard"}
+                {getGuardName(fullGuard?.employee)}
               </p>
               <p className="text-xs text-muted-foreground">
-                {fullGuard?.employee?.employee_code ?? fullGuard?.guard_code}
+                {getGuardIdentity(fullGuard?.employee) !== "—" ? getGuardIdentity(fullGuard?.employee) : fullGuard?.guard_code}
               </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="full_assign_society">Society *</Label>
-              <Select
-                value={fullSocietyId}
-                onValueChange={setFullSocietyId}
-                disabled={isLoadingOptions}
-              >
-                <SelectTrigger id="full_assign_society">
-                  <SelectValue placeholder={isLoadingOptions ? "Loading..." : "Select society"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {societies.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.society_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
 
             <div className="space-y-2">
@@ -659,7 +542,7 @@ export default function AdminGuardsPage() {
                 disabled={isLoadingOptions}
               >
                 <SelectTrigger id="full_assign_location">
-                  <SelectValue placeholder={isLoadingOptions ? "Loading..." : "Select location"} />
+                  <SelectValue placeholder={isLoadingOptions ? "Loading options..." : "Select location"} />
                 </SelectTrigger>
                 <SelectContent>
                   {locations.map((l) => (
@@ -682,7 +565,7 @@ export default function AdminGuardsPage() {
                 disabled={isLoadingOptions}
               >
                 <SelectTrigger id="full_assign_shift">
-                  <SelectValue placeholder={isLoadingOptions ? "Loading..." : "Select shift"} />
+                  <SelectValue placeholder={isLoadingOptions ? "Loading options..." : "Select shift"} />
                 </SelectTrigger>
                 <SelectContent>
                   {shifts.map((sh) => (
@@ -711,7 +594,7 @@ export default function AdminGuardsPage() {
             </Button>
             <Button
               onClick={() => void handleFullAssign()}
-              disabled={isSubmitting || isLoadingOptions || !fullSocietyId || !fullLocationId}
+              disabled={isSubmitting || isLoadingOptions || !fullLocationId}
             >
               {isSubmitting ? "Saving..." : "Save Assignment"}
             </Button>

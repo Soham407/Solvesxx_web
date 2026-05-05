@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { usePestControlPPE, PPEChecklistData } from "@/hooks/usePestControlPPE";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { PPE_CHECKLIST_ITEMS, isPpeChecklistComplete } from "@/src/lib/pest-control/ppeTransforms";
 
 interface PestControlPPEGateProps {
   serviceRequestId: string;
@@ -17,15 +18,6 @@ interface PestControlPPEGateProps {
   onVerified?: () => void;
   className?: string;
 }
-
-const CHECKLIST_ITEMS = [
-  { id: "gloves_worn", label: "Gloves worn" },
-  { id: "mask_worn", label: "Mask/Respirator worn" },
-  { id: "goggles_worn", label: "Safety goggles" },
-  { id: "full_suit_worn", label: "Full body suit" },
-  { id: "chemical_dilution_verified", label: "Chemical dilution verified" },
-  { id: "resident_area_cleared", label: "Resident area cleared" },
-];
 
 export function PestControlPPEGate({
   serviceRequestId,
@@ -69,7 +61,7 @@ export function PestControlPPEGate({
   };
 
   const handleVerify = async () => {
-    const allChecked = Object.values(formData).every((v) => v === true);
+    const allChecked = isPpeChecklistComplete(formData);
     if (!allChecked) {
       toast.error("Please verify all PPE items before proceeding.");
       return;
@@ -89,7 +81,7 @@ export function PestControlPPEGate({
     }
   };
 
-  const allChecked = Object.values(formData).every((v) => v === true);
+  const allChecked = isPpeChecklistComplete(formData);
 
   return (
     <Card 
@@ -116,7 +108,7 @@ export function PestControlPPEGate({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 gap-3">
-          {CHECKLIST_ITEMS.map((item) => (
+          {PPE_CHECKLIST_ITEMS.map((item) => (
             <div key={item.id} className="flex items-center space-x-2">
               <Checkbox
                 id={`ppe-${item.id}`}

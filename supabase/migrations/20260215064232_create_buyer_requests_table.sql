@@ -1,6 +1,37 @@
 -- Sequence for request number generation
 CREATE SEQUENCE IF NOT EXISTS request_seq START 1;
 
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_type t
+        JOIN pg_namespace n ON n.oid = t.typnamespace
+        WHERE t.typname = 'request_status'
+          AND n.nspname = 'public'
+    ) THEN
+        CREATE TYPE public.request_status AS ENUM (
+            'pending',
+            'accepted',
+            'rejected',
+            'indent_generated',
+            'indent_forwarded',
+            'indent_accepted',
+            'indent_rejected',
+            'po_issued',
+            'po_received',
+            'po_dispatched',
+            'material_received',
+            'material_acknowledged',
+            'bill_generated',
+            'paid',
+            'feedback_pending',
+            'completed'
+        );
+    END IF;
+END
+$$;
+
 -- Requests Table (Buyer Order Requests)
 CREATE TABLE IF NOT EXISTS requests (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

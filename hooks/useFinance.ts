@@ -1,11 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase as supabaseClient } from "@/src/lib/supabaseClient";
+import { supabase } from "@/src/lib/supabaseClient";
 import { useAuth } from "./useAuth";
-
-// FIX: Cast at import level instead of @ts-nocheck on entire file
-const supabase = supabaseClient as any;
 
 export type PaymentStatus = "pending" | "completed" | "failed" | "refunded";
 export type PaymentType = "receipt" | "payout";
@@ -35,6 +32,30 @@ export interface PaymentMethod {
   is_active?: boolean | null;
 }
 
+function toPaymentType(value: string | null | undefined): PaymentType {
+  if (value === "receipt" || value === "payout") {
+    return value;
+  }
+
+  return "receipt";
+}
+
+function toPaymentStatus(value: string | null | undefined): PaymentStatus {
+  if (value === "pending" || value === "completed" || value === "failed" || value === "refunded") {
+    return value;
+  }
+
+  return "pending";
+}
+
+function toReferenceType(value: string | null | undefined): ReferenceType {
+  if (value === "sale_bill" || value === "purchase_bill") {
+    return value;
+  }
+
+  return "purchase_bill";
+}
+
 export function useFinance() {
   const { user } = useAuth();
   const [payments, setPayments] = useState<PaymentModel[]>([]);
@@ -52,7 +73,12 @@ export function useFinance() {
       if (paymentsRes.error) throw paymentsRes.error;
       if (methodsRes.error) throw methodsRes.error;
 
-      setPayments(paymentsRes.data || []);
+      setPayments((paymentsRes.data || []).map((payment) => ({
+        ...payment,
+        payment_type: toPaymentType(payment.payment_type),
+        reference_type: toReferenceType(payment.reference_type),
+        status: toPaymentStatus(payment.status),
+      })));
       setMethods(methodsRes.data || []);
     } catch (err) {
       console.error("Error fetching finance data:", err);
@@ -179,16 +205,26 @@ export function useFinance() {
       // RPC returns a table of results, but since we call it for one ID, we get one row? 
       // Actually declared as RETURNS TABLE, so it returns an array.
       const result = Array.isArray(data) ? data[0] : data;
+      const typedResult = result as {
+        can_pay?: boolean;
+        is_valid?: boolean;
+        match_status?: string | null;
+        message?: string | null;
+        po_total?: number | null;
+        grn_total?: number | null;
+        bill_total?: number | null;
+      } | undefined;
       
       return { 
         success: true as const, 
-        canPay: result?.can_pay ?? result?.is_valid ?? false,
-        reason: result?.reason ?? result?.message,
-        reconciliationStatus: result?.reconciliation_status ?? result?.match_status,
+        // result?.can_pay ?? result?.is_valid ?? false
+        canPay: typedResult?.can_pay ?? typedResult?.is_valid ?? false,
+        reason: typedResult?.message ?? null,
+        reconciliationStatus: typedResult?.match_status ?? null,
         details: {
-          poAmount: result?.po_amount ?? result?.po_total,
-          grnAmount: result?.grn_amount ?? result?.grn_total,
-          billAmount: result?.bill_amount ?? result?.bill_total
+          poAmount: typedResult?.po_total ?? null,
+          grnAmount: typedResult?.grn_total ?? null,
+          billAmount: typedResult?.bill_total ?? null
         }
       };
     } catch (err: unknown) {

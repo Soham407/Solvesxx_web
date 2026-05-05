@@ -87,6 +87,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/components/ui/use-toast";
 
+function getPOReference(poNumber: string | null | undefined) {
+  return poNumber || "Pending PO number";
+}
+
 // Line item for new indent form
 interface NewIndentItem {
   id: string;
@@ -97,6 +101,15 @@ interface NewIndentItem {
   unit: string;
   estimated_price: number; // In rupees for form
   notes: string;
+}
+
+function summarizeIndentCounts(indents: Indent[]) {
+  return {
+    pendingApproval: indents.filter((indent) => indent.status === "pending_approval").length,
+    approved: indents.filter((indent) => indent.status === "approved").length,
+    drafts: indents.filter((indent) => indent.status === "draft").length,
+    poCreated: indents.filter((indent) => indent.status === "po_created").length,
+  };
 }
 
 export default function IndentManagementPage() {
@@ -122,7 +135,7 @@ export default function IndentManagementPage() {
   const { user } = useAuth();
 
   const { createPOFromIndent } = usePurchaseOrders();
-  const { suppliers, isLoading: suppliersLoading } = useSuppliers({ status: 'active' } as any);
+  const { suppliers, isLoading: suppliersLoading } = useSuppliers({ status: 'active' });
   const { products, isLoading: productsLoading } = useProducts({ status: 'active' });
   const { employees, isLoading: employeesLoading, getEmployeeName } = useEmployees();
   const { societies, isLoading: societiesLoading } = useSocieties();
@@ -167,12 +180,7 @@ export default function IndentManagementPage() {
   });
 
   // Calculate stats from real data
-  const stats = useMemo(() => ({
-    pendingApproval: indents.filter(i => i.status === "pending_approval").length,
-    approved: indents.filter(i => i.status === "approved").length,
-    drafts: indents.filter(i => i.status === "draft").length,
-    poCreated: indents.filter(i => i.status === "po_created").length,
-  }), [indents]);
+  const stats = useMemo(() => summarizeIndentCounts(indents), [indents]);
 
   // Get active suppliers for dropdown
   const activeSuppliers = useMemo(() => 
@@ -361,7 +369,7 @@ export default function IndentManagementPage() {
       setPONotes("");
       toast({ 
         title: "Purchase Order Created", 
-        description: `PO ${po.po_number || po.id.slice(0, 8)} has been created from indent` 
+        description: `PO ${getPOReference(po.po_number)} has been created from indent` 
       });
       refresh();
     }
@@ -413,7 +421,7 @@ export default function IndentManagementPage() {
         <div className="flex flex-col text-left">
           <span className="text-sm font-bold">{row.original.requester_name || "Unknown"}</span>
           <span className="text-[10px] text-muted-foreground uppercase font-medium">
-            {row.original.department || "N/A"}
+            {row.original.department || "Not set"}
           </span>
         </div>
       ),
@@ -703,11 +711,11 @@ export default function IndentManagementPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {employeesLoading ? (
-                      <div className="p-2 text-center text-muted-foreground">Loading...</div>
+                      <div className="p-2 text-center text-muted-foreground">Loading options...</div>
                     ) : (
                       employees.map((emp) => (
                         <SelectItem key={emp.id} value={emp.id}>
-                          {emp.full_name} ({emp.employee_code || emp.id.slice(0, 8)})
+                          {emp.full_name} ({emp.employee_code || "Employee"})
                         </SelectItem>
                       ))
                     )}
@@ -738,7 +746,7 @@ export default function IndentManagementPage() {
                   <SelectContent>
                     <SelectItem value="all">All Societies</SelectItem>
                     {societiesLoading ? (
-                      <div className="p-2 text-center text-muted-foreground">Loading...</div>
+                      <div className="p-2 text-center text-muted-foreground">Loading options...</div>
                     ) : (
                       societies.map((soc) => (
                         <SelectItem key={soc.id} value={soc.id}>
@@ -753,7 +761,7 @@ export default function IndentManagementPage() {
                 <Label htmlFor="priority">Priority</Label>
                 <Select 
                   value={newIndentForm.priority} 
-                  onValueChange={(val) => setNewIndentForm({ ...newIndentForm, priority: val as any })}
+                  onValueChange={(val) => setNewIndentForm({ ...newIndentForm, priority: val as "low" | "normal" | "high" | "urgent" })}
                 >
                   <SelectTrigger id="priority">
                     <SelectValue />
@@ -838,7 +846,7 @@ export default function IndentManagementPage() {
                         </SelectTrigger>
                         <SelectContent>
                           {productsLoading ? (
-                            <div className="p-2 text-center text-muted-foreground">Loading...</div>
+                            <div className="p-2 text-center text-muted-foreground">Loading options...</div>
                           ) : (
                             products.map((p) => (
                               <SelectItem key={p.id} value={p.id}>
@@ -990,7 +998,7 @@ export default function IndentManagementPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {suppliersLoading ? (
-                    <div className="p-2 text-center text-muted-foreground">Loading...</div>
+                    <div className="p-2 text-center text-muted-foreground">Loading options...</div>
                   ) : activeSuppliers.length === 0 ? (
                     <div className="p-2 text-center text-muted-foreground">No active suppliers</div>
                   ) : (
@@ -1169,7 +1177,7 @@ export default function IndentManagementPage() {
                 <div className="p-3 rounded-lg bg-muted/30 border">
                   <span className="text-[10px] uppercase font-bold text-muted-foreground">Requested By</span>
                   <p className="font-semibold text-sm mt-1">{selectedIndent.requester_name}</p>
-                  <p className="text-xs text-muted-foreground">{selectedIndent.department || "N/A"}</p>
+                  <p className="text-xs text-muted-foreground">{selectedIndent.department || "Not set"}</p>
                 </div>
                 <div className="p-3 rounded-lg bg-muted/30 border">
                   <span className="text-[10px] uppercase font-bold text-muted-foreground">Est. Value</span>

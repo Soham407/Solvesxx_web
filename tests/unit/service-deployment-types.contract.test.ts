@@ -20,6 +20,17 @@ describe("service deployment type contracts", () => {
       ])
     ).toBe(true);
 
-    expect(clientTypesSource.includes("export * from '../../supabase-types';")).toBe(true);
+    expect(
+      sourceContainsAll(clientTypesSource, [
+        "service_grade: string | null",
+        "service_type: string | null",
+        "site_location_id: string | null",
+        "start_date: string | null",
+        'foreignKeyName: "requests_site_location_id_fkey"',
+        "service_request_id: string | null",
+        'foreignKeyName: "indents_service_request_id_fkey"',
+        'foreignKeyName: "indents_supplier_id_fkey"',
+      ])
+    ).toBe(true);
   });
 });

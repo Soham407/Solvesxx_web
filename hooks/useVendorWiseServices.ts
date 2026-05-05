@@ -2,32 +2,17 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
+import {
+  mapVendorWiseServiceRow,
+  type VendorServiceCreateInput,
+  type VendorWiseService,
+  type VendorWiseServiceRow,
+} from "@/src/lib/vendor-services/vendorServiceTransforms";
 
-export interface VendorWiseService {
-  id: string;
-  supplier_id: string;
-  service_id: string;
-  vendor_rate: number | null; // in paise
-  response_time_sla: string | null;
-  is_preferred: boolean;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-  // Joined data
-  supplier?: {
-    supplier_name: string;
-    supplier_code: string;
-    mobile: string;
-  };
-  service?: {
-    service_name: string;
-    service_code: string;
-    service_category: string;
-  };
-}
+export type { VendorWiseService } from "@/src/lib/vendor-services/vendorServiceTransforms";
 
 interface UseVendorWiseServicesState {
-  vendorServices: VendorWiseService[];
+    vendorServices: VendorWiseService[];
   isLoading: boolean;
   error: string | null;
 }
@@ -48,15 +33,9 @@ export function useVendorWiseServices() {
         .from("vendor_wise_services")
         .select(`
           *,
-          supplier:supplier_id (
+          supplier:suppliers (
             supplier_name,
-            supplier_code,
-            mobile
-          ),
-          service:service_id (
-            service_name,
-            service_code,
-            service_category
+            supplier_code
           )
         `)
         .eq("is_active", true)
@@ -66,27 +45,31 @@ export function useVendorWiseServices() {
 
       setState((prev) => ({
         ...prev,
-        vendorServices: (data as any) || [],
+        vendorServices: ((data as VendorWiseServiceRow[] | null) || []).map(mapVendorWiseServiceRow),
         isLoading: false,
       }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching vendor services:", err);
       setState((prev) => ({
         ...prev,
         isLoading: false,
-        error: err.message || "Failed to fetch vendor services",
+        error: err instanceof Error ? err.message : "Failed to fetch vendor services",
       }));
     }
   }, []);
 
   // Create vendor-service link
   const createVendorService = useCallback(async (
-    vendorServiceData: Omit<VendorWiseService, "id" | "created_at" | "updated_at">
+    vendorServiceData: VendorServiceCreateInput
   ): Promise<boolean> => {
     try {
       const { error } = await supabase
         .from("vendor_wise_services")
-        .insert(vendorServiceData as any);
+        .insert({
+          supplier_id: vendorServiceData.supplier_id,
+          service_type: vendorServiceData.service_type,
+          is_active: vendorServiceData.is_active,
+        });
 
       if (error) throw error;
 
@@ -107,7 +90,9 @@ export function useVendorWiseServices() {
       const { error } = await supabase
         .from("vendor_wise_services")
         .update({
-          ...(updates as any),
+          supplier_id: updates.supplier_id,
+          service_type: updates.service_type,
+          is_active: updates.is_active,
           updated_at: new Date().toISOString(),
         })
         .eq("id", id);

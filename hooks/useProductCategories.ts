@@ -3,31 +3,22 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
 import { useToast } from "@/components/ui/use-toast";
+import {
+  buildProductCategoryItemCounts,
+  mapProductCategoryRow,
+  mapProductCategoryRows,
+  type CreateProductCategoryDTO,
+  type ProductCategory,
+  type ProductCategoryRow,
+  type ProductRow,
+  type UpdateProductCategoryDTO,
+} from "@/src/lib/product-categories/productCategoryTransforms";
 
-export interface ProductCategory {
-  id: string;
-  category_name: string;
-  category_code: string | null;
-  description: string | null;
-  is_active: boolean;
-  parent_category_id: string | null;
-  itemCount: number;
-}
-
-export interface CreateProductCategoryDTO {
-  category_name: string;
-  category_code?: string;
-  description?: string;
-  parent_category_id?: string;
-}
-
-export interface UpdateProductCategoryDTO {
-  category_name?: string;
-  category_code?: string;
-  description?: string;
-  parent_category_id?: string | null;
-  is_active?: boolean;
-}
+export type {
+  CreateProductCategoryDTO,
+  ProductCategory,
+  UpdateProductCategoryDTO,
+} from "@/src/lib/product-categories/productCategoryTransforms";
 
 export function useProductCategories() {
   const { toast } = useToast();
@@ -49,20 +40,12 @@ export function useProductCategories() {
       if (categoryError) throw categoryError;
       if (productError) throw productError;
 
-      const productCountByCategory = new Map<string, number>();
-      (productRows || []).forEach((product: any) => {
-        if (!product.category_id) return;
-        productCountByCategory.set(
-          product.category_id,
-          (productCountByCategory.get(product.category_id) || 0) + 1
-        );
-      });
+      const productCountByCategory = buildProductCategoryItemCounts((productRows || []) as ProductRow[]);
 
-      const mappedCategories: ProductCategory[] = (categoryRows || []).map((category: any) => ({
-        ...category,
-        is_active: category.is_active !== false,
-        itemCount: productCountByCategory.get(category.id) || 0,
-      }));
+      const mappedCategories: ProductCategory[] = mapProductCategoryRows(
+        (categoryRows || []) as ProductCategoryRow[],
+        productCountByCategory
+      );
 
       setCategories(mappedCategories);
     } catch (err: unknown) {
@@ -101,7 +84,7 @@ export function useProductCategories() {
       });
 
       await fetchCategories();
-      return { success: true as const, data: data as unknown as ProductCategory };
+      return { success: true as const, data: mapProductCategoryRow(data as ProductCategoryRow, 0) };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to create category";
       toast({ title: "Error", description: message, variant: "destructive" });
@@ -129,7 +112,7 @@ export function useProductCategories() {
       });
 
       await fetchCategories();
-      return { success: true as const, data: data as unknown as ProductCategory };
+      return { success: true as const, data: mapProductCategoryRow(data as ProductCategoryRow, 0) };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to update category";
       toast({ title: "Error", description: message, variant: "destructive" });

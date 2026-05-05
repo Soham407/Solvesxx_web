@@ -104,7 +104,7 @@ export function ServiceRequestList({
 
   // Time ago formatter
   const formatTimeAgo = (dateString: string | null) => {
-    if (!dateString) return "N/A";
+    if (!dateString) return "Not set";
     const date = new Date(dateString);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();

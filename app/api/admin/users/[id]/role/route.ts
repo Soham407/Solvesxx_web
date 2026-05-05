@@ -4,6 +4,8 @@ import { createClient as createServerClient } from "@/src/lib/supabase/server";
 
 const ALLOWED_ROLES = ["admin", "super_admin"];
 type RouteContext = { params: Promise<{ id: string }> };
+type RoleRecord = { role_name?: string | null };
+type UserRoleRow = { roles?: RoleRecord | RoleRecord[] | null };
 
 export async function PATCH(
   req: NextRequest,
@@ -32,7 +34,10 @@ export async function PATCH(
       .eq("id", callerUser.id)
       .single();
 
-    const callerRole = (callerRecord as any)?.roles?.role_name;
+    const callerRow = callerRecord as UserRoleRow | null;
+    const callerRole = Array.isArray(callerRow?.roles)
+      ? callerRow.roles[0]?.role_name
+      : callerRow?.roles?.role_name;
 
     if (!callerRole || !ALLOWED_ROLES.includes(callerRole)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -49,7 +54,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Invalid role_id" }, { status: 400 });
     }
 
-    const roleName = (targetRole as any).role_name;
+    const roleName = targetRole.role_name;
 
     // --- Prevent changing role to admin-tier via this endpoint ---
     if (ALLOWED_ROLES.includes(roleName)) {
@@ -77,8 +82,11 @@ export async function PATCH(
     }
 
     return NextResponse.json({ success: true });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Error updating user role:", err);
-    return NextResponse.json({ error: err.message || "Failed to update role" }, { status: 500 });
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Failed to update role" },
+      { status: 500 }
+    );
   }
 }

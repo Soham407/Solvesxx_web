@@ -1,9 +1,9 @@
-// @ts-nocheck
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
 import { useToast } from "@/components/ui/use-toast";
+import type { Json } from "@/src/types/supabase";
 
 export type SpillKitStatus = "ok" | "needs_restock" | "expired" | "missing";
 
@@ -12,6 +12,19 @@ export interface SpillKitItem {
   quantity: number;
   unit: string;
   is_present: boolean;
+}
+
+function toSpillKitItemsJson(items: SpillKitItem[]): Json {
+  return items.map((item) => ({
+    item_name: item.item_name,
+    quantity: item.quantity,
+    unit: item.unit,
+    is_present: item.is_present,
+  })) as Json;
+}
+
+function normalizeSpillKitRows(rows: unknown): SpillKitRow[] {
+  return Array.isArray(rows) ? (rows as SpillKitRow[]) : [];
 }
 
 export interface SpillKit {
@@ -28,6 +41,26 @@ export interface SpillKit {
   // Joined
   location_name?: string;
   inspector_name?: string;
+}
+
+interface SpillKitRow extends SpillKit {
+  locations?: {
+    name: string | null;
+  } | null;
+  employees?: {
+    first_name: string | null;
+    last_name: string | null;
+  } | null;
+}
+
+function mapSpillKitRows(rows: SpillKitRow[]): SpillKit[] {
+  return rows.map((k) => ({
+    ...k,
+    location_name: k.locations?.name || "Unassigned",
+    inspector_name: k.employees
+      ? `${k.employees.first_name} ${k.employees.last_name}`.trim()
+      : null,
+  }));
 }
 
 export const SPILL_KIT_STATUS_CONFIG: Record<SpillKitStatus, { label: string; className: string }> = {
@@ -56,13 +89,7 @@ export function useSpillKits() {
 
       if (error) throw error;
 
-      const mapped = (data || []).map((k: any) => ({
-        ...k,
-        location_name: k.locations?.name || "Unassigned",
-        inspector_name: k.employees
-          ? `${k.employees.first_name} ${k.employees.last_name}`.trim()
-          : null,
-      }));
+      const mapped = mapSpillKitRows(normalizeSpillKitRows(data));
 
       setKits(mapped);
     } catch (err) {
@@ -82,7 +109,7 @@ export function useSpillKits() {
       const { error } = await supabase.from("pest_control_spill_kits").insert({
         kit_code: input.kit_code,
         location_id: input.location_id || null,
-        items_json: input.items_json || [],
+        items_json: toSpillKitItemsJson(input.items_json || []),
         notes: input.notes || null,
         status: "ok",
       });

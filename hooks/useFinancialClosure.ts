@@ -1,29 +1,19 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase as supabaseClient } from "@/src/lib/supabaseClient";
-const supabase = supabaseClient as any;
+import { supabase } from "@/src/lib/supabaseClient";
+import {
+  selectCurrentFinancialPeriod,
+  type FinancialPeriod,
+  type FinancialPeriodStatus,
+  type FinancialPeriodType,
+} from "@/src/lib/financial-closure/financialClosureTransforms";
 
-// ============================================
-// TYPES
-// ============================================
-
-export type FinancialPeriodType = "monthly" | "quarterly" | "yearly";
-export type FinancialPeriodStatus = "open" | "closing" | "closed";
-
-export interface FinancialPeriod {
-  id: string;
-  period_name: string;
-  period_type: FinancialPeriodType;
-  start_date: string;
-  end_date: string;
-  status: FinancialPeriodStatus;
-  closed_at: string | null;
-  closed_by: string | null;
-  closing_notes: string | null;
-  created_at: string;
-  updated_at: string;
-}
+export type {
+  FinancialPeriod,
+  FinancialPeriodStatus,
+  FinancialPeriodType,
+} from "@/src/lib/financial-closure/financialClosureTransforms";
 
 interface UseFinancialClosureState {
   periods: FinancialPeriod[];
@@ -58,25 +48,21 @@ export function useFinancialClosure() {
 
       if (error) throw error;
 
-      // Find current period (the one that is 'open' and contains today's date, or the latest open one)
-      const today = new Date().toISOString().split("T")[0];
-      const typedData = data as FinancialPeriod[] | null;
-      const current = typedData?.find((p: FinancialPeriod) => p.status === 'open' && today >= p.start_date && today <= p.end_date) 
-                   || typedData?.find((p: FinancialPeriod) => p.status === 'open') 
-                   || null;
+      const typedData = (data || []) as FinancialPeriod[];
+      const current = selectCurrentFinancialPeriod(typedData);
 
       setState((prev) => ({
         ...prev,
-        periods: data || [],
+        periods: (data || []) as FinancialPeriod[],
         currentPeriod: current,
         isLoading: false,
       }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching financial periods:", err);
       setState((prev) => ({
         ...prev,
         isLoading: false,
-        error: err.message,
+        error: err instanceof Error ? err.message : "Failed to fetch financial periods",
       }));
     }
   }, []);
@@ -99,9 +85,9 @@ export function useFinancialClosure() {
 
       await fetchPeriods();
       return data as FinancialPeriod;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error creating financial period:", err);
-      setState((prev) => ({ ...prev, error: err.message }));
+      setState((prev) => ({ ...prev, error: err instanceof Error ? err.message : "Failed to create financial period" }));
       return null;
     }
   }, [fetchPeriods]);
@@ -131,9 +117,9 @@ export function useFinancialClosure() {
 
       await fetchPeriods();
       return data as FinancialPeriod;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error closing period:", err);
-      setState((prev) => ({ ...prev, isLoading: false, error: err.message }));
+      setState((prev) => ({ ...prev, isLoading: false, error: err instanceof Error ? err.message : "Failed to close financial period" }));
       return null;
     }
   }, [fetchPeriods]);

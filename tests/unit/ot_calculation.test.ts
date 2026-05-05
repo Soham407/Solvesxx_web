@@ -22,7 +22,7 @@ describe('Overtime Calculation', () => {
     const endTime = "06:00:00";
     
     const start = new Date(`2026-04-01T${startTime}`);
-    let end = new Date(`2026-04-01T${endTime}`);
+    const end = new Date(`2026-04-01T${endTime}`);
     
     if (end < start) {
       end.setDate(end.getDate() + 1);

@@ -4,7 +4,7 @@ import React, { useState, useEffect, createContext, useContext } from "react";
 import type { User } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
 
-import { normalizePermissions } from "@/src/lib/platform/permissions";
+import { mapAuthSessionProfile, type AuthUserRoleRow } from "@/src/lib/auth/authTransforms";
 import { supabase } from "@/src/lib/supabaseClient";
 import { type AppRole } from "@/src/lib/auth/roles";
 
@@ -78,13 +78,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) throw error;
 
-      const roleData = Array.isArray((data as any).roles)
-        ? (data as any).roles[0]
-        : (data as any).roles;
-
-      setRole((roleData?.role_name ?? null) as AppRole | null);
-      setPermissions(normalizePermissions(roleData?.permissions));
-      setIsActive((data as any).is_active !== false);
+      const profile = mapAuthSessionProfile(data as AuthUserRoleRow);
+      setRole(profile.role as AppRole | null);
+      setPermissions(profile.permissions);
+      setIsActive(profile.isActive);
     } catch (error) {
       console.error("Error fetching user role:", error);
       setRole(null);

@@ -227,7 +227,7 @@ export default function SuppliersPage() {
 
   // Format currency
   const formatCurrency = (amount: number | null | undefined) => {
-    if (!amount) return "N/A";
+    if (!amount) return "Not set";
     return new Intl.NumberFormat("en-IN", {
       style: "currency",
       currency: "INR",
@@ -252,7 +252,7 @@ export default function SuppliersPage() {
             </div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] text-muted-foreground uppercase font-bold">
-                {row.original.supplier_code || `SUP-${row.original.id.slice(0, 8)}`}
+                {row.original.supplier_code || "Supplier"}
               </span>
               {row.original.supplier_type && (
                 <Badge variant="outline" className="h-4 px-1.5 py-0 text-[8px] uppercase font-medium">
@@ -308,7 +308,7 @@ export default function SuppliersPage() {
         return (
           <div className="flex items-center gap-1.5">
             <Star className="h-3.5 w-3.5 fill-warning text-warning" />
-            <span className="text-sm font-bold">{rating ? rating.toFixed(1) : "N/A"}</span>
+            <span className="text-sm font-bold">{rating ? rating.toFixed(1) : "Not set"}</span>
           </div>
         );
       },

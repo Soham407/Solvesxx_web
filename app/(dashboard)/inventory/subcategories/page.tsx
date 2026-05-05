@@ -51,6 +51,18 @@ const EMPTY_FORM: SubcategoryFormData = {
   description: "",
 };
 
+function summarizeSubcategoryCounts(subcategories: ProductSubcategory[]) {
+  return {
+    activeNodesCount: subcategories.filter((subcategory) => subcategory.is_active).length,
+    uncategorizedCount: subcategories.filter((subcategory) => subcategory.parentCategory === "Uncategorized").length,
+    refNodesCount: subcategories.reduce((sum, subcategory) => sum + subcategory.itemCount, 0),
+  };
+}
+
+function getSubcategoryStatusClassName(isActive: boolean) {
+  return isActive ? "bg-success/10 text-success border-success/20" : "";
+}
+
 export default function SubcategoriesPage() {
   const { toast } = useToast();
   const { categories } = useProductCategories();
@@ -179,7 +191,7 @@ export default function SubcategoriesPage() {
           <div className="flex flex-col text-left">
             <span className="font-bold text-sm ">{row.original.subcategory_name}</span>
             <span className="text-[10px] text-muted-foreground uppercase font-bold ">
-              {row.original.subcategory_code || "N/A"}
+              {row.original.subcategory_code || "Not set"}
             </span>
           </div>
         </div>
@@ -199,20 +211,20 @@ export default function SubcategoriesPage() {
       header: "SKU Density",
       cell: ({ row }) => <span className="text-sm font-medium">{row.original.itemCount} Products</span>,
     },
-    {
-      accessorKey: "status",
-      header: "Status",
-      cell: ({ row }) => (
-        <Badge
-          variant="outline"
-          className={cn(
-            "font-bold text-[10px] uppercase h-5",
-            row.original.is_active ? "bg-success/10 text-success border-success/20" : ""
-          )}
-        >
-          {row.original.is_active ? "Active" : "Archived"}
-        </Badge>
-      ),
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }) => (
+          <Badge
+            variant="outline"
+            className={cn(
+              "font-bold text-[10px] uppercase h-5",
+            getSubcategoryStatusClassName(row.original.is_active)
+            )}
+          >
+            {row.original.is_active ? "Active" : "Archived"}
+          </Badge>
+        ),
     },
     {
       id: "actions",
@@ -246,8 +258,7 @@ export default function SubcategoriesPage() {
     },
   ];
 
-  const activeNodesCount = subcategories.filter((subcategory) => subcategory.is_active).length;
-  const uncategorizedCount = subcategories.filter((subcategory) => subcategory.parentCategory === "Uncategorized").length;
+  const { activeNodesCount, uncategorizedCount, refNodesCount } = summarizeSubcategoryCounts(subcategories);
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -274,7 +285,7 @@ export default function SubcategoriesPage() {
             { label: "Active Nodes", value: activeNodesCount, icon: ListTree, color: "text-primary" },
             { label: "Deepest Link", value: "L2", icon: Subtitles, color: "text-info" },
             { label: "Uncategorized", value: uncategorizedCount, icon: Folder, color: "text-success" },
-            { label: "Ref. Nodes", value: subcategories.reduce((sum, subcategory) => sum + subcategory.itemCount, 0), icon: Tags, color: "text-warning" },
+            { label: "Ref. Nodes", value: refNodesCount, icon: Tags, color: "text-warning" },
           ].map((stat, i) => (
             <Card key={i} className="border-none shadow-card ring-1 ring-border p-4">
               <div className="flex items-center gap-4">

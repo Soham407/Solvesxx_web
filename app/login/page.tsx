@@ -347,14 +347,14 @@ export default function LoginPage() {
                     variant="outline"
                     disabled
                     className="h-11 justify-center gap-2 rounded-2xl border-border/80 bg-background"
-                    aria-label="SSO login - Coming soon"
+                    aria-label="SSO login - Not available"
                   >
                     <Building2 className="h-4 w-4 text-primary" />
                     SSO
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Coming soon</p>
+                  <p>Not available</p>
                 </TooltipContent>
               </Tooltip>
               <Tooltip>
@@ -363,14 +363,14 @@ export default function LoginPage() {
                     variant="outline"
                     disabled
                     className="h-11 justify-center gap-2 rounded-2xl border-border/80 bg-background"
-                    aria-label="Azure AD login - Coming soon"
+                    aria-label="Azure AD login - Not available"
                   >
                     <Globe className="h-4 w-4 text-primary" />
                     Azure
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Coming soon</p>
+                  <p>Not available</p>
                 </TooltipContent>
               </Tooltip>
             </motion.div>

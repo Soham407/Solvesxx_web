@@ -1,33 +1,20 @@
-// @ts-nocheck
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
 import { formatCurrency, toRupees } from "@/src/lib/utils/currency";
+import {
+  exportRowsToCsv,
+  mapComplianceSnapshotRow,
+  type AgingBucket,
+  type ComplianceSnapshot,
+  type ComplianceSnapshotRow,
+} from "@/src/lib/compliance/complianceTransforms";
 
-export interface ComplianceSnapshot {
-  id: string;
-  period_id: string;
-  snapshot_name: string;
-  snapshot_date: string;
-  total_invoices_amount: number;
-  total_collections_amount: number;
-  total_bills_amount: number;
-  total_payouts_amount: number;
-  unresolved_reconciliations_count: number;
-  data_payload: any;
-  is_locked: boolean;
-  created_at: string;
-  // Joined
-  period_name?: string;
-}
-
-export interface AgingBucket {
-  label: string;
-  buyer_amount: number;
-  supplier_amount: number;
-  count: number;
-}
+export type {
+  AgingBucket,
+  ComplianceSnapshot,
+} from "@/src/lib/compliance/complianceTransforms";
 
 export function useCompliance() {
   const [snapshots, setSnapshots] = useState<ComplianceSnapshot[]>([]);
@@ -49,12 +36,9 @@ export function useCompliance() {
 
       if (error) throw error;
 
-      setSnapshots((data || []).map(s => ({
-        ...s,
-        period_name: s.financial_periods?.period_name
-      })));
-    } catch (err: any) {
-      setError(err.message);
+      setSnapshots(((data || []) as ComplianceSnapshotRow[]).map(mapComplianceSnapshotRow));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to fetch compliance snapshots");
     } finally {
       setIsLoading(false);
     }
@@ -101,36 +85,15 @@ export function useCompliance() {
 
       await fetchSnapshots();
       return snapshot;
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to create monthly snapshot");
       return null;
     } finally {
       setIsLoading(false);
     }
   }, [fetchSnapshots]);
 
-  const exportToCSV = (filename: string, data: any[], headers: string[]) => {
-    if (!data || !data.length) return;
-    
-    const csvContent = [
-      headers.join(","),
-      ...data.map(row => headers.map(header => {
-        const val = row[header];
-        if (typeof val === 'string' && val.includes(',')) return `"${val}"`;
-        return val;
-      }).join(","))
-    ].join("\n");
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", `${filename}_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  const exportToCSV = exportRowsToCsv;
 
   useEffect(() => {
     fetchSnapshots();

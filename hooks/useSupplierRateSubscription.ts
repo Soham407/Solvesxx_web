@@ -43,6 +43,25 @@ interface UseSupplierRateSubscriptionReturn extends UseSupplierRateSubscriptionS
   disconnect: () => void;
 }
 
+type SupplierRateRow = {
+  id: string;
+  supplier_product_id: string;
+  rate: number;
+  is_active: boolean;
+  effective_from?: string | null;
+  effective_to?: string | null;
+  discount_percentage?: number | null;
+  gst_percentage?: number | null;
+};
+
+type SupplierProductRow = {
+  id: string;
+  supplier_id: string | null;
+  product_id: string | null;
+  supplier?: { supplier_name?: string | null } | null;
+  product?: { product_name?: string | null } | null;
+};
+
 /**
  * Hook for real-time supplier rate change subscriptions
  * Listens for new rates, rate updates, and expirations
@@ -111,7 +130,7 @@ export function useSupplierRateSubscription(
           filter,
         },
         async (payload) => {
-          const newRate = payload.new as any;
+          const newRate = payload.new as SupplierRateRow;
 
           // Fetch supplier product details with supplier and product names
           const { data: sp } = await supabase
@@ -120,8 +139,8 @@ export function useSupplierRateSubscription(
               id,
               supplier_id,
               product_id,
-              supplier:suppliers(id, supplier_name),
-              product:products(id, product_name)
+              supplier:suppliers(supplier_name),
+              product:products(product_name)
             `)
             .eq("id", newRate.supplier_product_id)
             .single();
@@ -137,8 +156,8 @@ export function useSupplierRateSubscription(
             rateId: newRate.id,
             productId: sp.product_id || '',
             supplierId: sp.supplier_id || '',
-            productName: (sp.product as any)?.product_name || "Unknown Product",
-            supplierName: (sp.supplier as any)?.supplier_name || "Unknown Supplier",
+            productName: sp.product?.product_name || "Unknown Product",
+            supplierName: sp.supplier?.supplier_name || "Unknown Supplier",
             type: "rate_created",
             newRate: newRate.rate,
             read: false,
@@ -167,8 +186,8 @@ export function useSupplierRateSubscription(
           filter,
         },
         async (payload) => {
-          const updatedRate = payload.new as any;
-          const oldRateData = payload.old as any;
+          const updatedRate = payload.new as SupplierRateRow;
+          const oldRateData = payload.old as SupplierRateRow;
 
           // Fetch supplier product details
           const { data: sp } = await supabase
@@ -177,8 +196,8 @@ export function useSupplierRateSubscription(
               id,
               supplier_id,
               product_id,
-              supplier:suppliers(id, supplier_name),
-              product:products(id, product_name)
+              supplier:suppliers(supplier_name),
+              product:products(product_name)
             `)
             .eq("id", updatedRate.supplier_product_id)
             .single();
@@ -212,8 +231,8 @@ export function useSupplierRateSubscription(
             rateId: updatedRate.id,
             productId: sp.product_id || '',
             supplierId: sp.supplier_id || '',
-            productName: (sp.product as any)?.product_name || "Unknown Product",
-            supplierName: (sp.supplier as any)?.supplier_name || "Unknown Supplier",
+            productName: sp.product?.product_name || "Unknown Product",
+            supplierName: sp.supplier?.supplier_name || "Unknown Supplier",
             type: notificationType,
             oldRate: oldRateData.rate,
             newRate: updatedRate.rate,

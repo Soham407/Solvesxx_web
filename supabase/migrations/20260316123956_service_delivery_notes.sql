@@ -25,6 +25,7 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS set_delivery_note_number ON service_delivery_notes;
 CREATE TRIGGER set_delivery_note_number
   BEFORE INSERT ON service_delivery_notes
   FOR EACH ROW EXECUTE FUNCTION generate_delivery_note_number();
@@ -37,22 +38,38 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS update_delivery_notes_updated_at ON service_delivery_notes;
 CREATE TRIGGER update_delivery_notes_updated_at
   BEFORE UPDATE ON service_delivery_notes
   FOR EACH ROW EXECUTE FUNCTION update_delivery_note_updated_at();
 
 ALTER TABLE service_delivery_notes ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "service_delivery_notes_select" ON service_delivery_notes;
 CREATE POLICY "service_delivery_notes_select" ON service_delivery_notes
   FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "service_delivery_notes_insert" ON service_delivery_notes;
 CREATE POLICY "service_delivery_notes_insert" ON service_delivery_notes
   FOR INSERT TO authenticated WITH CHECK (auth.uid() IS NOT NULL);
 
+DROP POLICY IF EXISTS "service_delivery_notes_update" ON service_delivery_notes;
 CREATE POLICY "service_delivery_notes_update" ON service_delivery_notes
   FOR UPDATE TO authenticated USING (true);
 
-ALTER PUBLICATION supabase_realtime ADD TABLE service_delivery_notes;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'service_delivery_notes'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE service_delivery_notes;
+  END IF;
+END
+$$;
 
-CREATE INDEX idx_service_delivery_notes_po_id ON service_delivery_notes(po_id);
-CREATE INDEX idx_service_delivery_notes_status ON service_delivery_notes(status);;
+CREATE INDEX IF NOT EXISTS idx_service_delivery_notes_po_id ON service_delivery_notes(po_id);
+CREATE INDEX IF NOT EXISTS idx_service_delivery_notes_status ON service_delivery_notes(status);;

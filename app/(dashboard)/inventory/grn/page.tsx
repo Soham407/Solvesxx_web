@@ -93,6 +93,15 @@ import { useWarehouses } from "@/hooks/useWarehouses";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
+function summarizeGRNStats(materialReceipts: MaterialReceipt[]) {
+  return {
+    draft: materialReceipts.filter((receipt) => receipt.status === "draft").length,
+    inspecting: materialReceipts.filter((receipt) => receipt.status === "inspecting").length,
+    accepted: materialReceipts.filter((receipt) => receipt.status === "accepted" || receipt.status === "partial_accepted").length,
+    rejected: materialReceipts.filter((receipt) => receipt.status === "rejected").length,
+  };
+}
+
 function GRNPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -152,12 +161,7 @@ function GRNPageContent() {
 
   // Memoized stats
   const stats = useMemo(() => {
-    return {
-      draft: materialReceipts.filter(r => r.status === "draft").length,
-      inspecting: materialReceipts.filter(r => r.status === "inspecting").length,
-      accepted: materialReceipts.filter(r => r.status === "accepted" || r.status === "partial_accepted").length,
-      rejected: materialReceipts.filter(r => r.status === "rejected").length,
-    };
+    return summarizeGRNStats(materialReceipts);
   }, [materialReceipts]);
 
   // Handle PO ID from query
@@ -196,10 +200,10 @@ function GRNPageContent() {
         setShippingDetails({ dcNumber: "", vehicleNumber: "", warehouseId: "", notes: "" });
         await refresh();
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: "Error",
-        description: err.message || "Failed to create GRN",
+        description: err instanceof Error ? err.message : "Failed to create GRN",
         variant: "destructive",
       });
     } finally {
@@ -228,13 +232,28 @@ function GRNPageContent() {
   };
 
   // Handle Item Update during inspection
-  const handleUpdateItemReceipt = async (item: GRNItem, data: any) => {
+  const handleUpdateItemReceipt = async (
+    item: GRNItem,
+    data: {
+      received: number;
+      accepted?: number;
+      rejected?: number;
+      quality_status?: QualityStatus;
+      rejection_reason?: string;
+      batch_number?: string;
+      expiry_date?: string;
+    }
+  ) => {
+    const received = data.received;
+    const accepted = data.accepted ?? item.accepted_quantity ?? received;
+    const rejected = data.rejected ?? item.rejected_quantity ?? 0;
+    const qualityStatus = data.quality_status ?? item.quality_status;
     const success = await recordItemReceipt(
       item.id,
-      data.received,
-      data.accepted,
-      data.rejected,
-      data.quality_status,
+      received,
+      accepted,
+      rejected,
+      qualityStatus,
       data.rejection_reason,
       data.batch_number,
       data.expiry_date
@@ -287,10 +306,10 @@ function GRNPageContent() {
           description: `${item.product_name} has been added to inventory.`,
         });
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: "Error",
-        description: err.message || "Failed to add to stock",
+        description: err instanceof Error ? err.message : "Failed to add to stock",
         variant: "destructive",
       });
     } finally {
@@ -445,7 +464,7 @@ function GRNPageContent() {
             className="pl-9 bg-muted/20 border-none ring-1 ring-border focus-visible:ring-primary"
           />
         </div>
-        <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val as any)}>
+        <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val as GRNStatus | "all")}>
           <SelectTrigger className="w-[180px] bg-muted/20 border-none ring-1 ring-border">
             <SelectValue placeholder="Status" />
           </SelectTrigger>

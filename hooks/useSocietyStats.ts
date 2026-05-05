@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase as supabaseTyped } from "@/src/lib/supabaseClient";
-const supabase = supabaseTyped as any;
+import { supabase } from "@/src/lib/supabaseClient";
 
 interface SocietyStats {
   activeGuards: number;
@@ -21,22 +20,16 @@ interface UseSocietyStatsReturn {
   refresh: () => Promise<void>;
 }
 
-async function getManagedSocieties(): Promise<string[]> {
-  try {
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) return [];
+function countOpenAttendanceLogs(rows: Array<{ check_out_time: string | null }> | null | undefined): number {
+  return rows?.filter((log) => !log.check_out_time).length || 0;
+}
 
-    const { data: societies, error: societiesError } = await supabase
-      .from("societies")
-      .select("id")
-      .eq("society_manager_id", user.id);
+function countCompletedChecklistResponses(rows: Array<{ is_complete: boolean | null }> | null | undefined): number {
+  return rows?.filter((response) => response.is_complete).length || 0;
+}
 
-    if (societiesError || !societies) return [];
-    return societies.map((s: any) => s.id);
-  } catch (err) {
-    console.error("Error getting managed societies:", err);
-    return [];
-  }
+function countPendingVisitorCheckouts(rows: Array<{ entry_time: string | null; exit_time: string | null }> | null | undefined): number {
+  return rows?.filter((visitor) => visitor.entry_time && !visitor.exit_time).length || 0;
 }
 
 export function useSocietyStats(societyId?: string): UseSocietyStatsReturn {
@@ -59,21 +52,10 @@ export function useSocietyStats(societyId?: string): UseSocietyStatsReturn {
     try {
       const today = new Date().toISOString().split("T")[0];
 
-      // Get managed society IDs if not provided explicitly
-      let societyIds = societyId ? [societyId] : await getManagedSocieties();
-      if (societyIds.length === 0) {
-        // Fallback: treat as admin with access to all
-        societyIds = [];
-      }
-
       // Get total and active guards for society
       let guardQuery = supabase
         .from("security_guards")
-        .select("id, employee_id", { count: "exact" });
-
-      if (societyIds.length > 0) {
-        guardQuery = guardQuery.in("society_id", societyIds);
-      }
+        .select("id", { count: "exact" });
 
       const { count: totalGuardsCount, error: guardError } = await guardQuery;
 
@@ -88,9 +70,7 @@ export function useSocietyStats(societyId?: string): UseSocietyStatsReturn {
 
       if (attendanceError) throw attendanceError;
 
-      const activeGuardsCount = attendanceData?.filter(
-        (log) => !log.check_out_time
-      ).length || 0;
+      const activeGuardsCount = countOpenAttendanceLogs(attendanceData);
 
       // Get today's checklist responses
       const { data: checklistResponses, error: checklistError } = await supabase
@@ -101,8 +81,7 @@ export function useSocietyStats(societyId?: string): UseSocietyStatsReturn {
       if (checklistError) throw checklistError;
 
       const totalChecklistsCount = checklistResponses?.length || 0;
-      const completedChecklistsCount =
-        checklistResponses?.filter((r) => r.is_complete).length || 0;
+      const completedChecklistsCount = countCompletedChecklistResponses(checklistResponses);
       const checklistCompletionRate = totalChecklistsCount
         ? Math.round((completedChecklistsCount / totalChecklistsCount) * 100)
         : 0;
@@ -116,8 +95,7 @@ export function useSocietyStats(societyId?: string): UseSocietyStatsReturn {
       if (visitorsError) throw visitorsError;
 
       const visitorsTodayCount = visitorsData?.length || 0;
-      const pendingCheckoutsCount =
-        visitorsData?.filter((v) => v.entry_time && !v.exit_time).length || 0;
+      const pendingCheckoutsCount = countPendingVisitorCheckouts(visitorsData);
 
       setStats({
         activeGuards: activeGuardsCount,
@@ -136,7 +114,7 @@ export function useSocietyStats(societyId?: string): UseSocietyStatsReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [societyId]);
+  }, []);
 
   useEffect(() => {
     fetchStats();

@@ -70,18 +70,26 @@ function getStatusClasses(status: CompanyEvent["status"]) {
   return "border-none bg-muted text-muted-foreground";
 }
 
+function summarizeEventStats(events: CompanyEvent[]) {
+  const today = new Date().toISOString().split("T")[0];
+
+  return {
+    upcomingCount: events.filter((event) => event.status === "Scheduled").length,
+    drillCount: events.filter(
+      (event) =>
+        event.category === "Emergency Drill" &&
+        event.event_date === today
+    ).length,
+  };
+}
+
 export default function CompanyEventsPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [eventForm, setEventForm] = useState(INITIAL_EVENT_FORM);
   const { events, isLoading, error, addEvent, updateEvent } = useCompanyEvents();
 
-  const upcomingCount = events.filter((event) => event.status === "Scheduled").length;
-  const drillCount = events.filter(
-    (event) =>
-      event.category === "Emergency Drill" &&
-      event.event_date === new Date().toISOString().split("T")[0]
-  ).length;
+  const { upcomingCount, drillCount } = summarizeEventStats(events);
 
   const handleCreateEvent = async () => {
     if (!eventForm.title || !eventForm.event_date || !eventForm.event_time || !eventForm.venue) {

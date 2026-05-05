@@ -33,6 +33,22 @@ import { PPEChecklistDialog } from "@/components/dialogs/PPEChecklistDialog";
 import { useSpillKits, SPILL_KIT_STATUS_CONFIG } from "@/hooks/useSpillKits";
 import { useMemo } from "react";
 import { ServiceCode } from "@/src/lib/service-codes";
+import type { ServiceRequestWithDetails } from "@/src/types/operations";
+
+function summarizePestControlStock(chemicals: Array<{ current_stock: number | string }>) {
+  return chemicals.reduce((acc, curr) => acc + Number(curr.current_stock), 0);
+}
+
+function getServiceRequestStatusClassName(status: string) {
+  const variants: Record<string, string> = {
+    completed: "bg-success/10 text-success border-success/20",
+    open: "bg-primary/10 text-primary border-primary/20",
+    in_progress: "bg-warning/10 text-warning border-warning/20",
+    assigned: "bg-info/10 text-info border-info/20",
+  };
+
+  return variants[status] || "";
+}
 
 export default function PestControlPage() {
   // Fetch service dynamically by code instead of hardcoded UUID
@@ -56,13 +72,13 @@ export default function PestControlPage() {
   } = usePestControlInventory();
 
   const { kits, isLoading: isKitsLoading, stats: kitStats } = useSpillKits();
-  const totalChemicalStock = chemicals.reduce((acc, curr) => acc + Number(curr.current_stock), 0);
+  const totalChemicalStock = summarizePestControlStock(chemicals);
   const isLoading = isRequestsLoading || isInventoryLoading;
   const activeRequestId =
-    requests.find((r: any) => ["open", "assigned", "in_progress"].includes(r.status))?.id ||
+    requests.find((r: ServiceRequestWithDetails) => ["open", "assigned", "in_progress"].includes(r.status || ""))?.id ||
     requests[0]?.id;
 
-  const columns: ColumnDef<any>[] = [
+  const columns: ColumnDef<ServiceRequestWithDetails>[] = [
     {
       accessorKey: "service_name",
       header: "Service Type",
@@ -104,23 +120,17 @@ export default function PestControlPage() {
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
             <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-xs font-bold">{row.getValue("created_at") ? new Date(row.getValue("created_at")).toLocaleDateString() : "N/A"}</span>
+            <span className="text-xs font-bold">{row.getValue("created_at") ? new Date(row.getValue("created_at")).toLocaleDateString() : "Not set"}</span>
         </div>
       ),
     },
-    {
-      accessorKey: "status",
-      header: "Work Status",
-      cell: ({ row }) => {
+      {
+        accessorKey: "status",
+        header: "Work Status",
+        cell: ({ row }) => {
           const val = row.getValue("status") as string;
-          const variants: Record<string, string> = {
-              "completed": "bg-success/10 text-success border-success/20",
-              "open": "bg-primary/10 text-primary border-primary/20",
-              "in_progress": "bg-warning/10 text-warning border-warning/20",
-              "assigned": "bg-info/10 text-info border-info/20"
-          };
           return (
-            <Badge variant="outline" className={cn("font-bold text-[10px] uppercase h-5", variants[val] || "")}>
+            <Badge variant="outline" className={cn("font-bold text-[10px] uppercase h-5", getServiceRequestStatusClassName(val))}>
                 {val}
             </Badge>
           );

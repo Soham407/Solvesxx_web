@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
-import { resolveCurrentWorkforceActor } from "@/src/lib/workforce/boundary";
+import { resolveCurrentWorkforceActorClient } from "@/src/lib/workforce/clientActor";
 
 interface EmployeeProfile {
   employeeId: string | null;
@@ -43,7 +43,7 @@ export function useEmployeeProfile() {
 
   const fetchProfile = useCallback(async () => {
     try {
-      const actor = await resolveCurrentWorkforceActor();
+      const actor = await resolveCurrentWorkforceActorClient();
 
       setProfile({
         employeeId: actor.employeeId,
@@ -100,4 +100,3 @@ export function useEmployeeProfile() {
     refresh: fetchProfile,
   };
 }
-

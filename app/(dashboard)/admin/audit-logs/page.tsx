@@ -89,6 +89,52 @@ function stringifyChangeDiff(log: AuditLog) {
   return JSON.stringify(buildChangeDiff(log.old_data, log.new_data), null, 2);
 }
 
+function buildAuditSearchText(row: {
+  user: string;
+  userMeta: string;
+  action: string;
+  table_name: string;
+  record_id: string;
+  changes: string;
+}): string {
+  return [
+    row.user,
+    row.userMeta,
+    row.action,
+    row.table_name,
+    row.record_id,
+    row.changes,
+  ]
+    .join(" ")
+    .toLowerCase();
+}
+
+function mapAuditLogRow(log: AuditLog): AuditLogTableRow {
+  const user = log.actor_name ?? "System";
+  const userMeta = log.actor_email ?? (log.actor_role ? log.actor_role.replace(/_/g, " ") : "system");
+  const recordId = log.record_id ?? "-";
+  const changes = stringifyChangeDiff(log);
+
+  return {
+    id: log.id,
+    timestamp: log.created_at,
+    user,
+    userMeta,
+    action: log.action,
+    table_name: log.table_name,
+    record_id: recordId,
+    changes,
+    searchText: buildAuditSearchText({
+      user,
+      userMeta,
+      action: log.action,
+      table_name: log.table_name,
+      record_id: recordId,
+      changes,
+    }),
+  };
+}
+
 export default function AdminAuditLogsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [userFilter, setUserFilter] = useState("");
@@ -114,36 +160,7 @@ export default function AdminAuditLogsPage() {
   const rows = useMemo<AuditLogTableRow[]>(
     () =>
       logs
-        .map((log) => {
-          const user = log.actor_name ?? "System";
-          const userMeta =
-            log.actor_email ??
-            (log.actor_role ? log.actor_role.replace(/_/g, " ") : "system");
-          const recordId = log.record_id ?? "-";
-          const changes = stringifyChangeDiff(log);
-          const searchText = [
-            user,
-            userMeta,
-            log.action,
-            log.table_name,
-            recordId,
-            changes,
-          ]
-            .join(" ")
-            .toLowerCase();
-
-          return {
-            id: log.id,
-            timestamp: log.created_at,
-            user,
-            userMeta,
-            action: log.action,
-            table_name: log.table_name,
-            record_id: recordId,
-            changes,
-            searchText,
-          };
-        })
+        .map(mapAuditLogRow)
         .filter((row) =>
           deferredSearchQuery
             ? row.searchText.includes(deferredSearchQuery.toLowerCase())

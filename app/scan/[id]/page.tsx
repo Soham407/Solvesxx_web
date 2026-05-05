@@ -181,11 +181,11 @@ export default function QrScanPage() {
             <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
               <div>
                 <p className="text-xs font-bold uppercase text-muted-foreground">Location</p>
-                <p>{scanResult.asset.location_name || "N/A"}</p>
+                <p>{scanResult.asset.location_name || "Not set"}</p>
               </div>
               <div>
                 <p className="text-xs font-bold uppercase text-muted-foreground">Status</p>
-                <p>{scanResult.asset.status?.replace("_", " ") || "N/A"}</p>
+                <p>{scanResult.asset.status?.replace("_", " ") || "Not set"}</p>
               </div>
             </div>
           </div>

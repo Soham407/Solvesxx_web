@@ -25,11 +25,22 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useServicePurchaseOrders, SPO_STATUS_CONFIG, ServicePurchaseOrder } from "@/hooks/useServicePurchaseOrders";
+import { useServicePurchaseOrders, SPO_STATUS_CONFIG } from "@/hooks/useServicePurchaseOrders";
 import { formatCurrency } from "@/src/lib/utils/currency";
 import { ServiceAcknowledgmentDialog } from "@/components/dialogs/ServiceAcknowledgmentDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
+import type { ServicePurchaseOrder } from "@/hooks/useServicePurchaseOrders";
+
+function summarizeServicePurchaseOrders(orders: ServicePurchaseOrder[]) {
+  return {
+    total: orders.length,
+    draft: orders.filter((order) => order.status === "draft").length,
+    inProgress: orders.filter((order) => order.status === "in_progress").length,
+    completed: orders.filter((order) => order.status === "completed").length,
+    totalValue: orders.reduce((sum, order) => sum + (order.total_amount || 0), 0),
+  };
+}
 
 export default function ServicePurchaseOrdersPage() {
   const {
@@ -46,15 +57,9 @@ export default function ServicePurchaseOrdersPage() {
 
   const canAcknowledge = role === "admin" || role === "super_admin" || role === "site_supervisor";
 
-  const stats = {
-    total: orders.length,
-    draft: orders.filter(o => o.status === 'draft').length,
-    inProgress: orders.filter(o => o.status === 'in_progress').length,
-    completed: orders.filter(o => o.status === 'completed').length,
-    totalValue: orders.reduce((sum, o) => sum + (o.total_amount || 0), 0),
-  };
+  const stats = summarizeServicePurchaseOrders(orders);
 
-  const columns: ColumnDef<any>[] = [
+  const columns: ColumnDef<ServicePurchaseOrder>[] = [
     {
       accessorKey: "spo_number",
       header: "SPO Number",

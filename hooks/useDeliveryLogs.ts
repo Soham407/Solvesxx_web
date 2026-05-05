@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { supabase as supabaseClient } from "@/src/lib/supabaseClient";
-const supabase = supabaseClient as any;
+import { supabase } from "@/src/lib/supabaseClient";
 
 export interface LogArrivalParams {
   poId: string;
@@ -29,6 +28,21 @@ export interface ArrivalLog {
   notes?: string;
 }
 
+type ArrivalLogRow = {
+  id: string;
+  po_id: string;
+  vehicle_number: string;
+  photo_url: string;
+  signature_url: string | null;
+  driver_name: string | null;
+  logged_by: string;
+  created_at: string;
+  users?: { full_name?: string | null } | null;
+  purchase_orders?: { po_number?: string | null } | null;
+  gate_location?: string | null;
+  notes?: string | null;
+};
+
 export function useDeliveryLogs() {
   // FIX: Separate loading states to prevent one operation 
   // incorrectly clearing loading state of another
@@ -40,7 +54,7 @@ export function useDeliveryLogs() {
     setIsSubmitting(true);
     setError(null);
     try {
-      const { data, error: rpcError } = await (supabaseClient as any).rpc(
+      const { data, error: rpcError } = await supabase.rpc(
         "log_gate_entry",
         {
           p_po_id: params.poId,
@@ -55,8 +69,8 @@ export function useDeliveryLogs() {
       if (rpcError) throw rpcError;
 
       return data as string; // Returns the log ID
-    } catch (err: any) {
-      const errorMessage = err.message || "Failed to log material arrival";
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to log material arrival";
       console.error("Error logging material arrival:", err);
       setError(errorMessage);
       return null;
@@ -69,7 +83,7 @@ export function useDeliveryLogs() {
     setIsFetching(true);
     setError(null);
     try {
-      let query = (supabaseClient as any)
+      let query = supabase
         .from("material_arrival_evidence")
         .select(
           `
@@ -93,13 +107,21 @@ export function useDeliveryLogs() {
 
       if (fetchError) throw fetchError;
 
-      return (data || []).map((log: any) => ({
+      return ((data || []) as ArrivalLogRow[]).map((log) => ({
+        id: log.id,
+        po_id: log.po_id,
+        vehicle_number: log.vehicle_number,
+        photo_url: log.photo_url,
+        signature_url: log.signature_url,
+        driver_name: log.driver_name,
+        logged_by: log.logged_by,
+        created_at: log.created_at,
         ...log,
-        logged_by_name: log.users?.full_name,
-        po_number: log.purchase_orders?.po_number,
+        logged_by_name: log.users?.full_name || undefined,
+        po_number: log.purchase_orders?.po_number || undefined,
       })) as ArrivalLog[];
-    } catch (err: any) {
-      const errorMessage = err.message || "Failed to fetch arrival logs";
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to fetch arrival logs";
       console.error("Error fetching arrival logs:", err);
       setError(errorMessage);
       return [];

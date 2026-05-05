@@ -181,6 +181,27 @@ const STATUS_CONFIG: Record<VerificationStatus, { label: string; className: stri
   },
 };
 
+function summarizeVerificationStats(verificationItems: VerificationItem[]) {
+  const matchingItems = verificationItems.filter((item) => item.status === "matches" || item.status === "verified");
+  return {
+    totalItems: verificationItems.length,
+    matchingItems: matchingItems.length,
+    conflictItems: verificationItems.filter((item) => item.status === "price_conflict").length,
+    awaitingItems: verificationItems.filter((item) => item.status === "awaiting_override" || item.status === "no_contract").length,
+    compliancePercent: verificationItems.length > 0
+      ? Math.round((matchingItems.length / verificationItems.length) * 100)
+      : 100,
+    totalLeakage: verificationItems
+      .filter((item) => item.status === "price_conflict" && item.varianceAmount > 0)
+      .reduce((sum, item) => sum + (item.varianceAmount * item.requestedQuantity), 0),
+    verifiedToday: verificationItems.filter(
+      (item) =>
+        item.overrideApprovedAt &&
+        new Date(item.overrideApprovedAt).toDateString() === new Date().toDateString()
+    ).length,
+  };
+}
+
 // ============================================
 // COMPONENT
 // ============================================
@@ -287,12 +308,12 @@ export default function IndentVerificationPage() {
           );
 
           allVerificationItems.push({
-            id: `V-${item.id.slice(0, 8)}`,
+            id: `V-${item.product_name || item.product_id || item.id}`,
             indentItemId: item.id,
             indentId: indent.id,
             indentNumber: indent.indent_number,
             productId: item.product_id,
-            productName: item.product_name || item.item_description || "Unknown Product",
+            productName: item.product_name || item.item_description || "Product not linked",
             productCode: item.product_code || null,
             requestedQuantity: item.requested_quantity,
             unitOfMeasure: item.unit_of_measure,
@@ -348,27 +369,7 @@ export default function IndentVerificationPage() {
   // STATS CALCULATIONS
   // ============================================
 
-  const stats = {
-    totalItems: verificationItems.length,
-    matchingItems: verificationItems.filter((i) => i.status === "matches" || i.status === "verified").length,
-    conflictItems: verificationItems.filter((i) => i.status === "price_conflict").length,
-    awaitingItems: verificationItems.filter((i) => i.status === "awaiting_override" || i.status === "no_contract").length,
-    compliancePercent: verificationItems.length > 0
-      ? Math.round(
-          (verificationItems.filter((i) => i.status === "matches" || i.status === "verified").length /
-            verificationItems.length) *
-            100
-        )
-      : 100,
-    totalLeakage: verificationItems
-      .filter((i) => i.status === "price_conflict" && i.varianceAmount > 0)
-      .reduce((sum, i) => sum + (i.varianceAmount * i.requestedQuantity), 0),
-    verifiedToday: verificationItems.filter(
-      (i) =>
-        i.overrideApprovedAt &&
-        new Date(i.overrideApprovedAt).toDateString() === new Date().toDateString()
-    ).length,
-  };
+  const stats = summarizeVerificationStats(verificationItems);
 
   // ============================================
   // HANDLERS
@@ -465,7 +466,7 @@ export default function IndentVerificationPage() {
             <span className="font-bold text-sm">{row.original.productName}</span>
             <div className="flex items-center gap-2">
               <span className="text-[10px] text-muted-foreground uppercase font-bold">
-                {row.original.productCode || row.original.id}
+                {row.original.productCode || "Product"}
               </span>
               <span className="text-[10px] text-muted-foreground">|</span>
               <span className="text-[10px] text-muted-foreground">
@@ -514,7 +515,7 @@ export default function IndentVerificationPage() {
         const isHigher = variance > 0.5;
 
         if (row.original.masterRate === null) {
-          return <span className="text-xs text-muted-foreground">N/A</span>;
+          return <span className="text-xs text-muted-foreground">Not set</span>;
         }
 
         return (
@@ -902,7 +903,7 @@ export default function IndentVerificationPage() {
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Product Code</span>
                     <span className="font-medium">
-                      {selectedItem.productCode || "N/A"}
+                      {selectedItem.productCode || "Not set"}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
@@ -1009,7 +1010,7 @@ export default function IndentVerificationPage() {
                         <span className="font-medium">
                           {selectedItem.overrideApprovedAt
                             ? new Date(selectedItem.overrideApprovedAt).toLocaleDateString()
-                            : "N/A"}
+                            : "Not set"}
                         </span>
                       </div>
                       <div className="border-t pt-3">
@@ -1072,7 +1073,7 @@ export default function IndentVerificationPage() {
                   </div>
                   <div className="text-sm text-muted-foreground">
                     Indent: {formatCurrency(entry.indentRate)} | Master:{" "}
-                    {entry.masterRate !== null ? formatCurrency(entry.masterRate) : "N/A"}
+                    {entry.masterRate !== null ? formatCurrency(entry.masterRate) : "Not set"}
                   </div>
                   <div className="text-sm border-t pt-2 mt-2">
                     <span className="text-muted-foreground">Reason: </span>

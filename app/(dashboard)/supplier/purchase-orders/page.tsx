@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import type { SupplierPO } from "@/hooks/useSupplierPortal";
 
 export default function SupplierPOsPage() {
   const { pos, acknowledgePO, dispatchPO, isLoading } = useSupplierPortal();
@@ -34,7 +35,7 @@ export default function SupplierPOsPage() {
   
   // Dispatch Dialog State
   const [isDispatchOpen, setIsDispatchOpen] = useState(false);
-  const [selectedPO, setSelectedPO] = useState<any>(null);
+  const [selectedPO, setSelectedPO] = useState<SupplierPO | null>(null);
   const [dispatchDate, setDispatchDate] = useState(new Date().toISOString().split('T')[0]);
   const [vehicle, setVehicle] = useState("");
   const [notes, setNotes] = useState("");

@@ -51,6 +51,20 @@ function parseCommaSeparated(value: string) {
     .filter(Boolean);
 }
 
+function getAvailableEmployees(
+  employees: Array<{
+    id: string;
+    full_name: string;
+    employee_code?: string | null;
+  }>,
+  assignedEmployeeIds: Set<string>,
+  editingEmployeeId?: string
+) {
+  return employees.filter(
+    (employee) => !assignedEmployeeIds.has(employee.id) || employee.id === editingEmployeeId
+  );
+}
+
 const INITIAL_FORM = {
   employee_id: "",
   skills: "",
@@ -67,9 +81,10 @@ export default function SpecializedProfilesPage() {
   const { employees } = useEmployees();
 
   const assignedEmployeeIds = new Set(technicians.map((technician) => technician.employee_id));
-  const availableEmployees = employees.filter(
-    (employee) =>
-      !assignedEmployeeIds.has(employee.id) || employee.id === editingProfile?.employee_id
+  const availableEmployees = getAvailableEmployees(
+    employees,
+    assignedEmployeeIds,
+    editingProfile?.employee_id
   );
 
   const resetDialog = () => {

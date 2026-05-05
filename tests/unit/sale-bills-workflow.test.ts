@@ -77,7 +77,7 @@ describe("sale bills workflow", () => {
       sourceContainsAll(useSaleBillsSource, [
         "createBill",
         "markPaid",
-        "paid_at: new Date().toISOString()",
+        "paid_at: paidAt",
         "request_id: input.request_id",
         "SaleBill",
         "SaleBillItem",

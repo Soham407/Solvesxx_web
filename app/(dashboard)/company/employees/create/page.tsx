@@ -35,6 +35,38 @@ const employeeSchema = z.object({
 
 type EmployeeFormValues = z.infer<typeof employeeSchema>;
 
+function isSecurityDepartmentName(value: string | null | undefined): boolean {
+  const normalized = (value || "").trim().toLowerCase();
+  return normalized === "security" || normalized === "sec";
+}
+
+function isSecurityDesignation(designation: { designation_name: string; department?: string | null }): boolean {
+  const normalizedName = designation.designation_name.toLowerCase();
+  const normalizedDepartment = (designation.department || "").toLowerCase();
+
+  return (
+    normalizedDepartment === "security" ||
+    normalizedDepartment === "sec" ||
+    normalizedName.includes("security") ||
+    normalizedName.includes("guard") ||
+    normalizedName.includes("supervisor")
+  );
+}
+
+function buildDepartmentOptions(
+  designationDepartments: Array<string | null | undefined>,
+  employeeDepartments: Array<string | null | undefined>,
+): string[] {
+  return Array.from(
+    new Set(
+      [...designationDepartments, ...employeeDepartments]
+        .map((department) => (department || "").trim())
+        .filter((department) => department.length > 0)
+        .filter((department) => !isSecurityDepartmentName(department))
+    )
+  ).sort((a, b) => a.localeCompare(b));
+}
+
 export default function CreateEmployeePage() {
   const router = useRouter();
   const { createEmployee, employees } = useEmployees({ includeInactive: true });
@@ -44,37 +76,15 @@ export default function CreateEmployeePage() {
   });
 
   const nonSecurityDesignations = useMemo(
-    () =>
-      designations.filter((designation) => {
-        const normalizedName = designation.designation_name.toLowerCase();
-        const normalizedDepartment = (designation.department || "").toLowerCase();
-
-        return (
-          normalizedDepartment !== "security" &&
-          normalizedDepartment !== "sec" &&
-          !normalizedName.includes("security") &&
-          !normalizedName.includes("guard") &&
-          !normalizedName.includes("supervisor")
-        );
-      }),
+    () => designations.filter((designation) => !isSecurityDesignation(designation)),
     [designations],
   );
 
   const departmentOptions = useMemo(() => {
-    const fromDesignations = designations.map((designation) => designation.department);
-    const fromEmployees = employees.map((employee) => employee.department);
-
-    return Array.from(
-      new Set(
-        [...fromDesignations, ...fromEmployees]
-          .map((department) => (department || "").trim())
-          .filter((department) => department.length > 0)
-          .filter((department) => {
-            const normalized = department.toLowerCase();
-            return normalized !== "security" && normalized !== "sec";
-          })
-      )
-    ).sort((a, b) => a.localeCompare(b));
+    return buildDepartmentOptions(
+      designations.map((designation) => designation.department),
+      employees.map((employee) => employee.department),
+    );
   }, [designations, employees]);
 
   const onSubmit = async (data: EmployeeFormValues) => {

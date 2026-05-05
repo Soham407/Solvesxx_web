@@ -112,6 +112,7 @@ export default function ChangePasswordPage() {
     try {
       const res = await fetch("/api/users/change-password", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ new_password: newPassword }),
       });
@@ -125,25 +126,7 @@ export default function ChangePasswordPage() {
       }
 
       toast.success("Password updated successfully.");
-
-      await supabase.auth.refreshSession();
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (user) {
-        const { data: userData } = await supabase
-          .from("users")
-          .select("roles(role_name)")
-          .eq("id", user.id)
-          .single();
-
-        const roleName = getRoleName(userData as UserPasswordRow | null);
-        router.push(ROLE_REDIRECTS[roleName] ?? "/dashboard");
-      } else {
-        router.push("/dashboard");
-      }
+      window.location.assign("/dashboard");
     } catch {
       setError("An unexpected error occurred.");
       setIsLoading(false);

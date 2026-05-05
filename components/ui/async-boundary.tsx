@@ -74,7 +74,7 @@ export function AsyncBoundary({
           <div className="absolute inset-0 h-10 w-10 rounded-full border-4 border-primary border-t-transparent animate-spin" />
         </div>
         <p className="text-sm text-muted-foreground animate-pulse">
-          Loading...
+          Loading data...
         </p>
       </div>
     );
@@ -163,7 +163,7 @@ export function InlineLoader({ className }: { className?: string }) {
       aria-label="Loading"
     >
       <div className="h-4 w-4 rounded-full border-2 border-muted border-t-primary animate-spin" />
-      <span className="text-xs">Loading...</span>
+      <span className="text-xs">Loading data...</span>
     </div>
   );
 }

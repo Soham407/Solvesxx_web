@@ -285,7 +285,7 @@ export function ChecklistDialog({
                         <div className="space-y-1.5">
                           <Label>Response Type</Label>
                           <Select 
-                            onValueChange={(v) => form.setValue(`questions.${index}.type` as any, v)}
+                            onValueChange={(v) => form.setValue(`questions.${index}.type`, v as "yes_no" | "value")}
                             defaultValue={field.type}
                           >
                             <SelectTrigger>

@@ -56,7 +56,7 @@ class ErrorBoundary extends Component<Props, State> {
           
           <h1 className="text-2xl font-bold text-foreground mb-2">Something went wrong</h1>
           <p className="text-muted-foreground max-w-md mx-auto mb-8">
-            An unexpected error occurred in this module. We've been notified and are working on it.
+            An unexpected error occurred in this module. We have been notified and are working on it.
           </p>
           
           <div className="bg-muted p-4 rounded-md mb-8 max-w-lg w-full overflow-auto text-left">

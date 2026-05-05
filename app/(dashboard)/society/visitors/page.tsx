@@ -47,6 +47,24 @@ import { VisitorRegistrationDialog } from "@/components/society/VisitorRegistrat
 import { VisitorAvatar } from "@/components/society/VisitorAvatar";
 import { FamilyDirectory } from "@/components/visitors/FamilyDirectory";
 
+function summarizeVisitorBuckets(visitors: Visitor[]) {
+  return visitors.filter(
+    (visitor) => visitor.visitor_type === "vendor" || visitor.visitor_type === "contractor",
+  );
+}
+
+function getVisitorTypeConfig(type: string) {
+  const typeMap: Record<string, { label: string; className: string }> = {
+    guest: { label: "Guest", className: "bg-primary/10 text-primary" },
+    vendor: { label: "Vendor", className: "bg-warning/10 text-warning" },
+    contractor: { label: "Contractor", className: "bg-info/10 text-info" },
+    service_staff: { label: "Service", className: "bg-success/10 text-success" },
+    daily_helper: { label: "Daily Staff", className: "bg-muted text-muted-foreground" },
+  };
+
+  return typeMap[type] || typeMap.guest;
+}
+
 export default function VisitorManagementPage() {
   const { role } = useAuth();
   const {
@@ -64,9 +82,7 @@ export default function VisitorManagementPage() {
     refresh,
   } = useVisitors({ status: "all" });
 
-  const vendorVisitors = visitors.filter(
-    (v) => v.visitor_type === "vendor" || v.visitor_type === "contractor",
-  );
+  const vendorVisitors = summarizeVisitorBuckets(visitors);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [isRegistrationOpen, setIsRegistrationOpen] = useState(false);
@@ -101,14 +117,7 @@ export default function VisitorManagementPage() {
 
   // Get visitor type badge
   const getTypeBadge = (type: string) => {
-    const typeMap: Record<string, { label: string; className: string }> = {
-      guest: { label: "Guest", className: "bg-primary/10 text-primary" },
-      vendor: { label: "Vendor", className: "bg-warning/10 text-warning" },
-      contractor: { label: "Contractor", className: "bg-info/10 text-info" },
-      service_staff: { label: "Service", className: "bg-success/10 text-success" },
-      daily_helper: { label: "Daily Staff", className: "bg-muted text-muted-foreground" },
-    };
-    const config = typeMap[type] || typeMap.guest;
+    const config = getVisitorTypeConfig(type);
     return (
       <Badge variant="outline" className={cn("h-4 px-1.5 py-0 text-[8px] uppercase font-bold", config.className)}>
         {config.label}
@@ -143,7 +152,7 @@ export default function VisitorManagementPage() {
       cell: ({ row }) => (
         <div className="flex flex-col">
           <span className="text-sm font-bold text-foreground/90">
-            {row.original.flat?.building?.building_name || "Unknown"} - {row.original.flat?.flat_number || "N/A"}
+            {row.original.flat?.building?.building_name || "Building not set"} - {row.original.flat?.flat_number || "Flat not set"}
           </span>
           <span className="text-[10px] text-muted-foreground font-medium">
             {row.original.purpose || "Visit"}
@@ -394,7 +403,7 @@ export default function VisitorManagementPage() {
         <TabsContent value="daily" className="pt-6">
           {dailyHelpers.length === 0 ? (
             <div className="p-20 text-center border-2 border-dashed rounded-2xl bg-muted/20">
-              <CardDescription>No daily helpers registered yet. Mark frequent visitors as "Daily Helpers" to see them here.</CardDescription>
+              <CardDescription>No daily helpers registered yet. Mark frequent visitors as Daily Helpers to see them here.</CardDescription>
             </div>
           ) : (
             <DataTable columns={columns} data={dailyHelpers} searchKey="visitor_name" />
@@ -404,7 +413,7 @@ export default function VisitorManagementPage() {
         <TabsContent value="vendors" className="pt-6">
           {vendorVisitors.length === 0 ? (
             <div className="p-20 text-center border-2 border-dashed rounded-2xl bg-muted/20">
-              <CardDescription>No vendor or contractor visits logged yet. Log a visitor with type "Vendor" or "Contractor" to see them here.</CardDescription>
+              <CardDescription>No vendor or contractor visits logged yet. Log a visitor with type Vendor or Contractor to see them here.</CardDescription>
             </div>
           ) : (
             <DataTable columns={columns} data={vendorVisitors} searchKey="visitor_name" />
@@ -435,7 +444,7 @@ export default function VisitorManagementPage() {
                 <div className="text-center text-xs text-gray-600">{printVisitor.visitor_type?.toUpperCase()}</div>
                 <hr />
                 <div className="text-xs space-y-1">
-                  <div><span className="font-bold">Flat:</span> {printVisitor.flat?.building?.building_name || "—"} - {printVisitor.flat?.flat_number || "N/A"}</div>
+                  <div><span className="font-bold">Flat:</span> {printVisitor.flat?.building?.building_name || "—"} - {printVisitor.flat?.flat_number || "Flat not set"}</div>
                   <div><span className="font-bold">Purpose:</span> {printVisitor.purpose || "Visit"}</div>
                   <div><span className="font-bold">Entry:</span> {new Date(printVisitor.entry_time).toLocaleString("en-IN")}</div>
                   {printVisitor.visitor_pass_number && (
@@ -481,7 +490,7 @@ export default function VisitorManagementPage() {
                 <div className="rounded-xl border p-3">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Destination</div>
                   <div className="mt-1 font-medium">
-                    {selectedVisitor.flat?.building?.building_name || "Unknown"} - {selectedVisitor.flat?.flat_number || "N/A"}
+                    {selectedVisitor.flat?.building?.building_name || "Building not set"} - {selectedVisitor.flat?.flat_number || "Flat not set"}
                   </div>
                 </div>
                 <div className="rounded-xl border p-3">

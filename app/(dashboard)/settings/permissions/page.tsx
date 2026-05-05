@@ -1,15 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { usePlatformRolePermissions } from "@/hooks/usePlatformRolePermissions";
 import { PageHeader } from "@/components/shared/PageHeader";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, ShieldCheck } from "lucide-react";
+import { AlertCircle } from "lucide-react";
+import { PermissionCoverageCards } from "@/components/settings/PermissionCoverageCards";
+import { RolePermissionsCard } from "@/components/settings/RolePermissionsCard";
 import type { PermissionKey } from "@/src/types/platform";
 
 const PLATFORM_PERMISSION_COPY: Record<
@@ -38,6 +36,34 @@ const PLATFORM_PERMISSION_COPY: Record<
   },
 };
 
+const PERMISSION_KEYS = Object.keys(PLATFORM_PERMISSION_COPY) as PermissionKey[];
+
+function buildRolePermissionDrafts(
+  roles: Array<{ id: string; permissions: PermissionKey[] }>
+): Record<string, PermissionKey[]> {
+  return roles.reduce<Record<string, PermissionKey[]>>((accumulator, roleRecord) => {
+    accumulator[roleRecord.id] = roleRecord.permissions;
+    return accumulator;
+  }, {});
+}
+
+function toggleRolePermission(
+  current: Record<string, PermissionKey[]>,
+  roleId: string,
+  permission: PermissionKey,
+  enabled: boolean,
+): Record<string, PermissionKey[]> {
+  const rolePermissions = current[roleId] ?? [];
+  const nextPermissions = enabled
+    ? Array.from(new Set([...rolePermissions, permission]))
+    : rolePermissions.filter((entry) => entry !== permission);
+
+  return {
+    ...current,
+    [roleId]: nextPermissions,
+  };
+}
+
 export default function PermissionsSettingsPage() {
   const {
     roles,
@@ -51,30 +77,11 @@ export default function PermissionsSettingsPage() {
   const [drafts, setDrafts] = useState<Record<string, PermissionKey[]>>({});
 
   useEffect(() => {
-    const nextDrafts: Record<string, PermissionKey[]> = {};
-    roles.forEach((roleRecord) => {
-      nextDrafts[roleRecord.id] = roleRecord.permissions;
-    });
-    setDrafts(nextDrafts);
+    setDrafts(buildRolePermissionDrafts(roles));
   }, [roles]);
 
-  const permissionKeys = useMemo(
-    () => Object.keys(PLATFORM_PERMISSION_COPY) as PermissionKey[],
-    []
-  );
-
   const togglePermission = (roleId: string, permission: PermissionKey, enabled: boolean) => {
-    setDrafts((current) => {
-      const rolePermissions = current[roleId] ?? [];
-      const nextPermissions = enabled
-        ? Array.from(new Set([...rolePermissions, permission]))
-        : rolePermissions.filter((entry) => entry !== permission);
-
-      return {
-        ...current,
-        [roleId]: nextPermissions,
-      };
-    });
+    setDrafts((current) => toggleRolePermission(current, roleId, permission, enabled));
   };
 
   return (
@@ -84,20 +91,11 @@ export default function PermissionsSettingsPage() {
         description="Assign the platform permission keys that govern the Super Admin 11.1 slice."
       />
 
-      <div className="grid gap-4 md:grid-cols-5">
-        {permissionKeys.map((permission) => (
-          <Card key={permission} className="border-none shadow-card ring-1 ring-border">
-            <CardContent className="p-4">
-              <p className="text-[11px] font-black uppercase tracking-[0.15em] text-muted-foreground">
-                {PLATFORM_PERMISSION_COPY[permission].label}
-              </p>
-              <p className="mt-3 text-3xl font-bold tracking-tight">
-                {permissionCoverage[permission]}
-              </p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <PermissionCoverageCards
+        permissionKeys={PERMISSION_KEYS}
+        permissionLabels={PLATFORM_PERMISSION_COPY}
+        permissionCoverage={permissionCoverage}
+      />
 
       {error && (
         <Alert variant="destructive">
@@ -108,61 +106,24 @@ export default function PermissionsSettingsPage() {
 
       <div className="grid gap-6 xl:grid-cols-2">
         {roles.map((roleRecord) => (
-          <Card key={roleRecord.id} className="border-none shadow-card ring-1 ring-border">
-            <CardHeader>
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <CardTitle className="text-base">{roleRecord.roleDisplayName}</CardTitle>
-                  <CardDescription>
-                    {roleRecord.description || "No description available."}
-                  </CardDescription>
-                </div>
-                <Badge variant="outline">{roleRecord.userCount} users</Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {permissionKeys.map((permission) => {
-                const enabled = (drafts[roleRecord.id] ?? []).includes(permission);
-                return (
-                  <div
-                    key={permission}
-                    className="flex items-start justify-between gap-4 rounded-lg border border-border/60 bg-muted/10 p-4"
-                  >
-                    <div className="space-y-1">
-                      <p className="text-sm font-semibold">
-                        {PLATFORM_PERMISSION_COPY[permission].label}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {PLATFORM_PERMISSION_COPY[permission].description}
-                      </p>
-                    </div>
-                    <Switch
-                      checked={enabled}
-                      onCheckedChange={(checked) =>
-                        togglePermission(roleRecord.id, permission, checked)
-                      }
-                    />
-                  </div>
-                );
-              })}
-
-              <div className="flex justify-end">
-                <Button
-                  className="gap-2"
-                  onClick={() =>
-                    updateRolePermissions({
-                      roleId: roleRecord.id,
-                      permissions: drafts[roleRecord.id] ?? [],
-                    })
-                  }
-                  disabled={isLoading || isSaving}
-                >
-                  <ShieldCheck className="h-4 w-4" />
-                  Save Role Permissions
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <RolePermissionsCard
+            key={roleRecord.id}
+            role={roleRecord}
+            permissionKeys={PERMISSION_KEYS}
+            permissionLabels={PLATFORM_PERMISSION_COPY}
+            enabledPermissions={drafts[roleRecord.id] ?? []}
+            isSaving={isSaving}
+            isLoading={isLoading}
+            onToggle={(permission, enabled) =>
+              togglePermission(roleRecord.id, permission, enabled)
+            }
+            onSave={() =>
+              updateRolePermissions({
+                roleId: roleRecord.id,
+                permissions: drafts[roleRecord.id] ?? [],
+              })
+            }
+          />
         ))}
       </div>
     </div>

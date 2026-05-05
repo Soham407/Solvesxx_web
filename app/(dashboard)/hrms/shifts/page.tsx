@@ -63,7 +63,7 @@ function getGuardDisplayName(guard: {
   const lastName = guard.employee?.last_name?.trim();
   const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
 
-  return fullName || guard.guard_code || "Unknown Guard";
+  return fullName || guard.guard_code || "Unassigned guard";
 }
 
 function getGuardInitials(guard: {
@@ -660,7 +660,7 @@ export default function ShiftMasterPage() {
                       {getGuardDisplayName(guard)}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {guard.guard_code} • Grade {guard.grade || "N/A"}
+                      {guard.guard_code} • Grade {guard.grade || "Not set"}
                     </p>
                   </div>
                   {guard.current_shift ? (

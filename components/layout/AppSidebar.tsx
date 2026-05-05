@@ -154,7 +154,6 @@ const navigation: NavGroup[] = [
           { title: "Security Ops", href: "/services/security" },
           { title: "HVAC & AC", href: "/services/ac" },
           { title: "Plantation Services", href: "/services/plantation" },
-          { title: "Printing & Ads", href: "/services/printing" },
         ],
       },
       {
@@ -269,6 +268,7 @@ const navigation: NavGroup[] = [
           { title: "Pending Indents",   href: "/supplier/indents" },
           { title: "Purchase Orders",   href: "/supplier/purchase-orders" },
           { title: "Service Orders",    href: "/supplier/service-orders" },
+          { title: "Returns",           href: "/supplier/returns" },
           { title: "My Profile",        href: "/supplier/profile" },
           { title: "My Bills",          href: "/supplier/bills" },
         ],
@@ -305,6 +305,7 @@ const navigation: NavGroup[] = [
           { title: "Role & Permissions", href: "/settings/permissions" },
           { title: "Audit Logs", href: "/admin/audit-logs" },
           { title: "System Configuration", href: "/admin/config" },
+          { title: "Notifications", href: "/settings/notifications" },
         ],
       },
     ],
@@ -365,7 +366,7 @@ export function AppSidebar({ collapsed, onToggle, className, isMobile }: AppSide
       // Portal roles redirect /dashboard → their portal page, so keep Main Dashboard active there
       if (role === "buyer" && pathname?.startsWith("/buyer")) return true;
       if ((role === "supplier" || role === "vendor") && pathname?.startsWith("/supplier")) return true;
-      if (role === "resident" && (pathname?.startsWith("/resident") || pathname?.startsWith("/test-resident"))) return true;
+      if (role === "resident" && pathname?.startsWith("/resident")) return true;
       return pathname === "/dashboard";
     }
     return pathname?.startsWith(href);

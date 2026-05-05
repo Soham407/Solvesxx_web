@@ -4,6 +4,16 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
 import { POStatus, PurchaseOrder, PO_STATUS_CONFIG } from "./usePurchaseOrders";
 
+interface PurchaseOrderRow extends PurchaseOrder {
+  suppliers?: {
+    supplier_name: string | null;
+    supplier_code: string | null;
+  } | null;
+  indents?: {
+    indent_number: string | null;
+  } | null;
+}
+
 /**
  * Hook for fetching and managing a list of Purchase Orders.
  * Extracted from usePurchaseOrders to improve maintainability.
@@ -45,7 +55,7 @@ export function usePurchaseOrderList(filters?: { status?: POStatus; supplierId?:
 
       if (fetchError) throw fetchError;
 
-      const formattedData = (data || []).map((po: any) => ({
+      const formattedData = (data || []).map((po: PurchaseOrderRow) => ({
         ...po,
         supplier_name: po.suppliers?.supplier_name,
         supplier_code: po.suppliers?.supplier_code,
@@ -81,9 +91,9 @@ export function usePurchaseOrderList(filters?: { status?: POStatus; supplierId?:
 
       setSummary(stats);
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching purchase orders:", err);
-      setError(err.message || "Failed to fetch purchase orders");
+      setError(err instanceof Error ? err.message : "Failed to fetch purchase orders");
     } finally {
       setIsLoading(false);
     }

@@ -14,6 +14,20 @@ interface PatrolLog {
   anomalies: string | null;
 }
 
+interface PatrolLogRow {
+  id: string;
+  patrol_start_time: string;
+  checkpoints_verified: number | null;
+  total_checkpoints: number | null;
+  anomalies_found: string | null;
+  guard: {
+    employee: {
+      first_name: string | null;
+      last_name: string | null;
+    } | null;
+  } | null;
+}
+
 export interface CreatePatrolLogPayload {
   guard_id: string;
   /** ISO timestamp for when the patrol started. Defaults to now if omitted. */
@@ -30,7 +44,7 @@ interface UsePatrolLogsReturn {
   isLoading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
-  createPatrolLog: (payload: CreatePatrolLogPayload) => Promise<{ success: boolean; data?: any; error?: string }>;
+  createPatrolLog: (payload: CreatePatrolLogPayload) => Promise<{ success: boolean; data?: unknown; error?: string }>;
 }
 
 export function usePatrolLogs(
@@ -78,7 +92,7 @@ export function usePatrolLogs(
       if (logsError) throw logsError;
 
       const formattedLogs: PatrolLog[] =
-        data?.map((log: any) => {
+        (data as PatrolLogRow[] | null | undefined)?.map((log) => {
           const guardName = log.guard?.employee
             ? `${log.guard.employee.first_name || ""} ${
                 log.guard.employee.last_name || ""
@@ -134,7 +148,7 @@ export function usePatrolLogs(
   // NOTE: There is no location_id or notes column in the schema — the `notes`
   // payload field is mapped to anomalies_found.
   const createPatrolLog = useCallback(
-    async (payload: CreatePatrolLogPayload): Promise<{ success: boolean; data?: any; error?: string }> => {
+    async (payload: CreatePatrolLogPayload): Promise<{ success: boolean; data?: unknown; error?: string }> => {
       try {
         const { data, error: insertError } = await supabase
           .from("guard_patrol_logs")

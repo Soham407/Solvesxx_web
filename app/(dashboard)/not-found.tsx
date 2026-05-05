@@ -11,7 +11,7 @@ export default function NotFound() {
       
       <h2 className="text-3xl font-black tracking-tighter sm:text-4xl mb-2">Module Not Found</h2>
       <p className="max-w-[400px] text-muted-foreground mb-8 leading-relaxed">
-        The page you are looking for doesn't exist or has been moved to a different wing of the facility.
+        The page you are looking for does not exist or has been moved to a different wing of the facility.
       </p>
 
       <div className="flex flex-col sm:flex-row gap-4">

@@ -39,6 +39,15 @@ interface DataTableProps<TData, TValue> {
   filterActive?: boolean;
 }
 
+function getColumnSearchValue<TData, TValue>(
+  table: ReturnType<typeof useReactTable<TData>>,
+  searchKey: string,
+  onSearch?: (value: string) => void,
+) {
+  if (onSearch) return "";
+  return ((table.getColumn(searchKey)?.getFilterValue() as string) ?? "");
+}
+
 export function DataTable<TData, TValue>({
   columns,
   data,
@@ -69,6 +78,9 @@ export function DataTable<TData, TValue>({
     },
   });
 
+  const pageCount = Math.min(table.getPageCount(), 5);
+  const pageNumbers = Array.from({ length: pageCount }, (_, i) => i + 1);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">
@@ -77,7 +89,7 @@ export function DataTable<TData, TValue>({
           {searchKey && (
             <Input
               placeholder={`Search ${searchKey}...`}
-              value={onSearch ? undefined : (table.getColumn(searchKey)?.getFilterValue() as string) ?? ""}
+              value={getColumnSearchValue(table, searchKey, onSearch)}
               onChange={(event) => {
                 if (onSearch) {
                   onSearch(event.target.value);
@@ -186,7 +198,7 @@ export function DataTable<TData, TValue>({
                     <div className="space-y-1">
                       <p className="text-sm font-semibold text-foreground">No records found</p>
                       <p className="text-xs text-muted-foreground max-w-[200px] mx-auto">
-                        We couldn't find any data matching your request. Try adjusting your filters.
+                        We could not find any data matching your request. Try adjusting your filters.
                       </p>
                     </div>
                     <Button variant="outline" size="sm" className="mt-4 font-medium" onClick={() => table.resetColumnFilters()}>
@@ -215,21 +227,21 @@ export function DataTable<TData, TValue>({
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <div className="flex items-center gap-1">
-             {Array.from({ length: Math.min(table.getPageCount(), 5) }, (_, i) => i + 1).map((page) => (
-               <Button
-                 key={page}
-                 variant={table.getState().pagination.pageIndex + 1 === page ? "default" : "ghost"}
-                 size="sm"
-                 className={`h-8 w-8 p-0 text-xs font-medium ${
-                   table.getState().pagination.pageIndex + 1 === page 
-                     ? "shadow-glow" 
-                     : ""
-                 }`}
-                 onClick={() => table.setPageIndex(page - 1)}
-               >
-                 {page}
-               </Button>
-             ))}
+             {pageNumbers.map((page) => {
+               const isActive = table.getState().pagination.pageIndex + 1 === page;
+
+               return (
+                 <Button
+                   key={page}
+                   variant={isActive ? "default" : "ghost"}
+                   size="sm"
+                   className={`h-8 w-8 p-0 text-xs font-medium ${isActive ? "shadow-glow" : ""}`}
+                   onClick={() => table.setPageIndex(page - 1)}
+                 >
+                   {page}
+                 </Button>
+               );
+             })}
           </div>
           <Button
             variant="outline"

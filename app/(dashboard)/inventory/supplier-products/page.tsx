@@ -58,6 +58,16 @@ import {
   CreateSupplierProductForm,
 } from "@/src/types/supply-chain";
 
+function summarizeSupplierProductStats(mappings: SupplierProductDisplay[]) {
+  return {
+    totalMappings: mappings.length,
+    preferredLinks: mappings.filter((mapping) => mapping.is_preferred).length,
+    activeMappings: mappings.filter((mapping) => mapping.is_active !== false).length,
+    uniqueProducts: new Set(mappings.map((mapping) => mapping.product_id)).size,
+    uniqueSuppliers: new Set(mappings.map((mapping) => mapping.supplier_id)).size,
+  };
+}
+
 export default function SupplierProductsPage() {
   const {
     mappings,
@@ -100,13 +110,7 @@ export default function SupplierProductsPage() {
   });
 
   // Calculate stats
-  const stats = {
-    totalMappings: mappings.length,
-    preferredLinks: mappings.filter(m => m.is_preferred).length,
-    activeMappings: mappings.filter(m => m.is_active !== false).length,
-    uniqueProducts: new Set(mappings.map(m => m.product_id)).size,
-    uniqueSuppliers: new Set(mappings.map(m => m.supplier_id)).size,
-  };
+  const stats = summarizeSupplierProductStats(mappings);
 
   // Handle search
   const handleSearch = (e: React.FormEvent) => {
@@ -222,7 +226,7 @@ export default function SupplierProductsPage() {
           <div className="flex flex-col">
             <span className="font-bold text-sm">{row.original.supplier?.supplier_name || "Unknown"}</span>
             <span className="text-[10px] text-muted-foreground uppercase font-medium">
-              {row.original.supplier?.supplier_code || (row.original.supplier_id ? `SUP-${row.original.supplier_id.slice(0, 8)}` : "N/A")}
+              {row.original.supplier?.supplier_code || "Supplier"}
             </span>
           </div>
         </div>
@@ -238,7 +242,7 @@ export default function SupplierProductsPage() {
             <span className="font-bold text-sm">{row.original.product?.product_name || "Unknown"}</span>
             <div className="flex items-center gap-2">
               <span className="text-[10px] text-muted-foreground uppercase font-bold">
-                {row.original.product?.product_code || (row.original.product_id ? `PRD-${row.original.product_id.slice(0, 8)}` : "N/A")}
+                {row.original.product?.product_code || "Product"}
               </span>
               {row.original.supplier_sku && (
                 <Badge variant="outline" className="h-4 px-1.5 py-0 text-[8px] uppercase font-mono">

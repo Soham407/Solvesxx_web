@@ -39,6 +39,28 @@ const EMPTY_FORM = {
   max_carry_forward: null as number | null,
 };
 
+function formatLeaveTypeRows(leaveTypes: LeaveType[]) {
+  return leaveTypes.map((leaveType) => ({
+    ...leaveType,
+    accrual: `${(leaveType.yearly_quota / 12).toFixed(1)}/mo`,
+    carryForward: leaveType.can_carry_forward
+      ? `Max ${leaveType.max_carry_forward || leaveType.yearly_quota} Days`
+      : "Expired Annually",
+    status: leaveType.is_active ? "Active" : "Draft",
+  }));
+}
+
+function summarizeLeaveConfig(leaveTypes: Array<{ status: string }>) {
+  return {
+    activeCount: leaveTypes.filter((leaveType) => leaveType.status === "Active").length,
+    draftCount: leaveTypes.filter((leaveType) => leaveType.status === "Draft").length,
+  };
+}
+
+function getLeaveStatusClassName(status: string) {
+  return status === "Active" ? "bg-success/10 text-success border-success/20" : "";
+}
+
 export default function LeaveConfigPage() {
   const { leaveTypes, isLoading, error, createLeaveType, updateLeaveType } = useLeaveTypes();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -84,14 +106,7 @@ export default function LeaveConfigPage() {
     }
   };
 
-  const formattedLeaveTypes = leaveTypes.map(lt => ({
-    ...lt,
-    accrual: `${(lt.yearly_quota / 12).toFixed(1)}/mo`,
-    carryForward: lt.can_carry_forward
-      ? `Max ${lt.max_carry_forward || lt.yearly_quota} Days`
-      : "Expired Annually",
-    status: lt.is_active ? "Active" : "Draft",
-  }));
+  const formattedLeaveTypes = formatLeaveTypeRows(leaveTypes);
 
   const columns: ColumnDef<typeof formattedLeaveTypes[0]>[] = [
     {
@@ -104,7 +119,6 @@ export default function LeaveConfigPage() {
           </div>
           <div className="flex flex-col text-left">
             <span className="font-bold text-sm">{row.original.leave_name}</span>
-            <span className="text-[10px] text-muted-foreground uppercase font-bold">{row.original.id.substring(0, 8)}</span>
           </div>
         </div>
       ),
@@ -128,7 +142,7 @@ export default function LeaveConfigPage() {
       accessorKey: "status",
       header: "Status",
       cell: ({ row }) => (
-        <Badge variant="outline" className={cn("font-bold text-[10px] uppercase h-5", row.getValue("status") === "Active" ? "bg-success/10 text-success border-success/20" : "")}>
+        <Badge variant="outline" className={cn("font-bold text-[10px] uppercase h-5", getLeaveStatusClassName(row.getValue("status")))}>
           {row.getValue("status")}
         </Badge>
       ),
@@ -150,8 +164,7 @@ export default function LeaveConfigPage() {
     },
   ];
 
-  const activeCount = formattedLeaveTypes.filter(l => l.status === "Active").length;
-  const draftCount = formattedLeaveTypes.filter(l => l.status === "Draft").length;
+  const { activeCount, draftCount } = summarizeLeaveConfig(formattedLeaveTypes);
 
   return (
     <div className="animate-fade-in space-y-6">

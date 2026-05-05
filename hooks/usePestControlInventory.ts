@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase as supabaseClient } from "@/src/lib/supabaseClient";
-const supabase = supabaseClient as any;
+import { supabase } from "@/src/lib/supabaseClient";
+import type { Json } from "@/src/types/supabase";
 
 // ============================================
 // TYPES
@@ -47,6 +47,73 @@ interface UsePestControlInventoryState {
   error: string | null;
 }
 
+type PestControlChemicalRow = PestControlChemical & {
+  products?: { product_name?: string | null; product_code?: string | null } | null;
+};
+
+type PPEVerificationRow = Omit<PPEVerification, "items_json"> & {
+  items_json: Json;
+  employees?: { first_name?: string | null; last_name?: string | null } | null;
+};
+
+function mapChemicalRows(rows: PestControlChemicalRow[]): PestControlChemical[] {
+  return rows.map((item) => ({
+    id: item.id,
+    product_id: item.product_id,
+    current_stock: item.current_stock,
+    unit: item.unit,
+    reorder_level: item.reorder_level,
+    last_restocked_at: item.last_restocked_at,
+    is_active: item.is_active ?? true,
+    expiry_date: item.expiry_date,
+    batch_number: item.batch_number,
+    created_at: item.created_at || new Date().toISOString(),
+    updated_at: item.updated_at || new Date().toISOString(),
+    product_name: item.products?.product_name || "Unknown Product",
+    product_code: item.products?.product_code || "N/A",
+  }));
+}
+
+function mapVerificationRows(rows: PPEVerificationRow[]): PPEVerification[] {
+  return rows.map((item) => ({
+    id: item.id,
+    technician_id: item.technician_id,
+    service_request_id: item.service_request_id,
+    items_json: parseChecklistItems(item.items_json),
+    status: item.status,
+    site_readiness_report: item.site_readiness_report,
+    verified_at: item.verified_at,
+    created_at: item.created_at,
+    technician_name: item.employees
+      ? `${item.employees.first_name} ${item.employees.last_name}`.trim()
+      : "Unknown Technician",
+  }));
+}
+
+function parseChecklistItems(items: Json): Array<{ item: string; verified: boolean; mandatory: boolean }> {
+  if (!Array.isArray(items)) {
+    return [];
+  }
+
+  return items
+    .map((item) => {
+      if (
+        item &&
+        typeof item === "object" &&
+        !Array.isArray(item) &&
+        typeof (item as { item?: unknown }).item === "string" &&
+        typeof (item as { verified?: unknown }).verified === "boolean" &&
+        typeof (item as { mandatory?: unknown }).mandatory === "boolean"
+      ) {
+        const record = item as { item: string; verified: boolean; mandatory: boolean };
+        return record;
+      }
+
+      return null;
+    })
+    .filter((item): item is { item: string; verified: boolean; mandatory: boolean } => item !== null);
+}
+
 // ============================================
 // HOOK
 // ============================================
@@ -80,23 +147,19 @@ export function usePestControlInventory() {
 
       if (error) throw error;
 
-      const chemicalsWithDetails: PestControlChemical[] = (data || []).map((item: any) => ({
-        ...item,
-        product_name: item.products?.product_name || "Unknown Product",
-        product_code: item.products?.product_code || "N/A",
-      }));
+      const chemicalsWithDetails: PestControlChemical[] = mapChemicalRows((data || []) as PestControlChemicalRow[]);
 
       setState((prev) => ({
         ...prev,
         chemicals: chemicalsWithDetails,
         isLoading: false,
       }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching PC chemicals:", err);
       setState((prev) => ({
         ...prev,
         isLoading: false,
-        error: err.message || "Failed to fetch chemicals",
+        error: err instanceof Error ? err.message : "Failed to fetch chemicals",
       }));
     }
   }, []);
@@ -120,18 +183,13 @@ export function usePestControlInventory() {
 
       if (error) throw error;
 
-      const verificationsWithDetails: PPEVerification[] = (data || []).map((item: any) => ({
-        ...item,
-        technician_name: item.employees
-          ? `${item.employees.first_name} ${item.employees.last_name}`.trim()
-          : "Unknown Technician",
-      }));
+      const verificationsWithDetails: PPEVerification[] = mapVerificationRows((data || []) as PPEVerificationRow[]);
 
       setState((prev) => ({
         ...prev,
         verifications: verificationsWithDetails,
       }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching PPE verifications:", err);
     }
   }, []);
@@ -166,7 +224,7 @@ export function usePestControlInventory() {
           technician_id: input.technician_id,
           service_request_id: input.service_request_id,
           job_session_id: jobSessionId,
-          items_json: input.items,
+          items_json: input.items as Json,
           status: input.status,
           site_readiness_report: input.site_readiness_report,
         });
@@ -175,7 +233,7 @@ export function usePestControlInventory() {
 
       await fetchPPEVerifications();
       return true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error submitting PPE verification:", err);
       return false;
     }
@@ -198,7 +256,7 @@ export function usePestControlInventory() {
 
       await fetchChemicals();
       return true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error updating PC chemical stock:", err);
       return false;
     }
@@ -259,9 +317,9 @@ export function usePestControlInventory() {
 
       await fetchChemicals();
       return { success: true };
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error issuing PC chemical:", err);
-      return { success: false, error: err.message || "Failed to issue chemical." };
+      return { success: false, error: err instanceof Error ? err.message : "Failed to issue chemical." };
     }
   }, [state.chemicals, fetchChemicals]);
 
@@ -283,9 +341,9 @@ export function usePestControlInventory() {
 
       await fetchChemicals();
       return { success: true };
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error updating chemical expiry:", err);
-      return { success: false, error: err.message || "Failed to update expiry information." };
+      return { success: false, error: err instanceof Error ? err.message : "Failed to update expiry information." };
     }
   }, [fetchChemicals]);
 

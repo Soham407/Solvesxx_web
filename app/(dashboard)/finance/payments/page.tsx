@@ -20,6 +20,41 @@ import { cn } from "@/lib/utils";
 import { useFinance, PaymentModel } from "@/hooks/useFinance";
 import { formatCurrency } from "@/src/lib/utils/currency";
 
+function getPaymentFlowMeta(paymentType: PaymentModel["payment_type"]) {
+  const isPayout = paymentType === "payout";
+  return {
+    icon: isPayout ? ArrowUpRight : ArrowDownLeft,
+    label: isPayout ? "Payout" : "Receipt",
+    className: isPayout ? "text-critical" : "text-success",
+  };
+}
+
+function getPaymentStatusClass(status: PaymentModel["status"]) {
+  const variants: Record<PaymentModel["status"], string> = {
+    completed: "bg-success/10 text-success border-success/20",
+    pending: "bg-warning/10 text-warning border-warning/20",
+    failed: "bg-critical/10 text-critical border-critical/20",
+    refunded: "bg-muted/40 text-muted-foreground border-border",
+  };
+
+  return variants[status] || "";
+}
+
+function summarizePayments(payments: PaymentModel[]) {
+  const receipts = payments
+    .filter((payment) => payment.payment_type === "receipt")
+    .reduce((sum, payment) => sum + payment.amount, 0);
+  const payouts = payments
+    .filter((payment) => payment.payment_type === "payout")
+    .reduce((sum, payment) => sum + payment.amount, 0);
+
+  return {
+    receipts,
+    payouts,
+    netCashFlow: receipts - payouts,
+  };
+}
+
 export default function PaymentsTrackerPage() {
   const { payments, isLoading, refresh } = useFinance();
 
@@ -33,19 +68,15 @@ export default function PaymentsTrackerPage() {
       accessorKey: "payment_type",
       header: "Flow",
       cell: ({ row }) => {
-        const isPayout = row.original.payment_type === 'payout';
+        const flowMeta = getPaymentFlowMeta(row.original.payment_type);
         return (
           <div className="flex items-center gap-2">
-            {isPayout ? (
-              <ArrowUpRight className="h-3 w-3 text-critical" />
-            ) : (
-              <ArrowDownLeft className="h-3 w-3 text-success" />
-            )}
+            <flowMeta.icon className={cn("h-3 w-3", flowMeta.className)} />
             <span className={cn(
               "text-[10px] font-bold uppercase tracking-tighter",
-              isPayout ? "text-critical" : "text-success"
+              flowMeta.className
             )}>
-              {isPayout ? "Payout" : "Receipt"}
+              {flowMeta.label}
             </span>
           </div>
         );
@@ -65,13 +96,8 @@ export default function PaymentsTrackerPage() {
       accessorKey: "status",
       header: "Truth Status",
       cell: ({ row }) => {
-        const variants: Record<string, string> = {
-          completed: "bg-success/10 text-success border-success/20",
-          pending: "bg-warning/10 text-warning border-warning/20",
-          failed: "bg-critical/10 text-critical border-critical/20",
-        };
         return (
-          <Badge variant="outline" className={cn("font-bold text-[10px] uppercase", variants[row.original.status] || "")}>
+          <Badge variant="outline" className={cn("font-bold text-[10px] uppercase", getPaymentStatusClass(row.original.status))}>
             {row.original.status}
           </Badge>
         );
@@ -105,8 +131,7 @@ export default function PaymentsTrackerPage() {
     );
   }
 
-  const receipts = payments.filter(p => p.payment_type === 'receipt').reduce((sum, p) => sum + p.amount, 0);
-  const payouts = payments.filter(p => p.payment_type === 'payout').reduce((sum, p) => sum + p.amount, 0);
+  const { receipts, payouts, netCashFlow } = summarizePayments(payments);
 
   return (
     <div className="animate-fade-in space-y-8 pb-20">
@@ -124,7 +149,7 @@ export default function PaymentsTrackerPage() {
         {[
           { label: "Total Receipts", value: formatCurrency(receipts), sub: "Buyer collections", color: "text-success", icon: ArrowDownLeft },
           { label: "Total Payouts", value: formatCurrency(payouts), sub: "Supplier settlements", color: "text-critical", icon: ArrowUpRight },
-          { label: "Net Cash Flow", value: formatCurrency(receipts - payouts), sub: "Operational liquidity", color: "text-primary", icon: CreditCard },
+          { label: "Net Cash Flow", value: formatCurrency(netCashFlow), sub: "Operational liquidity", color: "text-primary", icon: CreditCard },
         ].map((stat, i) => (
           <Card key={i} className="border-none shadow-card ring-1 ring-border p-5">
                <div className="flex items-center justify-between">

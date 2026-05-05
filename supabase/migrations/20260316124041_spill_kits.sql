@@ -19,19 +19,23 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS set_spill_kit_updated_at ON pest_control_spill_kits;
 CREATE TRIGGER set_spill_kit_updated_at
   BEFORE UPDATE ON pest_control_spill_kits
   FOR EACH ROW EXECUTE FUNCTION update_spill_kit_updated_at();
 
 ALTER TABLE pest_control_spill_kits ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "spill_kits_select" ON pest_control_spill_kits;
 CREATE POLICY "spill_kits_select" ON pest_control_spill_kits
   FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "spill_kits_insert" ON pest_control_spill_kits;
 CREATE POLICY "spill_kits_insert" ON pest_control_spill_kits
   FOR INSERT TO authenticated WITH CHECK (auth.uid() IS NOT NULL);
 
+DROP POLICY IF EXISTS "spill_kits_update" ON pest_control_spill_kits;
 CREATE POLICY "spill_kits_update" ON pest_control_spill_kits
   FOR UPDATE TO authenticated USING (true);
 
-CREATE INDEX idx_pest_control_spill_kits_status ON pest_control_spill_kits(status);;
+CREATE INDEX IF NOT EXISTS idx_pest_control_spill_kits_status ON pest_control_spill_kits(status);;

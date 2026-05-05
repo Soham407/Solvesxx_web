@@ -64,7 +64,7 @@ export function SocietyManagerDashboard() {
       
       toast({
         title: "🚨 EMERGENCY PANIC ALERT!",
-        description: `Guard ${alert.guard?.employee?.first_name || "Unknown"} triggered an emergency alert at ${alert.location?.location_name || "Unknown location"}!`,
+        description: `Guard ${alert.guard?.employee?.first_name || "Unassigned"} triggered an emergency alert at ${alert.location?.location_name || "Location not set"}!`,
         variant: "destructive",
         duration: 10000,
       });
@@ -115,7 +115,7 @@ export function SocietyManagerDashboard() {
   };
 
   const maskPhone = (phone: string | null) => {
-    if (!phone) return "N/A";
+    if (!phone) return "Not set";
     return phone.replace(/(\d{2})\d{6}(\d{2})/, "$1******$2");
   };
 
@@ -131,11 +131,11 @@ export function SocietyManagerDashboard() {
               </div>
               <h2 className="text-2xl font-bold mb-2">🚨 EMERGENCY ALERT</h2>
               <p className="text-lg font-medium mb-1">
-                {latestAlert.guard?.employee?.first_name} {latestAlert.guard?.employee?.last_name || "Unknown Guard"}
+                {latestAlert.guard?.employee?.first_name} {latestAlert.guard?.employee?.last_name || "Unassigned guard"}
               </p>
               <div className="flex items-center justify-center gap-2 text-sm opacity-80 mb-4">
                 <MapPin className="h-4 w-4" />
-                {latestAlert.location?.location_name || "Unknown Location"}
+                {latestAlert.location?.location_name || "Location not set"}
               </div>
               <p className="text-xs opacity-70 mb-6">
                 Alert triggered at {formatAlertTime(latestAlert.alert_time)}
@@ -150,7 +150,7 @@ export function SocietyManagerDashboard() {
                   disabled={!canResolve}
                   className="flex-1 bg-white text-critical hover:bg-white/90 font-bold disabled:opacity-50"
                 >
-                  {!canResolve ? "Loading..." : "Resolve Alert"}
+                  {!canResolve ? "Loading alert..." : "Resolve Alert"}
                 </Button>
                 <Button
                   variant="outline"
@@ -279,7 +279,7 @@ export function SocietyManagerDashboard() {
           <Card className="border-none shadow-card ring-1 ring-border overflow-hidden">
              <CardHeader className="bg-muted/5 border-b py-4">
                <CardTitle className="text-sm font-bold uppercase tracking-widest flex items-center gap-2">
-                 <History className="h-4 w-4" /> Today's Visitor Ledger
+                 <History className="h-4 w-4" /> Today&apos;s Visitor Ledger
                </CardTitle>
              </CardHeader>
              <CardContent className="p-0">
@@ -346,7 +346,7 @@ export function SocietyManagerDashboard() {
               {isLoadingAudit ? (
                 <div className="flex items-center justify-center p-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
               ) : checklistAudit.items.filter(i => i.is_complete).length > 0 ? (
-                checklistAudit.items.filter(i => i.is_complete).slice(0, 5).map((response: any) => (
+                checklistAudit.items.filter(i => i.is_complete).slice(0, 5).map((response) => (
                   <div key={response.id} className="p-3 rounded-lg bg-muted/20 border border-border group hover:border-primary/30 transition-colors">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-[10px] font-bold text-muted-foreground uppercase">

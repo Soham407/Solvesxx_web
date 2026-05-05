@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { useParams } from "next/navigation";
 import { ColumnDef } from "@tanstack/react-table";
 import { MoreHorizontal, Plus } from "lucide-react";
 
@@ -82,7 +82,6 @@ function occupancyBadge(isOccupied: boolean | null) {
 
 export default function BuildingDetailPage() {
   const { id: societyId, buildingId } = useParams<{ id: string; buildingId: string }>();
-  const router = useRouter();
 
   const [building, setBuilding] = useState<BuildingRow | null>(null);
   const [societyName, setSocietyName] = useState<string>("");
@@ -111,7 +110,7 @@ export default function BuildingDetailPage() {
       supabase.from("societies").select("society_name").eq("id", societyId).single(),
     ]).then(([buildingRes, societyRes]) => {
       setBuilding(buildingRes.data as BuildingRow | null);
-      setSocietyName((societyRes.data as any)?.society_name ?? "");
+      setSocietyName(societyRes.data?.society_name ?? "");
       setBuildingLoading(false);
     });
   }, [buildingId, societyId]);
@@ -127,9 +126,9 @@ export default function BuildingDetailPage() {
     setForm({
       flat_number: flat.flat_number ?? "",
       floor_number: flat.floor_number ?? undefined,
-      flat_type: (flat.flat_type as any) ?? undefined,
+      flat_type: flat.flat_type as CreateFlatPayload["flat_type"] ?? undefined,
       area_sqft: flat.area_sqft ?? undefined,
-      ownership_type: (flat.ownership_type as any) ?? undefined,
+      ownership_type: flat.ownership_type as CreateFlatPayload["ownership_type"] ?? undefined,
     });
     setDialogOpen(true);
   }
@@ -146,9 +145,9 @@ export default function BuildingDetailPage() {
     }
   }
 
-  async function handleToggleOccupied(flat: FlatRow) {
+  const handleToggleOccupied = useCallback(async (flat: FlatRow) => {
     await updateFlat({ id: flat.id, is_occupied: !flat.is_occupied });
-  }
+  }, [updateFlat]);
 
   const columns = useMemo<ColumnDef<FlatRow>[]>(
     () => [
@@ -228,11 +227,11 @@ export default function BuildingDetailPage() {
         ),
       },
     ],
-    [],
+    [deactivateFlat, handleToggleOccupied],
   );
 
   const pageDescription = buildingLoading
-    ? "Loading..."
+    ? "Loading details..."
     : building
       ? `${societyName ? societyName + " › " : ""}${building.building_code}`
       : "Building not found";
@@ -240,7 +239,7 @@ export default function BuildingDetailPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={building?.building_name ?? (buildingLoading ? "Loading..." : "Building")}
+        title={building?.building_name ?? (buildingLoading ? "Loading details..." : "Building")}
         description={pageDescription}
         backHref={`/admin/societies/${societyId}`}
         actions={

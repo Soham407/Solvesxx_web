@@ -4,31 +4,11 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { getCurrentEmployeeId } from "@/src/lib/security/getCurrentEmployeeId";
-
-interface PanicAlert {
-  id: string;
-  guard_id: string;
-  alert_type: string;
-  location_id: string | null;
-  latitude: number | null;
-  longitude: number | null;
-  alert_time: string;
-  description: string | null;
-  is_resolved: boolean;
-  resolved_at: string | null;
-  resolved_by: string | null;
-  resolution_notes: string | null;
-  guard?: {
-    guard_code: string;
-    employee?: {
-      first_name: string;
-      last_name: string;
-    };
-  };
-  location?: {
-    location_name: string;
-  };
-}
+import {
+  mapPanicAlertSubscriptionRow,
+  type PanicAlert,
+  type PanicAlertSubscriptionRow,
+} from "@/src/lib/panic-alerts/panicAlertTransforms";
 
 interface PanicAlertSubscriptionState {
   alerts: PanicAlert[];
@@ -73,6 +53,7 @@ export function usePanicAlertSubscription() {
           guard_id,
           alert_type,
           location_id,
+          photo_url,
           latitude,
           longitude,
           alert_time,
@@ -81,11 +62,13 @@ export function usePanicAlertSubscription() {
           resolved_at,
           resolved_by,
           resolution_notes,
+          created_at,
           guard:security_guards (
             guard_code,
             employee:employees (
               first_name,
-              last_name
+              last_name,
+              phone
             )
           ),
           location:company_locations (
@@ -98,22 +81,7 @@ export function usePanicAlertSubscription() {
       if (error) throw error;
 
       // Transform data — PostgREST returns typed data with aliases
-      const alerts: PanicAlert[] = (data || []).map((a) => ({
-        id: a.id,
-        guard_id: a.guard_id,
-        alert_type: a.alert_type,
-        location_id: a.location_id,
-        latitude: a.latitude,
-        longitude: a.longitude,
-        alert_time: a.alert_time,
-        description: a.description,
-        is_resolved: a.is_resolved,
-        resolved_at: a.resolved_at,
-        resolved_by: a.resolved_by,
-        resolution_notes: a.resolution_notes,
-        guard: a.guard as PanicAlert["guard"],
-        location: a.location as PanicAlert["location"],
-      }));
+      const alerts: PanicAlert[] = (data || []).map((a) => mapPanicAlertSubscriptionRow(a as PanicAlertSubscriptionRow));
 
       setState((prev) => ({
         ...prev,
@@ -162,6 +130,7 @@ export function usePanicAlertSubscription() {
               guard_id,
               alert_type,
               location_id,
+              photo_url,
               latitude,
               longitude,
               alert_time,
@@ -170,11 +139,13 @@ export function usePanicAlertSubscription() {
               resolved_at,
               resolved_by,
               resolution_notes,
+              created_at,
               guard:security_guards (
                 guard_code,
                 employee:employees (
                   first_name,
-                  last_name
+                  last_name,
+                  phone
                 )
               ),
               location:company_locations (
@@ -185,22 +156,7 @@ export function usePanicAlertSubscription() {
             .single();
 
           if (!error && data) {
-            const fullAlert: PanicAlert = {
-              id: data.id,
-              guard_id: data.guard_id,
-              alert_type: data.alert_type,
-              location_id: data.location_id,
-              latitude: data.latitude,
-              longitude: data.longitude,
-              alert_time: data.alert_time,
-              description: data.description,
-              is_resolved: data.is_resolved,
-              resolved_at: data.resolved_at,
-              resolved_by: data.resolved_by,
-              resolution_notes: data.resolution_notes,
-              guard: data.guard as PanicAlert["guard"],
-              location: data.location as PanicAlert["location"],
-            };
+            const fullAlert = mapPanicAlertSubscriptionRow(data as PanicAlertSubscriptionRow);
 
             setState((prev) => ({
               ...prev,

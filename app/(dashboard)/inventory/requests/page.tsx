@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { format } from "date-fns";
 import { 
   CheckCircle2, 
@@ -56,6 +56,15 @@ import { useAuth } from "@/hooks/useAuth";
 import { useBuyerRequests, type BuyerRequest, type BuyerRequestItem, REQUEST_STATUS_CONFIG } from "@/hooks/useBuyerRequests";
 import { cn } from "@/lib/utils";
 
+function summarizePendingRequests(requests: BuyerRequest[]) {
+  const pendingRequests = requests.filter((request) => request.status === "pending");
+  return {
+    pending: pendingRequests.length,
+    service: pendingRequests.filter((request) => request.is_service_request).length,
+    material: pendingRequests.filter((request) => !request.is_service_request).length,
+  };
+}
+
 export default function AdminRequestReviewPage() {
   const { role } = useAuth();
   const { toast } = useToast();
@@ -80,6 +89,10 @@ export default function AdminRequestReviewPage() {
   const authorizedRoles = ["admin", "super_admin", "company_hod", "account"];
   const isAuthorized = role && authorizedRoles.includes(role);
 
+  // Filter pending requests for review
+  const pendingRequests = requests.filter((request) => request.status === "pending");
+  const stats = summarizePendingRequests(requests);
+
   if (role && !isAuthorized) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4 text-center">
@@ -92,18 +105,6 @@ export default function AdminRequestReviewPage() {
       </div>
     );
   }
-
-  // Filter pending requests for review
-  const pendingRequests = useMemo(() => 
-    requests.filter(req => req.status === 'pending'),
-    [requests]
-  );
-
-  const stats = useMemo(() => ({
-    pending: pendingRequests.length,
-    service: pendingRequests.filter(req => req.is_service_request).length,
-    material: pendingRequests.filter(req => !req.is_service_request).length,
-  }), [pendingRequests]);
 
   const openDetailSheet = async (request: BuyerRequest) => {
     setSelectedRequest(request);
@@ -370,11 +371,11 @@ export default function AdminRequestReviewPage() {
                   <div className="grid grid-cols-2 gap-4 text-xs">
                     <div>
                       <span className="text-muted-foreground block mb-1 font-medium">Service Type</span>
-                      <span className="font-bold uppercase">{selectedRequest.service_type || "N/A"}</span>
+                      <span className="font-bold uppercase">{selectedRequest.service_type || "Not set"}</span>
                     </div>
                     <div>
                       <span className="text-muted-foreground block mb-1 font-medium">Grade / Role</span>
-                      <span className="font-bold">{selectedRequest.service_grade || "N/A"}</span>
+                      <span className="font-bold">{selectedRequest.service_grade || "Not set"}</span>
                     </div>
                     <div>
                       <span className="text-muted-foreground block mb-1 font-medium">Headcount</span>
@@ -382,7 +383,7 @@ export default function AdminRequestReviewPage() {
                     </div>
                     <div>
                       <span className="text-muted-foreground block mb-1 font-medium">Shift</span>
-                      <span className="font-bold">{selectedRequest.shift || "N/A"}</span>
+                      <span className="font-bold">{selectedRequest.shift || "Not set"}</span>
                     </div>
                     <div>
                       <span className="text-muted-foreground block mb-1 font-medium">Start Date</span>
@@ -423,7 +424,7 @@ export default function AdminRequestReviewPage() {
                           requestItems.map((item) => (
                             <TableRow key={item.id}>
                               <TableCell className="text-xs py-2">
-                                <div className="font-medium">{item.product_name || "Unknown Product"}</div>
+                                <div className="font-medium">{item.product_name || "Product not linked"}</div>
                                 {item.notes && <p className="text-[10px] text-muted-foreground">{item.notes}</p>}
                               </TableCell>
                               <TableCell className="text-right text-xs py-2 font-bold">

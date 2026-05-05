@@ -1,4 +1,3 @@
-// @ts-nocheck
 "use client";
 
 import { useState, useEffect } from "react";
@@ -125,8 +124,8 @@ export function ProvisionUserDialog({
         onOpenChange(false);
         reset();
       }
-    } catch (err: any) {
-      setApiError(err.message || "An unexpected error occurred.");
+    } catch (err: unknown) {
+      setApiError(err instanceof Error ? err.message : "An unexpected error occurred.");
     }
   };
 

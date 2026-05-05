@@ -62,6 +62,7 @@ BEGIN
 END $$;
 
 ALTER TABLE public.horticulture_zones
+  ADD COLUMN IF NOT EXISTS society_id UUID REFERENCES public.societies(id),
   ADD COLUMN IF NOT EXISTS location_id UUID REFERENCES public.company_locations(id) ON DELETE SET NULL,
   ADD COLUMN IF NOT EXISTS plant_types TEXT[] DEFAULT '{}'::TEXT[],
   ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
@@ -75,7 +76,6 @@ SET name = COALESCE(NULLIF(TRIM(name), ''), 'Unnamed Zone')
 WHERE name IS NULL OR TRIM(name) = '';
 
 ALTER TABLE public.horticulture_zones
-  DROP COLUMN IF EXISTS society_id,
   DROP COLUMN IF EXISTS health_status,
   DROP COLUMN IF EXISTS description,
   DROP COLUMN IF EXISTS last_maintained_at,

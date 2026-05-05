@@ -47,7 +47,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase as supabaseTyped } from "@/src/lib/supabaseClient";
-const supabase = supabaseTyped as any;
+const supabase = supabaseTyped;
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -69,6 +69,27 @@ interface QualityStats {
   damagedGoods: number;
   returnPending: number;
   qualityAudit: number;
+}
+
+type ManualShortageNoteItem = {
+  product_name: string;
+  shortage_quantity: number;
+  unit: string;
+};
+
+function summarizeQualityTickets(tickets: QualityTicket[]) {
+  const shortageNotes = tickets.filter((ticket) => ticket.issueType === "Shortage" || ticket.qualityStatus === "partial").length;
+  const damagedGoods = tickets.filter((ticket) => ticket.issueType === "Damaged" || ticket.qualityStatus === "rejected").length;
+  const returnPending = tickets.filter((ticket) => ticket.status === "Under Review" || ticket.status === "Debit Note Raised").length;
+  const resolved = tickets.filter((ticket) => ticket.status === "Resolved").length;
+  const total = tickets.length || 1;
+
+  return {
+    shortageNotes,
+    damagedGoods,
+    returnPending,
+    qualityAudit: Math.round((resolved / total) * 100),
+  };
 }
 
 export default function QualityTicketsPage() {
@@ -101,24 +122,42 @@ export default function QualityTicketsPage() {
     if (!discrepancyForm.item_description) return;
     setIsSubmittingDiscrepancy(true);
     try {
-      const { error } = await supabase.from("shortage_notes").insert({
+      const anchorReceipt = materialReceipts[0];
+      const { data: note, error } = await supabase.from("shortage_notes").insert({
         note_number: `SN-${Date.now()}`,
-        po_number: "MANUAL",
-        supplier_name: discrepancyForm.vendor || "Unknown",
+        po_id: anchorReceipt?.purchase_order_id || "",
+        supplier_id: anchorReceipt?.supplier_id || "",
+        grn_id: anchorReceipt?.id || null,
         status: "open",
         total_shortage_value: 0,
-        items: [{
-          product_name: discrepancyForm.item_description,
-          shortage_quantity: Math.max(0, (parseFloat(discrepancyForm.expected_qty) || 0) - (parseFloat(discrepancyForm.actual_qty) || 0)),
-          unit: "units",
-        }],
-      });
+      }).select().single();
+
       if (error) throw error;
+
+      const items: ManualShortageNoteItem[] = [{
+        product_name: discrepancyForm.item_description,
+        shortage_quantity: Math.max(0, (parseFloat(discrepancyForm.expected_qty) || 0) - (parseFloat(discrepancyForm.actual_qty) || 0)),
+        unit: "units",
+      }];
+
+      const { error: itemsError } = await supabase.from("shortage_note_items").insert(
+        items.map((item) => ({
+          shortage_note_id: note.id,
+          product_name: item.product_name,
+          shortage_quantity: item.shortage_quantity,
+          unit: item.unit,
+          ordered_quantity: parseFloat(discrepancyForm.expected_qty) || 0,
+          received_quantity: parseFloat(discrepancyForm.actual_qty) || 0,
+          notes: `Manual discrepancy logged for ${discrepancyForm.vendor || "Unknown"}`,
+        }))
+      );
+
+      if (itemsError) throw itemsError;
       toast.success("Discrepancy logged successfully");
       setLogDiscrepancyOpen(false);
       setDiscrepancyForm({ item_description: "", issue_type: "Shortage", expected_qty: "", actual_qty: "", vendor: "" });
-    } catch (err: any) {
-      toast.error(err.message || "Failed to log discrepancy");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to log discrepancy");
     } finally {
       setIsSubmittingDiscrepancy(false);
     }
@@ -153,7 +192,7 @@ export default function QualityTicketsPage() {
             allTickets.push({
               id: `TKT-Q-${grn.grn_number}-${index}`,
               grnId: grn.id,
-              poRef: grn.po_number || "N/A",
+              poRef: grn.po_number || "Not linked",
               vendor: grn.supplier_name || "Unknown",
               item: item.product_name || item.item_description || "Unknown Item",
               issueType,
@@ -169,20 +208,9 @@ export default function QualityTicketsPage() {
       setTickets(allTickets);
 
       // Calculate stats
-      const shortage = allTickets.filter(t => t.issueType === "Shortage" || t.qualityStatus === "partial").length;
-      const damaged = allTickets.filter(t => t.issueType === "Damaged" || t.qualityStatus === "rejected").length;
-      const pending = allTickets.filter(t => t.status === "Under Review" || t.status === "Debit Note Raised").length;
-      const resolved = allTickets.filter(t => t.status === "Resolved").length;
-      const total = allTickets.length || 1;
+      setStats(summarizeQualityTickets(allTickets));
 
-      setStats({
-        shortageNotes: shortage,
-        damagedGoods: damaged,
-        returnPending: pending,
-        qualityAudit: Math.round((resolved / total) * 100),
-      });
-
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Error fetching quality tickets:", err);
       setError(err instanceof Error ? err.message : "Failed to fetch quality tickets");
     } finally {
@@ -207,7 +235,7 @@ export default function QualityTicketsPage() {
           </div>
           <div className="flex flex-col text-left">
             <span className="font-bold text-sm">{row.original.item}</span>
-            <span className="text-[10px] text-muted-foreground uppercase font-bold">REF: {row.original.poRef} • {row.original.id}</span>
+            <span className="text-[10px] text-muted-foreground uppercase font-bold">REF: {row.original.poRef}</span>
           </div>
         </div>
       ),

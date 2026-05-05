@@ -1,10 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase as supabaseTyped } from "@/src/lib/supabaseClient";
+import { supabase } from "@/src/lib/supabaseClient";
 import { useToast } from "@/components/ui/use-toast";
-
-const supabase = supabaseTyped as any;
 import { PAGINATION } from "@/src/lib/constants";
 import {
   SupplierExtended,
@@ -17,6 +15,7 @@ import {
   canTransitionSupplierStatus,
 } from "@/src/types/supply-chain";
 import { sanitizeLikeInput } from "@/lib/sanitize";
+import { buildSupplierDashboardStats, type SupplierStatsRow } from "@/src/lib/suppliers/supplierTransforms";
 
 /**
  * Suppliers Hook
@@ -65,25 +64,9 @@ export function useSuppliers(initialFilters?: SupplierFilters) {
 
       if (error) throw error;
 
-      const suppliers = data || [];
-      
-      // Calculate stats
-      const stats: SupplierDashboardStats = {
-        totalSuppliers: suppliers.length,
-        activeSuppliers: suppliers.filter(s => s.status === 'active' || (s.is_active && !s.status)).length,
-        inactiveSuppliers: suppliers.filter(s => s.status === 'inactive' || (!s.is_active && !s.status)).length,
-        blacklistedSuppliers: suppliers.filter(s => s.status === 'blacklisted').length,
-        pendingVerification: suppliers.filter(s => s.status === 'pending_verification').length,
-        verifiedSuppliers: suppliers.filter(s => s.is_verified).length,
-        averageRating: suppliers.length > 0 
-          ? suppliers.reduce((sum, s) => sum + (s.rating || 0), 0) / suppliers.length 
-          : 0,
-        suppliersByTier: {
-          platinum: suppliers.filter(s => s.tier === 1).length,
-          gold: suppliers.filter(s => s.tier === 2).length,
-          silver: suppliers.filter(s => s.tier === 3 || !s.tier).length,
-        },
-      };
+      const suppliers = (data || []) as SupplierStatsRow[];
+
+      const stats: SupplierDashboardStats = buildSupplierDashboardStats(suppliers);
 
       setState(prev => ({ ...prev, stats }));
     } catch (err) {

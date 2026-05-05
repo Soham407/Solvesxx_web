@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
 import { useAuth } from "@/hooks/useAuth";
-import { assembleEmployeeDirectory } from "@/src/lib/workforce/boundary";
+import { assembleEmployeeDirectory } from "@/src/lib/workforce/workforceDirectory";
 
 interface Employee {
   id: string;
@@ -74,14 +74,7 @@ export function useEmployees(options?: { includeInactive?: boolean }): UseEmploy
     try {
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
-      // Fetch managed societies for non-admin roles to enable explicit filtering
-      let managedSocietyIds: string[] = [];
       const isAdmin = role === "admin" || role === "super_admin";
-      
-      if (!isAdmin && role) {
-        const { data: societies } = await supabase.rpc("get_my_managed_societies");
-        managedSocietyIds = societies || [];
-      }
 
       let query = supabase
         .from("employees")
@@ -222,7 +215,7 @@ export function useEmployees(options?: { includeInactive?: boolean }): UseEmploy
         designation_id: payload.designation_id || null,
         date_of_joining: new Date().toISOString().split("T")[0],
         is_active: true,
-      } as any);
+        });
       if (error) throw error;
       await fetchEmployees();
       return { success: true };

@@ -1,33 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { insertAuditLog } from "@/src/lib/platform/audit";
-import { extractPlatformPermissions } from "@/src/lib/platform/permissions";
+import {
+  getAdminRole,
+  isAdminRoleName,
+  isAdminTierAccount,
+  mapAdminAccount,
+  type AdminRoleName,
+  type AdminUserRow,
+} from "@/src/lib/platform/adminAccounts";
 import { requirePlatformPermission } from "@/src/lib/platform/server";
-import type { AdminAccount } from "@/src/types/platform";
-
-const ADMIN_ROLE_NAMES = ["admin", "super_admin"] as const;
-
-type AdminRoleName = (typeof ADMIN_ROLE_NAMES)[number];
-
-function isAdminRoleName(value: string): value is AdminRoleName {
-  return ADMIN_ROLE_NAMES.includes(value as AdminRoleName);
-}
-
-function mapAdmin(row: any): AdminAccount {
-  const role = Array.isArray(row.roles) ? row.roles[0] : row.roles;
-
-  return {
-    id: row.id,
-    fullName: row.full_name,
-    email: row.email,
-    phone: row.phone ?? null,
-    roleName: role?.role_name ?? "admin",
-    roleDisplayName: role?.role_display_name ?? "Administrator",
-    isActive: row.is_active !== false,
-    lastLogin: row.last_login ?? null,
-    permissions: extractPlatformPermissions(role?.permissions),
-  };
-}
 
 export async function PATCH(
   request: NextRequest,
@@ -55,11 +37,10 @@ export async function PATCH(
       return NextResponse.json({ error: "Admin account not found" }, { status: 404 });
     }
 
-    const currentRole = Array.isArray((existingUser as any).roles)
-      ? (existingUser as any).roles[0]
-      : (existingUser as any).roles;
+    const currentRow = existingUser as AdminUserRow;
+    const currentRole = getAdminRole(currentRow);
 
-    if (!isAdminRoleName(currentRole?.role_name ?? "")) {
+    if (!isAdminTierAccount(currentRow)) {
       return NextResponse.json(
         { error: "Only admin-tier accounts can be updated here" },
         { status: 400 }
@@ -71,7 +52,7 @@ export async function PATCH(
     }
 
     const nextRoleName = requestedRoleName as AdminRoleName | null;
-    const resultingRoleName = nextRoleName ?? currentRole.role_name;
+    const resultingRoleName = nextRoleName ?? currentRole?.role_name;
     const resultingActiveState =
       typeof body.isActive === "boolean" ? body.isActive : existingUser.is_active !== false;
 
@@ -86,7 +67,7 @@ export async function PATCH(
     }
 
     if (
-      currentRole.role_name === "super_admin" &&
+      currentRole?.role_name === "super_admin" &&
       (resultingRoleName !== "super_admin" || resultingActiveState === false)
     ) {
       const { count } = await context.supabase
@@ -104,7 +85,7 @@ export async function PATCH(
     }
 
     let roleId = existingUser.role_id;
-    if (nextRoleName && nextRoleName !== currentRole.role_name) {
+    if (nextRoleName && nextRoleName !== currentRole?.role_name) {
       const { data: nextRole, error: roleError } = await context.supabase
         .from("roles")
         .select("id")
@@ -139,23 +120,23 @@ export async function PATCH(
       throw updateError ?? new Error("Failed to update admin account");
     }
 
-    await insertAuditLog(context.supabase as any, {
+    await insertAuditLog(context.supabase, {
       entityType: "users",
       entityId: id,
       action: "admin.updated",
       actorId: context.user.id,
       actorRole: context.roleName,
-      oldData: mapAdmin(existingUser),
-      newData: mapAdmin(updatedUser),
+      oldData: mapAdminAccount(existingUser),
+      newData: mapAdminAccount(updatedUser),
       metadata: {
         changed_fields: Object.keys(updatePayload),
       },
     });
 
-    return NextResponse.json({ admin: mapAdmin(updatedUser) });
-  } catch (error: any) {
+    return NextResponse.json({ admin: mapAdminAccount(updatedUser) });
+  } catch (error: unknown) {
     return NextResponse.json(
-      { error: error?.message || "Failed to update admin account" },
+      { error: error instanceof Error ? error.message : "Failed to update admin account" },
       { status: 500 }
     );
   }

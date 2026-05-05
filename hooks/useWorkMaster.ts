@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase as supabaseTyped } from "@/src/lib/supabaseClient";
-const supabase = supabaseTyped as any;
+import { supabase } from "@/src/lib/supabaseClient";
 
 export interface WorkMaster {
   id: string;
@@ -31,6 +30,30 @@ export interface ServiceWiseWork {
   };
 }
 
+type WorkMasterRow = {
+  id: string;
+  work_code?: string | null;
+  work_name?: string | null;
+  description?: string | null;
+  standard_time_minutes?: number | null;
+  estimated_duration_minutes?: number | null;
+  skill_level_required?: string | null;
+  is_active?: boolean | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  priority?: string | null;
+};
+
+type ServiceWiseWorkRow = {
+  id: string;
+  service_id?: string | null;
+  service_type?: string | null;
+  work_id: string;
+  is_active?: boolean | null;
+  created_at?: string | null;
+  work?: WorkMasterRow | null;
+};
+
 interface UseWorkMasterState {
   workItems: WorkMaster[];
   serviceWorkLinks: ServiceWiseWork[];
@@ -38,7 +61,7 @@ interface UseWorkMasterState {
   error: string | null;
 }
 
-function normalizeWorkItem(row: any, index: number): WorkMaster {
+function normalizeWorkItem(row: WorkMasterRow, index: number): WorkMaster {
   const generatedCode = row.work_code || `WM-${String(index + 1).padStart(3, "0")}`;
 
   return {
@@ -93,23 +116,24 @@ export function useWorkMaster() {
       const { data, error } = await supabase
         .from("work_master")
         .select("*")
-        .order("work_name") as any;
+        .order("work_name");
 
       if (error) throw error;
 
+      const rows = (data || []) as WorkMasterRow[];
       setState((prev) => ({
         ...prev,
-        workItems: ((data as any[]) || [])
+        workItems: rows
           .map((row, index) => normalizeWorkItem(row, index))
           .filter((item) => item.is_active !== false),
         isLoading: false,
       }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching work master:", err);
       setState((prev) => ({
         ...prev,
         isLoading: false,
-        error: err.message || "Failed to fetch work master items",
+        error: err instanceof Error ? err.message : "Failed to fetch work master items",
       }));
     }
   }, []);
@@ -123,13 +147,14 @@ export function useWorkMaster() {
           *,
           work:work_id (*)
         `)
-        .order("created_at", { ascending: false }) as any;
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
 
+      const rows = (data || []) as ServiceWiseWorkRow[];
       setState((prev) => ({
         ...prev,
-        serviceWorkLinks: ((data as any[]) || [])
+        serviceWorkLinks: rows
           .filter((row) => row.is_active !== false)
           .map((row) => ({
             id: row.id,
@@ -141,7 +166,7 @@ export function useWorkMaster() {
             service: formatServiceTypeLabel(row.service_type),
           })),
       }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching service-work links:", err);
     }
   }, []);
@@ -178,7 +203,7 @@ export function useWorkMaster() {
 
       await fetchWorkItems();
       return true;
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Error creating work item:", err);
       return false;
     }
@@ -201,7 +226,7 @@ export function useWorkMaster() {
 
       await fetchServiceWorkLinks();
       return true;
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Error linking work to service:", err);
       return false;
     }

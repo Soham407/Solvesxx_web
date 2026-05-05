@@ -34,6 +34,15 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { VendorServiceDialog } from "@/components/dialogs/VendorServiceDialog";
 
+function summarizeVendorServices(vendorServices: VendorWiseService[]) {
+  return {
+    total: vendorServices.length,
+    preferred: vendorServices.filter((service) => service.is_preferred).length,
+    vendors: new Set(vendorServices.map((service) => service.supplier_id)).size,
+    services: new Set(vendorServices.map((service) => service.service_id)).size,
+  };
+}
+
 export default function VendorServiceMappingPage() {
   const { 
     vendorServices, 
@@ -62,12 +71,7 @@ export default function VendorServiceMappingPage() {
     }
   };
 
-  const stats = {
-    total: vendorServices.length,
-    preferred: vendorServices.filter(vs => vs.is_preferred).length,
-    vendors: new Set(vendorServices.map(vs => vs.supplier_id)).size,
-    services: new Set(vendorServices.map(vs => vs.service_id)).size,
-  };
+  const stats = summarizeVendorServices(vendorServices);
 
   const columns: ColumnDef<VendorWiseService>[] = [
     {
@@ -141,7 +145,7 @@ export default function VendorServiceMappingPage() {
         <div className="flex items-center gap-2">
           <Phone className="h-3.5 w-3.5 text-muted-foreground" />
           <span className="text-xs text-muted-foreground">
-            {row.original.supplier?.mobile || "N/A"}
+            {row.original.supplier?.mobile || "Not set"}
           </span>
         </div>
       ),

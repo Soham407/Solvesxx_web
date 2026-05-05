@@ -2,16 +2,60 @@
 
 import { useBuyerRequests } from "@/hooks/useBuyerRequests";
 import { useBuyerInvoices } from "@/hooks/useBuyerInvoices";
+import { useServiceRequests } from "@/hooks/useServiceRequests";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Clock, AlertCircle, Activity, ShieldCheck, RefreshCw, XCircle, MessageSquare, Wallet } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { format, addDays } from "date-fns";
 import { formatCurrency } from "@/src/lib/utils/currency";
 import { cn } from "@/lib/utils";
+import { normalizeServiceType } from "@/hooks/useServiceDeploymentMasters";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/use-toast";
+import type { BuyerRequest } from "@/hooks/useBuyerRequests";
+import type { BuyerInvoice } from "@/hooks/useBuyerInvoices";
 
 const SERVICE_IMAGE_VERSION = "20260326-real-images-v2";
+
+function summarizeBuyerDashboard(requests: BuyerRequest[], invoices: BuyerInvoice[]) {
+  const activeServices = requests.filter((request) =>
+    ["accepted", "po_issued", "po_dispatched", "material_received", "completed"].includes(request.status),
+  );
+  const pendingRequestsCount = requests.filter((request) =>
+    ["pending", "indent_generated", "indent_forwarded"].includes(request.status),
+  ).length;
+  const endingSoonCount = activeServices.filter((request) => {
+    const endDate = addDays(new Date(request.created_at), (request.duration_months || 1) * 30);
+    const daysUntilEnd = (endDate.getTime() - new Date().getTime()) / (1000 * 3600 * 24);
+    return daysUntilEnd > 0 && daysUntilEnd <= 30;
+  }).length;
+  const unpaidInvoices = invoices.filter((invoice) => invoice.payment_status !== "paid");
+
+  return {
+    activeServices,
+    activeServicesCount: activeServices.length,
+    pendingRequestsCount,
+    endingSoonCount,
+    unpaidInvoices,
+  };
+}
 
 const requestServiceTiles = [
   {
@@ -36,12 +80,6 @@ const requestServiceTiles = [
     name: "Pest Control",
     href: "/buyer/requests/new?category=pest_control",
     imageSrc: "/ServiceImages/Pest Control.png",
-    imageClassName: "object-cover",
-  },
-  {
-    name: "Printing & Advertising",
-    href: "/buyer/requests/new?category=printing",
-    imageSrc: "/ServiceImages/Printing.png",
     imageClassName: "object-cover",
   },
   {
@@ -89,21 +127,27 @@ const requestServiceTiles = [
 ];
 
 export default function BuyerDashboard() {
-  const { requests, isLoading: isLoadingRequests } = useBuyerRequests();
+  const router = useRouter();
+  const { requests, isLoading: isLoadingRequests, updateRequest } = useBuyerRequests();
   const { invoices, isLoading: isLoadingInvoices } = useBuyerInvoices();
+  const { createRequest: createServiceRequest } = useServiceRequests();
+  const { toast } = useToast();
+  const [showServiceIssueDialog, setShowServiceIssueDialog] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [ticketTitle, setTicketTitle] = useState("");
+  const [ticketDescription, setTicketDescription] = useState("");
+  const [cancelRequestId, setCancelRequestId] = useState("");
+  const [cancelReason, setCancelReason] = useState("");
+  const [isSubmittingTicket, setIsSubmittingTicket] = useState(false);
+  const [isCancellingService, setIsCancellingService] = useState(false);
 
-  // Metrics
-  // Conceptual ongoing services
-  const activeServices = requests.filter(r => ['accepted', 'po_issued', 'po_dispatched', 'material_received', 'completed'].includes(r.status));
-  const activeServicesCount = activeServices.length;
-  const pendingRequestsCount = requests.filter(r => ['pending', 'indent_generated', 'indent_forwarded'].includes(r.status)).length;
-  
-  // Dynamic metric for expiring soon (within 30 days)
-  const endingSoonCount = activeServices.filter(r => {
-    const endDate = addDays(new Date(r.created_at), (r.duration_months || 1) * 30);
-    const daysUntilEnd = (endDate.getTime() - new Date().getTime()) / (1000 * 3600 * 24);
-    return daysUntilEnd > 0 && daysUntilEnd <= 30;
-  }).length;
+  const {
+    activeServices,
+    activeServicesCount,
+    pendingRequestsCount,
+    endingSoonCount,
+    unpaidInvoices,
+  } = summarizeBuyerDashboard(requests, invoices);
 
   const stats = [
     {
@@ -139,10 +183,93 @@ export default function BuyerDashboard() {
       shift: r.shift || "Standard (9AM - 5PM)",
       startDate: new Date(r.created_at),
       endDate: addDays(new Date(r.created_at), (r.duration_months || 1) * 30),
-      status: "Active"
+      status: "Active",
+      serviceType: normalizeServiceType(r.service_type || r.category_name || r.title),
     }));
 
-  const unpaidInvoices = invoices.filter(i => i.payment_status !== 'paid');
+  const handleRenewService = (serviceType: string) => {
+    const params = new URLSearchParams({ category: "service" });
+
+    if (serviceType) {
+      params.set("service_type", serviceType);
+    }
+
+    router.push(`/buyer/requests/new?${params.toString()}`);
+  };
+
+  const resetTicketForm = () => {
+    setTicketTitle("");
+    setTicketDescription("");
+  };
+
+  const handleCreateTicket = async () => {
+    if (!ticketTitle.trim() || !ticketDescription.trim()) {
+      toast({
+        title: "Missing information",
+        description: "Enter a title and description before raising a ticket.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmittingTicket(true);
+    const result = await createServiceRequest({
+      title: ticketTitle.trim(),
+      description: ticketDescription.trim(),
+      priority: "normal",
+      type: "ticket",
+    });
+    setIsSubmittingTicket(false);
+
+    if (result.success) {
+      toast({ title: "Ticket raised", description: "Your support ticket has been submitted." });
+      resetTicketForm();
+      setShowServiceIssueDialog(false);
+    } else {
+      toast({
+        title: "Ticket failed",
+        description: result.error || "Could not create the ticket.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const openCancelDialog = () => {
+    setCancelRequestId(activeServices[0]?.id || "");
+    setCancelReason("");
+    setShowCancelDialog(true);
+  };
+
+  const handleCancelService = async () => {
+    if (!cancelRequestId) {
+      toast({
+        title: "Select a service",
+        description: "Choose an active service to cancel.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCancellingService(true);
+    const success = await updateRequest(cancelRequestId, {
+      status: "cancelled",
+      rejection_reason: cancelReason.trim() || "Cancelled by buyer",
+    });
+    setIsCancellingService(false);
+
+    if (success) {
+      toast({ title: "Service cancelled", description: "The selected service has been marked as cancelled." });
+      setShowCancelDialog(false);
+      setCancelRequestId("");
+      setCancelReason("");
+    } else {
+      toast({
+        title: "Cancellation failed",
+        description: "Could not cancel the selected service.",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <div className="space-y-8 pb-8">
@@ -214,9 +341,9 @@ export default function BuyerDashboard() {
                 </CardTitle>
                 <CardDescription>Your active service deployments.</CardDescription>
               </div>
-              <Link href="/buyer/requests">
-                <Button variant="outline" size="sm" className="rounded-full">View All</Button>
-              </Link>
+              <Button variant="outline" size="sm" className="rounded-full" onClick={() => router.push("/buyer/requests")}>
+                View All
+              </Button>
             </CardHeader>
             <CardContent className="p-0">
               {isLoadingRequests ? (
@@ -242,7 +369,12 @@ export default function BuyerDashboard() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 sm:flex-col sm:items-end w-full sm:w-auto mt-2 sm:mt-0">
-                        <Button variant="ghost" size="sm" className="w-full sm:w-auto justify-start text-xs h-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full sm:w-auto justify-start text-xs h-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                          onClick={() => handleRenewService(service.serviceType)}
+                        >
                           <RefreshCw className="h-3 w-3 mr-2" /> Renew
                         </Button>
                       </div>
@@ -311,16 +443,111 @@ export default function BuyerDashboard() {
               <CardDescription className="text-slate-300">Quick actions for your services</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2 mt-2">
-              <Button variant="secondary" className="w-full justify-start font-medium h-10 bg-white/10 hover:bg-white/20 text-white border-none" onClick={() => alert("Ticket creation modal would open here.")}>
+              <Button variant="secondary" className="w-full justify-start font-medium h-10 bg-white/10 hover:bg-white/20 text-white border-none" onClick={() => setShowServiceIssueDialog(true)}>
                 <MessageSquare className="mr-2 h-4 w-4" /> Raise a Ticket
               </Button>
-              <Button variant="secondary" className="w-full justify-start font-medium h-10 bg-white/10 hover:bg-white/20 text-white border-none" onClick={() => alert("Service cancellation flow would start here.")}>
+              <Button variant="secondary" className="w-full justify-start font-medium h-10 bg-white/10 hover:bg-white/20 text-white border-none" onClick={openCancelDialog}>
                 <XCircle className="mr-2 h-4 w-4" /> Cancel a Service
               </Button>
             </CardContent>
           </Card>
         </div>
       </div>
+
+      <Dialog open={showServiceIssueDialog} onOpenChange={setShowServiceIssueDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Raise a Ticket</DialogTitle>
+            <DialogDescription>Share the service issue you need help with.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="ticket-title">Title</Label>
+              <Input
+                id="ticket-title"
+                value={ticketTitle}
+                onChange={(event) => setTicketTitle(event.target.value)}
+                placeholder="Briefly describe the issue"
+                disabled={isSubmittingTicket}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ticket-description">Description</Label>
+              <Textarea
+                id="ticket-description"
+                value={ticketDescription}
+                onChange={(event) => setTicketDescription(event.target.value)}
+                placeholder="Add details for the service team"
+                disabled={isSubmittingTicket}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowServiceIssueDialog(false)} disabled={isSubmittingTicket}>
+              Close
+            </Button>
+            <Button onClick={handleCreateTicket} disabled={isSubmittingTicket}>
+              {isSubmittingTicket ? "Submitting..." : "Submit Ticket"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel a Service</AlertDialogTitle>
+            <AlertDialogDescription>Select the active service you want to cancel.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="cancel-service">Service</Label>
+              <select
+                id="cancel-service"
+                value={cancelRequestId}
+                onChange={(event) => setCancelRequestId(event.target.value)}
+                disabled={isCancellingService || activeServices.length === 0}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {activeServices.length === 0 ? (
+                  <option value="">No active services available</option>
+                ) : (
+                  activeServices.map((service) => (
+                    <option key={service.id} value={service.id}>
+                      {service.title || service.category_name || service.request_number}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cancel-reason">Reason</Label>
+              <Textarea
+                id="cancel-reason"
+                value={cancelReason}
+                onChange={(event) => setCancelReason(event.target.value)}
+                placeholder="Optional cancellation reason"
+                disabled={isCancellingService}
+              />
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isCancellingService}>
+              Keep Service
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                handleCancelService();
+              }}
+              disabled={isCancellingService || activeServices.length === 0}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isCancellingService ? "Cancelling..." : "Cancel Service"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

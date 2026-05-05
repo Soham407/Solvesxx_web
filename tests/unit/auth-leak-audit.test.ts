@@ -69,9 +69,22 @@ function mockAdminClient({
       : null,
     error: null,
   });
-  const select = vi.fn().mockReturnValue({ eq: vi.fn().mockReturnValue({ maybeSingle }) });
+  const residentOrder = vi.fn().mockResolvedValue({ data: [], error: null });
+  const residentEq = vi.fn().mockReturnValue({ order: residentOrder });
+  const residentIs = vi.fn().mockReturnValue({ eq: residentEq });
+  const residentSelect = vi.fn().mockReturnValue({ is: residentIs });
+  const societyEq = vi.fn().mockResolvedValue({ data: [], error: null });
+  const societySelect = vi.fn().mockReturnValue({ eq: societyEq });
+  const userEq = vi.fn().mockReturnValue({ maybeSingle });
+  const userSelect = vi.fn().mockReturnValue({ eq: userEq });
+  const from = vi.fn((table: string) => {
+    if (table === "users") return { select: userSelect };
+    if (table === "societies") return { select: societySelect };
+    if (table === "residents") return { select: residentSelect };
+    return { select: vi.fn() };
+  });
   (createServiceRoleClient as any).mockReturnValue({
-    from: vi.fn().mockReturnValue({ select }),
+    from,
     auth: {
       admin: {
         createUser: vi.fn(),

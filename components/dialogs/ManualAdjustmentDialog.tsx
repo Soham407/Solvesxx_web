@@ -31,8 +31,9 @@ import { supabase as supabaseTyped } from "@/src/lib/supabaseClient";
 import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import type { Database } from "@/src/types/supabase";
 
-const supabase = supabaseTyped as any;
+const supabase = supabaseTyped;
 
 const formSchema = z.object({
   adjustmentType: z.string().min(1, "Adjustment type required"),
@@ -59,7 +60,7 @@ export function ManualAdjustmentDialog({
   const { toast } = useToast();
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema) as any,
+    resolver: zodResolver(formSchema),
     defaultValues: {
       adjustmentType: "checkin",
       time: "",
@@ -93,7 +94,10 @@ export function ManualAdjustmentDialog({
         .eq("log_date", today)
         .single();
 
-      const updateData: any = {};
+      const updateData: Partial<Pick<
+        Database["public"]["Tables"]["attendance_logs"]["Insert"],
+        "check_in_time" | "check_out_time" | "status"
+      >> = {};
       if (values.adjustmentType === "checkin") {
         updateData.check_in_time = `${today}T${values.time}:00`;
         updateData.status = "present";
@@ -117,10 +121,8 @@ export function ManualAdjustmentDialog({
           log_date: today,
           ...updateData,
           status: "present",
-          is_manual_adjustment: true,
-          adjustment_reason: values.reason,
-          adjustment_notes: values.notes || null,
-        } as any);
+          notes: [values.reason, values.notes].filter(Boolean).join(" - ") || null,
+        });
       }
 
       toast({
@@ -129,7 +131,7 @@ export function ManualAdjustmentDialog({
       });
 
       setIsOpen(false);
-    } catch (err) {
+    } catch (err: unknown) {
       toast({
         title: "Error",
         description: "Failed to record adjustment. Please try again.",

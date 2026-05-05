@@ -30,6 +30,18 @@ import { QrScanner } from "@/components/qr-codes";
 import { PriorityBadge, RequestStatusBadge } from "@/components/assets/AssetStatusBadge";
 import type { ServiceRequestWithDetails } from "@/src/types/operations";
 
+function getServiceRequestBuckets(requests: ServiceRequestWithDetails[]) {
+  return {
+    openRequests: requests.filter((request) => request.status === "open" || request.status === "assigned"),
+    inProgressRequests: requests.filter((request) => request.status === "in_progress"),
+    completedToday: requests.filter((request) => {
+      if (request.status !== "completed" || !request.completed_at) return false;
+      const today = new Date().toDateString();
+      return new Date(request.completed_at).toDateString() === today;
+    }),
+  };
+}
+
 export default function ServiceBoyPage() {
   const [showScanner, setShowScanner] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<ServiceRequestWithDetails | null>(null);
@@ -52,15 +64,7 @@ export default function ServiceBoyPage() {
   } = useJobSessions(undefined, employeeId || undefined);
 
   const isLoading = profileLoading || requestsLoading || sessionsLoading;
-
-  // Separate assigned requests by status
-  const openRequests = requests.filter((r) => r.status === "open" || r.status === "assigned");
-  const inProgressRequests = requests.filter((r) => r.status === "in_progress");
-  const completedToday = requests.filter((r) => {
-    if (r.status !== "completed" || !r.completed_at) return false;
-    const today = new Date().toDateString();
-    return new Date(r.completed_at).toDateString() === today;
-  });
+  const { openRequests, inProgressRequests, completedToday } = getServiceRequestBuckets(requests);
 
   const handleScanComplete = (_qrId: string) => {
     // In real app, this would scan and get asset info
@@ -99,7 +103,7 @@ export default function ServiceBoyPage() {
         <div className="flex flex-col text-left">
           <h1 className="text-xl font-bold">Technician Portal</h1>
           <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-            {fullName || "Loading..."}
+            {fullName || "Loading profile..."}
           </p>
         </div>
         <div className="flex gap-2">
@@ -309,11 +313,11 @@ export default function ServiceBoyPage() {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="text-xs font-bold text-muted-foreground uppercase">Location</p>
-                  <p>{selectedRequest.location_name || "N/A"}</p>
+                  <p>{selectedRequest.location_name || "Not assigned"}</p>
                 </div>
                 <div>
                   <p className="text-xs font-bold text-muted-foreground uppercase">Asset</p>
-                  <p>{selectedRequest.asset_name || "N/A"}</p>
+                  <p>{selectedRequest.asset_name || "Not assigned"}</p>
                 </div>
                 <div>
                   <p className="text-xs font-bold text-muted-foreground uppercase">Scheduled</p>

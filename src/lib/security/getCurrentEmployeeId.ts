@@ -1,5 +1,5 @@
-import { getCanonicalEmployeeId } from "@/src/lib/workforce/boundary";
+import { getCanonicalEmployeeIdClient } from "@/src/lib/workforce/clientActor";
 
 export async function getCurrentEmployeeId() {
-  return getCanonicalEmployeeId();
+  return getCanonicalEmployeeIdClient();
 }

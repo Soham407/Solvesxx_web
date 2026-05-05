@@ -24,6 +24,33 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { usePerformanceAudit, ServiceFeedback } from "@/hooks/usePerformanceAudit";
 
+function getAuditSentimentLabel(totalFeedbacks: number, positiveFeedbacks: number): string {
+  return totalFeedbacks > 0 ? `${Math.round((positiveFeedbacks / totalFeedbacks) * 100)}%` : "0%";
+}
+
+function buildPerformanceStats(feedback: ServiceFeedback[], scorecards: { average_rating: number | string; critical_feedbacks: number }[]) {
+  const totalFeedbacks = feedback.length;
+  const positiveFeedbacks = feedback.filter((item) => item.score >= 4).length;
+  const participatingUnits = Array.from(new Set(feedback.map((item) => item.resident_id))).length;
+  const overallRating = scorecards.length > 0
+    ? (scorecards.reduce((acc, item) => acc + Number(item.average_rating), 0) / scorecards.length).toFixed(1)
+    : "0.0";
+  const criticalFeedbacks = scorecards.reduce((acc, item) => acc + item.critical_feedbacks, 0);
+
+  return [
+    { label: "Overall Rating", value: overallRating, extra: "Above target", icon: Star, color: "text-warning" },
+    { label: "Critical Feedback", value: criticalFeedbacks.toString(), extra: "Immediate action", icon: ShieldCheck, color: "text-critical" },
+    { label: "Participating Units", value: participatingUnits.toString(), extra: "Total Feedback Source", icon: UserCheck, color: "text-info" },
+    { label: "Positive Sentiment", value: getAuditSentimentLabel(totalFeedbacks, positiveFeedbacks), extra: "Healthy growth", icon: TrendingUp, color: "text-success" },
+  ];
+}
+
+function getPerformanceAuditResultClassName(score: number) {
+  if (score >= 5) return "bg-success/10 text-success border-success/20";
+  if (score <= 2) return "bg-critical/10 text-critical border-critical/20 animate-pulse-soft";
+  return "bg-info/10 text-info border-info/20";
+}
+
 export default function PerformanceAuditPage() {
   const { feedback, scorecards, isLoading } = usePerformanceAudit();
 
@@ -71,23 +98,17 @@ export default function PerformanceAuditPage() {
       header: "Detailed Note",
       cell: ({ row }) => <span className="text-xs text-muted-foreground truncate max-w-[200px]">{row.getValue("comments")}</span>,
     },
-    {
-      accessorKey: "score",
-      id: "vendorRating",
-      header: "HRA Audit Result",
-      cell: ({ row }) => {
+      {
+        accessorKey: "score",
+        id: "vendorRating",
+        header: "HRA Audit Result",
+        cell: ({ row }) => {
           const score = row.original.score;
           let val: "Incentivize" | "Warning" | "Standard" = "Standard";
           if (score >= 5) val = "Incentivize";
           else if (score <= 2) val = "Warning";
-          
-          const variants: Record<string, string> = {
-              "Incentivize": "bg-success/10 text-success border-success/20",
-              "Warning": "bg-critical/10 text-critical border-critical/20 animate-pulse-soft",
-              "Standard": "bg-info/10 text-info border-info/20",
-          };
           return (
-            <Badge variant="outline" className={cn("font-bold text-[10px] uppercase h-5", variants[val] || "")}>
+            <Badge variant="outline" className={cn("font-bold text-[10px] uppercase h-5", getPerformanceAuditResultClassName(score))}>
                 {val}
             </Badge>
           );
@@ -108,19 +129,7 @@ export default function PerformanceAuditPage() {
     },
   ];
 
-  const overallRating = scorecards.length > 0 
-    ? (scorecards.reduce((acc, s) => acc + Number(s.average_rating), 0) / scorecards.length).toFixed(1)
-    : "0.0";
-
-  const criticalCount = scorecards.reduce((acc, s) => acc + s.critical_feedbacks, 0);
-  const totalFeedbacks = feedback.length;
-
-  const stats = [
-    { label: "Overall Rating", value: overallRating, extra: "Above target", icon: Star, color: "text-warning" },
-    { label: "Critical Feedback", value: criticalCount.toString(), extra: "Immediate action", icon: ShieldCheck, color: "text-critical" },
-    { label: "Participating Units", value: Array.from(new Set(feedback.map(f => f.resident_id))).length.toString(), extra: "Total Feedback Source", icon: UserCheck, color: "text-info" },
-    { label: "Positive Sentiment", value: totalFeedbacks > 0 ? `${Math.round((feedback.filter(f => f.score >= 4).length / totalFeedbacks) * 100)}%` : "0%", extra: "Healthy growth", icon: TrendingUp, color: "text-success" },
-  ];
+  const stats = buildPerformanceStats(feedback, scorecards);
 
   return (
     <div className="animate-fade-in space-y-8 pb-20">

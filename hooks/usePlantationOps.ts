@@ -2,51 +2,27 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { supabase as supabaseClient } from "@/src/lib/supabaseClient";
-const supabase = supabaseClient as any;
+const supabase = supabaseClient;
+import {
+  mapHorticultureTask,
+  mapHorticultureZone,
+  mapSeasonalPlan,
+  type HorticultureTask,
+  type HorticultureTaskRow,
+  type HorticultureZone,
+  type HorticultureZoneRow,
+  type SeasonalPlan,
+  type SeasonalPlanRow,
+} from "@/src/lib/plantation/plantationTransforms";
 
-// ============================================
-// TYPES
-// ============================================
-
-export interface HorticultureZone {
-  id: string;
-  society_id: string;
-  zone_name: string;
-  area_sqft: number;
-  health_status: "healthy" | "needs_attention" | "being_maintained" | "dormant";
-  description: string;
-  last_maintained_at: string | null;
-  created_at: string;
-  updated_at: string;
-  soil_health?: number;
-  greenery_density?: number;
-}
-
-export interface SeasonalPlan {
-  id: string;
-  month: string;
-  title: string;
-  description: string;
-}
-
-export interface HorticultureTask {
-  id: string;
-  zone_id: string;
-  task_type: string;
-  frequency: string;
-  assigned_to: string | null;
-  priority: "High" | "Normal";
-  status: "Scheduled" | "In Progress" | "Completed" | "Overdue";
-  next_due_date: string | null;
-  last_completed_at: string | null;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-  
-  // Joined Data
-  zone_name?: string;
-  gardener_name?: string;
-}
+export type {
+  HorticultureTask,
+  HorticultureTaskRow,
+  HorticultureZone,
+  HorticultureZoneRow,
+  SeasonalPlan,
+  SeasonalPlanRow,
+} from "@/src/lib/plantation/plantationTransforms";
 
 interface UsePlantationOpsState {
   zones: HorticultureZone[];
@@ -68,6 +44,18 @@ export function usePlantationOps() {
     isLoading: true,
     error: null,
   });
+
+  function normalizeZoneRows(rows: unknown): HorticultureZoneRow[] {
+    return Array.isArray(rows) ? (rows as HorticultureZoneRow[]) : [];
+  }
+
+  function normalizeTaskRows(rows: unknown): HorticultureTaskRow[] {
+    return Array.isArray(rows) ? (rows as HorticultureTaskRow[]) : [];
+  }
+
+  function normalizeSeasonalPlanRows(rows: unknown): SeasonalPlanRow[] {
+    return Array.isArray(rows) ? (rows as SeasonalPlanRow[]) : [];
+  }
 
   const fetchData = useCallback(async () => {
     try {
@@ -101,27 +89,25 @@ export function usePlantationOps() {
 
       if (seasonalError) console.warn("Failed to fetch seasonal plans", seasonalError);
 
-      const formattedTasks: HorticultureTask[] = (tasksData || []).map((task: any) => ({
-        ...task,
-        zone_name: task.horticulture_zones?.zone_name || "Unknown Zone",
-        gardener_name: task.employees 
-          ? `${task.employees.first_name} ${task.employees.last_name}`.trim() 
-          : "Unassigned"
-      }));
+      const formattedZones: HorticultureZone[] = normalizeZoneRows(zonesData).map(mapHorticultureZone);
+
+      const formattedTasks: HorticultureTask[] = normalizeTaskRows(tasksData).map(mapHorticultureTask);
+
+      const formattedSeasonalPlans: SeasonalPlan[] = normalizeSeasonalPlanRows(seasonalData).map(mapSeasonalPlan);
 
       setState({
-        zones: zonesData || [],
+        zones: formattedZones,
         tasks: formattedTasks,
-        seasonalPlans: seasonalData || [],
+        seasonalPlans: formattedSeasonalPlans,
         isLoading: false,
         error: null,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching plantation ops:", err);
       setState((prev) => ({
         ...prev,
         isLoading: false,
-        error: err.message || "Failed to fetch plantation data",
+        error: err instanceof Error ? err.message : "Failed to fetch plantation data",
       }));
     }
   }, []);

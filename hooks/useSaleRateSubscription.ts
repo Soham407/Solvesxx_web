@@ -45,6 +45,20 @@ interface UseSaleRateSubscriptionReturn extends UseSaleRateSubscriptionState {
   disconnect: () => void;
 }
 
+type SaleProductRateRow = {
+  id: string;
+  product_id: string;
+  society_id: string | null;
+  rate: number;
+  is_active: boolean;
+  created_at?: string | null;
+  effective_from?: string | null;
+  effective_to?: string | null;
+  gst_percentage?: number | null;
+  margin_percentage?: number | null;
+  base_cost?: number | null;
+};
+
 /**
  * Hook for real-time sale product rate change subscriptions
  * Listens for new rates, rate updates, and expirations
@@ -120,7 +134,7 @@ export function useSaleRateSubscription(
           filter,
         },
         async (payload) => {
-          const newRate = payload.new as any;
+          const newRate = payload.new as SaleProductRateRow;
 
           // Check additional filters that can't be done via Supabase filter
           if (options?.productId && newRate.product_id !== options.productId) return;
@@ -153,7 +167,7 @@ export function useSaleRateSubscription(
             productName: product?.product_name || "Unknown Product",
             societyName: societyName,
             type: "rate_created",
-            newRate: newRate.sale_rate,
+            newRate: newRate.rate,
             read: false,
             createdAt: new Date().toISOString(),
             metadata: {
@@ -172,7 +186,9 @@ export function useSaleRateSubscription(
             lastChange: {
               ...newRate,
               product: product,
-              society: societyName ? { id: newRate.society_id, name: societyName } : null,
+              society: societyName ? { id: newRate.society_id || "", society_name: societyName } : null,
+              rate: newRate.rate,
+              created_at: newRate.created_at || new Date().toISOString(),
             } as SaleProductRateDisplay,
           }));
         }
@@ -186,8 +202,8 @@ export function useSaleRateSubscription(
           filter,
         },
         async (payload) => {
-          const updatedRate = payload.new as any;
-          const oldRateData = payload.old as any;
+          const updatedRate = payload.new as SaleProductRateRow;
+          const oldRateData = payload.old as SaleProductRateRow;
 
           // Check additional filters
           if (options?.productId && updatedRate.product_id !== options.productId) return;
@@ -223,8 +239,8 @@ export function useSaleRateSubscription(
             notificationType = "rate_expired";
           }
 
-          const changePercent = oldRateData.sale_rate !== updatedRate.sale_rate
-            ? calculateChangePercent(oldRateData.sale_rate, updatedRate.sale_rate)
+          const changePercent = oldRateData.rate !== updatedRate.rate
+            ? calculateChangePercent(oldRateData.rate, updatedRate.rate)
             : undefined;
 
           const notification: SaleRateChangeNotification = {
@@ -235,8 +251,8 @@ export function useSaleRateSubscription(
             productName: product?.product_name || "Unknown Product",
             societyName: societyName,
             type: notificationType,
-            oldRate: oldRateData.sale_rate,
-            newRate: updatedRate.sale_rate,
+            oldRate: oldRateData.rate,
+            newRate: updatedRate.rate,
             changePercentage: changePercent,
             read: false,
             createdAt: new Date().toISOString(),
@@ -256,7 +272,9 @@ export function useSaleRateSubscription(
             lastChange: {
               ...updatedRate,
               product: product,
-              society: societyName ? { id: updatedRate.society_id, name: societyName } : null,
+              society: societyName ? { id: updatedRate.society_id || "", society_name: societyName } : null,
+              rate: updatedRate.rate,
+              created_at: updatedRate.created_at || new Date().toISOString(),
             } as SaleProductRateDisplay,
           }));
         }
@@ -270,7 +288,7 @@ export function useSaleRateSubscription(
           filter,
         },
         async (payload) => {
-          const deletedRate = payload.old as any;
+          const deletedRate = payload.old as SaleProductRateRow;
 
           // Check additional filters
           if (options?.productId && deletedRate.product_id !== options.productId) return;
@@ -285,7 +303,7 @@ export function useSaleRateSubscription(
             productName: "Product",
             societyName: deletedRate.society_id ? "Society" : null,
             type: "rate_deactivated",
-            newRate: deletedRate.sale_rate || 0,
+            newRate: deletedRate.rate || 0,
             read: false,
             createdAt: new Date().toISOString(),
             metadata: {

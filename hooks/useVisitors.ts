@@ -5,96 +5,18 @@ import { supabase } from "@/src/lib/supabaseClient";
 import { useToast } from "@/components/ui/use-toast";
 import { sanitizeLikeInput } from "@/lib/sanitize";
 import { useAuth } from "@/hooks/useAuth";
+import {
+  buildVisitorCollections,
+  buildVisitorStats,
+  normalizeVisitorRows,
+  type CreateVisitorDTO,
+  type Visitor,
+  type VisitorFilters,
+  type VisitorRpcResult,
+  type VisitorStats,
+} from "@/src/lib/visitors/visitorTransforms";
 
-/**
- * Visitor Management Hook
- * PRD Reference: Visitor Management System (I-IV)
- *
- * Features:
- * - Guest Entry: Capture Name, Photo, Phone Number, Vehicle Number
- * - Daily Visitor Database (Maids, Drivers, Milkmen)
- * - Society Family Database (Flat lookup)
- * - Analytics: Total entries per day/week
- */
-
-export interface Visitor {
-  id: string;
-  visitor_name: string;
-  visitor_type:
-    | "guest"
-    | "vendor"
-    | "contractor"
-    | "service_staff"
-    | "daily_helper";
-  phone: string | null;
-  vehicle_number: string | null;
-  photo_url: string | null;
-  flat_id: string | null;
-  resident_id: string | null;
-  purpose: string | null;
-  entry_time: string;
-  exit_time: string | null;
-  entry_guard_id: string | null;
-  exit_guard_id: string | null;
-  entry_location_id: string | null;
-  approved_by_resident: boolean | null;
-  rejection_reason: string | null;
-  bypass_reason: string | null;
-  visitor_pass_number: string | null;
-  is_frequent_visitor: boolean;
-  created_at: string;
-  // Joined data
-  flat?: {
-    flat_number: string;
-    building?: {
-      building_name: string;
-    };
-  };
-  resident?: {
-    full_name: string;
-    phone: string;
-  };
-  entry_guard?: {
-    guard_code: string;
-    employee?: {
-      first_name: string;
-      last_name: string;
-    };
-  };
-}
-
-export interface VisitorStats {
-  activeVisitors: number;
-  todayTotal: number;
-  preApproved: number;
-  deniedEntry: number;
-}
-
-export interface CreateVisitorDTO {
-  visitor_name: string;
-  visitor_type: string;
-  phone?: string;
-  vehicle_number?: string;
-  photo_url?: string;
-  flat_id?: string;
-  resident_id?: string;
-  purpose?: string;
-  entry_guard_id?: string;
-  entry_location_id?: string;
-  is_frequent_visitor?: boolean;
-  bypass_reason?: string;
-  approval_required?: boolean;
-}
-
-export interface VisitorFilters {
-  status?: "active" | "completed" | "all";
-  type?: string;
-  flatId?: string;
-  dateFrom?: string;
-  dateTo?: string;
-  searchTerm?: string;
-  societyId?: string;
-}
+export type { Visitor, VisitorStats, CreateVisitorDTO, VisitorFilters } from "@/src/lib/visitors/visitorTransforms";
 
 export function useVisitors(initialFilters?: VisitorFilters) {
   const { role, userId } = useAuth();
@@ -194,18 +116,12 @@ export function useVisitors(initialFilters?: VisitorFilters) {
 
       if (fetchError) throw fetchError;
 
-      const typedData = (data || []) as unknown as Visitor[];
+      const typedData = normalizeVisitorRows(data);
       setVisitors(typedData);
 
-      // Separate active visitors (still in building)
-      const active = typedData.filter((v) => !v.exit_time);
-      setActiveVisitors(active);
-
-      // Separate daily helpers
-      const helpers = typedData.filter(
-        (v) => v.is_frequent_visitor || v.visitor_type === "daily_helper",
-      );
-      setDailyHelpers(helpers);
+      const collections = buildVisitorCollections(typedData);
+      setActiveVisitors(collections.activeVisitors);
+      setDailyHelpers(collections.dailyHelpers);
     } catch (err: unknown) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to load visitors";
@@ -252,12 +168,14 @@ export function useVisitors(initialFilters?: VisitorFilters) {
         .eq("approved_by_resident", false)
         .gte("entry_time", `${today}T00:00:00`);
 
-      setStats({
-        activeVisitors: activeCount || 0,
-        todayTotal: todayCount || 0,
-        preApproved: preApprovedCount || 0,
-        deniedEntry: deniedCount || 0,
-      });
+      setStats(
+        buildVisitorStats({
+          activeVisitors: activeCount,
+          todayTotal: todayCount,
+          preApproved: preApprovedCount,
+          deniedEntry: deniedCount,
+        }),
+      );
     } catch (err) {
       console.error("Error fetching visitor stats:", err);
     }
@@ -282,9 +200,7 @@ export function useVisitors(initialFilters?: VisitorFilters) {
 
       if (rpcError) throw rpcError;
 
-      const rpcResult = result as
-        | { success?: boolean; error?: string; visitor?: Visitor | null }
-        | null;
+      const rpcResult = result as VisitorRpcResult;
 
       if (!rpcResult?.success || !rpcResult.visitor?.id) {
         throw new Error(rpcResult?.error || "Failed to add visitor");
@@ -353,7 +269,7 @@ export function useVisitors(initialFilters?: VisitorFilters) {
         },
       );
       if (rpcError) throw rpcError;
-      const rpcResult = result as any;
+      const rpcResult = result as VisitorRpcResult;
       if (!rpcResult?.success)
         throw new Error(rpcResult?.error || "Visitor checkout failed");
 
@@ -396,7 +312,7 @@ export function useVisitors(initialFilters?: VisitorFilters) {
         },
       );
       if (rpcError) throw rpcError;
-      const rpcResult = result as any;
+      const rpcResult = result as VisitorRpcResult;
       if (!rpcResult?.success)
         throw new Error(rpcResult?.error || "Visitor approval failed");
 
@@ -436,7 +352,7 @@ export function useVisitors(initialFilters?: VisitorFilters) {
         },
       );
       if (rpcError) throw rpcError;
-      const rpcResult = result as any;
+      const rpcResult = result as VisitorRpcResult;
       if (!rpcResult?.success)
         throw new Error(rpcResult?.error || "Visitor denial failed");
 

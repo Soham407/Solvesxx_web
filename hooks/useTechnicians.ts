@@ -2,42 +2,14 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
+import {
+  mapTechnicianRow,
+  mapTechnicianRows,
+  type RawTechnicianRow,
+  type TechnicianProfile,
+} from "@/src/lib/technicians/technicianTransforms";
 
-export interface TechnicianProfile {
-  id: string;
-  employee_id: string;
-  skills: string[];
-  certifications: string[];
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-  // Joined fields
-  full_name?: string;
-  employee_code?: string;
-  designation?: string;
-  department?: string;
-  photo_url?: string;
-}
-
-interface RawTechnicianRow {
-  id: string;
-  employee_id: string;
-  skills: string[];
-  certifications: string[];
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-  employee?: {
-    first_name?: string;
-    last_name?: string;
-    employee_code?: string;
-    photo_url?: string;
-    department?: string;
-    designations?: {
-      designation_name?: string;
-    };
-  };
-}
+export type { TechnicianProfile } from "@/src/lib/technicians/technicianTransforms";
 
 interface UseTechniciansState {
   technicians: TechnicianProfile[];
@@ -57,6 +29,10 @@ export function useTechnicians(): UseTechniciansReturn {
     isLoading: true,
     error: null,
   });
+
+  function normalizeTechnicianRows(rows: unknown): RawTechnicianRow[] {
+    return Array.isArray(rows) ? (rows as RawTechnicianRow[]) : [];
+  }
 
   const fetchTechnicians = useCallback(async () => {
     try {
@@ -82,15 +58,7 @@ export function useTechnicians(): UseTechniciansReturn {
 
       if (error) throw error;
 
-      const typedData = (data || []) as unknown as RawTechnicianRow[];
-      const transformedData: TechnicianProfile[] = typedData.map((item) => ({
-        ...item,
-        full_name: item.employee ? `${item.employee.first_name} ${item.employee.last_name}` : "Unknown",
-        employee_code: item.employee?.employee_code,
-        designation: item.employee?.designations?.designation_name,
-        department: item.employee?.department,
-        photo_url: item.employee?.photo_url,
-      }));
+      const transformedData: TechnicianProfile[] = mapTechnicianRows(normalizeTechnicianRows(data));
 
       setState({
         technicians: transformedData,

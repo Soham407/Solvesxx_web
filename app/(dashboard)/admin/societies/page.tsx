@@ -80,6 +80,10 @@ function computePreview(rows: ParsedImportRow[]) {
   return { societies, buildings, flats };
 }
 
+function getSocietyLocationLabel(city?: string | null, state?: string | null) {
+  return [city, state].filter(Boolean).join(", ") || "—";
+}
+
 function downloadTemplate() {
   const header =
     "society_code,society_name,city,state,pincode,address,building_code,building_name,total_floors,flat_number,flat_type,floor_number,area_sqft,ownership_type";
@@ -298,10 +302,7 @@ export default function SocietiesPage() {
       {
         id: "location",
         header: "Location",
-        cell: ({ row }) => {
-          const parts = [row.original.city, row.original.state].filter(Boolean);
-          return <span className="text-sm">{parts.join(", ") || "—"}</span>;
-        },
+        cell: ({ row }) => <span className="text-sm">{getSocietyLocationLabel(row.original.city, row.original.state)}</span>,
       },
       {
         accessorKey: "contact_person",

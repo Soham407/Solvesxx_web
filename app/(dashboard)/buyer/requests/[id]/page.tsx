@@ -32,6 +32,12 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/ui/use-toast";
 import { BuyerFeedbackDialog } from "@/components/dialogs/BuyerFeedbackDialog";
+import type { BuyerRequest, BuyerRequestItem } from "@/hooks/useBuyerRequests";
+import type { ComponentType } from "react";
+
+type BuyerRequestDetail = BuyerRequest & {
+  rejected_at?: string | null;
+};
 
 export default function BuyerRequestDetailsPage() {
   const params = useParams();
@@ -40,8 +46,8 @@ export default function BuyerRequestDetailsPage() {
   const requestId = params.id as string;
   const { requests, fetchRequestItems, updateRequestStatus, isLoading, refresh } = useBuyerRequests();
   
-  const [request, setRequest] = useState<any>(null);
-  const [items, setItems] = useState<any[]>([]);
+  const [request, setRequest] = useState<BuyerRequestDetail | null>(null);
+  const [items, setItems] = useState<BuyerRequestItem[]>([]);
   const [isLoadingDetails, setIsLoadingDetails] = useState(true);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
@@ -150,7 +156,7 @@ export default function BuyerRequestDetailsPage() {
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Delivery Location</Label>
-                  <p className="text-sm font-medium">{request.location_name || "N/A"}</p>
+                  <p className="text-sm font-medium">{request.location_name || "Not set"}</p>
                 </div>
               </div>
             </CardContent>
@@ -267,7 +273,7 @@ export default function BuyerRequestDetailsPage() {
                 <p className="text-sm font-medium">Reason:</p>
                 <p className="text-sm text-muted-foreground">{request.rejection_reason || "No reason provided."}</p>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Rejected on {request.rejected_at ? format(new Date(request.rejected_at), 'MMM d, yyyy') : "N/A"}
+                  Rejected on {request.rejected_at ? format(new Date(request.rejected_at), 'MMM d, yyyy') : "Not set"}
                 </p>
               </CardContent>
             </Card>
@@ -295,7 +301,19 @@ function Label({ children, className }: { children: React.ReactNode; className?:
   return <div className={`text-xs font-bold uppercase tracking-wider mb-1 ${className}`}>{children}</div>;
 }
 
-function TimelineItem({ label, date, active, done, icon: Icon }: { label: string; date?: string; active: boolean; done: boolean; icon: any }) {
+function TimelineItem({
+  label,
+  date,
+  active,
+  done,
+  icon: Icon,
+}: {
+  label: string;
+  date?: string;
+  active: boolean;
+  done: boolean;
+  icon: ComponentType<{ className?: string }>;
+}) {
   return (
     <div className="relative pl-6">
       <div className={`absolute left-[-19px] top-0 p-1 rounded-full border-2 bg-background z-10 

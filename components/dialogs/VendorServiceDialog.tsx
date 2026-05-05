@@ -30,7 +30,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 
 const formSchema = z.object({
   supplier_id: z.string().min(1, "Vendor is required"),
-  service_id: z.string().min(1, "Service is required"),
+  service_type: z.string().min(1, "Service type is required"),
   vendor_rate: z.string().optional().refine((val) => {
     if (!val) return true;
     const num = Number(val);
@@ -67,7 +67,7 @@ export function VendorServiceDialog({
     resolver: zodResolver(formSchema),
     defaultValues: {
       supplier_id: "",
-      service_id: "",
+      service_type: "",
       vendor_rate: "",
       response_time_sla: "",
       is_preferred: false,
@@ -79,7 +79,7 @@ export function VendorServiceDialog({
     if (mapping) {
       form.reset({
         supplier_id: mapping.supplier_id,
-        service_id: mapping.service_id,
+        service_type: mapping.service_type,
         vendor_rate: mapping.vendor_rate ? String(mapping.vendor_rate / 100) : "", // Convert paise to rupees for UI
         response_time_sla: mapping.response_time_sla ?? "",
         is_preferred: mapping.is_preferred,
@@ -90,7 +90,7 @@ export function VendorServiceDialog({
 
     form.reset({
       supplier_id: "",
-      service_id: "",
+      service_type: "",
       vendor_rate: "",
       response_time_sla: "",
       is_preferred: false,
@@ -103,7 +103,7 @@ export function VendorServiceDialog({
   const onSubmit = async (values: FormOutput) => {
     const payload = {
       supplier_id: values.supplier_id,
-      service_id: values.service_id,
+      service_type: values.service_type,
       vendor_rate: values.vendor_rate ? Math.round(Number(values.vendor_rate) * 100) : null, // Convert to paise
       response_time_sla: values.response_time_sla || null,
       is_preferred: values.is_preferred,
@@ -112,7 +112,7 @@ export function VendorServiceDialog({
 
     const success = isEdit && mapping
       ? await updateVendorService(mapping.id, payload)
-      : await createVendorService(payload as any);
+      : await createVendorService(payload);
 
     if (success) {
       onOpenChange(false);
@@ -157,10 +157,10 @@ export function VendorServiceDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="service_id">Linked Service</Label>
+            <Label htmlFor="service_type">Linked Service</Label>
             <Select 
-              onValueChange={(v) => form.setValue("service_id", v)}
-              value={form.watch("service_id")}
+              onValueChange={(v) => form.setValue("service_type", v)}
+              value={form.watch("service_type")}
               disabled={isEdit || loadingServices}
             >
               <SelectTrigger>
@@ -174,9 +174,9 @@ export function VendorServiceDialog({
                 ))}
               </SelectContent>
             </Select>
-            {form.formState.errors.service_id && (
+            {form.formState.errors.service_type && (
               <p className="text-xs text-destructive">
-                {form.formState.errors.service_id.message}
+                {form.formState.errors.service_type.message}
               </p>
             )}
           </div>

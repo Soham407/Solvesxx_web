@@ -256,6 +256,7 @@ return () => { supabase.removeChannel(channel); };
 - **SQL Functions**: payroll_calculation, po_status_transition, reconciliation_matching, visitor_approval, log_material_arrival, auto_punch_out_idle_employees, detect_chemical_expiry
 - **Recent procurement hardening**: `20260323000002_fix_audit_log_uuid_writers.sql` aligns legacy audit writers to `audit_logs.entity_id uuid`; `20260323000003_fix_finance_closure_target_dates.sql` fixes finance closure trigger date-column handling for `purchase_bills`, `sale_bills`, `payments`, and `ledger_entries`
 - **Latest procurement workflow hardening**: `20260329000001_fix_procurement_po_dispatched_flow.sql` aligns `dispatched` across the PO transition RPCs and keeps buyer requests moving to `material_received` after GRN acceptance or partial acceptance
+- **Latest buyer quick actions**: `20260430000000_buyer_ticket_and_cancel_actions.sql` adds `service_requests.type` (`service_request`/`ticket`) and a `cancelled` buyer request status for `/buyer` dashboard actions
 - **Reference schema**: `docs/reference_schema.sql` (134KB)
 
 ---
@@ -327,4 +328,3 @@ Below is a categorized list of all hooks. **Always check if a hook already exist
 
 ### Platform
 `useAuditLogs`, `useNotifications`, `usePlatformAdminAccounts`, `usePlatformAuditLogs`, `usePlatformConfig`, `usePlatformRolePermissions`, `useSupabaseMutation`, `useSupabaseQuery`, `useSystemConfig`, `useUsers`
-

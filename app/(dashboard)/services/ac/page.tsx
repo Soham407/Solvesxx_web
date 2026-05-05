@@ -29,17 +29,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PhotoUploadDialog } from "@/components/dialogs/PhotoUploadDialog";
 import { ScheduleVisitDialog } from "@/components/dialogs/ScheduleVisitDialog";
 import { NewJobOrderDialog } from "@/components/dialogs/NewJobOrderDialog";
-import { ServiceCode } from "@/src/lib/service-codes";
+import { buildAcServiceStats, filterAcStockLevels, findAcService } from "@/src/lib/services/acTransforms";
+
+function getSafeJobLabel(requestNumber: string | null | undefined) {
+  return requestNumber || "Pending job number";
+}
 
 export default function ACServicePage() {
   // Fetch AC service dynamically by code
   const { services, isLoading: servicesLoading } = useServices();
 
-  const acService = useMemo(() => {
-    const found = services.find(s => s.service_code === ServiceCode.AC_REPAIR ||
-      s.service_name?.toLowerCase().includes("air condition"));
-    return found;
-  }, [services, servicesLoading]);
+  const acService = useMemo(() => findAcService(services), [services]);
 
   // Real Hooks
   const {
@@ -61,30 +61,15 @@ export default function ACServicePage() {
   const acRequests = requests;
 
   // Filter inventory for AC related items
-  const acStock = useMemo(() => {
-    const acTerms = ["ac ", "filter", "gas", "refrigerant", "capacitor", "compressor", "copper pipe"];
-    return stockLevels.filter(item => 
-      acTerms.some(term => 
-        item.product_name?.toLowerCase().includes(term) || 
-        item.product_code?.toLowerCase().includes(term)
-      )
-    );
-  }, [stockLevels]);
+  const acStock = useMemo(() => filterAcStockLevels(stockLevels), [stockLevels]);
 
-  const stats = useMemo(() => {
-    return {
-      active: acRequests.filter(r => r.status === "in_progress" || r.status === "assigned").length,
-      lowStock: acStock.filter(item => item.needs_reorder).length,
-      avgTime: "3.2h",
-      completed: acRequests.filter(r => r.status === "completed").length,
-    };
-  }, [acRequests, acStock]);
+  const stats = useMemo(() => buildAcServiceStats(acRequests, acStock), [acRequests, acStock]);
 
   const columns: ColumnDef<ServiceRequestWithDetails>[] = [
     {
       accessorKey: "request_number",
       header: "Job ID",
-      cell: ({ row }) => <span className="font-bold text-xs">{row.original.request_number}</span>,
+      cell: ({ row }) => <span className="font-bold text-xs">{getSafeJobLabel(row.original.request_number)}</span>,
     },
     {
       accessorKey: "title",
@@ -138,7 +123,7 @@ export default function ACServicePage() {
         <div className="flex items-center gap-1">
              <PhotoUploadDialog
                serviceRequestId={row.original.id}
-               jobId={row.original.request_number || row.original.id.substring(0, 8)}
+               jobId={getSafeJobLabel(row.original.request_number)}
              >
                <Button variant="ghost" size="icon" className="h-8 w-8 text-primary">
                   <Camera className="h-4 w-4" />

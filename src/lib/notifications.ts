@@ -1,37 +1,147 @@
 "use client";
 
 import { supabase } from "@/src/lib/supabaseClient";
+import type { Json } from "@/src/types/supabase";
 
 interface NotificationPayload {
   user_id?: string;
   title: string;
   body: string;
-  data?: Record<string, string>;
+  data?: Record<string, unknown>;
   channel?: 'fcm' | 'sms' | 'both';
   mobile?: string;
 }
 
-/**
- * Send notification via Supabase Edge Function
- * Supports FCM (push notifications) and SMS
- */
-export async function sendNotification(payload: NotificationPayload): Promise<{ success: boolean; error?: string }> {
+function normalizeNotificationType(payload: NotificationPayload): string {
+  const rawType = payload.data?.type;
+  return typeof rawType === "string" && rawType.trim() ? rawType.trim() : "general";
+}
+
+function normalizePriority(payload: NotificationPayload): string {
+  const rawPriority = payload.data?.priority;
+  return typeof rawPriority === "string" && rawPriority.trim() ? rawPriority.trim() : "normal";
+}
+
+function normalizeActionUrl(payload: NotificationPayload): string | null {
+  const rawActionUrl = payload.data?.action_url;
+  if (typeof rawActionUrl === "string" && rawActionUrl.trim()) {
+    return rawActionUrl.trim();
+  }
+
+  const rawRoute = payload.data?.route;
+  if (typeof rawRoute === "string" && rawRoute.trim()) {
+    return rawRoute.trim();
+  }
+
+  return null;
+}
+
+function normalizeReferenceId(payload: NotificationPayload): string | null {
+  const rawReferenceId = payload.data?.reference_id;
+  return typeof rawReferenceId === "string" && rawReferenceId.trim()
+    ? rawReferenceId.trim()
+    : null;
+}
+
+function normalizeReferenceType(payload: NotificationPayload): string | null {
+  const rawReferenceType = payload.data?.reference_type;
+  return typeof rawReferenceType === "string" && rawReferenceType.trim()
+    ? rawReferenceType.trim()
+    : null;
+}
+
+function toJsonValue(value: unknown): Json {
+  if (
+    value === null ||
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    return value as Json;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => toJsonValue(item));
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  if (typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, entryValue]) => [
+        key,
+        toJsonValue(entryValue),
+      ]),
+    ) as Json;
+  }
+
+  return String(value);
+}
+
+async function insertNotificationRow(payload: NotificationPayload): Promise<{ success: boolean; error?: string }> {
+  if (!payload.user_id) {
+    return { success: false, error: "Missing user_id for notification" };
+  }
+
+  const notificationType = normalizeNotificationType(payload);
+  const priority = normalizePriority(payload);
+  const actionUrl = normalizeActionUrl(payload);
+  const referenceId = normalizeReferenceId(payload);
+  const referenceType = normalizeReferenceType(payload);
+  const deliveryState = payload.channel === "sms" ? "created" : "push_queued";
+  const fallbackState = payload.channel === "both" ? "queued" : "not_applicable";
+
   try {
-    const { error } = await supabase.functions.invoke('send-notification', {
-      body: payload,
+    const { error } = await supabase.rpc("mobile_insert_notification", {
+      p_user_id: payload.user_id,
+      p_title: payload.title,
+      p_body: payload.body,
+      p_type: notificationType,
+      p_priority: priority,
+      p_action_url: actionUrl,
+      p_data: toJsonValue(payload.data ?? {}),
+      p_delivery_state: deliveryState,
+      p_fallback_state: fallbackState,
     });
 
     if (error) {
-      console.error('Notification failed:', error);
-      return { success: false, error: error.message };
+      console.error("Notification insert failed:", error);
+
+      const { error: fallbackError } = await supabase.from("notifications").insert({
+        user_id: payload.user_id,
+        title: payload.title,
+        message: payload.body,
+        notification_type: notificationType,
+        priority,
+        action_url: actionUrl,
+        data: toJsonValue(payload.data ?? {}),
+        delivery_state: deliveryState,
+        fallback_state: fallbackState,
+        ...(referenceId ? { reference_id: referenceId } : {}),
+        ...(referenceType ? { reference_type: referenceType } : {}),
+      });
+
+      if (fallbackError) {
+        console.error("Notification fallback insert failed:", fallbackError);
+        return {
+          success: false,
+          error: fallbackError.message ?? error.message ?? "Failed to create notification",
+        };
+      }
     }
 
     return { success: true };
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : 'Failed to send notification';
-    console.error('Notification error:', err);
+    const errorMessage = err instanceof Error ? err.message : "Failed to create notification";
+    console.error("Notification error:", err);
     return { success: false, error: errorMessage };
   }
+}
+
+export async function sendNotification(payload: NotificationPayload): Promise<{ success: boolean; error?: string }> {
+  return insertNotificationRow(payload);
 }
 
 /**

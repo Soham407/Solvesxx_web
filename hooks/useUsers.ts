@@ -3,21 +3,14 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
 import { toast } from "sonner";
+import {
+  ADMIN_TIER_ROLES,
+  mapUserRow,
+  type UserMaster,
+  type UserRow,
+} from "@/src/lib/users/userTransforms";
 
-export interface UserMaster {
-  id: string;
-  full_name: string;
-  email: string;
-  role_name: string;
-  role_key: string | null;
-  last_login: string | null;
-  is_active: boolean;
-  is_admin_tier: boolean;
-  must_change_password: boolean;
-  status: "Active" | "Locked" | "Pending";
-}
-
-const ADMIN_TIER_ROLES = new Set(["admin", "super_admin"]);
+export type { UserMaster } from "@/src/lib/users/userTransforms";
 
 export function useUsers() {
   const [users, setUsers] = useState<UserMaster[]>([]);
@@ -47,38 +40,7 @@ export function useUsers() {
 
       if (fetchError) throw fetchError;
 
-      const formatted: UserMaster[] = ((data || []) as any[]).map((u: {
-        id: string;
-        full_name: string;
-        email: string;
-        last_login: string | null;
-        is_active: boolean;
-        must_change_password: boolean;
-        roles:
-          | {
-              role_name?: string | null;
-              role_display_name?: string | null;
-            }
-          | Array<{
-              role_name?: string | null;
-              role_display_name?: string | null;
-            }>
-          | null;
-      }) => {
-        const roleData = Array.isArray(u.roles) ? u.roles[0] : u.roles;
-        return {
-          id: u.id,
-          full_name: u.full_name,
-          email: u.email,
-          role_name: roleData?.role_display_name || "Unknown Role",
-          role_key: roleData?.role_name || null,
-          last_login: u.last_login,
-          is_active: u.is_active,
-          is_admin_tier: ADMIN_TIER_ROLES.has(roleData?.role_name),
-          must_change_password: u.must_change_password ?? false,
-          status: !u.is_active ? "Locked" : (u.must_change_password ? "Pending" : "Active"),
-        };
-      });
+      const formatted: UserMaster[] = ((data || []) as UserRow[]).map(mapUserRow);
 
       setUsers(formatted);
     } catch (err: unknown) {
@@ -89,7 +51,7 @@ export function useUsers() {
     }
   }, []);
 
-  const createUser = async (payload: any) => {
+  const createUser = async (payload: Record<string, unknown>) => {
     try {
       const res = await fetch("/api/admin/create-user", {
         method: "POST",
@@ -101,8 +63,8 @@ export function useUsers() {
       toast.success("User provisioned successfully");
       fetchUsers();
       return result; // return password to show once
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to create user");
       throw err;
     }
   };
@@ -118,8 +80,8 @@ export function useUsers() {
       if (!res.ok) throw new Error(result.error || "Failed to update role");
       toast.success("Role updated successfully");
       fetchUsers();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to update role");
       throw err;
     }
   };
@@ -138,8 +100,8 @@ export function useUsers() {
       if (!res.ok) throw new Error(result.error || "Failed to suspend user");
       toast.success("User suspended and sessions invalidated");
       fetchUsers();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to suspend user");
     }
   };
 
@@ -157,8 +119,8 @@ export function useUsers() {
       if (!res.ok) throw new Error(result.error || "Failed to activate user");
       toast.success("User access restored");
       fetchUsers();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to activate user");
     }
   };
 

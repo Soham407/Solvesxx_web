@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Camera, Upload, X, CheckCircle2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { Database } from "@/src/types/supabase";
 
 interface PhotoUploadDialogProps {
   serviceRequestId: string;
@@ -150,13 +151,14 @@ export function PhotoUploadDialog({
           .maybeSingle();
 
         if (latestSession?.id) {
+          type JobPhotoInsert = Database["public"]["Tables"]["job_photos"]["Insert"];
           const allPhotos = [
-            ...beforeUrls.map((url) => ({ job_session_id: latestSession.id, photo_url: url, photo_type: "before" })),
-            ...afterUrls.map((url) => ({ job_session_id: latestSession.id, photo_url: url, photo_type: "after" })),
+            ...beforeUrls.map((url): JobPhotoInsert => ({ job_session_id: latestSession.id, photo_url: url, photo_type: "before" })),
+            ...afterUrls.map((url): JobPhotoInsert => ({ job_session_id: latestSession.id, photo_url: url, photo_type: "after" })),
           ];
 
           if (allPhotos.length > 0) {
-            await supabase.from("job_photos").insert(allPhotos as any);
+            await supabase.from("job_photos").insert(allPhotos);
           }
         }
       } catch (dbErr) {

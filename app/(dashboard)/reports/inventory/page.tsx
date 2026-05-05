@@ -23,18 +23,24 @@ import { downloadCSV } from "@/lib/utils/csvExport";
 import { toast } from "sonner";
 import { MonthPicker } from "@/components/shared/MonthPicker";
 import { useState } from "react";
-
-interface InventoryReport {
-  item_name: string;
-  received: number;
-  issued: number;
-}
+import {
+  buildInventoryReportPageStats,
+  normalizeInventoryReportRows,
+  normalizeInventoryTrendRows,
+  type InventoryReportRow,
+  type InventoryTrendReportRow,
+} from "@/src/lib/analytics/reportPageTransforms";
 
 export default function InventoryAnalysisPage() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const { data, trends, summary, isLoading, error } = useAnalyticsData("inventory", selectedDate);
+  const inventoryData: InventoryReportRow[] = normalizeInventoryReportRows(data);
+  const inventoryTrends: InventoryTrendReportRow[] = normalizeInventoryTrendRows(trends);
+  const inventoryChartData = inventoryData;
+  const inventoryTrendChartData = inventoryTrends;
+  const reportStats = buildInventoryReportPageStats({ data: inventoryData });
 
-  const columns: ColumnDef<InventoryReport>[] = [
+  const columns: ColumnDef<InventoryReportRow>[] = [
     {
       accessorKey: "item_name",
       header: "Consumable Item",
@@ -64,10 +70,6 @@ export default function InventoryAnalysisPage() {
     },
   ];
 
-  const totalReceived = data.reduce((acc, curr) => acc + Number(curr.received || 0), 0);
-  const totalIssued = data.reduce((acc, curr) => acc + Number(curr.issued || 0), 0);
-  const fastMovingItem = data.length > 0 ? [...data].sort((a, b) => b.issued - a.issued)[0]?.item_name : "None";
-
   return (
     <div className="animate-fade-in space-y-8 pb-20">
       <PageHeader
@@ -94,7 +96,7 @@ export default function InventoryAnalysisPage() {
                    </Badge>
                  )}
               </Button>
-              <Button className="gap-2 shadow-lg shadow-primary/20" onClick={() => { if (data.length === 0) { toast.error("No data to export"); return; } downloadCSV("inventory_movement", data); toast.success("Movement report downloaded"); }}>
+              <Button className="gap-2 shadow-lg shadow-primary/20" onClick={() => { if (inventoryData.length === 0) { toast.error("No data to export"); return; } downloadCSV("inventory_movement", inventoryData); toast.success("Movement report downloaded"); }}>
                  <Download className="h-4 w-4" /> Download Report
               </Button>
             </div>
@@ -120,7 +122,7 @@ export default function InventoryAnalysisPage() {
              </div>
              <div className="flex flex-col text-left">
                 <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Total Received</span>
-                <span className="text-2xl font-bold  text-primary mt-1">{totalReceived} Units</span>
+                <span className="text-2xl font-bold  text-primary mt-1">{reportStats.totalReceived} Units</span>
              </div>
         </Card>
         <Card className="border-none shadow-card ring-1 ring-border p-6 bg-linear-to-br from-critical/5 to-transparent">
@@ -132,7 +134,7 @@ export default function InventoryAnalysisPage() {
              </div>
              <div className="flex flex-col text-left">
                 <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Total Issued</span>
-                <span className="text-2xl font-bold  text-critical mt-1">{totalIssued} Units</span>
+                <span className="text-2xl font-bold  text-critical mt-1">{reportStats.totalIssued} Units</span>
              </div>
         </Card>
         <Card className="border-none shadow-card ring-1 ring-border p-6 bg-linear-to-br from-warning/5 to-transparent">
@@ -144,7 +146,7 @@ export default function InventoryAnalysisPage() {
              </div>
              <div className="flex flex-col text-left">
                 <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Highest Burn Item</span>
-                <span className="text-2xl font-bold  text-warning mt-1 truncate">{fastMovingItem}</span>
+                <span className="text-2xl font-bold  text-warning mt-1 truncate">{reportStats.fastMovingItem}</span>
              </div>
         </Card>
       </div>
@@ -162,7 +164,7 @@ export default function InventoryAnalysisPage() {
                    {isLoading ? <Skeleton className="h-[200px] w-full" /> : (
                       <AnalyticsChart 
                         type="bar" 
-                        data={data} 
+                        data={inventoryChartData} 
                         index="item_name" 
                         categories={["received", "issued"]} 
                         height={250}
@@ -183,7 +185,7 @@ export default function InventoryAnalysisPage() {
                    {isLoading ? <Skeleton className="h-[200px] w-full" /> : (
                       <AnalyticsChart 
                         type="area" 
-                        data={trends} 
+                        data={inventoryTrendChartData} 
                         index="month" 
                         categories={["received", "issued"]} 
                         height={250}
@@ -194,12 +196,7 @@ export default function InventoryAnalysisPage() {
           </Card>
       </div>
 
-      <DataTable 
-        columns={columns} 
-        data={data} 
-        searchKey="item_name" 
-        isLoading={isLoading} 
-      />
+      <DataTable columns={columns} data={inventoryData} searchKey="item_name" isLoading={isLoading} />
     </div>
   );
 }

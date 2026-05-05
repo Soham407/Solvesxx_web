@@ -1,9 +1,9 @@
-// @ts-nocheck
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
 import { useToast } from "@/components/ui/use-toast";
+import { notifySupplierUsers } from "@/src/lib/inventory/notifySupplierUsers";
 
 export type ShortageNoteStatus = "open" | "acknowledged" | "resolved" | "disputed";
 
@@ -38,6 +38,23 @@ export interface ShortageNote {
   supplier_name?: string;
   items?: ShortageNoteItem[];
 }
+
+type ShortageNoteRow = {
+  id: string;
+  note_number: string;
+  grn_id: string | null;
+  po_id: string;
+  supplier_id: string;
+  status: ShortageNoteStatus;
+  total_shortage_value: number;
+  resolution: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  purchase_orders?: { po_number?: string | null } | null;
+  suppliers?: { supplier_name?: string | null } | null;
+  shortage_note_items?: ShortageNoteItem[] | null;
+};
 
 export const SHORTAGE_STATUS_CONFIG: Record<ShortageNoteStatus, { label: string; className: string }> = {
   open: { label: "Open", className: "bg-warning/10 text-warning border-warning/20" },
@@ -82,7 +99,7 @@ export function useShortageNotes() {
 
       if (fetchError) throw fetchError;
 
-      const mapped = (data || []).map((n: any) => ({
+      const mapped = ((data || []) as ShortageNoteRow[]).map((n) => ({
         ...n,
         po_number: n.purchase_orders?.po_number,
         supplier_name: n.suppliers?.supplier_name,
@@ -142,24 +159,15 @@ export function useShortageNotes() {
 
       if (itemsError) throw itemsError;
 
-      // UI-H1 Fix: Notify the supplier that a shortage note has been raised against them.
-      // Look up the supplier's portal user via the users.supplier_id FK.
       try {
-        const { data: supplierUsers } = await supabase
-          .from("users")
-          .select("id")
-          .eq("supplier_id", dto.supplier_id);
-
-        for (const supplierUser of supplierUsers || []) {
-          await supabase.from("notifications").insert({
-            user_id: supplierUser.id,
-            notification_type: "shortage_note_raised",
-            title: "Shortage Note Raised",
-            message: `A shortage note (${note.note_number}) has been raised against your supply. Please review the shortage items.`,
-            reference_id: note.id,
-            reference_type: "shortage_note",
-          });
-        }
+        await notifySupplierUsers({
+          supplierId: dto.supplier_id,
+          title: "Shortage Note Raised",
+          body: `A shortage note (${note.note_number}) has been raised against your supply. Please review the shortage items.`,
+          notificationType: "shortage_note_raised",
+          referenceId: note.id,
+          referenceType: "shortage_note",
+        });
       } catch (notifyErr) {
         // Non-fatal: log but don't fail the mutation
         console.error("Failed to send shortage note notification:", notifyErr);

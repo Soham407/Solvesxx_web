@@ -1,7 +1,7 @@
 "use client";
 
 import { PieChart, ResponsiveContainer, Pie, Cell, Tooltip } from "recharts";
-import { Users, Briefcase, CalendarCheck, CheckSquare, Clock, ArrowRight, UserPlus, Filter, Loader2 } from "lucide-react";
+import { Users, Briefcase, CalendarCheck, CheckSquare, Clock, ArrowRight, UserPlus, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,10 +10,12 @@ import { cn } from "@/lib/utils";
 import { useHODStats } from "@/hooks/useHODStats";
 import { useLeaveApplications } from "@/hooks/useLeaveApplications";
 import { useServiceRequests } from "@/hooks/useServiceRequests";
+import { useRouter } from "next/navigation";
 
 export function HODDashboard() {
+  const router = useRouter();
   const { stats, isLoading: isLoadingStats } = useHODStats("Facility");
-  const { applications, isLoading: isLoadingLeaves } = useLeaveApplications();
+  const { applications, isLoading: isLoadingLeaves, updateLeaveStatus } = useLeaveApplications();
   const { requests, isLoading: isLoadingRequests } = useServiceRequests({ status: ["completed"] });
 
   const isLoading = isLoadingStats || isLoadingLeaves || isLoadingRequests;
@@ -38,10 +40,7 @@ export function HODDashboard() {
           <p className="text-sm text-muted-foreground font-medium uppercase tracking-widest">Team productivity, leave approvals, and resource allocation.</p>
         </div>
         <div className="flex gap-2">
-            <Button variant="outline" className="gap-2 font-bold border-muted-foreground/20">
-                <Filter className="h-4 w-4" /> Filter Dept
-            </Button>
-            <Button className="gap-2 font-bold shadow-lg shadow-primary/10">
+            <Button className="gap-2 font-bold shadow-lg shadow-primary/10" onClick={() => router.push("/hrms/recruitment")}>
                 <UserPlus className="h-4 w-4" /> Personnel Req
             </Button>
         </div>
@@ -125,8 +124,8 @@ export function HODDashboard() {
                                </div>
                            </div>
                            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                               <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold uppercase text-success border-success/20 hover:bg-success/5">Approve</Button>
-                               <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold uppercase text-critical border-critical/20 hover:bg-critical/5">Reject</Button>
+                               <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold uppercase text-success border-success/20 hover:bg-success/5" onClick={() => updateLeaveStatus(req.id, "approved")}>Approve</Button>
+                               <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold uppercase text-critical border-critical/20 hover:bg-critical/5" onClick={() => updateLeaveStatus(req.id, "rejected")}>Reject</Button>
                            </div>
                        </div>
                      ))
@@ -183,7 +182,7 @@ export function HODDashboard() {
                      </div>
                    </>
                  )}
-                 <Button variant="ghost" className="w-full text-[10px] font-bold uppercase tracking-widest text-primary mt-6 border-dashed border-2">
+                 <Button variant="ghost" className="w-full text-[10px] font-bold uppercase tracking-widest text-primary mt-6 border-dashed border-2" onClick={() => router.push("/service-requests")}>
                    Redeploy Resources <ArrowRight className="ml-2 h-3 w-3" />
                  </Button>
              </CardContent>

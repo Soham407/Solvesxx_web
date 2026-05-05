@@ -20,6 +20,7 @@ export const SETTINGS_PERMISSION_ROUTE_ORDER: Array<{
   { href: "/settings/audit-logs", permission: "platform.audit_logs.view" },
   { href: "/admin/audit-logs", permission: "platform.audit_logs.view" },
   { href: "/settings/company", permission: "platform.config.manage" },
+  { href: "/settings/notifications", permission: "platform.config.manage" },
 ];
 
 export const PLATFORM_ROUTE_PERMISSION_MAP: Array<{
@@ -108,8 +109,8 @@ export function canAccessPath(
   }
 
   if (
-    pathname.startsWith("/settings/notifications") ||
-    pathname.startsWith("/settings/branding")
+    pathname.startsWith("/settings/branding") ||
+    pathname.startsWith("/settings/notifications")
   ) {
     return false;
   }

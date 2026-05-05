@@ -30,6 +30,17 @@ interface ChemicalExpiryRow {
   source: string | null;
 }
 
+type ExpiringChemicalRpcRow = {
+  id: string;
+  product_id: string;
+  product_name: string;
+  expiry_date: string | null;
+  batch_number: string | null;
+  days_left: number | null;
+  severity: ChemicalProduct["severity"];
+  source: string | null;
+};
+
 export function validateChemicalExpiry(chem: { product_name: string, expiry_date: string | null }) {
   if (chem.expiry_date && new Date(chem.expiry_date) < new Date()) {
     return { 
@@ -52,13 +63,13 @@ export function useChemicals() {
       setError(null);
 
       // Using the RPC function we created in the migration
-      const { data, error: rpcError } = await (supabase as any).rpc('get_expiring_chemicals', {
+      const { data, error: rpcError } = await supabase.rpc('get_expiring_chemicals', {
         p_days_ahead: 365 // Get all with expiry in next year
       });
 
       if (rpcError) throw rpcError;
 
-      const normalizedChemicals: ChemicalProduct[] = ((data || []) as ChemicalExpiryRow[]).map((chemical) => ({
+      const normalizedChemicals: ChemicalProduct[] = ((data || []) as ExpiringChemicalRpcRow[]).map((chemical) => ({
         id: chemical.id,
         product_id: chemical.product_id,
         product_name: chemical.product_name,
@@ -74,9 +85,9 @@ export function useChemicals() {
       }));
 
       setChemicals(normalizedChemicals);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching chemicals:", err);
-      setError(err.message || "Failed to fetch chemical inventory");
+      setError(err instanceof Error ? err.message : "Failed to fetch chemical inventory");
     } finally {
       setIsLoading(false);
     }
@@ -136,9 +147,9 @@ export function useChemicals() {
 
       await fetchChemicals();
       return { success: true };
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error issuing chemical:", err);
-      return { success: false, error: err.message || "Failed to issue chemical" };
+      return { success: false, error: err instanceof Error ? err.message : "Failed to issue chemical" };
     }
   }, [chemicals, fetchChemicals, toast]);
 
@@ -167,9 +178,9 @@ export function useChemicals() {
 
       await fetchChemicals();
       return { success: true };
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error updating expiry:", err);
-      return { success: false, error: err.message || "Failed to update expiry" };
+      return { success: false, error: err instanceof Error ? err.message : "Failed to update expiry" };
     }
   }, [fetchChemicals, toast]);
 

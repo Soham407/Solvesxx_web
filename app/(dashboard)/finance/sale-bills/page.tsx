@@ -39,6 +39,51 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { supabase } from "@/src/lib/supabaseClient";
 
+type SaleBillLineItem = {
+  type: "service" | "product";
+  id: string;
+  quantity: number;
+  unit_price: number;
+  tax_rate: number;
+};
+
+type LookupRow = {
+  id: string;
+  society_name?: string;
+  request_number?: string;
+  title?: string;
+  service_name?: string;
+  product_name?: string;
+};
+
+function getPaymentStatusMeta(status: SaleBill["payment_status"]) {
+  return PAYMENT_STATUS_CONFIG[status] || { label: status, className: "" };
+}
+
+function summarizeSaleBills(bills: SaleBill[]) {
+  return {
+    totalReceivables: bills.reduce((sum, bill) => sum + bill.due_amount, 0),
+    paidThisMonth: bills
+      .filter((bill) => bill.payment_status === "paid")
+      .reduce((sum, bill) => sum + bill.paid_amount, 0),
+    overdueBills: bills.filter((bill) => bill.payment_status === "overdue").length,
+  };
+}
+
+function buildBillItems(items: SaleBillLineItem[], services: LookupRow[], products: LookupRow[]) {
+  return items.map((item) => ({
+    service_id: item.type === "service" ? item.id : undefined,
+    product_id: item.type === "product" ? item.id : undefined,
+    item_description:
+      item.type === "service"
+        ? services.find((service) => service.id === item.id)?.service_name
+        : products.find((product) => product.id === item.id)?.product_name,
+    unit_price: Number(item.unit_price) || 0,
+    quantity: Number(item.quantity) || 0,
+    tax_rate: Number(item.tax_rate) || 0,
+  }));
+}
+
 export default function SaleBillsPage() {
   const { bills, isLoading, createBill, markPaid } = useSaleBills();
   const { getSaleRate } = useSaleProductRates();
@@ -49,13 +94,14 @@ export default function SaleBillsPage() {
   const [selectedClientId, setSelectedClientId] = useState("");
   const [selectedRequestId, setSelectedRequestId] = useState("");
   const [dueDate, setDueDate] = useState("");
-  const [items, setItems] = useState<any[]>([{ type: "service", id: "", quantity: 1, unit_price: 0, tax_rate: 18 }]);
+  const [items, setItems] = useState<SaleBillLineItem[]>([{ type: "service", id: "", quantity: 1, unit_price: 0, tax_rate: 18 }]);
 
   // Data for Selects
-  const [societies, setSocieties] = useState<any[]>([]);
-  const [requests, setRequests] = useState<any[]>([]);
-  const [services, setServices] = useState<any[]>([]);
-  const [products, setProducts] = useState<any[]>([]);
+  const [societies, setSocieties] = useState<LookupRow[]>([]);
+  const [requests, setRequests] = useState<LookupRow[]>([]);
+  const [services, setServices] = useState<LookupRow[]>([]);
+  const [products, setProducts] = useState<LookupRow[]>([]);
+  const saleBillSummary = summarizeSaleBills(bills);
 
   const loadFormData = async () => {
     const [socRes, reqRes, serRes, proRes] = await Promise.all([
@@ -71,9 +117,9 @@ export default function SaleBillsPage() {
     if (proRes.data) setProducts(proRes.data);
   };
 
-  const handleItemChange = async (index: number, field: string, value: any) => {
+  const handleItemChange = async (index: number, field: keyof SaleBillLineItem, value: string | number) => {
     const newItems = [...items];
-    newItems[index][field] = value;
+    newItems[index] = { ...newItems[index], [field]: value } as SaleBillLineItem;
 
     // If type or id changed, try to fetch the rate
     if (field === "id" || field === "type") {
@@ -102,16 +148,7 @@ export default function SaleBillsPage() {
         client_id: selectedClientId,
         request_id: selectedRequestId && selectedRequestId !== "none" ? selectedRequestId : undefined,
         due_date: dueDate || undefined,
-        items: items.map(item => ({
-            service_id: item.type === "service" ? item.id : undefined,
-            product_id: item.type === "product" ? item.id : undefined,
-            item_description: item.type === "service" 
-              ? services.find(s => s.id === item.id)?.service_name 
-              : products.find(p => p.id === item.id)?.product_name,
-            unit_price: parseFloat(item.unit_price) || 0,
-            quantity: parseFloat(item.quantity) || 0,
-            tax_rate: parseFloat(item.tax_rate) || 0
-        }))
+        items: buildBillItems(items, services, products),
       });
 
       if (success) {
@@ -148,7 +185,7 @@ export default function SaleBillsPage() {
       accessorKey: "payment_status",
       header: "Status",
       cell: ({ row }) => {
-        const config = PAYMENT_STATUS_CONFIG[row.original.payment_status] || { label: row.original.payment_status, className: "" };
+        const config = getPaymentStatusMeta(row.original.payment_status);
         return (
           <Badge className={config.className}>
             {config.label.toUpperCase()}
@@ -159,7 +196,7 @@ export default function SaleBillsPage() {
     {
       accessorKey: "due_date",
       header: "Due Date",
-      cell: ({ row }) => row.original.due_date ? format(new Date(row.original.due_date), "MMM d, yyyy") : "N/A",
+      cell: ({ row }) => row.original.due_date ? format(new Date(row.original.due_date), "MMM d, yyyy") : "Not set",
     },
     {
       id: "actions",
@@ -214,7 +251,7 @@ export default function SaleBillsPage() {
           <CardHeader className="pb-2">
             <CardDescription>Total Receivables</CardDescription>
             <CardTitle className="text-2xl">
-              {formatCurrency(bills.reduce((sum, b) => sum + b.due_amount, 0))}
+              {formatCurrency(saleBillSummary.totalReceivables)}
             </CardTitle>
           </CardHeader>
         </Card>
@@ -222,7 +259,7 @@ export default function SaleBillsPage() {
           <CardHeader className="pb-2">
             <CardDescription>Paid This Month</CardDescription>
             <CardTitle className="text-2xl text-success">
-              {formatCurrency(bills.filter(b => b.payment_status === "paid").reduce((sum, b) => sum + b.paid_amount, 0))}
+              {formatCurrency(saleBillSummary.paidThisMonth)}
             </CardTitle>
           </CardHeader>
         </Card>
@@ -230,7 +267,7 @@ export default function SaleBillsPage() {
           <CardHeader className="pb-2">
             <CardDescription>Overdue Bills</CardDescription>
             <CardTitle className="text-2xl text-critical">
-              {bills.filter(b => b.payment_status === "overdue").length}
+              {saleBillSummary.overdueBills}
             </CardTitle>
           </CardHeader>
         </Card>
@@ -258,7 +295,7 @@ export default function SaleBillsPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {societies.map(s => (
-                      <SelectItem key={s.id} value={s.id}>{s.society_name}</SelectItem>
+                  <SelectItem key={s.id} value={s.id}>{s.society_name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

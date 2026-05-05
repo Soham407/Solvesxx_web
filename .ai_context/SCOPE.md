@@ -739,7 +739,7 @@ id             UUID PRIMARY KEY
 buyer_id       UUID → users.id
 order_type     ENUM('material','service')
 status         ENUM('pending','accepted','rejected','indent_generated',
-                    'po_issued','dispatched','delivered','billed','paid','end')
+                    'po_issued','dispatched','delivered','billed','paid','end','cancelled')
 notes          TEXT
 service_type   TEXT
 service_grade  TEXT
@@ -893,7 +893,8 @@ id              UUID PRIMARY KEY
 job_type        ENUM('ac','pest_control','housekeeping','security','plantation')
 location_id     UUID → company_locations.id
 assigned_to     UUID → employees.id
-status          ENUM('open','assigned','in_progress','completed','closed')
+status          ENUM('open','assigned','in_progress','completed','closed','cancelled')
+type            ENUM('service_request','ticket')
 complaint_notes TEXT
 before_photo    TEXT
 after_photo     TEXT

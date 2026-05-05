@@ -176,10 +176,10 @@
     "fullName": "Service Technician",
     "username": "serviceboy",
     "expectedLandingPath": "/dashboard",
-    "allowedPath": "/service-boy",
+    "allowedPath": "/dashboard",
     "blockedPath": "/finance",
     "journey": {
-      "path": "/service-boy",
+      "path": "/dashboard",
       "label": "Service Boy Dashboard",
       "readyText": "Technician Portal"
     }

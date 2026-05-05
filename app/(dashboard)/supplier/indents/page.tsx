@@ -26,8 +26,9 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
+import type { SupplierIndent } from "@/hooks/useSupplierPortal";
 
-function isServiceIndent(indent: any) {
+function isServiceIndent(indent: SupplierIndent) {
   return Boolean(
     indent.service_type ||
       indent.service_grade ||
@@ -43,7 +44,7 @@ export default function SupplierIndentsPage() {
   const { indents, respondToIndent, isLoading } = useSupplierPortal();
   const { toast } = useToast();
   const [search, setSearch] = useState("");
-  const [selectedIndent, setSelectedIndent] = useState<any>(null);
+  const [selectedIndent, setSelectedIndent] = useState<SupplierIndent | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [isRejectOpen, setIsRejectOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -55,7 +56,7 @@ export default function SupplierIndentsPage() {
       (indent.service_grade || "").toLowerCase().includes(search.toLowerCase())
   );
 
-  const openDetails = (indent: any) => {
+  const openDetails = (indent: SupplierIndent) => {
     setSelectedIndent(indent);
     setIsDetailOpen(true);
   };

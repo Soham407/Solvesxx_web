@@ -1,144 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { insertAuditLog } from "@/src/lib/platform/audit";
-import { extractPlatformPermissions } from "@/src/lib/platform/permissions";
 import {
   createServiceRoleClient,
   requirePlatformPermission,
 } from "@/src/lib/platform/server";
-import type {
-  AdminAccount,
-  AdminAccessLink,
-  InviteAdminResponse,
-} from "@/src/types/platform";
-
-const ADMIN_ROLE_NAMES = ["admin", "super_admin"] as const;
-
-type AdminRoleName = (typeof ADMIN_ROLE_NAMES)[number];
-
-function isAdminRoleName(value: string): value is AdminRoleName {
-  return ADMIN_ROLE_NAMES.includes(value as AdminRoleName);
-}
-
-async function generateUniqueUsername(
-  supabaseClient: any,
-  email: string
-): Promise<string> {
-  const baseUsername = email
-    .split("@")[0]
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ".")
-    .replace(/^\.+|\.+$/g, "")
-    .slice(0, 24) || "admin.user";
-
-  for (let index = 0; index < 10; index += 1) {
-    const candidate = index === 0 ? baseUsername : `${baseUsername}.${index + 1}`;
-    const { data } = await supabaseClient
-      .from("users")
-      .select("id")
-      .eq("username", candidate)
-      .maybeSingle();
-
-    if (!data) {
-      return candidate;
-    }
-  }
-
-  return `${baseUsername}.${Date.now()}`;
-}
-
-function mapAdmin(row: any): AdminAccount {
-  const role = Array.isArray(row.roles) ? row.roles[0] : row.roles;
-
-  return {
-    id: row.id,
-    fullName: row.full_name,
-    email: row.email,
-    phone: row.phone ?? null,
-    roleName: role?.role_name ?? "admin",
-    roleDisplayName: role?.role_display_name ?? "Administrator",
-    isActive: row.is_active !== false,
-    lastLogin: row.last_login ?? null,
-    permissions: extractPlatformPermissions(role?.permissions),
-  };
-}
-
-function createTemporaryPassword() {
-  return `Solvesxx!${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
-}
-
-async function provisionAdminAccessLink(adminClient: any, email: string): Promise<{
-  authUserId: string;
-  accessLink: AdminAccessLink;
-}> {
-  const temporaryPassword = createTemporaryPassword();
-  
-  // 1. Try to create the user directly with email_confirm: true
-  const { data: userData, error: createError } = await adminClient.auth.admin.createUser({
-    email,
-    password: temporaryPassword,
-    email_confirm: true,
-    user_metadata: {
-      must_change_password: true,
-    }
-  });
-
-  if (!createError && userData?.user?.id) {
-    const recoveryResult = await adminClient.auth.admin.generateLink({
-      type: "recovery",
-      email,
-    });
-
-    return {
-      authUserId: userData.user.id,
-      accessLink: {
-        url: recoveryResult.data?.properties?.action_link || `${process.env.NEXT_PUBLIC_APP_URL || ""}/login`,
-        type: "signup",
-        deliveryMethod: "generated_link",
-        temporaryPassword,
-      },
-    };
-  }
-
-  // 2. Fallback: If user already exists in Auth but not in our public.users
-  const signupMessage = createError?.message?.toLowerCase() ?? "";
-  const alreadyExists =
-    signupMessage.includes("already registered") ||
-    signupMessage.includes("already been registered") ||
-    createError?.status === 422;
-
-  if (!alreadyExists) {
-    throw createError ?? new Error("Failed to generate admin setup link");
-  }
-
-  // If they exist, we generate a link to get their ID, then "harden" the account
-  const recoveryResult = await adminClient.auth.admin.generateLink({
-    type: "recovery",
-    email,
-  });
-
-  if (recoveryResult.error || !recoveryResult.data?.user?.id) {
-    throw recoveryResult.error ?? new Error("Failed to generate admin setup link");
-  }
-
-  // Synchronize the existing auth account: ensure it's confirmed and set the temp password
-  // so the credentials shown in the UI actually work.
-  await adminClient.auth.admin.updateUserById(recoveryResult.data.user.id, {
-    password: temporaryPassword,
-    email_confirm: true,
-    user_metadata: { must_change_password: true }
-  });
-
-  return {
-    authUserId: recoveryResult.data.user.id,
-    accessLink: {
-      url: recoveryResult.data.properties.action_link,
-      type: "recovery",
-      deliveryMethod: "generated_link",
-      temporaryPassword, // Now guaranteed to work for this user
-    },
-  };
-}
+import {
+  generateUniqueAdminUsername,
+  isAdminRoleName,
+  mapAdminAccount,
+  provisionAdminAccessLink,
+} from "@/src/lib/platform/adminAccounts";
+import type { InviteAdminResponse } from "@/src/types/platform";
 
 export async function POST(request: NextRequest) {
   const context = await requirePlatformPermission("platform.admin_accounts.manage");
@@ -181,7 +54,7 @@ export async function POST(request: NextRequest) {
     }
 
     const adminClient = createServiceRoleClient();
-    const username = await generateUniqueUsername(adminClient, email);
+    const username = await generateUniqueAdminUsername(adminClient, email);
     const { authUserId, accessLink } = await provisionAdminAccessLink(adminClient, email);
     const { data: userRecord, error: upsertError } = await adminClient
       .from("users")
@@ -228,14 +101,14 @@ export async function POST(request: NextRequest) {
     });
 
     const response: InviteAdminResponse = {
-      admin: mapAdmin(userRecord),
+      admin: mapAdminAccount(userRecord),
       accessLink,
     };
 
     return NextResponse.json(response, { status: 201 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json(
-      { error: error?.message || "Failed to invite admin" },
+      { error: error instanceof Error ? error.message : "Failed to invite admin" },
       { status: 500 }
     );
   }

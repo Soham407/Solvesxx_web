@@ -69,6 +69,33 @@ const INITIAL_CYCLE_FORM = {
   notes: "",
 };
 
+function summarizePayslips(payslips: Payslip[]) {
+  return {
+    totalDisbursement: payslips.reduce((sum, payslip) => sum + payslip.net_payable, 0),
+    totalAllowances: payslips.reduce(
+      (sum, payslip) =>
+        sum +
+        payslip.hra +
+        payslip.special_allowance +
+        payslip.travel_allowance +
+        payslip.medical_allowance +
+        payslip.overtime_amount,
+      0,
+    ),
+    totalDeductions: payslips.reduce((sum, payslip) => sum + payslip.total_deductions, 0),
+    processedCount: payslips.filter((payslip) => payslip.status === "processed").length,
+    totalCount: payslips.length,
+  };
+}
+
+function getPayslipStatusMeta(status: PayslipStatus) {
+  return PAYSLIP_STATUS_CONFIG[status] || { label: status, className: "" };
+}
+
+function getCycleStatusMeta(status: PayrollCycle["status"]) {
+  return CYCLE_STATUS_CONFIG[status] || { label: status, className: "" };
+}
+
 export default function PayrollPage() {
   const { role } = useAuth();
   const {
@@ -166,16 +193,7 @@ export default function PayrollPage() {
   };
 
   // Calculate stats from current payslips
-  const stats = {
-    totalDisbursement: payslips.reduce((sum, ps) => sum + ps.net_payable, 0),
-    totalAllowances: payslips.reduce(
-      (sum, ps) => sum + ps.hra + ps.special_allowance + ps.travel_allowance + ps.medical_allowance + ps.overtime_amount,
-      0
-    ),
-    totalDeductions: payslips.reduce((sum, ps) => sum + ps.total_deductions, 0),
-    processedCount: payslips.filter((ps) => ps.status === "processed").length,
-    totalCount: payslips.length,
-  };
+  const stats = summarizePayslips(payslips);
 
   const columns: ColumnDef<Payslip>[] = [
     {
@@ -239,10 +257,10 @@ export default function PayrollPage() {
       header: "Cycle Status",
       cell: ({ row }) => {
         const status = row.getValue("status") as PayslipStatus;
-        const config = PAYSLIP_STATUS_CONFIG[status];
+        const config = getPayslipStatusMeta(status);
         return (
-          <Badge variant="outline" className={cn("font-bold text-[10px] uppercase h-5", config?.className || "")}>
-            {config?.label || status}
+          <Badge variant="outline" className={cn("font-bold text-[10px] uppercase h-5", config.className)}>
+            {config.label}
           </Badge>
         );
       },
@@ -430,9 +448,9 @@ export default function PayrollPage() {
               <>
                 <Badge
                   variant="outline"
-                  className={cn(CYCLE_STATUS_CONFIG[selectedCycle.status]?.className)}
+                  className={cn(getCycleStatusMeta(selectedCycle.status).className)}
                 >
-                  {CYCLE_STATUS_CONFIG[selectedCycle.status]?.label}
+                  {getCycleStatusMeta(selectedCycle.status).label}
                 </Badge>
                 <Select
                   value={selectedCycle.id}

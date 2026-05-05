@@ -4,6 +4,8 @@ import { createClient as createServerClient } from "@/src/lib/supabase/server";
 
 const ALLOWED_ROLES = ["admin", "super_admin"];
 type RouteContext = { params: Promise<{ id: string }> };
+type RoleRecord = { role_name?: string | null };
+type UserRoleRow = { roles?: RoleRecord | RoleRecord[] | null };
 
 export async function POST(
   req: NextRequest,
@@ -26,7 +28,10 @@ export async function POST(
       .eq("id", callerUser.id)
       .single();
 
-    const callerRole = (callerRecord as any)?.roles?.role_name;
+    const callerRow = callerRecord as UserRoleRow | null;
+    const callerRole = Array.isArray(callerRow?.roles)
+      ? callerRow.roles[0]?.role_name
+      : callerRow?.roles?.role_name;
 
     if (!callerRole || !ALLOWED_ROLES.includes(callerRole)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -52,8 +57,11 @@ export async function POST(
     if (authUpdateError) throw authUpdateError;
 
     return NextResponse.json({ success: true });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Error activating user:", err);
-    return NextResponse.json({ error: err.message || "Failed to activate user" }, { status: 500 });
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Failed to activate user" },
+      { status: 500 }
+    );
   }
 }

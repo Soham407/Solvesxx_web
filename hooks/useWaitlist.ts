@@ -70,6 +70,31 @@ function normalizeEntry(row: WaitlistRow): WaitlistEntry {
   };
 }
 
+function normalizeEntries(rows: WaitlistRow[]): WaitlistEntry[] {
+  return rows.map(normalizeEntry);
+}
+
+function normalizeWaitlistRow(row: unknown): WaitlistRow | null {
+  if (!row || typeof row !== "object") {
+    return null;
+  }
+
+  const candidate = row as Partial<WaitlistRow>;
+  if (typeof candidate.id !== "string" || typeof candidate.email !== "string") {
+    return null;
+  }
+
+  return {
+    id: candidate.id,
+    name: candidate.name ?? null,
+    email: candidate.email,
+    company: candidate.company ?? null,
+    created_at: candidate.created_at ?? null,
+    source: candidate.source ?? "",
+    status: normalizeStatus(candidate.status),
+  };
+}
+
 export function useWaitlist() {
   const waitlistQuery = useSupabaseQuery<WaitlistEntry>(async () => {
     const { data, error } = await supabase
@@ -81,7 +106,7 @@ export function useWaitlist() {
       throw error;
     }
 
-    return ((data ?? []) as unknown as WaitlistRow[]).map(normalizeEntry);
+    return normalizeEntries((data ?? []).map(normalizeWaitlistRow).filter((row): row is WaitlistRow => row !== null));
   }, []);
 
   const { execute: updateWaitlistStatus, isLoading: isUpdatingStatus } =
@@ -103,9 +128,13 @@ export function useWaitlist() {
 
         waitlistQuery.refresh();
 
+        const updated = normalizeWaitlistRow(data);
+        if (!updated) {
+          throw new Error("Failed to update waitlist status");
+        }
         return {
-          id: (data as unknown as WaitlistRow).id,
-          status: normalizeStatus((data as unknown as WaitlistRow).status),
+          id: updated.id,
+          status: normalizeStatus(updated.status),
         };
       },
       { successMessage: "Waitlist status updated" }

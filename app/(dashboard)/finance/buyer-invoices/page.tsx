@@ -18,11 +18,31 @@ import { useBuyerInvoices, INVOICE_STATUS_CONFIG, PAYMENT_STATUS_CONFIG } from "
 import { formatCurrency } from "@/src/lib/utils/currency";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import type { BuyerInvoice } from "@/hooks/useBuyerInvoices";
+
+function summarizeBuyerInvoiceStats(invoices: BuyerInvoice[]) {
+  const totalOutstanding = invoices.reduce((acc, inv) => acc + (inv.due_amount || 0), 0);
+  const collectedMTD = invoices
+    .filter((inv) => inv.payment_status === "paid")
+    .reduce((acc, inv) => acc + (inv.paid_amount || 0), 0);
+  const overdueInvoices = invoices.filter((inv) => {
+    if (inv.payment_status === "paid") return false;
+    if (!inv.due_date) return false;
+    return new Date(inv.due_date) < new Date();
+  });
+  const overdueAmount = overdueInvoices.reduce((acc, inv) => acc + (inv.due_amount || 0), 0);
+
+  return {
+    totalOutstanding,
+    collectedMTD,
+    overdueAmount,
+  };
+}
 
 export default function BuyerInvoicesPage() {
   const { invoices, isLoading, error } = useBuyerInvoices();
 
-  const columns: ColumnDef<any>[] = [
+  const columns: ColumnDef<BuyerInvoice>[] = [
     {
       accessorKey: "invoice_number",
       header: "Invoice ID",
@@ -34,7 +54,7 @@ export default function BuyerInvoicesPage() {
       cell: ({ row }) => (
         <div className="flex flex-col">
           <span className="font-bold text-sm ">{row.original.client_name}</span>
-          <span className="text-[10px] text-muted-foreground uppercase font-bold">Contract {row.original.contract_number || "N/A"}</span>
+          <span className="text-[10px] text-muted-foreground uppercase font-bold">Contract {row.original.contract_number || "Not linked"}</span>
         </div>
       ),
     },
@@ -79,7 +99,7 @@ export default function BuyerInvoicesPage() {
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <Clock className="h-3 w-3 text-muted-foreground" />
-          <span className="text-xs font-medium">{row.original.due_date ? new Date(row.original.due_date).toLocaleDateString() : "N/A"}</span>
+          <span className="text-xs font-medium">{row.original.due_date ? new Date(row.original.due_date).toLocaleDateString() : "Not set"}</span>
         </div>
       )
     },
@@ -139,16 +159,7 @@ export default function BuyerInvoicesPage() {
     );
   }
 
-  const totalOutstanding = invoices.reduce((acc, inv) => acc + (inv.due_amount || 0), 0);
-  const collectedMTD = invoices
-    .filter(inv => inv.payment_status === "paid")
-    .reduce((acc, inv) => acc + (inv.paid_amount || 0), 0);
-  const overdueInvoices = invoices.filter(inv => {
-    if (inv.payment_status === "paid") return false;
-    if (!inv.due_date) return false;
-    return new Date(inv.due_date) < new Date();
-  });
-  const overdueAmount = overdueInvoices.reduce((acc, inv) => acc + (inv.due_amount || 0), 0);
+  const { totalOutstanding, collectedMTD, overdueAmount } = summarizeBuyerInvoiceStats(invoices);
 
   return (
     <div className="space-y-6">
@@ -197,4 +208,3 @@ export default function BuyerInvoicesPage() {
     </div>
   );
 }
-
