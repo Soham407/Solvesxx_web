@@ -72,4 +72,22 @@ describe("security guard module contracts", () => {
       ])
     ).toBe(true);
   });
+
+  it("uses the privacy-safe resident directory for guard-side lookup", async () => {
+    const source = await readRepoFile("hooks/useResidentLookup.ts");
+
+    expect(
+      sourceContainsAll(source, [
+        '.from("resident_directory")',
+        'select("id, full_name, flat_number, masked_phone, is_primary_contact, is_active")',
+      ])
+    ).toBe(true);
+
+    expect(
+      sourceContainsNone(source, [
+        '.from("residents")',
+        'select(`\n          id,\n          full_name,\n          phone,',
+      ])
+    ).toBe(true);
+  });
 });
