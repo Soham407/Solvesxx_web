@@ -87,7 +87,7 @@ describe("RLS contract: role and policy source", () => {
       sourceContainsAll(proxySource, [
         "if (!canAccessPath(role as AppRole, permissions, pathname))",
         '{ error: "Forbidden - insufficient permissions" }',
-        'dashboardUrl.searchParams.set("error", "forbidden")',
+        'landingUrl.searchParams.set("error", "forbidden")',
       ])
     ).toBe(true);
 

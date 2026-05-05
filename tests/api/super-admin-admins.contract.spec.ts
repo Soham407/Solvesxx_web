@@ -5,6 +5,7 @@ import { readRepoFile, sourceContainsAll } from "../helpers/source-files";
 describe("API contract: super-admin admin lifecycle", () => {
   it("keeps permission gating, validation, and audit logging intact", async () => {
     const source = await readRepoFile("app/api/super-admin/admins/route.ts");
+    const accessLinkSource = await readRepoFile("src/lib/platform/adminAccounts.ts");
 
     expect(
       sourceContainsAll(source, [
@@ -12,9 +13,17 @@ describe("API contract: super-admin admin lifecycle", () => {
         "Invalid admin payload",
         "Role not found",
         "A user with that email already exists",
-        "generateLink({",
+        "provisionAdminAccessLink",
         "admin.invited",
         "insertAuditLog",
+      ])
+    ).toBe(true);
+
+    expect(
+      sourceContainsAll(accessLinkSource, [
+        "createUser({",
+        "generateLink({",
+        "must_change_password: true",
       ])
     ).toBe(true);
   });
