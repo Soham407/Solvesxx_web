@@ -107,9 +107,11 @@ describe("hrms module contracts", () => {
 
     expect(
       sourceContainsAll(rolesSource, [
-        "society_manager: [\"/dashboard\", \"/society\", \"/resident\", \"/test-resident\", \"/tickets\", \"/finance/compliance\", \"/service-requests\", \"/hrms/attendance\", \"/hrms/leave\"]",
+        "society_manager: [\"/dashboard\", \"/society\", \"/resident\", \"/tickets\", \"/finance/compliance\", \"/service-requests\", \"/hrms/attendance\", \"/hrms/leave\"]",
       ])
     ).toBe(true);
+
+    expect(sourceContainsNone(rolesSource, ["/test-resident"])).toBe(true);
 
     expect(
       sourceContainsAll(employeeDetailPageSource, [
