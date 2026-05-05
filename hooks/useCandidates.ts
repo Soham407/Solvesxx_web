@@ -533,14 +533,30 @@ export function useCandidates(initialFilters?: UseCandidatesFilters) {
 
       if (empError) throw empError;
 
+      const rollbackConvertedEmployee = async () => {
+        if (matchedUser) {
+          await supabase
+            .from("users")
+            .update({ employee_id: null })
+            .eq("id", matchedUser.id)
+            .eq("employee_id", newEmployee.id);
+        }
+
+        await supabase.from("employees").delete().eq("id", newEmployee.id);
+      };
+
       if (matchedUser) {
         const { error: userUpdateError } = await supabase
           .from("users")
           .update({ employee_id: newEmployee.id })
-          .eq("id", matchedUser.id);
+          .eq("id", matchedUser.id)
+          .eq("employee_id", null);
 
         if (userUpdateError) {
-          console.warn("Converted employee created, but user master link update failed:", userUpdateError);
+          await supabase.from("employees").delete().eq("id", newEmployee.id);
+          throw new Error(
+            "Conversion aborted to prevent partial employee linkage state."
+          );
         }
       }
 
@@ -559,7 +575,10 @@ export function useCandidates(initialFilters?: UseCandidatesFilters) {
         .select()
         .single();
 
-      if (candError) throw candError;
+      if (candError) {
+        await rollbackConvertedEmployee();
+        throw candError;
+      }
 
       // Refresh list
       await fetchCandidates();
