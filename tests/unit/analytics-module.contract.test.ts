@@ -61,4 +61,18 @@ describe("analytics module contracts", () => {
       'categories={["received", "issued"]}',
     ])).toBe(true);
   });
+
+  it("ensures summary reports dialog does not simulate or export sample data", async () => {
+    const summaryReportsDialogSource = await readRepoFile("components/dialogs/SummaryReportsDialog.tsx");
+
+    expect(sourceContainsNone(summaryReportsDialogSource, [
+      "Sample Value",
+      "Simulate report generation",
+      "setTimeout(resolve, 2000)",
+      "Report Generated",
+      "has been generated and is ready for download",
+      "Your report has been downloaded successfully",
+      "Generate Report",
+    ])).toBe(true);
+  });
 });
