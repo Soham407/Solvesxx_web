@@ -2,8 +2,8 @@
 
 import { useState, useCallback, useRef } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
-import { sendPanicAlertNotification } from "@/src/lib/notifications";
-import { getCurrentEmployeeId } from "@/src/lib/security/getCurrentEmployeeId";
+import { createPanicAlertWithNotifications } from "@/src/lib/security/panicAlerts";
+import { getCanonicalEmployeeIdClient, resolveCurrentWorkforceActorClient } from "@/src/lib/workforce/clientActor";
 
 interface PanicAlertState {
   isTriggering: boolean;
@@ -67,94 +67,36 @@ export function usePanicAlert() {
       setState((prev) => ({ ...prev, isTriggering: true, error: null }));
 
       try {
-        // ✅ Server-side authentication: Get the authenticated user
-        const { data: { user }, error: authError } = await supabase.auth.getUser();
-        
-        if (authError || !user) {
-          throw new Error("Not authenticated. Please log in to use the panic alert.");
+        const actor = await resolveCurrentWorkforceActorClient();
+
+        if (!actor.employeeId) {
+          throw new Error("Employee record not found for this user.");
         }
 
-        // ✅ Lookup guard_id via employees table using auth_user_id
-        // 1. Get employee_id from auth_user_id
-        const { data: employeeData, error: empError } = await supabase
-          .from("employees")
-          .select("id")
-          .eq("auth_user_id", user.id)
-          .single();
-
-        if (empError || !employeeData) {
-           throw new Error("Employee record not found for this user.");
-        }
-
-        // 2. Get guard_id from employee_id
-        const { data: guardData, error: guardError } = await supabase
-          .from("security_guards")
-          .select("id")
-          .eq("employee_id", employeeData.id)
-          .single();
-
-        if (guardError || !guardData) {
+        if (!actor.guardId) {
           throw new Error("Guard record not found. Ensure your account is linked to a guard profile.");
         }
 
-        const { data, error } = await supabase
-          .from("panic_alerts")
-          .insert({
-            guard_id: guardData.id,
-            alert_type: params.alertType || "panic",
-            latitude: params.latitude || null,
-            longitude: params.longitude || null,
-            location_id: params.locationId || null,
-            description:
-              params.description || "Emergency SOS triggered from Guard App",
-            is_resolved: false,
-          })
-          .select("id, alert_time")
-          .single();
-
-        if (error) throw error;
-
-        // Get supervisor IDs to notify
-        // employees.designation_id is FK → designations.id — use .or() for reliable joined-column filtering
-        const { data: supervisors } = await supabase
-          .from('employees')
-          .select('auth_user_id, designations!inner(designation_name)')
-          .or('designation_name.eq.Security Supervisor,designation_name.eq.Society Manager,designation_name.eq.Admin', { referencedTable: 'designations' })
-          .eq('is_active', true);
-
-        const supervisorIds = (supervisors || [])
-          .map((s: any) => s.auth_user_id)
-          .filter(Boolean);
-
-        if (supervisorIds.length > 0) {
-          // Get guard name
-          const { data: guardInfo } = await supabase
-            .from('employees')
-            .select('first_name, last_name')
-            .eq('id', employeeData.id)
-            .single();
-
-          const guardName = guardInfo 
-            ? `${guardInfo.first_name} ${guardInfo.last_name}`.trim()
-            : 'A guard';
-
-          await sendPanicAlertNotification(
-            supervisorIds,
-            guardName,
-            params.locationId
-          );
-        }
+        const panicAlert = await createPanicAlertWithNotifications({
+          guardId: actor.guardId,
+          guardName: actor.fullName?.trim() || "A guard",
+          alertType: params.alertType || "panic",
+          latitude: params.latitude ?? null,
+          longitude: params.longitude ?? null,
+          locationId: params.locationId ?? null,
+          description: params.description || "Emergency SOS triggered from Guard App",
+        });
 
         setState((prev) => ({
           ...prev,
           isTriggering: false,
           lastAlert: {
-            id: data.id,
-            triggered_at: data.alert_time || new Date().toISOString(),
+            id: panicAlert.alertId || "",
+            triggered_at: panicAlert.alertTime || new Date().toISOString(),
           },
         }));
 
-        return { success: true, alertId: data.id };
+        return { success: true, alertId: panicAlert.alertId };
       } catch (err: unknown) {
         const errorMessage =
           err instanceof Error ? err.message : "Failed to trigger panic alert";
@@ -234,7 +176,7 @@ export function usePanicAlert() {
   const resolveAlert = useCallback(
     async (alertId: string, resolutionNotes?: string): Promise<boolean> => {
       try {
-        const resolvedBy = await getCurrentEmployeeId();
+        const resolvedBy = await getCanonicalEmployeeIdClient();
 
         const { error } = await supabase
           .from("panic_alerts")

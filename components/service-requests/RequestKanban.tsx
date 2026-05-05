@@ -25,7 +25,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/components/ui/use-toast";
 import { RequestKanbanCard } from "./RequestKanbanCard";
 import { RequestKanbanColumn } from "./RequestKanbanColumn";
-import { ServiceRequest } from "@/src/types/operations";
+import { ServiceRequestWithDetails } from "@/src/types/operations";
 import {
   Clock,
   AlertCircle,
@@ -106,8 +106,8 @@ export function RequestKanban({ filterByAssignee, showFilters = true }: RequestK
   const { toast } = useToast();
 
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [activeRequest, setActiveRequest] = useState<any>(null);
-  const [filteredRequests, setFilteredRequests] = useState<any[]>([]);
+  const [activeRequest, setActiveRequest] = useState<ServiceRequestWithDetails | null>(null);
+  const [filteredRequests, setFilteredRequests] = useState<ServiceRequestWithDetails[]>([]);
   const [priorityFilter, setPriorityFilter] = useState<string | null>(null);
   
   // Scroll indicators
@@ -170,7 +170,7 @@ export function RequestKanban({ filterByAssignee, showFilters = true }: RequestK
       filtered = filtered.filter((r) => r.priority === priorityFilter);
     }
 
-    setFilteredRequests(filtered as any);
+    setFilteredRequests(filtered);
   }, [requests, filterByAssignee, priorityFilter]);
 
   // Group requests by status
@@ -184,7 +184,7 @@ export function RequestKanban({ filterByAssignee, showFilters = true }: RequestK
     setActiveId(active.id as string);
     const request = requests.find((r) => r.id === active.id);
     if (request) {
-      setActiveRequest(request as any);
+      setActiveRequest(request ?? null);
     }
   };
 
@@ -346,10 +346,10 @@ export function RequestKanban({ filterByAssignee, showFilters = true }: RequestK
                     strategy={verticalListSortingStrategy}
                   >
                     <div className="space-y-3">
-                      {columnRequests.map((request: any) => (
+                      {columnRequests.map((request) => (
                         <RequestKanbanCard
                           key={request.id}
-                          request={request as ServiceRequest}
+                          request={request}
                           priorityColor={PRIORITY_COLORS[request.priority || 'low'] || "bg-gray-100"}
                           assigneeName={getEmployeeName(request.assigned_to)}
                           assigneeInitials={getEmployeeInitials(request.assigned_to)}

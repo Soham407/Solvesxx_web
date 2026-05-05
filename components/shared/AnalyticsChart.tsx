@@ -19,12 +19,12 @@ const COLORS = {
 
 interface ChartProps {
   type: "area" | "bar" | "pie";
-  data: any[];
+  data: Array<Record<string, string | number | null | undefined>>;
   index: string; // Key for XAxis
   categories: string[]; // Keys for values
   colors?: string[];
   height?: number;
-  valueFormatter?: (value: any) => string;
+  valueFormatter?: (value: number | string) => string;
 }
 
 export function AnalyticsChart({ 
@@ -34,7 +34,7 @@ export function AnalyticsChart({
   categories, 
   colors = [COLORS.primary, COLORS.success, COLORS.info, COLORS.warning],
   height = 300,
-  valueFormatter = (val) => val.toString()
+  valueFormatter = (val) => String(val)
 }: ChartProps) {
   const chartData = useMemo(() => data, [data]);
 

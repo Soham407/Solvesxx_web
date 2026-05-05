@@ -49,6 +49,35 @@ interface Role {
   status: "Active" | "Inactive";
 }
 
+function mapRoleRows(roles: Array<{
+  id: string;
+  name: string;
+  description: string | null;
+  userCount: number;
+  permissions: string[];
+  isActive: boolean;
+}>): Role[] {
+  return roles.map((role) => ({
+    id: role.name.toUpperCase().replace(/\s+/g, "-"),
+    roleId: role.id,
+    name: role.name,
+    description: role.description || "No description available",
+    userCount: role.userCount,
+    permissions: role.permissions.length > 0 ? role.permissions : ["Standard Access"],
+    status: role.isActive ? "Active" : "Inactive",
+  }));
+}
+
+function getRoleStatusVariant(status: Role["status"]) {
+  return status === "Active" ? "default" : "secondary";
+}
+
+function getRoleStatusClassName(status: Role["status"]) {
+  return status === "Active"
+    ? "bg-success/10 text-success border-success/20 hover:bg-success/20"
+    : "bg-muted text-muted-foreground";
+}
+
 export default function RolesPage() {
   const { roles, isLoading, error, isSubmitting, refresh, createRole, updateRole, deleteRole } = useRoles();
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
@@ -123,15 +152,7 @@ export default function RolesPage() {
   };
 
   // Transform roles data for the table
-  const data: Role[] = roles.map(role => ({
-    id: role.id.substring(0, 8).toUpperCase(),
-    roleId: role.id,
-    name: role.name,
-    description: role.description || "No description available",
-    userCount: role.userCount,
-    permissions: role.permissions.length > 0 ? role.permissions : ["Standard Access"],
-    status: role.isActive ? "Active" : "Inactive",
-  }));
+  const data: Role[] = mapRoleRows(roles);
 
   const columns: ColumnDef<Role>[] = [
     {
@@ -144,7 +165,6 @@ export default function RolesPage() {
           </div>
           <div className="flex flex-col">
             <span className="font-bold text-sm">{row.original.name}</span>
-            <span className="text-[10px] text-muted-foreground uppercase font-bold">ID: {row.original.id}</span>
           </div>
         </div>
       ),
@@ -191,12 +211,8 @@ export default function RolesPage() {
       header: "Status",
       cell: ({ row }) => (
         <Badge 
-          variant={row.getValue("status") === "Active" ? "default" : "secondary"} 
-          className={cn(
-            row.getValue("status") === "Active" 
-              ? "bg-success/10 text-success border-success/20 hover:bg-success/20" 
-              : "bg-muted text-muted-foreground"
-          )}
+          variant={getRoleStatusVariant(row.getValue("status"))} 
+          className={cn(getRoleStatusClassName(row.getValue("status")))}
         >
           {row.getValue("status")}
         </Badge>

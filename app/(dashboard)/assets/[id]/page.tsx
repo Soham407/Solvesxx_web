@@ -7,7 +7,6 @@ import {
   MapPin,
   Calendar,
   Settings,
-  History,
   ClipboardList,
   Wrench,
   QrCode,
@@ -252,10 +251,6 @@ export default function AssetDetailPage() {
                 <ClipboardList className="h-4 w-4" />
                 Requests
               </TabsTrigger>
-              <TabsTrigger value="history" className="gap-2">
-                <History className="h-4 w-4" />
-                History
-              </TabsTrigger>
             </TabsList>
 
             {/* Overview Tab */}
@@ -424,23 +419,6 @@ export default function AssetDetailPage() {
                 </CardContent>
               </Card>
             </TabsContent>
-
-            {/* History Tab */}
-            <TabsContent value="history" className="space-y-4">
-              <Card className="border-none shadow-card">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
-                    Activity History
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-center py-8">
-                    <History className="h-12 w-12 mx-auto text-muted-foreground/30" />
-                    <p className="mt-2 text-sm text-muted-foreground">Activity history coming soon</p>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
           </Tabs>
         </div>
 
@@ -459,7 +437,7 @@ export default function AssetDetailPage() {
                   <div className="w-32 h-32 bg-muted rounded-lg flex items-center justify-center mb-3">
                     <QrCode className="h-16 w-16 text-muted-foreground" />
                   </div>
-                  <p className="text-xs text-muted-foreground font-mono">{String(asset.qr_id).substring(0, 8)}...</p>
+                  <p className="text-xs text-muted-foreground font-mono">QR linked</p>
                   <Button variant="outline" size="sm" className="mt-3 w-full" onClick={() => setShowQrDialog(true)}>
                     <Download className="h-4 w-4 mr-2" />
                     Download QR

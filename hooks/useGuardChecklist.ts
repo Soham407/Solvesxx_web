@@ -2,32 +2,23 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
+import {
+  buildChecklistData,
+  buildChecklistCompletionResponses,
+  buildChecklistEvidenceResponses,
+  buildChecklistItems,
+  type ChecklistData,
+  type ChecklistItem,
+  type ChecklistQuestionRow,
+  type ChecklistResponseMap,
+  type ShiftInfo,
+} from "@/src/lib/guard-checklist/guardChecklistTransforms";
 
-interface ChecklistItem {
-  id: string;
-  task: string;
-  status: "pending" | "done";
-  required: boolean;
-  completedAt?: string;
-  photos?: { photo_path: string; timestamp: string }[];
-}
-
-interface ChecklistData {
-  items: ChecklistItem[];
-  totalItems: number;
-  completedItems: number;
-  checklistId: string | null;
-  checklistName: string | null;
-  isLoading: boolean;
-  error: string | null;
-}
-
-interface ShiftInfo {
-  shiftName: string;
-  startTime: string;
-  endTime: string;
-  isNightShift: boolean;
-}
+export type {
+  ChecklistData,
+  ChecklistItem,
+  ShiftInfo,
+} from "@/src/lib/guard-checklist/guardChecklistTransforms";
 
 /**
  * Hook to fetch guard's assigned checklist and responses for today
@@ -88,12 +79,7 @@ export function useGuardChecklist(employeeId: string | null) {
       }
 
       // Parse questions from JSONB
-      const questions =
-        (checklist.questions as {
-          id: string;
-          question: string;
-          required?: boolean;
-        }[]) || [];
+      const questions = (checklist.questions as ChecklistQuestionRow[]) || [];
 
       // Fetch today's response for this employee
       const { data: response, error: responseError } = await supabase
@@ -105,40 +91,12 @@ export function useGuardChecklist(employeeId: string | null) {
         .maybeSingle();
 
       // Parse responses (might not exist yet)
-      const responses =
-        (response?.responses as Record<
-          string,
-          {
-            completed: boolean;
-            completedAt?: string;
-            photos?: { photo_path: string; timestamp: string }[];
-          }
-        >) || {};
+      const responses = (response?.responses as ChecklistResponseMap) || {};
 
       // Build items list
-      const items: ChecklistItem[] = questions.map((q) => {
-        const responseData = responses[q.id];
-        return {
-          id: q.id,
-          task: q.question,
-          required: q.required || false,
-          status: responseData?.completed ? "done" : "pending",
-          completedAt: responseData?.completedAt,
-          photos: responseData?.photos || [],
-        };
-      });
+      const items: ChecklistItem[] = buildChecklistItems(questions, responses);
 
-      const completedItems = items.filter((i) => i.status === "done").length;
-
-      setData({
-        items,
-        totalItems: items.length,
-        completedItems,
-        checklistId: checklist.id,
-        checklistName: checklist.checklist_name,
-        isLoading: false,
-        error: null,
-      });
+      setData(buildChecklistData(checklist.id, checklist.checklist_name, items));
     } catch (err) {
       console.error("Error fetching checklist:", err);
       setData((prev) => ({
@@ -180,18 +138,13 @@ export function useGuardChecklist(employeeId: string | null) {
           .maybeSingle();
 
         const existingResponses =
-          (existing?.responses as Record<string, any>) || {};
-        const taskData = existingResponses[itemId] || { completed: false };
-        const updatedResponses = {
-          ...existingResponses,
-          [itemId]: {
-            ...taskData,
-            completed: true,
-            completedAt: now,
-            latitude: coords?.latitude,
-            longitude: coords?.longitude,
-          },
-        };
+          (existing?.responses as ChecklistResponseMap) || {};
+        const updatedResponses = buildChecklistCompletionResponses(
+          existingResponses,
+          itemId,
+          coords,
+          now
+        );
 
         if (existing) {
           // Update existing response
@@ -250,16 +203,13 @@ export function useGuardChecklist(employeeId: string | null) {
           .maybeSingle();
 
         const existingResponses =
-          (existing?.responses as Record<string, any>) || {};
-        const taskData = existingResponses[itemId] || { completed: false };
-
-        const newPhoto = { photo_path: photoPath, timestamp: now };
-        const updatedPhotos = [...(taskData.photos || []), newPhoto];
-
-        const updatedResponses = {
-          ...existingResponses,
-          [itemId]: { ...taskData, photos: updatedPhotos },
-        };
+          (existing?.responses as ChecklistResponseMap) || {};
+        const updatedResponses = buildChecklistEvidenceResponses(
+          existingResponses,
+          itemId,
+          photoPath,
+          now
+        );
 
         if (existing) {
           const { error } = await supabase

@@ -17,6 +17,10 @@ import { Star, CheckCircle2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useBuyerFeedback } from "@/hooks/useBuyerFeedback";
 
+function getRequestLabel(invoiceLabel?: string) {
+  return invoiceLabel || "this request";
+}
+
 interface BuyerFeedbackDialogProps {
   requestId: string;
   invoiceLabel?: string;
@@ -101,7 +105,7 @@ export function BuyerFeedbackDialog({
             Rate Your Experience
           </DialogTitle>
           <DialogDescription>
-            Share your feedback for {invoiceLabel || `request #${requestId.substring(0, 8)}`} from {supplierName}
+            Share your feedback for {getRequestLabel(invoiceLabel)} from {supplierName}
           </DialogDescription>
         </DialogHeader>
 

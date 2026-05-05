@@ -1,115 +1,51 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase as supabaseClient } from "@/src/lib/supabaseClient";
+import { supabase } from "@/src/lib/supabaseClient";
 import type { RequestStatus } from "./useBuyerRequests";
-import { PO_RECEIPT_READY_STATUSES } from "./usePurchaseOrders";
-const supabase = supabaseClient as any;
-
-// ============================================
-// TYPES
-// ============================================
-
-export type GRNStatus =
-  | "draft"
-  | "inspecting"
-  | "accepted"
-  | "partial_accepted"
-  | "rejected";
-
-export type QualityStatus = "accepted" | "rejected" | "partial";
-
-export const GRN_STATUSES_WITH_RECEIVED_MATERIAL: readonly GRNStatus[] = [
-  "accepted",
-  "partial_accepted",
-];
-
-export const REQUEST_STATUSES_READY_FOR_MATERIAL_RECEIVED: readonly RequestStatus[] = [
-  "po_received",
-  "po_dispatched",
-];
-
-export interface MaterialReceipt {
-  id: string;
-  grn_number: string;
-  purchase_order_id: string | null;
-  supplier_id: string | null;
-  received_date: string;
-  received_by: string | null;
-  warehouse_id: string | null;
-  status: GRNStatus;
-  quality_checked_by: string | null;
-  quality_checked_at: string | null;
-  total_received_value: number; // In paise
-  delivery_challan_number: string | null;
-  vehicle_number: string | null;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-  created_by: string | null;
-  updated_by: string | null;
-  // Joined data
-  po_number?: string;
-  supplier_name?: string;
-  supplier_code?: string;
-  warehouse_name?: string;
-  received_by_name?: string;
-  total_items?: number;
-}
-
-export interface GRNItem {
-  id: string;
-  material_receipt_id: string;
-  po_item_id: string | null;
-  product_id: string | null;
-  item_description: string | null;
-  ordered_quantity: number | null;
-  received_quantity: number;
-  accepted_quantity: number | null;
-  rejected_quantity: number;
-  quality_status: QualityStatus;
-  rejection_reason: string | null;
-  unit_price: number | null; // In paise
-  line_total: number | null; // In paise
-  unmatched_qty: number | null;
-  unmatched_amount: number | null;
-  batch_number: string | null;
-  expiry_date: string | null;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-  // Joined data
-  product_name?: string;
-  product_code?: string;
-}
-
-export interface CreateGRNInput {
-  purchase_order_id: string;
-  supplier_id?: string;
-  received_date?: string;
-  received_by?: string;
-  warehouse_id?: string;
-  delivery_challan_number?: string;
-  vehicle_number?: string;
-  notes?: string;
-}
-
-export interface CreateGRNItemInput {
-  material_receipt_id: string;
-  po_item_id?: string;
-  product_id?: string;
-  item_description?: string;
-  ordered_quantity?: number;
-  received_quantity: number;
-  accepted_quantity?: number;
-  rejected_quantity?: number;
-  quality_status?: QualityStatus;
-  rejection_reason?: string;
-  unit_price?: number; // In paise
-  batch_number?: string;
-  expiry_date?: string;
-  notes?: string;
-}
+import { PO_RECEIPT_READY_STATUSES, type POItem } from "./usePurchaseOrders";
+import {
+  GRN_STATUSES_WITH_RECEIVED_MATERIAL,
+  GRN_STATUS_CONFIG,
+  QUALITY_STATUS_CONFIG,
+  calculateGRNItemUpdates,
+  canTransition,
+  formatCurrency,
+  mapGRNItems,
+  mapGRNs,
+  normalizeGRNItemRows,
+  normalizeGRNRows,
+  toPaise,
+  toRupees,
+  validateGRNItemForStock,
+  type CreateGRNInput,
+  type CreateGRNItemInput,
+  type GRNItem,
+  type GRNStatus,
+  type MaterialReceipt,
+  type QualityStatus,
+  REQUEST_STATUSES_READY_FOR_MATERIAL_RECEIVED,
+} from "@/src/lib/grn/grnTransforms";
+export type {
+  CreateGRNInput,
+  CreateGRNItemInput,
+  GRNItem,
+  GRNStatus,
+  MaterialReceipt,
+  QualityStatus,
+} from "@/src/lib/grn/grnTransforms";
+export {
+  GRN_STATUSES_WITH_RECEIVED_MATERIAL,
+  GRN_STATUS_CONFIG,
+  QUALITY_STATUS_CONFIG,
+  calculateGRNItemUpdates,
+  canTransition,
+  formatCurrency,
+  toPaise,
+  toRupees,
+  validateGRNItemForStock,
+  REQUEST_STATUSES_READY_FOR_MATERIAL_RECEIVED,
+} from "@/src/lib/grn/grnTransforms";
 
 interface UseGRNState {
   materialReceipts: MaterialReceipt[];
@@ -119,107 +55,11 @@ interface UseGRNState {
   error: string | null;
 }
 
-// Status transition rules
-const STATUS_TRANSITIONS: Record<GRNStatus, GRNStatus[]> = {
-  draft: ["inspecting", "accepted", "rejected"],
-  inspecting: ["accepted", "partial_accepted", "rejected"],
-  accepted: [], // Terminal state
-  partial_accepted: [], // Terminal state
-  rejected: [], // Terminal state
-};
+interface GRNItemUpdateRow {
+  id: string;
+  received_quantity: number;
+}
 
-// Status display configuration
-export const GRN_STATUS_CONFIG: Record<GRNStatus, { label: string; className: string }> = {
-  draft: { label: "Draft", className: "bg-muted text-muted-foreground border-border" },
-  inspecting: { label: "Inspecting", className: "bg-info/10 text-info border-info/20" },
-  accepted: { label: "Accepted", className: "bg-success/10 text-success border-success/20" },
-  partial_accepted: { label: "Partial Accepted", className: "bg-warning/10 text-warning border-warning/20" },
-  rejected: { label: "Rejected", className: "bg-critical/10 text-critical border-critical/20" },
-};
-
-export const QUALITY_STATUS_CONFIG: Record<QualityStatus, { label: string; className: string }> = {
-  accepted: { label: "Accepted", className: "bg-success/10 text-success border-success/20" },
-  partial: { label: "Partial", className: "bg-warning/10 text-warning border-warning/20" },
-  rejected: { label: "Rejected", className: "bg-critical/10 text-critical border-critical/20" },
-};
-
-// ============================================
-// HELPER FUNCTIONS
-// ============================================
-
-export const canTransition = (currentStatus: GRNStatus, targetStatus: GRNStatus): boolean => {
-  return STATUS_TRANSITIONS[currentStatus]?.includes(targetStatus) ?? false;
-};
-
-// Convert paise to rupees for display
-export const toRupees = (paise: number): number => paise / 100;
-
-// Convert rupees to paise for storage
-export const toPaise = (rupees: number): number => Math.round(rupees * 100);
-
-// Format currency
-export const formatCurrency = (paiseAmount: number): string => {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(toRupees(paiseAmount));
-};
-
-/**
- * Validates if a GRN item can be added to stock.
- * Throws an error if validation fails.
- */
-export const validateGRNItemForStock = (item: GRNItem): void => {
-  if (item.quality_status === "rejected") {
-    throw new Error("Cannot add rejected material to stock");
-  }
-
-  if (item.accepted_quantity === null || item.accepted_quantity === undefined || item.accepted_quantity <= 0) {
-    throw new Error("No accepted quantity to add to stock");
-  }
-
-  if (item.quality_status === "partial" && (item.accepted_quantity || 0) <= 0) {
-    throw new Error("Partial item with zero accepted quantity cannot be added to stock");
-  }
-};
-
-/**
- * Calculates updates for a GRN item based on quality status.
- */
-export const calculateGRNItemUpdates = (
-  item: { received_quantity: number; unit_price: number | null; accepted_quantity?: number | null; rejected_quantity?: number | null },
-  status: QualityStatus,
-  providedAcceptedQty?: number,
-  providedRejectedQty?: number
-) => {
-  const updates: any = { quality_status: status };
-  const receivedQty = item.received_quantity;
-  const unitPrice = item.unit_price || 0;
-  
-  if (status === "rejected") {
-    updates.accepted_quantity = 0;
-    updates.rejected_quantity = receivedQty;
-    updates.line_total = 0;
-  } else if (status === "accepted") {
-    updates.accepted_quantity = receivedQty;
-    updates.rejected_quantity = 0;
-    updates.line_total = unitPrice * receivedQty;
-  } else if (status === "partial") {
-    const accepted = providedAcceptedQty ?? item.accepted_quantity ?? 0;
-    const rejected = providedRejectedQty ?? item.rejected_quantity ?? 0;
-    
-    if (accepted + rejected > receivedQty) {
-      throw new Error(`Total quantity (${accepted + rejected}) exceeds received quantity (${receivedQty})`);
-    }
-    
-    updates.accepted_quantity = accepted;
-    updates.rejected_quantity = rejected;
-    updates.line_total = unitPrice * accepted;
-  }
-  
-  return updates;
-};
 
 // ============================================
 // HOOK
@@ -283,16 +123,7 @@ export function useGRN(filters?: { status?: GRNStatus; poId?: string; supplierId
       if (error) throw error;
 
       // Transform data
-      const grnsWithDetails: MaterialReceipt[] = (data || []).map((grn: any) => ({
-        ...grn,
-        po_number: grn.purchase_orders?.po_number || null,
-        supplier_name: grn.suppliers?.supplier_name || "Unknown",
-        supplier_code: grn.suppliers?.supplier_code || "N/A",
-        warehouse_name: grn.warehouses?.warehouse_name || null,
-        received_by_name: grn.employees
-          ? [grn.employees.first_name, grn.employees.last_name].filter(Boolean).join(" ").trim()
-          : null,
-      }));
+      const grnsWithDetails = mapGRNs(normalizeGRNRows(data));
 
       setState((prev) => ({
         ...prev,
@@ -329,11 +160,7 @@ export function useGRN(filters?: { status?: GRNStatus; poId?: string; supplierId
 
       if (error) throw error;
 
-      const itemsWithDetails: GRNItem[] = (data || []).map((item: any) => ({
-        ...item,
-        product_name: item.products?.product_name || null,
-        product_code: item.products?.product_code || null,
-      }));
+      const itemsWithDetails = mapGRNItems(normalizeGRNItemRows(data));
 
       setState((prev) => ({ ...prev, items: itemsWithDetails }));
       return itemsWithDetails;
@@ -450,7 +277,7 @@ export function useGRN(filters?: { status?: GRNStatus; poId?: string; supplierId
       if (grnError) throw grnError;
 
       // Create GRN items from PO items
-      const grnItems = poItems.map((item: any) => ({
+      const grnItems = poItems.map((item: POItem) => ({
         material_receipt_id: grn.id,
         po_item_id: item.id,
         product_id: item.product_id,
@@ -657,7 +484,7 @@ export function useGRN(filters?: { status?: GRNStatus; poId?: string; supplierId
         .select("line_total")
         .eq("material_receipt_id", grnId);
 
-      const totalValue = (items || []).reduce((sum: number, item: any) => sum + (item.line_total || 0), 0);
+      const totalValue = (items || []).reduce((sum: number, item: { line_total?: number | null }) => sum + (item.line_total || 0), 0);
 
       await supabase
         .from("material_receipts")
@@ -880,13 +707,13 @@ export function useGRN(filters?: { status?: GRNStatus; poId?: string; supplierId
       );
 
       const { data: { user } } = await supabase.auth.getUser();
-      const { data: result, error: rpcError } = await supabase.rpc('update_po_receipt_status' as any, {
+      const { data: result, error: rpcError } = await supabase.rpc('update_po_receipt_status', {
         p_po_id: poId,
         p_user_id: user?.id,
       });
 
       if (rpcError) throw rpcError;
-      const rpcResult = result as any;
+      const rpcResult = result as { success?: boolean; error?: string } | null;
       if (rpcResult?.success === false) {
         throw new Error(rpcResult?.error || "PO receipt status update failed");
       }
@@ -914,9 +741,9 @@ export function useGRN(filters?: { status?: GRNStatus; poId?: string; supplierId
       }
 
       // Determine final status based on items
-      const totalAccepted = items.reduce((sum: number, i: any) => sum + (i.accepted_quantity || 0), 0);
-      const totalRejected = items.reduce((sum: number, i: any) => sum + (i.rejected_quantity || 0), 0);
-      const totalOrdered = items.reduce((sum: number, i: any) => sum + (i.ordered_quantity || 0), 0);
+      const totalAccepted = items.reduce((sum: number, i: GRNItem) => sum + (i.accepted_quantity || 0), 0);
+      const totalRejected = items.reduce((sum: number, i: GRNItem) => sum + (i.rejected_quantity || 0), 0);
+      const totalOrdered = items.reduce((sum: number, i: GRNItem) => sum + (i.ordered_quantity || 0), 0);
 
       let newStatus: GRNStatus;
       if (totalRejected === 0 && totalAccepted >= totalOrdered) {
@@ -1017,7 +844,7 @@ export function useGRN(filters?: { status?: GRNStatus; poId?: string; supplierId
 
       // Update each item: set rejected_quantity = received_quantity, accepted = 0
       if (items && items.length > 0) {
-        const updatePromises = items.map((item: any) =>
+        const updatePromises = (items as GRNItemUpdateRow[]).map((item) =>
           supabase
             .from("material_receipt_items")
             .update({

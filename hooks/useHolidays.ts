@@ -3,29 +3,17 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
 import { useToast } from "@/components/ui/use-toast";
+import {
+  getHolidayDateString,
+  isHolidayInRange,
+  mapHolidayRow,
+  sortHolidaysByDate,
+  type CreateHolidayDTO,
+  type Holiday,
+  type HolidayRow,
+} from "@/src/lib/holidays/holidayTransforms";
 
-export interface Holiday {
-  id: string;
-  holiday_name: string;
-  holiday_date: string;
-  holiday_type: string | null;
-  payroll_impact: string | null;
-  description: string | null;
-  is_active: boolean | null;
-  year: number;
-  created_at: string | null;
-  updated_at: string | null;
-  created_by: string | null;
-}
-
-export interface CreateHolidayDTO {
-  holiday_name: string;
-  holiday_date: string;
-  holiday_type?: string;
-  payroll_impact?: string;
-  description?: string;
-  year: number;
-}
+export type { CreateHolidayDTO, Holiday, HolidayRow } from "@/src/lib/holidays/holidayTransforms";
 
 interface UseHolidaysState {
   holidays: Holiday[];
@@ -62,16 +50,16 @@ export function useHolidays(year?: number) {
       if (error) throw error;
 
       setState({
-        holidays: (data || []) as Holiday[],
+        holidays: ((data || []) as HolidayRow[]).map(mapHolidayRow),
         isLoading: false,
         error: null,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching holidays:", err);
       setState((prev) => ({
         ...prev,
         isLoading: false,
-        error: err.message || "Failed to fetch holidays",
+        error: err instanceof Error ? err.message : "Failed to fetch holidays",
       }));
     }
   }, [currentYear]);
@@ -98,11 +86,7 @@ export function useHolidays(year?: number) {
 
       setState((prev) => ({
         ...prev,
-        holidays: [...prev.holidays, data as Holiday].sort(
-          (a, b) =>
-            new Date(a.holiday_date).getTime() -
-            new Date(b.holiday_date).getTime(),
-        ),
+        holidays: sortHolidaysByDate([...prev.holidays, data as Holiday]),
       }));
 
       toast({
@@ -111,11 +95,11 @@ export function useHolidays(year?: number) {
       });
 
       return data;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error adding holiday:", err);
       toast({
         title: "Error",
-        description: err.message || "Failed to add holiday",
+        description: err instanceof Error ? err.message : "Failed to add holiday",
         variant: "destructive",
       });
       throw err;
@@ -147,7 +131,7 @@ export function useHolidays(year?: number) {
       });
 
       return data;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error updating holiday:", err);
       toast({
         title: "Error",
@@ -177,7 +161,7 @@ export function useHolidays(year?: number) {
         title: "Holiday Removed",
         description: "Holiday has been removed from the calendar.",
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error deleting holiday:", err);
       toast({
         title: "Error",
@@ -195,17 +179,13 @@ export function useHolidays(year?: number) {
       today.getTime() + 30 * 24 * 60 * 60 * 1000,
     );
 
-    return state.holidays.filter((h) => {
-      const holidayDate = new Date(h.holiday_date);
-      return holidayDate >= today && holidayDate <= thirtyDaysLater;
-    });
+      return state.holidays.filter((h) => isHolidayInRange(h.holiday_date, today, thirtyDaysLater));
   }, [state.holidays]);
 
   // Check if a specific date is a holiday
   const isHoliday = useCallback(
     (date: Date | string) => {
-      const dateStr =
-        typeof date === "string" ? date : date.toISOString().split("T")[0];
+      const dateStr = getHolidayDateString(date);
       return state.holidays.some((h) => h.holiday_date === dateStr);
     },
     [state.holidays],
@@ -214,8 +194,7 @@ export function useHolidays(year?: number) {
   // Get holiday by date
   const getHolidayByDate = useCallback(
     (date: Date | string) => {
-      const dateStr =
-        typeof date === "string" ? date : date.toISOString().split("T")[0];
+      const dateStr = getHolidayDateString(date);
       return state.holidays.find((h) => h.holiday_date === dateStr);
     },
     [state.holidays],

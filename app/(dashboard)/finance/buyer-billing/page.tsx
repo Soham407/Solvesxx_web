@@ -39,9 +39,25 @@ import { formatCurrency } from "@/src/lib/utils/currency";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
+function summarizeBuyerInvoices(invoices: BuyerInvoice[]) {
+  return {
+    totalOutstanding: invoices.reduce((acc, inv) => acc + (inv.due_amount || 0), 0),
+    collectedTotal: invoices.reduce((acc, inv) => acc + (inv.paid_amount || 0), 0),
+  };
+}
+
+function getBuyerInvoiceStatusConfig(paymentStatus: BuyerInvoice["payment_status"]) {
+  const val = paymentStatus as string;
+  return PAYMENT_STATUS_CONFIG[val as keyof typeof PAYMENT_STATUS_CONFIG] || { label: val, className: "" };
+}
+
+function getDueBalanceClassName(dueAmount?: number | null) {
+  return (dueAmount || 0) > 0 ? "text-critical" : "text-success";
+}
+
 export default function BuyerBillingPage() {
   const { userId } = useAuth();
-  const { invoices, isLoading, error, refresh: refreshInvoices } = useBuyerInvoices() as any;
+  const { invoices, isLoading, error, fetchInvoices: refreshInvoices } = useBuyerInvoices();
   const { methods, recordTransaction } = useFinance();
   const manualMethods = methods.filter((method) => method.gateway === "manual");
   
@@ -121,7 +137,7 @@ export default function BuyerBillingPage() {
       cell: ({ row }) => (
         <div className="flex flex-col">
           <span className="font-bold text-sm ">{row.original.client_name}</span>
-          <span className="text-[10px] text-muted-foreground uppercase font-bold">Contract {row.original.contract_number || "N/A"}</span>
+          <span className="text-[10px] text-muted-foreground uppercase font-bold">Contract {row.original.contract_number || "Not linked"}</span>
         </div>
       ),
     },
@@ -134,10 +150,7 @@ export default function BuyerBillingPage() {
       accessorKey: "due_amount",
       header: "Due Balance",
       cell: ({ row }) => (
-        <span className={cn(
-          "font-bold text-sm",
-          (row.original.due_amount || 0) > 0 ? "text-critical" : "text-success"
-        )}>
+        <span className={cn("font-bold text-sm", getDueBalanceClassName(row.original.due_amount))}>
           {formatCurrency(row.original.due_amount || 0)}
         </span>
       ),
@@ -146,8 +159,7 @@ export default function BuyerBillingPage() {
       accessorKey: "payment_status",
       header: "Payment Truth",
       cell: ({ row }) => {
-        const val = row.original.payment_status as string;
-        const config = PAYMENT_STATUS_CONFIG[val as keyof typeof PAYMENT_STATUS_CONFIG] || { label: val, className: "" };
+        const config = getBuyerInvoiceStatusConfig(row.original.payment_status);
         return (
           <Badge variant="outline" className={cn("font-bold text-[10px] uppercase h-5", config.className)}>
             {config.label}
@@ -196,8 +208,7 @@ export default function BuyerBillingPage() {
     );
   }
 
-  const totalOutstanding = invoices.reduce((acc: number, inv: BuyerInvoice) => acc + (inv.due_amount || 0), 0);
-  const collectedTotal = invoices.reduce((acc: number, inv: BuyerInvoice) => acc + (inv.paid_amount || 0), 0);
+  const { totalOutstanding, collectedTotal } = summarizeBuyerInvoices(invoices);
 
   return (
     <div className="animate-fade-in space-y-8 pb-20">

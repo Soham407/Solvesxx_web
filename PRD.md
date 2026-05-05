@@ -1,575 +1,634 @@
+# FacilityPro — Product Requirements Document
+
+> **Version:** 2.0
+> **Updated:** 2026-05-04
+> **Status:** Reflects the full implemented system as of this date.
+
+---
+
 # Scope
 
-The proposed Facility Management & Services system is a comprehensive digital solution engineered to
-optimize and streamline the core operational functions and processes within an organization. The system
-provides a robust architecture for automating the Company, Buyer, and Supplier workflows, ensuring a seamless
-flow of data from the initial request to final delivery. This digital transformation serves as a critical milestone
-toward establishing a fully automated centralized portal that connects Company Administrators, Buyers, and
-Suppliers in a unified ecosystem.
-The rollout of this system is designed to encompass the entire workforce, effectively digitizing all personnel
-management and inventory tracking processes. By transitioning to this automated model, the organization
-eliminates the inefficiencies of manual handling, reduces the risk of human error, and ensures real-time visibility
-into resource allocation. Ultimately, the system aims to create a paperless environment where administrative
-tasks are handled with digital precision, allowing the company to focus on its core growth and strategic
-objectives.
+FacilityPro is a comprehensive Facility Management & Services platform engineered to digitize and streamline all core operational functions within an organization. The system provides a unified architecture for automating Company, Buyer, and Supplier workflows — ensuring a seamless flow of data from the initial service request through to final payment and feedback.
+
+The platform connects multiple stakeholders in a single ecosystem: Company Administrators, Buyers, Suppliers, Security Guards, Residents, and specialized service personnel. It eliminates manual handling, reduces human error, and provides real-time visibility into resource allocation, procurement, workforce, and financial operations.
+
+---
 
 # Application Stakeholders
 
-1. Admin
-2. Company MD
-3. Company HOD
-4. Account
-5. Dilver Boy
-6. Buyer
-7. Supplier/vendor
-8. Security Gard
-9. Security Supervisor
-10. Society Manger
-11. Service Boy
+| Role | Portal / Entry Point | Primary Responsibility |
+|------|---------------------|----------------------|
+| **Super Admin** | Admin dashboard | Full system access, platform configuration, admin provisioning |
+| **Admin** | Admin dashboard | Full CRUD across all modules; request management, indent generation, procurement |
+| **Company MD** | MD dashboard | Executive overview, revenue analytics, YTD financials, growth forecasting |
+| **Company HOD** | HOD dashboard | Workforce management, service requests, ticket oversight |
+| **Account** | Accounts dashboard | Financial operations, supplier bills, buyer invoices, reconciliation |
+| **Storekeeper** | Storekeeper dashboard | GRN management, stock alerts, RTV tickets, shortage notes |
+| **Site Supervisor** | Site Supervisor dashboard | Active deployments, personnel dispatches, incidents, attendance oversight |
+| **Delivery Boy** | Delivery dashboard | Material arrival logging with photo and vehicle capture |
+| **Buyer** | Buyer portal (`/buyer`) | Submit service and material requests, track invoices, provide feedback |
+| **Supplier / Vendor** | Supplier portal (`/supplier`) | Respond to indents, manage POs, submit bills, upload delivery notes |
+| **Security Guard** | Guard interface | Panic alerts, daily checklists, visitor logging, GPS clock-in |
+| **Security Supervisor** | Supervisor dashboard | Guard oversight, attendance, ticket management |
+| **Society Manager** | Society Manager dashboard | Visitor stats, checklist status, panic logs, live guard map |
+| **Service Boy** | Service Boy interface | Job sessions, GPS tracking, before/after photo evidence |
+| **AC Technician** | AC Technician dashboard | AC service requests, certifications panel, PPE checklist, inventory |
+| **Pest Control Technician** | Pest Control Technician dashboard | Chemical expiry alerts, PPE checklist, pest control requests |
+| **Resident** | Resident portal | Visitor invitations, flat details, family directory |
+
+---
 
 # Master Data
 
-**Company Module**
+## Company Module
 
-**1. Role Master**
-     Role Master defines user roles and access levels in the system. It controls what actions a user
-       can perform**.
-2. Designation Master**
-     Designation Master is used to define official job titles/positions in an organization.
-**3. Employee Master**
-     While implicitly represented under Company Admin, this master manages the internal staff
-       authorized to handle Request Received actions, Indent Generation, and Check Feedback.
-**4. User Master**
-     User Master is used to create and manage system users who are authorized to log in and
-       operate the application. It ensures secure authentication, role-based access control, and
-       accountability for all system activities.
+### 1. Role Master
+Defines user roles and system-wide access levels. Controls which actions a user can perform across all modules.
 
+### 2. Designation Master
+Manages official job titles and positions within the organization. Used for employee profile assignment and payroll calculations.
 
-**Supply Module Master**
+### 3. Employee Master
+Manages all internal staff records. Stores personal details, department, designation, shift assignment, and document uploads. Supports the full HRMS lifecycle from recruitment to payroll.
 
-**5. Product Category:**
-     Product Category Master is used to define and manage high-level classification of products. It
-       helps in organizing products for standardization, reporting, and management.
-**6. Product Subcategory:**
-     Product Subcategory Master is used to define sub-level classification of products under a
-       product category, enabling more granular organization.
-**7. Product Master:**
-     The system shall allow the definition of finished products with attributes: Name, Product Code,
-       Rate, and Unit of Measurement.
-**8. Supplier Details**
-     Stores basic profile information for each vendor (implied by the "Supplier Master" label).
-**9. Suppliers Wise Product:**
-     A mapping tool that defines which products from the Product Master are supplied by which
-       specific vendor.
-**10. Suppliers Wise Product Rate:**
-     A pricing repository that tracks the pre-negotiated purchase costs for each product per supplier
-**11. Sale Product Rate:**
-     **Price Standardization:** It defines the fixed or base selling price for every item listed in the Product
-       Master.
-     **Revenue Control:** It acts as the counterpart to the Suppliers Wise Product Rate, allowing the
-       Company Admin to manage the margin between procurement cost and sale price.
-     **System Integration:** It is linked directly to the Product Category and Product Master to ensure that
-       rates are applied to the correct stock items.
+### 4. User Master
+Creates and manages system user accounts linked to Supabase Auth. Enforces role-based access control. Admins can provision new users with a temporary password and a structured invitation link. Supports the `must_change_password` flag for first-login enforcement.
 
-**Services Module Master**
+### 5. Company Location Master
+Registers all physical sites — gates, wings, clubhouse, basement parking — with GPS coordinates. Used by the geo-fencing system to validate that employees are physically on-site before clocking in.
 
-**12. Daily Checklist Master**
-    This master defines the routine inspection points for various departments (Security, Housekeeping,
-    Maintenance). It stores a list of "Yes/No" or "Value-based" questions that a staff member must
-    answer every day, such as "Is the water motor pump working?" or "Are all fire exits clear?"
-**13. Vendor Wise Services Master**
-    This creates a direct link between a Vendor and the specific categories they are authorized to
-    handle. It ensures that when you raise a request for "AC Repair," the system only lists vendors who
-    are tagged for "Technical Services" and not those tagged for "Plantation."
-**14. Work Master**
-    The Work Master is a library of all possible tasks or "Job Types" that can be performed in the society.
-    It defines individual activities like "Filter Cleaning," "Gas Top-up," "Lawn Mowing," or "Chemical
-    Spraying" so they can be tracked as separate line items.
-**15. Services Wise Work Master**
-    This maps specific Work items to a broader Service category for easier assignment.
-    Example: Under the "Pest Control Service," it maps the works "Fogging," "Gel Application,"
+---
 
+## Supply Module Master
 
-**HRMS Module Master**
+### 6. Product Category
+Defines high-level classifications for all products in the inventory (e.g., Cleaning Essentials, Pest Control Materials, AC Spare Parts).
 
-**16. Leave Type Master**
-    Defines the categories of time-off available to staff, such as Sick Leave, Casual Leave, or Paid Leave,
-    along with their yearly quotas and carry-forward rules.
-**17. Holiday Master**
-    A pre-defined list of National and Regional holidays for the calendar year that helps the system
-    calculate payroll, public holiday pay, or overtime for staff on duty.
-**18. Company Event**
-    A scheduling tool used to organize and notify staff about society meetings, training sessions, or
-    emergency drills, including the specific date, time, and venue.
-**19. Company Location Master**
-    Registers all physical sites or specific points within the society—such as Gate 1, the Clubhouse, or
-    Basement Parking—to enable accurate GPS tracking and Geo-Fencing for staff.
+### 7. Product Subcategory
+Sub-level classification nested under a Product Category for more granular organization.
+
+### 8. Product Master
+Full product library with Name, Product Code, Unit of Measurement, and rate display. Foundation for all procurement and inventory operations.
+
+### 9. Supplier Master
+Full vendor profile: contact info, banking details, payment terms, credit limit, service rates, and product availability. Suppliers self-manage their profile from the Supplier Portal.
+
+### 10. Supplier Wise Products
+Maps which products from the Product Master are supplied by which specific vendor. Filters eligible suppliers when raising a purchase indent.
+
+### 11. Supplier Wise Product Rate
+Pre-negotiated purchase costs per product per supplier. Used during indent generation and bill reconciliation to validate pricing.
+
+### 12. Sale Product Rate
+The fixed selling price for every item in the Product Master. Acts as the counterpart to the Supplier Wise Product Rate — defines the margin between procurement cost and sale price. Linked to Product Category and Product Master.
+
+---
+
+## Services Module Master
+
+### 13. Daily Checklist Master
+Defines routine inspection points for Security, Housekeeping, and Maintenance. Stores yes/no and value-based questions (e.g., "Is the water motor pump working?", "Are all fire exits clear?"). Guards complete this daily from their interface with optional photo evidence.
+
+### 14. Vendor Wise Services Master
+Links each vendor to the specific service categories they are authorized to handle. Ensures that when a request is raised for "AC Repair," only vendors tagged for "Technical Services" are shown — not Plantation vendors.
+
+### 15. Work Master
+A library of all possible task types (job types) that can be performed: "Filter Cleaning," "Gas Top-up," "Lawn Mowing," "Chemical Spraying." Each is tracked as a separate line item on a job.
+
+### 16. Services Wise Work Master
+Maps specific Work items to a broader Service Category. Example: under "Pest Control," it maps "Fogging," "Gel Application," and "Chemical Spraying."
+
+---
+
+## HRMS Module Master
+
+### 17. Leave Type Master
+Defines categories of time-off: Sick Leave, Casual Leave, Paid Leave — with yearly quotas and carry-forward rules.
+
+### 18. Holiday Master
+Pre-defined national and regional holidays for the calendar year. Used by the payroll engine to calculate public holiday pay and overtime for on-duty staff.
+
+### 19. Company Events
+Scheduling tool for society meetings, training sessions, and emergency drills. Captures date, time, venue, and notifies relevant staff.
+
+---
 
 # Services
 
-1. Facility Management & Services.
-2. Air conditioner Services.
-3. Plantation Services.
-4. Printing & Advertising Services
-5. Pest Control Services.
+## 1. Facility Management & Security Services
 
-##  Facility Management & Services.
+### Grade-Based Guard Deployment
+Guards are categorized by physical fitness, education, and salary:
+- **Grade A/B:** High-end corporate or luxury residential (premium skills)
+- **Grade C/D:** Industrial or general perimeter security (basic skills)
 
-**1. Security Services**
-You utilize a **Grade-Based Logic** to match the right skill level with the client’s budget and risk profile:
- **Grades A, B, C, D**
-    Guards are categorized based on their physical fitness, educational background, communication skills,
-    and salary expectations.
-     Grade A/B: High-end corporate or luxury residential (Premium skills).
-     Grade C/D: Industrial or general perimeter security (Basic skills).
-**2. Specialized Personnel**
-     Gunman: Licensed armed personnel for high-risk assets (Banks, Cash-in-transit).
-     Door Keeper: Focused on hospitality, access control, and visitor management.
-**3. Staffing & Soft Services**
-    Beyond security, you manage the complete ecosystem of a facility:
-        Housekeeping: Professional cleaning and maintenance staff.
-        Pantry: Trained personnel for office cafeterias and executive dining.
-        Office Boy/Girls: Support staff for administrative assistance and internal logistics
+**Specialized Personnel:**
+- Gunman: Licensed armed personnel for high-risk assets
+- Door Keeper: Focused on hospitality, access control, and visitor management
 
+**Soft Services (Staffing):**
+- Housekeeping: Professional cleaning and maintenance staff
+- Pantry: Trained personnel for office cafeterias and executive dining
+- Office Boys/Girls: Support staff for administrative assistance
+
+### Security Command Center
+Admin-facing view showing live guard list with grade filter and GPS tracking. Provides real-time visibility into guard positions and deployment status.
+
+---
+
+## 2. AC Services
+
+### Technical Staff Management
+- **Skill Mapping:** Categorize AC technicians by expertise (Centralized Plant, Split AC, Window AC, Gas Charging Specialist)
+- **Certifications:** Store technical diplomas and safety training certificates per technician
+- **Attendance & Geo-Fencing:** Technicians clock in at specific society sites with selfie + GPS validation
+
+### Equipment Supply (Inventory)
+- **Stock Master:** Track refrigerant gas (R32/R410), capacitors, copper pipes, filters, remote controls
+- **Purchase Orders:** Raise vendor requests when stock falls below reorder level
+- **Issue to Staff:** Record which technician took which part for which job
+- **Reorder Alerts:** Automatic notification when essential spare parts drop below reorder level
+
+### Service & Maintenance Workflow
+1. Resident or Manager logs a complaint (e.g., "AC not cooling")
+2. Technician is assigned and clicks **Start Work** (captured with GPS)
+3. Technician uploads **Before** photo
+4. Technician replaces parts (linked to Equipment Supply)
+5. Technician uploads **After** photo and clicks **Complete**
+6. Job session is closed with photo evidence persisted
+
+---
+
+## 3. Pest Control Services
+
+### Technical Staff Management
+- **Certification Storage:** Licenses for handling hazardous chemicals (mandatory)
+- **PPE Checklist:** Before starting a job, technician checks off Masks, Gloves, Eye Protection, Aprons in the app. Submission is written to the database.
+- **Attendance with Photo & GPS:** Technician must be physically at the treatment site (e.g., Basement B2 or Wing A Garden)
+
+### Pest Control Material
+**Chemical Stock Master:**
+- Insecticides/Pesticides (Deltamethrin, Imidacloprid)
+- Rodenticides (rat bait stations, glue pads)
+- Anti-termite solutions
+
+**Material Controls:**
+- **Request & Approval:** Technicians request a specific quantity; Manager approves. System deducts from main store.
+- **Expiry Alerts:** Automated notifications when a chemical batch is nearing its "Best Before" date. Banner displayed on the pest control dashboard for chemicals expiring within 30 days.
+- **Spill Kit Inventory:** Tracks absorbent materials (clay, sawdust) and neutralizers in storage
+
+### Service Workflow
+**Scheduled Services (General Pest Control):**
+- Recurring calendar for common areas (monthly for drains, quarterly for building perimeter)
+- Technicians upload Before/After photos of treated areas
+
+**Complaint-Based Service (Specific Infestation):**
+1. Resident raises a ticket for "Bed Bugs" or "Cockroaches"
+2. Technician selects treatment type (Fogging, Spraying, Gel Application)
+3. System automatically sends SMS/push notification to the resident: "Pest control scheduled for today at 4 PM. Please keep kids/pets away and cover all food items."
+
+---
+
+## 4. Plantation Services
+
+### Operations
+- Task and zone management with soil health and greenery density tracking per zone
+- Seasonal planner for maintenance scheduling
+- Horticulture inventory connected to the central stock system
+
+---
+
+## 5. Printing & Advertising Services
+
+### Internal Printing (Operations)
+- **Visitor Passes:** For long-term visitors or contractors
+- **ID Cards:** For staff, linked to the Employee Profile
+- **Notices:** Standard templates for water cut alerts, meeting minutes
+
+### Advertising Management
+- **Ad-Space Master:** Manages physical ad locations (lift posters, notice boards, entry gate banners)
+- **Ad Booking Workflow:** Book available ad spaces with date range and client details. Revenue is tracked per booking.
+
+---
 
 # Security Guard Monitoring System
 
-```
-I. Instant Panic Response
- Purpose: Immediate alert for high-risk situations (medical, fire, or theft).
- Functionality: A prominent Red Button on the Guard's app home screen.
- Action: When pressed, it sends an immediate notification to the Society Manager Dashboard
-and an SMS/App alert to the Society Committee Members.
- GPS Tracking: It should capture the guard’s exact location at the time of the alert.
-II. Daily Operational Checklist
- Purpose: To ensure routine maintenance tasks are performed.
-o Parking Lights: Record time of turning ON (Evening) and OFF (Morning).
-o Water Supply: Log motor pump status and tank water levels.
-o Gate/Shutter Check: Verify that secondary gates or shutters are locked at night.
- Evidence: Option to take a photo as proof of task completion.
-III. Alert System (Stationary Guard & Compliance)
- Static Alert: If the guard's GPS location does not change for a set period (e.g., 30 minutes), the
-system triggers an "Inactivity Alert" to the Manager.
-o Note: This prevents guards from sleeping or neglecting patrols.
- Checklist Reminder: If the Daily Checklist is not filled by a certain time (e.g., 9:00 AM), an
-automatic reminder is sent to the guard.
-VIII. Emergency Contact Directory
- Quick Dial: A list within the app for the guard to call with one tap:
-o Police: Local station direct line.
-o Fire Brigade: Nearest fire station.
-o Ambulance: Local hospitals or society-tied medical services.
-o Electrician/Plumber: For society-wide emergencies.
-```
-# Ticket Generation System (Employee Behaviour)
+## I. Instant Panic Response
+- **Purpose:** Immediate alert for high-risk situations (medical, fire, theft)
+- **Trigger:** Prominent panic button on the Guard interface
+- **Action:** Sends instant notification to Society Manager Dashboard + SMS/push to Security Supervisors
+- **GPS Capture:** Guard's exact location captured at the time of alert
+- **Resolution:** Supervisor acknowledges the alert and records `resolved_by`
 
-```
-I. Ticket Creation (By Society Manager)
- The Manager opens the dashboard to report an incident regarding a specific employee.
- Employee Name/ID: Dropdown list of all registered staff.
-II. Category of Behaviour:
- Sleeping on Duty: Found asleep during night shift.
- Rudeness: Miss behaviour with a resident or visitor.
- Absence from Post: Guard missing from the gate for a long time (linked to the Alert System).
- Grooming/Uniform: Not wearing the proper uniform or badge.
- Unauthorized Entry: Allowing visitors without following the Visitor Enter protocol.
-```
+## II. Daily Operational Checklist
+- Guards complete checklist items daily via the app
+- Items include: parking lights ON/OFF time, water supply motor status, gate/shutter lock verification
+- Photo evidence option per checklist item
+- **Checklist Reminder:** If not filled by 9:00 AM, an automatic SMS reminder is sent to the guard (automated via edge function)
 
-```
-III. Evidence & Documentation
- Incident Description: A detailed note on what exactly happened.
- Media Upload: Option to attach a photo (e.g., photo of the guard sleeping)
- Date & Time: Automatically captured when the ticket is raised.
-IV. Severity Levels
- The Manager assigns a priority to the ticket:
- Low (Warning): First-time minor mistake (e.g., uniform issue).
- Medium (Serious): Repeated mistakes or minor arguments.
- High (Critical): Physical fight, theft, or leaving the gate unattended during peak hours.
-```
+## III. Inactivity Alert System
+- **Static Alert:** If a guard's GPS location does not change for a configurable period (default: 30 minutes), the system triggers an "Inactivity Alert" to the Manager
+- **Configurable Threshold:** The `guard_inactivity_threshold_minutes` value is stored in `system_config` and can be changed by Admin without a deployment
+- **Edge Function:** `check-guard-inactivity` + `inactivity-monitor` run continuously
+
+## IV. Emergency Contact Directory
+Quick-dial list within the Guard interface:
+- Police: Local station direct line
+- Fire Brigade: Nearest fire station
+- Ambulance: Local hospital or society-tied medical services
+- Electrician/Plumber: For society-wide emergencies
+
+---
+
 # Visitor Management System
 
-```
-I. Add Visitor Information
- Guest Entry: Capture Name, Photo, Phone Number, and Vehicle Number.
- Daily Visitor (Frequent): A separate database for staff like Maids, Drivers, Milkmen, and Car
-Cleaners.
-II. Society Family Database
- Data Structure: Flat Number, Owner/Tenant Name, Primary & Secondary Mobile Numbers.
- Member List: A searchable directory for the guard (without showing full personal details for
-privacy) to verify which flat a visitor is going to.
-III. Notification System (SMS/App)
- Automated SMS: "Dear Resident, [Visitor Name] is at the gate for [Flat No]."
- Push Notifications: If the resident has the app, a pop-up alert with the visitor's photo is sent
-instantly.
-IV. Society Manager Dashboard
- Analytics: A central web portal to see:
-o Visitor Stats: Total entries per day/week.
-o Checklist Status: Green/Red indicators for completed or pending tasks.
-o Panic Logs: History of SOS alerts with resolution notes.
-o Staff Attendance: Log-in/Log-out times for security personnel.
-```
+## I. Add Visitor Information
+- **Guest Entry:** Capture Name, Photo, Phone Number, Vehicle Number
+- **Daily Visitor (Frequent):** Separate database for recurring staff — maids, drivers, milkmen, car cleaners
+- **Vendors & Contractors:** Separate category with longer-duration tracking
+- **Family Directory:** Searchable list of flat owners and family members (privacy-safe view — guards cannot see full personal details)
 
-##  Air conditioner Services.
+## II. Society Family Database
+- **Data Structure:** Flat Number, Owner/Tenant Name, Primary & Secondary Mobile Numbers
+- **Resident Directory:** Guards can verify which flat a visitor is going to without exposing full resident details
 
-```
-I. Technical Staff Management
-This is a specialized sub-section of your HRMS Profile, specifically for AC Technicians.
- Skill Mapping: Categorize staff by expertise (e.g., Centralized Plant, Split AC, Window AC, Gas
-Charging Specialist).
- Certifications: Store technical diplomas or safety training certificates.
- Attendance & Geo-Fencing: Since technicians move between wings or different society sites
-II. Equipment Supply (Inventory)
- Stock Master: Track items like Refrigerant Gas (R32/R410), Capacitors, Copper Pipes, Filters, and
-Remote Controls.
- Purchase Orders (PO): Raise requests to vendors when stock is low.
- Issue to Staff: Record which technician took which part (e.g., "Technician A took 1 Capacitor for
-Wing B AC").
- Inventory Alerts: Notify the manager when essential spare parts are below the "Reorder Level."
-III. Service & Maintenance (Workflow)
- Service Request: Resident or Manager logs a complaint (e.g., "AC not cooling").
- Work Progress: Step 1: Technician arrives and clicks "Start Work" (captured with GPS).
-o Step 2: Uploads "Before" photo.
-o Step 3: Replaces parts (linked to Equipment Supply).
-o Step 4: Uploads "After" photo and clicks "Complete."
-```
-##  Pest Control Services
+## III. Notification System
+- **Automated SMS:** "Dear Resident, [Visitor Name] is at the gate for [Flat No]."
+- **Push Notifications:** If the resident has the app, a pop-up alert with the visitor's photo is sent instantly
+- **Resident Approval:** Resident can approve or deny the visitor from their portal
 
-```
-I. Staff Management
- Technician Certification: Store licenses for handling hazardous chemicals (mandatory in many
-regions).
- Protective Gear (PPE) Checklist: Before starting a job, the staff must check off items in the app
-(Masks, Gloves, Eye Protection, Aprons).
- Attendance with Photo & GPS: Ensuring the technician is physically present at the specific
-treatment site (e.g., Basement B2 or Wing A Garden).
-II. Pest Control Material
- Managing chemicals is different from regular inventory because they are hazardous and have
-expiry dates.
-```
+## IV. Society Manager Dashboard
+- **Visitor Stats:** Total entries per day/week, category breakdown
+- **Checklist Status:** Green/Red indicators for completed or pending daily checklist items
+- **Panic Logs:** History of SOS alerts with resolution notes
+- **Staff Attendance:** Clock-in/clock-out times for security personnel
+- **Live Guard Map:** Real-time GPS positions of active guards
 
-```
-III. Chemical Stock Master:
- Insecticides/Pesticides: (e.g., Deltamethrin, Imidacloprid).
- Rodenticides: (Rat bait stations, glue pads).
-IV. Anti-Termite Solutions.
- Material Request & Approval: Technicians request a specific quantity; the Manager approves it.
-The system subtracts this from the main store.
- Expiry Alerts: Automated notifications when a batch of chemicals is nearing its "Best Before"
-date.
- Spill Kit Inventory: Tracking the availability of absorbent materials (clay, sawdust) and
-neutralizers in the storage area.
-V. Service & Maintenance (Workflow)
- Scheduled Services (General Pest Control - GPC)
- Recurring Calendar: Automated schedule for common areas (monthly for drains, quarterly for
-building perimeter).
- Service Proof: Technicians must upload "Before" and "After" photos of the treated areas (e.g.,
-spray being applied to drains).
-VI. Complaint-Based Service (Specific Infestation)
- Ticket Generation: Resident raises a ticket for "Bed Bugs" or "Cockroaches."
- Treatment Plan: Technician selects the type of treatment (Fogging, Spraying, or Gel Application).
- Resident Instruction: System automatically sends an SMS/Notification to the family
-"Pest control scheduled for today at 4 PM. Please keep kids/pets away and cover all food items."
-```
-##  Printing & Advertising Services
+---
 
-```
-This module handles the internal and external communication needs of the society.
-I. Internal Printing (Operations)
- Document Generation: Automatically printing/generating:
-o Visitor Passes: For long-term visitors or contractors.
-o ID Cards: For staff (linked to the Employee Profile).
-o Notices: Standard templates for "Water Cut Alerts" or "Meeting Minutes."
-II. Advertising Management
- Ad-Space Master: Managing physical locations for ads (e.g., Lift posters, Notice boards, Entry gate
-banners).
-```
+# HRMS — Human Resource Management System
 
-# Human Resource Management System
+## I. Recruitment Process
+Tracks a candidate from "Applicant" to "Hired Staff":
+1. **Job Requisition:** Manager posts a requirement (e.g., "Need 2 Night Shift Guards")
+2. **Application Entry:** Capture basic details, source (Agency/Referral), interview status
+3. **Background Verification (BGV):** Status tracking for Police Verification, Address Verification, Education Verification, Employment Verification. BGV panel visible on candidate record when candidate reaches `background_check` stage.
+4. **Onboarding:** One-click conversion from Candidate → Employee
 
-```
-I. Recruitment Process
-This module tracks a candidate from "Applicant" to "Hired Staff."
- Job Requisition: Manager posts a requirement (e.g., "Need 2 Night Shift Guards").
- Application Entry: Capture basic details, source (Agency/Referral), and Interview status.
- Background Verification (BGV): A critical step for society security. Status tracking for Police
-Verification and Address Verification.
- Onboarding: One-click conversion from "Candidate" to "Employee."
-II. Employee Profile
-The digital identity of the staff member.
- Personal Info: Full name, Blood Group, Date of Birth, Emergency Contact.
- Job Details: Employee ID, Designation, Date of Joining, Reporting Manager.
- Shift Assignment: Mapping the employee to specific timings (e.g., Morning Shift 8 AM - 8 PM).
-III. Smart Attendance & Geo-Fencing
-To eliminate "Proxy Attendance" and ensure the guard is actually at the gate.
- Selfie Attendance: Guard takes a photo via the app to clock in.
- Geo-Fencing: The "Check-in" button only works if the guard is within a 50-meter radius of the
-Company Location Master (e.g., the Main Gate).
- Auto-Punch Out: If the guard leaves the Geo-fence area for too long, the system flags it.
-IV. Employee Documents
- Identity Proofs: Aadhar Card, PAN Card, Voter ID.
- Security Licensing: PSARA training certificates (for guards).
- Police Verification Report: Mandatory PDF upload.
-V. Employee Leave
-Managed via the Leave Type Master you created earlier.
- Leave Application: Staff applies through their app.
- Approval Workflow: Manager receives a notification to Approve or Reject based on staff
-availability.
- Leave Balance: Real-time view of remaining Sick/Casual leaves.
-VI. Employee Payroll
- Earnings: Basic Salary + HRA + Special Allowance + Overtime (OT).
- Deductions: PF (Provident Fund), PT (Professional Tax), ESIC,
- Attendance Integration: Salary is automatically calculated based on "Present Days" from the
-Smart Attendance module.
- Payslip Generation: Staff can download their monthly payslip directly from the app.
-```
+## II. Employee Profile
+- Personal Info: Full name, Blood Group, Date of Birth, Emergency Contact
+- Job Details: Employee ID, Designation, Date of Joining, Reporting Manager
+- Shift Assignment: Mapped to specific shift timings
+- **Specialized Profiles:** Additional profile data for Technicians and Guards (certifications, grade, assigned location)
 
-# Inventory
+## III. Smart Attendance & Geo-Fencing
+- **Selfie Attendance:** Employee takes a photo via the app to clock in
+- **Geo-Fencing:** Check-in button only works within a configurable radius of the registered Company Location (validated using haversine distance calculation)
+- **Shift Compliance:** Cross-validates actual clock-in time against the employee's assigned shift start time. Late minutes are tracked per employee.
+- **Auto-Punch Out:** If an employee is idle past their shift end without clocking out, the system auto-punches them out and flags `is_auto_punch_out`. Records `absent_breach` if applicable. Runs automatically via `pg_cron` at 1 AM daily.
 
-##  Buyer
+## IV. Employee Documents
+- Identity Proofs: Aadhar Card, PAN Card, Voter ID
+- Security Licensing: PSARA training certificates (for guards)
+- Police Verification Report: Mandatory PDF upload
+- Document Expiry Alerts: Automated notification when compliance documents are nearing expiry
 
-```
- Service Request Generation: The Buyer logs into the portal and selects a Service Category (e.g., Security
-Services).
- Grade & Role Selection: For Security , the Buyer chooses the specific "Type" (Grade A, B, C, or D).
-o For Staffing , the Buyer selects the "Designation" (Pantry, Housekeeping, etc.).
- Requirement Specification: The Buyer defines the quantity (headcount), the shift timings, and the
-duration of the deployment.
-```
+## V. Employee Leave
+- **Leave Application:** Staff applies via their dashboard
+- **Approval Workflow:** Manager receives a notification to Approve or Reject based on staff availability
+- **Leave Balance:** Real-time view of remaining Sick/Casual leaves
+- **Leave Config:** Leave types and quotas are configurable by Admin
 
-##  Buyer Dashboard (Portal)
+## VI. Employee Payroll
+- **Earnings:** Basic Salary + HRA + Special Allowance + Overtime (OT)
+- **Deductions:** PF (Provident Fund), PT (Professional Tax), ESIC
+- **Attendance Integration:** Salary automatically calculated from "Present Days" in the Smart Attendance module using `log_date`-backed summaries
+- **Payslip Generation:** Monthly payslips generated via `generate_payroll_cycle()` RPC. Staff can download their payslip directly.
+- **OT Calculation:** Overtime hours calculated from attendance logs against shift boundaries
 
-```
-I. Overview Metrics
- Active Subscriptions: Total number of ongoing service deployments (e.g., Security Guards, Housekeeping).
- Pending Requests: Count of service requests awaiting Admin approval or Vendor assignment.
- Expiring Soon: Alerts for services nearing the end of their deployment duration, prompting for quick renewal.
+---
 
-II. Active Services Overview
- A consolidated list view of ongoing services detailing:
-  o Service Category & Role (e.g., Security Services - Grade A).
-  o Headcount and Shift Timings.
-  o Start Date and End Date.
-  o Assigned Personnel Summary (derived from Delivery Notes).
+# Inventory & Procurement
 
-III. Billing & Quick Actions
- Pending Bills: Direct access to unpaid "Sale Bills" needing Buyer payment.
- Request Modifications: Quick actions to "Renew Service", "Cancel Service", or "Raise Ticket" for an active deployment.
- Service History: Log of past completed services with their corresponding feedback ratings.
-```
-##  Company Admin
+## Buyer Workflow
 
-```
- Rate Verification: The Admin reviews the request. The system automatically pulls the Sale Service Rate
-based on the Security Grade or Staffing Designation from the Master Data.
- Service Indent Generation: Once validated, the Admin converts the request into a Service Indent. This is
-the internal document that formalizes the demand.
- Vendor Matching: Using the Suppliers Wise Service Master , the Admin identifies which vendor provides
-the specific Grade or Role requested.
- Forwarding: The Admin executes a Service Indent Forward to the chosen Supplier.
-```
-##  Supplier
+### Order Request
+1. Buyer logs into the Buyer Portal and selects a **Service Category** (Security Services, Housekeeping, AC Repair, etc.) or a **Material Category** (Cleaning Essentials, Stationery, etc.)
+2. **For Services:** Buyer selects Grade/Role, specifies headcount, shift timings, start date, deployment duration, and site location
+3. **For Materials:** Buyer selects products, quantities, and delivery location
+4. Request is submitted to Company Admin for review
 
-```
-The Supplier (Third-party agency) manages their roster to fulfill the company’s requirements.
- Indent Review: The Supplier receives the notification. They check their personnel database to ensure
-they have "Grade A" guards or "Pantry Staff" available for the requested dates.
- Commitment: Indent Accept: Supplier confirms they can provide the personnel.
-o Indent Reject: Supplier cites lack of availability.
- Service Purchase Order (SPO): Upon acceptance, the Admin issues a formal Service Purchase Order ,
-which serves as the legal contract for the deployment.
- System Status: Received SPO.
-```
-##  Deployment
+### Buyer Dashboard
+- **Active Subscriptions:** Count of ongoing service deployments
+- **Pending Requests:** Requests awaiting Admin approval or Vendor assignment
+- **Expiring Soon:** Services nearing end of deployment duration — prompts for renewal
+- **Active Services Detail:** Service Category & Role, Headcount, Shift Timings, Start/End Date, Assigned Personnel
+- **Pending Bills:** Direct access to unpaid Sale Bills needing payment
+- **Quick Actions:** Renew Service, Cancel Service, Raise Ticket for an active deployment
+- **Service History:** Past completed services with feedback ratings
 
-```
- Dispatch Personnel: The Supplier updates the system to Personnel Dispatched. This notifies the Admin
-and Buyer that the staff are en route or scheduled to arrive.
- Service Delivery Note: The Supplier uploads or issues a digital "Delivery Note" which includes the names
-and credentials of the deployed staff.
- Service Acknowledgment: Upon arrival at the Buyer’s location, the Admin (or Site Supervisor) performs
-a Service Acknowledgment.
-o Verification: They confirm that the 5 guards arrived and that their skill levels match the "Grade B"
-requirement requested.
- System Status: Deployment Confirmed.
-```
+---
+
+## Company Admin Workflow
+
+### Request Management
+Admin receives incoming buyer requests and takes one of three actions:
+- **Accept:** Moves the request into the procurement phase
+- **Pending:** Places the request on hold for further review
+- **Reject:** Formally denies the request (notification sent to buyer)
+
+### Indent Generation
+Once a request is accepted, Admin converts it into a formal indent:
+- **Material Indent:** Specifies exact products, quantities, and target supplier
+- **Service Indent:** Specifies service type, grade/role, headcount, shift, and duration. Admin matches the request to a supplier from the Vendor Wise Services Master.
+- **Forward Indent:** Admin forwards the indent to the chosen supplier
+
+### Purchase Orders
+After supplier accepts the indent:
+- Admin issues a formal **Company Purchase Order (PO)** for materials
+- Admin issues a formal **Service Purchase Order (SPO)** for staffing/service deployments
+- System tracks order lifecycle: Received PO → Dispatched → Delivered
+
+### GRN (Goods Received Note)
+Upon material delivery:
+- Storekeeper performs **Quality Check** (Good / Damaged / Expired / Leaking) with mandatory photo evidence
+- Storekeeper performs **Quantity Check** — system auto-calculates shortage (Ordered − Received)
+- If approved: items enter the inventory
+- If rejected: a Return to Vendor (RTV) ticket is created
+
+---
+
+## Supplier Workflow
+
+### Indent Response
+1. Supplier receives indent notification
+2. Reviews their personnel/product availability
+3. Responds: **Indent Accept** or **Indent Reject** (cites lack of availability)
+
+### Service Deployment
+1. Supplier updates status to **Personnel Dispatched**
+2. Supplier uploads a digital **Service Delivery Note** — includes names and credentials of deployed staff
+3. Admin or Site Supervisor performs **Service Acknowledgment**: verifies headcount and skill level match the requested grade
+4. Status: **Deployment Confirmed**
+
+### Billing & Payment
+1. Supplier submits **Supplier Bill** within the system based on Supplier Wise Service/Product Rate
+2. System generates a unique bill number via `generate_bill_number()` RPC
+3. Supplier uploads supporting documents to storage
+4. Admin reconciles bill against GRN/Service Acknowledgment
+5. Admin marks bill as **Paid** — completing the financial obligation to the supplier
+
+---
 
 ## Financial Closure & Quality Audit
 
-The final phase ensures fiscal accuracy and maintains high service standards.
+### Reconciliation
+The reconciliation engine performs 3-way matching: **PO ↔ GRN ↔ Supplier Bill**. Mismatches are flagged for Admin review before payment approval.
 
+### Buyer Invoicing
+1. Admin generates a **Sale Bill** for the Buyer linked to the accepted request and society
+2. Sale Bill has a unique invoice number generated by `sale_invoice_seq`
+3. Buyer sees their invoices in the Buyer Portal filtered by their society
+4. Buyer makes payment → Admin marks **Sale Bill Paid**
+
+### Feedback (End of Cycle)
+After the bill is marked Paid, the Buyer is prompted to rate performance:
+- Security: Was the guard's conduct satisfactory? Was the grade level correct?
+- Staffing: Was the housekeeping staff punctual?
+- Materials: Was the quality as expected?
+
+The request officially reaches **END** state only after feedback is submitted and the bill is settled.
+
+---
+
+## Status Tracking
+
+### Request Status Flow
 ```
- Service Bill Generation: The Supplier submits a Supplier Bill based on the Suppliers Wise Service Rate.
- Reconciliation: The Admin verifies the Bill against the Service Acknowledgment (checking for
-headcount).
- Buyer Invoicing: The Admin generates a Sale Bill for the Buyer.
- Payment Processing: Buyer pays the Company (Status: Sale Bill Paid).
-o Company pays the Supplier (Status: Supplier Bill Paid).
- Check Feedback (Crucial Step): The Buyer is prompted to rate the performance:
-o Security: Was the "Gun Man" professional? Was the "Grade A" guard's conduct satisfactory?
-o Staffing: Was the Housekeeping staff punctual?
- Process Boundary: END.
-```
-# Material Supply Services
-
- Security Panel & Door Controller Materials.
- Hot & Cold Beverages Materials.
- Eco-Friendly Disposable Solutions Materials.
- Cleaning Essential Materials.
- Pest Control Materials.
- Air Fresheners Materials.
- Stationery Materials
- Corporate Gifting Materials.
-
-##  Company Workflow (Admin)
-
-```
-a. Request Management
-This is the intake phase where the admin evaluates incoming demand:
- Request Intake: The process begins with Request Received, typically triggered by a Buyer's "Order
-Request".
- Decisioning: The Admin has three primary actions for any request:
-o Accept: Moves the request into the procurement phase.
-o Pending: Places the request on hold for further review or stock availability.
-o Reject Received: Formally denies the request, which may trigger a notification back to the
-requester.
+Order Request → accepted / pending / rejected
+  → (accepted) material_received / po_received / po_dispatched
+  → (delivered) invoice_generated
+  → (paid) feedback_pending
+  → (feedback submitted) completed
+  → cancelled (at any stage before completion)
 ```
 
-```
-b. Indent Generation
-Once a request is accepted, it is converted into a formal internal demand:
- Creation: The Admin performs Indent Generation to specify exactly what products are needed from
-the Master Data.
- Forwarding: The Admin executes a Forward Indent (or Indent Forward) to the appropriate vendor
-identified in the "Supplier Master".
-c. Procurement
-This phase handles the formal legal and logistical ordering through the following steps:
- Purchase Order (PO): Once an indent is generated and accepted, the Company Admin issues a
-formal Company Purchase Order to the selected supplier.
- Order Tracking: The system monitors the lifecycle of the order. This includes tracking the Supplier
-Order status and logging the Received Note provided by the supplier upon delivery.
- Material Acknowledgment: After the physical items are delivered, the admin performs a specific
-Acknowledge Material Request. This step is crucial to confirm that the physical goods received
-accurately match the initial internal demand and the quantities specified in the Master Data.
- Logistics Status: During this phase, the order status transitions through several key checkpoints,
-including Received PO and Dispatch PO , ensuring transparency in the movement of goods.
-```
-##  Financial & Feedback
+### Financial States
+- **Supplier Bill:** `pending` → `approved` → `paid`
+- **Sale Bill (Buyer Invoice):** `generated` → `paid`
 
-```
-This final phase ensures fiscal closure and maintains quality standards through the following steps:
- Bill Processing: The Company Admin manages the Purchases Bill. This involves a reconciliation
-process where the invoice is verified against the "Received Note" and the "Acknowledge Material
-Request" to ensure the company only pays for what was actually delivered.
- Payment Tracking: Once the financial obligation to the supplier is settled, the Admin updates the
-system status to Paid. This status is tracked for both the "Purchases Bill" (Company to Supplier) and
-the "Sale Bill" (Buyer to Company) to ensure a balanced ledger.
- Check Feedback: Before the transaction reaches the absolute END state, the Admin performs a
-Check Feedback. This step captures the quality of the service or product provided by the supplier
-and the satisfaction level of the buyer, serving as a performance metric for future procurement
-decisions
-```
-##  Buyer Workflow
+### Logistics States
+- `Indent Forward` → Demand formalized and sent to supplier
+- `Received PO` → Supplier has received the Purchase Order
+- `Dispatch PO` → Goods/staff are en route
+- `Material Received` → GRN completed, items in inventory
 
-```
-The flow for the party requesting the materials includes the following phases:
- Order Initiation: The process begins when the Buyer submits an Order Request to the Company Admin.
-This request triggers the "Request Received" status in the Admin's dashboard.
-```
+---
 
-```
- Confirmation: Once the Admin processes the request, the Buyer receives an Order Received
-notification. At this stage, the Buyer has the authority to:
-o Accept: Move forward with the proposed solution or quotation.
-o Reject: Terminate the request if the terms, items, or timelines are not suitable.
- Completion: This is the final fulfilment and closure stage:
-o Purchases Bill: The Buyer receives the Purchases Bill (or Sale Bill from the Admin's perspective)
-once the material is ready or delivered.
-o Feedback: The Buyer is required to provide Feedback regarding the quality of the service or
-items received.
-o END: After feedback is submitted and the bill is settled ( Paid ), the transaction officially reaches
-the END state.
-```
-##  Supplier Workflow
-
-```
-The interaction with vendors for fulfilment includes the following steps:
- Indent Response : The workflow begins with Indent Received (the request forwarded by the Company
-Admin).
-o The Supplier must evaluate their capacity and respond by marking the status as either Indent
-Accept or Indent Reject.
- Logistics & Order Management: Once the Indent is accepted and a formal Company Purchase Order is
-issued, the status moves to Received PO.
-o The Supplier then prepares the goods and updates the system to Dispatch PO, signalling that the
-materials are en route to the company.
- Billing & Payment: Upon or after delivery, the vendor generates a Supplier Bill within the system.
-o The Supplier tracks this bill through the system's financial module until the Company Admin
-updates the status to Paid, confirming the completion of the financial obligation.
-```
-##  Status Tracking & Control
-
-```
-The system governs the lifecycle of every request through four distinct categories of states:
- Start/End (Process Boundaries):
-o Start: Initiated when a Buyer submits an "Order Request."
-o END: Reached only after the Bill is marked as "Paid" and the "Check Feedback" process is
-completed.
- Approval States (Decision Points):
-o Accept / Reject: Used by the Admin to approve or deny the initial "Order Request" or "Received
-Quotation."
-o Pending: A holding state used when a request requires further review or stock is unavailable.
-o Indent Accept / Indent Reject: Specifically used by the Supplier to confirm whether they can fulfill
-the forwarded demand (Indent).
-```
-
-```
- Financial States (Fiscal Closure):
-o Paid: This critical status is tracked for both sides of the ledger:
- Supplier Bill: Confirms the company has paid the vendor.
- Purchases/Sale Bill: Confirms the Buyer has paid the company.
- Logistics States (Movement Tracking):
-o Indent Forward: Tracks the movement of the formal demand from Admin to Supplier.
-o Received PO: Confirms the Supplier has officially received the Purchase Order and is beginning
-fulfilment.
-o Dispatch PO: Indicates that the goods have left the Supplier's location and are en route for
-delivery.
-```
 # Ticket Generation System
 
-```
- Check Bad Material (Quality Check)
- Purpose: To identify damaged, expired, or sub-standard items.
-Fields in Ticket:
- Condition Status: (Good / Damaged / Expired / Leaking).
- Photo Evidence: Mandatory photo upload of the damaged item or the expiry date label.
- Batch Number: To track specific faulty lots from a vendor.
- Action: If marked "Bad," the system flags this item as "non-usable" and prevents it from
-entering the Supply Inventory.
- Check Quantity Material (Quantity Check)
- Purpose: To verify if the physical count matches the Invoice/Purchase Order (PO).
- Fields in Ticket:
-o Ordered Quantity: (e.g., 50 units).
-o Received Quantity: (e.g., 45 units).
-o Shortage: Automatically calculated (Ordered - Received).
- Action: The system generates a "Shortage Note" to the vendor and adjusts the inventory to
-reflect only the 45 units actually received.
- II. Ticket Category: Material Return (RTV - Return to Vendor)
- If the material fails the checks above, a Return Ticket is generated to track the exit of goods.
- Return Material
- Purpose: To document why and when items were sent back.
- Fields in Ticket:
- Reason for Return: (Wrong Item Sent / Damaged / Quality Not as per Sample).
-```
+## Employee Behaviour Tickets
+**Created by:** Society Manager or Supervisor
 
- **Digital Workflow (Step-by-Step)**
+**Ticket Fields:**
+- Employee Name/ID (dropdown of registered staff)
+- Category: Sleeping on Duty / Rudeness / Absence from Post / Grooming & Uniform / Unauthorized Entry
+- Incident Description: Detailed notes on the incident
+- Media Upload: Photo evidence
+- Date & Time: Auto-captured
+- Severity: Low (Warning) / Medium (Serious) / High (Critical)
 
-```
-o Material Arrival: Security at the Visitor Enter gate logs the delivery vehicle.
-o Manager Notification: The Manager receives an alert to inspect the goods.
-o Ticket Generation: The Manager opens the "Material Ticket" form and fills in:
-o Check Quantity: (Matches PO?)
-o Check Quality: (Any "Bad Material"?)
-o Submission: If Approved: Items are added to the Plantation/AC/Pest Control
-Master Inventory.
-o If Rejected: A Return Ticket is created.
-o Closure: The ticket is closed once the vendor replaces the material or provides a credit note.
-```
+---
 
+## Quality & Quantity Tickets (GRN-Linked)
+
+**Quality Check:**
+- Condition Status: Good / Damaged / Expired / Leaking
+- Photo Evidence: Mandatory upload of damaged item or expiry label
+- Batch Number: To track faulty lots from a vendor
+- If marked Bad: Item is flagged as non-usable and blocked from entering inventory
+
+**Quantity Check:**
+- Ordered Quantity vs. Received Quantity
+- Shortage: Automatically calculated (Ordered − Received)
+- System generates a **Shortage Note** sent to the vendor
+
+---
+
+## Return to Vendor (RTV) Tickets
+If material fails quality or quantity checks, an RTV ticket is raised:
+- Reason for Return: Wrong Item / Damaged / Quality Not as per Sample
+- Status tracked from creation through vendor resolution
+- Realtime subscription keeps the dashboard live
+
+---
+
+# Asset Management
+
+## Asset List & Detail
+Full inventory of company-owned assets with status tracking, maintenance history, and linked service requests.
+
+## Asset Categories
+Hierarchical category management for asset classification.
+
+## Asset Maintenance
+- Scheduled maintenance based on due dates
+- Due schedules can create linked service requests
+- `markAsPerformed` only advances the schedule after a completed linked service request exists — preventing false maintenance records
+
+## QR Code System
+- Batch QR code generation for assets
+- `/scan/[id]` landing pages record each scan and resolve the linked asset
+- Scanner support via `html5-qrcode`
+
+---
+
+# Warehouses
+Multi-warehouse inventory management. Stock levels are tracked per warehouse location.
+
+---
+
+# Reports & Analytics
+
+## Attendance Reports
+Attendance analytics derived from real attendance log data — present days, late arrivals, absent breach incidents.
+
+## Financial Reports
+- KPI cards: YTD Collected, Outstanding AR, Profit Retention, Net Margin
+- Revenue Distribution (Pie Chart)
+- Monthly Profitability trend (Area Chart)
+
+## Inventory Reports
+Stock level analytics, reorder alerts, consumption trends.
+
+## Service Reports
+Service request analytics — open vs. closed, average resolution time, overdue requests by priority.
+
+---
+
+# Finance Module
+
+## Financial Reconciliation
+3-way matching engine that reconciles Purchase Orders, Goods Received Notes, and Supplier Bills. Mismatches are surfaced before payment approval.
+
+## Compliance Tracking
+Monitors document expiry dates (PSARA licenses, police verification reports). Automated alerts sent before expiry. Compliance percentage visible on MD Dashboard.
+
+## Performance Audit
+Vendor performance metrics — on-time delivery rate, quality rejection rate, billing accuracy.
+
+## Budgeting
+Budget management per department or cost center. Budget vs. actual tracking.
+
+## Financial Closure
+Month-end or period closure workflows — locks the ledger for a period after all bills and invoices are reconciled.
+
+## Payment Tracking
+Unified view of all payment statuses — supplier bills pending payment, buyer invoices awaiting settlement.
+
+---
+
+# Notifications System
+
+All platform events emit in-app notifications. Notifications are stored in the `notifications` table and delivered via:
+- **In-app notification bell** (realtime subscription, badge count, mark-as-read)
+- **SMS** via MSG91 (`send-notification` edge function)
+- **Push notifications** via Firebase Cloud Messaging (FCM)
+
+**Sources that produce notifications:**
+- Panic alerts and supervisor acknowledgments
+- Visitor check-ins and resident approvals
+- Service request status changes
+- Purchase order, GRN, and billing milestones
+- Chemical expiry warnings
+- Guard inactivity alerts
+- Checklist reminders
+
+**Notification priorities:** `normal` / `high` / `critical`
+
+**Settings Page:** Admins can view the live notification feed, operational thresholds (checklist escalation %, geo-fence radius, guard inactivity threshold), and mark all notifications as read.
+
+---
+
+# Admin Portal
+
+## Society & Building Management
+Admin manages societies (residential complexes or corporate facilities) and their building/block structure. Each society can have multiple buildings, each building has configurable floors and units.
+
+## Guards Management
+Admin-side roster of all security guards — grade, assigned location, active/inactive status.
+
+## Audit Logs
+Complete system audit trail — who did what, when, on which record. Searchable by actor, action type, and entity.
+
+## Platform Configuration
+Key-value store for runtime settings. Values editable by Admin without a deployment:
+- `guard_inactivity_threshold_minutes`
+- `default_geo_fence_radius_meters`
+- `checklist_completion_alert_threshold_percent`
+
+## Admin Provisioning
+Super Admins can invite new Admins by generating a temporary password and a structured setup link. The new Admin must change their password on first login (`must_change_password` flag).
+
+## Waitlist Management
+Review and approve incoming sign-up requests from the landing page.
+
+---
+
+# Resident Portal
+
+## Resident Dashboard
+- Flat details and occupancy information
+- Visitor invitation management
+- Family directory access
+- Pending visitor approvals
+
+## Visitor Approval
+When a visitor arrives at the gate, the resident receives an SMS and push notification with the visitor's photo. The resident can approve or deny entry directly from the portal.
+
+---
+
+# Edge Functions (Automated Backend)
+
+| Function | Trigger | Purpose |
+|----------|---------|---------|
+| `send-notification` | On demand | SMS via MSG91 + Push via FCM |
+| `check-document-expiry` | Daily (pg_cron) | Flag compliance documents nearing expiry |
+| `check-guard-inactivity` | Continuous | Detect guards with static GPS position |
+| `inactivity-monitor` | Continuous | Broader inactivity monitoring |
+| `check-checklist` | On submission | Verify daily checklist completion |
+| `check-incomplete-checklists` | Scheduled | Flag checklists not filled by threshold time |
+| `checklist-reminders` | Scheduled (9 AM) | Send reminder SMS to guard if checklist unfilled |
+| `auto_punch_out_idle_employees` | pg_cron (1 AM daily) | Auto-punch out employees who did not clock out |
+
+---
+
+# Mobile & PWA
+
+The Guard interface is optimized as a Progressive Web App (PWA):
+- `public/manifest.json` with `start_url: /guard`, `display: standalone`
+- Service worker with NetworkFirst caching for Supabase API routes
+- Installable on Android/iOS home screen
+
+---
+
+# Role-to-Module Access Matrix
+
+| Module | Admin | MD | HOD | Account | Storekeeper | Site Sup | Buyer | Supplier | Guard | Society Mgr | Service Boy | AC Tech | Pest Tech | Resident |
+|--------|-------|----|----|---------|-------------|----------|-------|----------|-------|-------------|-------------|---------|-----------|----------|
+| Company Master Data | ✅ | — | ✅ | — | — | — | — | — | — | — | — | — | — | — |
+| Inventory / Products | ✅ | — | — | — | ✅ | — | — | — | — | — | — | ✅ | ✅ | — |
+| Purchase Orders | ✅ | — | — | ✅ | ✅ | — | — | ✅ | — | — | — | — | — | — |
+| GRN | ✅ | — | — | — | ✅ | — | — | — | — | — | — | — | — | — |
+| Service Requests | ✅ | — | ✅ | — | — | ✅ | — | — | — | — | ✅ | ✅ | ✅ | — |
+| Buyer Portal | — | — | — | — | — | — | ✅ | — | — | — | — | — | — | — |
+| Supplier Portal | — | — | — | — | — | — | — | ✅ | — | — | — | — | — | — |
+| Finance | ✅ | ✅ | — | ✅ | — | — | — | — | — | — | — | — | — | — |
+| HRMS | ✅ | — | ✅ | — | — | — | — | — | — | — | — | ✅ | ✅ | — |
+| Attendance | ✅ | — | ✅ | — | — | ✅ | — | — | ✅ | ✅ | — | ✅ | ✅ | — |
+| Tickets | ✅ | — | ✅ | — | ✅ | ✅ | — | — | ✅ | ✅ | — | — | — | — |
+| Society / Visitors | ✅ | — | — | — | — | ✅ | — | — | ✅ | ✅ | — | — | — | — |
+| Assets | ✅ | — | ✅ | — | ✅ | — | — | — | — | — | — | — | — | — |
+| Reports | ✅ | ✅ | — | ✅ | — | — | — | — | — | — | — | — | — | — |
+| Resident Portal | — | — | — | — | — | — | — | — | — | — | — | — | — | ✅ |
+| Admin Settings | ✅ | — | — | — | — | — | — | — | — | — | — | — | — | — |

@@ -199,7 +199,7 @@ export default function ServiceRequestDetailPage() {
 
   // Format duration
   const formatDuration = (startTime: string | null, endTime: string | null | undefined) => {
-    if (!startTime) return "N/A";
+    if (!startTime) return "Not set";
     const start = new Date(startTime);
     const end = endTime ? new Date(endTime) : new Date();
     const diffMs = end.getTime() - start.getTime();
@@ -337,7 +337,7 @@ export default function ServiceRequestDetailPage() {
   const StatusIcon = getStatusIcon(request.status || "open");
   const statusColor = SERVICE_REQUEST_STATUS_COLORS[request.status || "open"];
   const priorityColor = SERVICE_PRIORITY_COLORS[request.priority || "normal"];
-  const isPestControl = (request as any).service_code === "PST-CON" || request.service_name?.toLowerCase().includes("pest");
+  const isPestControl = request.service_code === "PST-CON" || request.service_name?.toLowerCase().includes("pest");
 
   return (
     <div className="space-y-6">
@@ -369,7 +369,7 @@ export default function ServiceRequestDetailPage() {
 
         <div className="flex items-center gap-2">
           {isPestControl && (
-            (request as any).ppe_verified ? (
+            request.ppe_verified ? (
               <Badge className="bg-success/10 text-success border-success/20 hover:bg-success/20 gap-1.5 py-1 px-3">
                 <CheckCircle className="h-3.5 w-3.5" />
                 PPE Verified
@@ -393,8 +393,8 @@ export default function ServiceRequestDetailPage() {
                 variant="outline" 
                 size="sm" 
                 onClick={handleComplete}
-                disabled={isPestControl && !(request as any).ppe_verified}
-                className={cn(isPestControl && !(request as any).ppe_verified && "opacity-50 cursor-not-allowed")}
+                disabled={isPestControl && !request.ppe_verified}
+                className={cn(isPestControl && !request.ppe_verified && "opacity-50 cursor-not-allowed")}
               >
                 <CheckCircle className="h-4 w-4 mr-2" />
                 Complete
@@ -569,7 +569,7 @@ export default function ServiceRequestDetailPage() {
                             <div className="mt-3 pt-3 border-t">
                               <p className="text-xs text-muted-foreground mb-2">Session Photos</p>
                               <div className="flex gap-2 overflow-x-auto">
-                                {session.photos.map((photo: any) => (
+                                {session.photos.map((photo) => (
                                   <div
                                     key={photo.id}
                                     className="w-16 h-16 rounded-lg bg-muted shrink-0 overflow-hidden"
@@ -752,7 +752,7 @@ export default function ServiceRequestDetailPage() {
                 <span className="text-sm font-medium">
                   {request.created_at
                     ? `${Math.floor((Date.now() - new Date(request.created_at).getTime()) / 86400000)} days`
-                    : "N/A"}
+                    : "Not set"}
                 </span>
               </div>
             </CardContent>
@@ -783,7 +783,7 @@ export default function ServiceRequestDetailPage() {
                       ))}
                     </div>
                     <p className="text-sm text-muted-foreground italic">
-                      "{feedback.comments || "No comments"}"
+                      {feedback.comments || "No comments"}
                     </p>
                     <Badge variant="outline" className="bg-success/10 text-success border-success/20">
                       Feedback Submitted
@@ -879,7 +879,7 @@ export default function ServiceRequestDetailPage() {
                       size="sm"
                       className="w-full justify-start text-success"
                       onClick={handleComplete}
-                      disabled={isPestControl && !(request as any).ppe_verified}
+                      disabled={isPestControl && !request.ppe_verified}
                     >
                       <CheckCircle className="h-4 w-4 mr-2" />
                       Mark Complete

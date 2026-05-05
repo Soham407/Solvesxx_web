@@ -36,6 +36,37 @@ export function useProductSubcategories() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  type ProductRow = {
+    subcategory_id: string | null;
+  };
+
+  type ProductSubcategoryRow = {
+    id: string;
+    category_id: string | null;
+    subcategory_name: string;
+    subcategory_code: string | null;
+    description: string | null;
+    is_active: boolean | null;
+    product_categories?: { category_name?: string | null } | { category_name?: string | null }[] | null;
+  };
+
+  function mapSubcategoryRow(subcategory: ProductSubcategoryRow, itemCount: number): ProductSubcategory {
+    const category = Array.isArray(subcategory.product_categories)
+      ? subcategory.product_categories[0]
+      : subcategory.product_categories;
+
+    return {
+      ...subcategory,
+      is_active: subcategory.is_active !== false,
+      parentCategory: category?.category_name || "Uncategorized",
+      itemCount,
+    };
+  }
+
+  function mapStoredSubcategoryRow(subcategory: ProductSubcategoryRow): ProductSubcategory {
+    return mapSubcategoryRow(subcategory, 0);
+  }
+
   const fetchSubcategories = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -57,7 +88,7 @@ export function useProductSubcategories() {
       if (productError) throw productError;
 
       const productCountBySubcategory = new Map<string, number>();
-      (productRows || []).forEach((product: any) => {
+      (productRows || []).forEach((product: ProductRow) => {
         if (!product.subcategory_id) return;
         productCountBySubcategory.set(
           product.subcategory_id,
@@ -65,18 +96,9 @@ export function useProductSubcategories() {
         );
       });
 
-      const mappedSubcategories: ProductSubcategory[] = (subcategoryRows || []).map((subcategory: any) => {
-        const category = Array.isArray(subcategory.product_categories)
-          ? subcategory.product_categories[0]
-          : subcategory.product_categories;
-
-        return {
-          ...subcategory,
-          is_active: subcategory.is_active !== false,
-          parentCategory: category?.category_name || "Uncategorized",
-          itemCount: productCountBySubcategory.get(subcategory.id) || 0,
-        };
-      });
+      const mappedSubcategories: ProductSubcategory[] = (subcategoryRows || []).map((subcategory: ProductSubcategoryRow) =>
+        mapSubcategoryRow(subcategory, productCountBySubcategory.get(subcategory.id) || 0)
+      );
 
       setSubcategories(mappedSubcategories);
     } catch (err: unknown) {
@@ -115,7 +137,7 @@ export function useProductSubcategories() {
       });
 
       await fetchSubcategories();
-      return { success: true as const, data: data as unknown as ProductSubcategory };
+      return { success: true as const, data: mapStoredSubcategoryRow(data as ProductSubcategoryRow) };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to create subcategory";
       toast({ title: "Error", description: message, variant: "destructive" });
@@ -143,7 +165,7 @@ export function useProductSubcategories() {
       });
 
       await fetchSubcategories();
-      return { success: true as const, data: data as unknown as ProductSubcategory };
+      return { success: true as const, data: mapStoredSubcategoryRow(data as ProductSubcategoryRow) };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to update subcategory";
       toast({ title: "Error", description: message, variant: "destructive" });

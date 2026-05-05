@@ -1,8 +1,40 @@
-// @ts-nocheck
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
+
+interface VisitorRow {
+  name?: string | null;
+  visitor_name: string | null;
+  phone: string | null;
+  phone_number?: string | null;
+  visitor_type: string | null;
+  approved_by_resident: boolean | null;
+  entry_time: string | null;
+  exit_time: string | null;
+  is_frequent_visitor: boolean | null;
+}
+
+interface ChecklistResponseRow {
+  id: string;
+  response_date: string;
+  is_complete: boolean | null;
+  submitted_at: string | null;
+  created_at: string | null;
+  completed_at: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  responses: unknown;
+  evidence_photos: Array<{
+    photo_url: string | null;
+  }> | null;
+  guard: {
+    employee: {
+      first_name: string | null;
+      last_name: string | null;
+    } | null;
+  } | null;
+}
 
 interface VisitorAudit {
   total: number;
@@ -10,7 +42,7 @@ interface VisitorAudit {
   frequent: number;
   oneTime: number;
   denied: number;
-  entries: any[];
+  entries: VisitorRow[];
 }
 
 interface AttendanceAudit {
@@ -24,25 +56,15 @@ interface ChecklistAudit {
   completed: number;
   pending: number;
   overdue: number;
-  items: any[];
+  items: ChecklistResponseRow[];
 }
 
-async function getManagedSocieties(): Promise<string[]> {
-  try {
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) return [];
+function normalizeVisitorRows(rows: unknown): VisitorRow[] {
+  return Array.isArray(rows) ? (rows as VisitorRow[]) : [];
+}
 
-    const { data: societies, error: societiesError } = await supabase
-      .from("societies")
-      .select("id")
-      .eq("society_manager_id", user.id);
-
-    if (societiesError || !societies) return [];
-    return societies.map((s: any) => s.id);
-  } catch (err) {
-    console.error("Error getting managed societies:", err);
-    return [];
-  }
+function normalizeChecklistRows(rows: unknown): ChecklistResponseRow[] {
+  return Array.isArray(rows) ? (rows as ChecklistResponseRow[]) : [];
 }
 
 export function useSocietyAudit(societyId?: string) {
@@ -76,30 +98,29 @@ export function useSocietyAudit(societyId?: string) {
     try {
       const today = new Date().toISOString().split("T")[0];
 
-      // Get managed society IDs if not provided explicitly
-      let societyIds = societyId ? [societyId] : await getManagedSocieties();
-      if (societyIds.length === 0) {
-        societyIds = [];
-      }
-
-      // 1. Visitor Audit - filter by society if applicable
-      let visitorQuery = supabase
+      // 1. Visitor Audit
+      const visitorQuery = supabase
         .from("visitors")
-        .select("name, phone_number, visitor_type, approved_by_resident, entry_time, exit_time, is_frequent_visitor")
+        .select("visitor_name, phone, visitor_type, approved_by_resident, entry_time, exit_time, is_frequent_visitor")
         .gte("entry_time", `${today}T00:00:00Z`)
         .order("entry_time", { ascending: false });
 
       // Note: Visitor filtering by society would need resident -> flat -> building -> society join
       const { data: visitors } = await visitorQuery;
+      const typedVisitors = normalizeVisitorRows(visitors);
 
-      if (visitors) {
+      if (typedVisitors.length > 0) {
         setVisitorAudit({
-          total: visitors.length,
-          pending: visitors.filter(v => v.approved_by_resident === null && !v.exit_time).length,
-          frequent: visitors.filter(v => v.is_frequent_visitor).length,
-          oneTime: visitors.filter(v => !v.is_frequent_visitor).length,
-          denied: visitors.filter(v => v.approved_by_resident === false).length,
-          entries: visitors,
+          total: typedVisitors.length,
+          pending: typedVisitors.filter(v => v.approved_by_resident === null && !v.exit_time).length,
+          frequent: typedVisitors.filter(v => v.is_frequent_visitor).length,
+          oneTime: typedVisitors.filter(v => !v.is_frequent_visitor).length,
+          denied: typedVisitors.filter(v => v.approved_by_resident === false).length,
+          entries: typedVisitors.map((visitor) => ({
+            ...visitor,
+            name: visitor.visitor_name,
+            phone_number: visitor.phone,
+          })),
         });
       }
 
@@ -115,14 +136,9 @@ export function useSocietyAudit(societyId?: string) {
         .eq("alert_type", "inactivity")
         .gte("alert_time", `${today}T00:00:00Z`);
 
-      // Only count guards in managed societies
       let guardQuery = supabase
         .from("security_guards")
         .select("id", { count: "exact", head: true });
-
-      if (societyIds.length > 0) {
-        guardQuery = guardQuery.in("society_id", societyIds);
-      }
 
       const { count: totalGuards } = await guardQuery;
 
@@ -143,7 +159,7 @@ export function useSocietyAudit(societyId?: string) {
           id,
           response_date,
           is_complete,
-          completed_at,
+          submitted_at,
           latitude,
           longitude,
           responses,
@@ -153,12 +169,17 @@ export function useSocietyAudit(societyId?: string) {
         `)
         .eq("response_date", today);
 
-      if (responses) {
+      const typedResponses = normalizeChecklistRows(responses).map((row) => ({
+        ...row,
+        guard: Array.isArray(row.guard) ? row.guard[0] ?? null : row.guard,
+      }));
+
+      if (typedResponses.length > 0) {
         setChecklistAudit({
-          completed: responses.filter(r => r.is_complete).length,
-          pending: responses.filter(r => !r.is_complete).length,
+          completed: typedResponses.filter(r => r.is_complete).length,
+          pending: typedResponses.filter(r => !r.is_complete).length,
           overdue: 0,
-          items: responses,
+          items: typedResponses,
         });
       }
 
@@ -167,7 +188,7 @@ export function useSocietyAudit(societyId?: string) {
     } finally {
       setIsLoading(false);
     }
-  }, [societyId]);
+  }, []);
 
   useEffect(() => {
     fetchAudit();

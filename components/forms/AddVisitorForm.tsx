@@ -13,14 +13,31 @@ import {
 } from "@/components/ui/select";
 import { Camera, User, Phone, Car, MapPin, Loader2, AlertCircle } from "lucide-react";
 import { supabase as supabaseTyped } from "@/src/lib/supabaseClient";
-const supabase = supabaseTyped as any;
+const supabase = supabaseTyped;
 import { MAIN_GATE_CODE } from "@/src/lib/constants";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { getEmployeeIdByUserId } from "@/src/lib/visitors/visitorLookup";
 
 interface AddVisitorFormProps {
   onSuccess?: () => void;
   onCancel?: () => void;
+}
+
+function normalizeFlatRows(rows: unknown): FlatRow[] {
+  return Array.isArray(rows) ? (rows as FlatRow[]) : [];
+}
+
+interface VisitorInsertPayload {
+  visitor_name: string;
+  phone: string;
+  vehicle_number: string | null;
+  visitor_type: string;
+  flat_id: string;
+  entry_location_id: string;
+  photo_url: string | null;
+  entry_guard_id: string | null;
+  entry_time: string;
 }
 
 export function AddVisitorForm({ onSuccess, onCancel }: AddVisitorFormProps) {
@@ -95,7 +112,7 @@ export function AddVisitorForm({ onSuccess, onCancel }: AddVisitorFormProps) {
 
       if (error) throw error;
 
-      const formattedFlats = data?.map((flat: any) => ({
+      const formattedFlats = normalizeFlatRows(data).map((flat) => ({
         id: flat.id,
         flat_number: flat.flat_number,
         building_name: flat.buildings?.building_name || "Unknown",
@@ -254,29 +271,25 @@ export function AddVisitorForm({ onSuccess, onCancel }: AddVisitorFormProps) {
       let guardEmployeeId: string | null = null;
       
       if (userId) {
-        const { data: employeeData } = await supabase
-          .from("employees")
-          .select("id")
-          .eq("user_id", userId)
-          .single();
-        
-        guardEmployeeId = employeeData?.id || null;
+        guardEmployeeId = await getEmployeeIdByUserId(userId);
       }
 
       // Step 4: Insert Visitor
+      const visitorPayload: VisitorInsertPayload = {
+        visitor_name: formData.visitor_name,
+        phone: formData.phone,
+        vehicle_number: formData.vehicle_number || null,
+        visitor_type: formData.visitor_type,
+        flat_id: formData.flat_id,
+        entry_location_id: entryLocationId,
+        photo_url: photoUrl,
+        entry_guard_id: guardEmployeeId, // Use actual guard ID or null
+        entry_time: new Date().toISOString(),
+      };
+
       const { data: visitorData, error: visitorError } = await supabase
         .from("visitors")
-        .insert({
-          visitor_name: formData.visitor_name,
-          phone: formData.phone,
-          vehicle_number: formData.vehicle_number || null,
-          visitor_type: formData.visitor_type,
-          flat_id: formData.flat_id,
-          entry_location_id: entryLocationId,
-          photo_url: photoUrl,
-          entry_guard_id: guardEmployeeId, // Use actual guard ID or null
-          entry_time: new Date().toISOString(),
-        })
+        .insert(visitorPayload)
         .select()
         .single();
 
@@ -302,11 +315,11 @@ export function AddVisitorForm({ onSuccess, onCancel }: AddVisitorFormProps) {
       if (onSuccess) {
         onSuccess();
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error during visitor check-in:", error);
       toast({
         title: "Error",
-        description: error.message || "Failed to check in visitor. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to check in visitor. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -516,4 +529,11 @@ export function AddVisitorForm({ onSuccess, onCancel }: AddVisitorFormProps) {
       </div>
     </form>
   );
+}
+interface FlatRow {
+  id: string;
+  flat_number: string;
+  buildings: {
+    building_name: string | null;
+  } | null;
 }

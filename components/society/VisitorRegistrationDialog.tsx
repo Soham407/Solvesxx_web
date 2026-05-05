@@ -24,6 +24,20 @@ import { Camera, Upload, Loader2, Search, Check, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
+type FlatSearchResult = {
+  id: string;
+  flat_number: string;
+  building?: {
+    building_name: string | null;
+  } | null;
+  residents?: Array<{
+    id: string;
+    full_name: string | null;
+    phone: string | null;
+    is_primary_contact: boolean | null;
+  }> | null;
+};
+
 interface VisitorRegistrationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -48,10 +62,17 @@ export function VisitorRegistrationDialog({
   
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [flatResults, setFlatResults] = useState<any[]>([]);
+  const [flatResults, setFlatResults] = useState<FlatSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [selectedFlat, setSelectedFlat] = useState<any>(null);
-  const [frequentVisitor, setFrequentVisitor] = useState<any>(null);
+  const [selectedFlat, setSelectedFlat] = useState<FlatSearchResult | null>(null);
+  const [frequentVisitor, setFrequentVisitor] = useState<{
+    id: string;
+    visitor_name: string;
+    visitor_type: string;
+    photo_url: string | null;
+    is_frequent_visitor: boolean | null;
+    approved_by_resident: boolean | null;
+  } | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -82,16 +103,16 @@ export function VisitorRegistrationDialog({
     const result = await searchFlats(searchQuery);
     setIsSearching(false);
     if (result.success) {
-      setFlatResults(result.data || []);
+      setFlatResults((result.data || []) as FlatSearchResult[]);
     }
   };
 
-  const handleSelectFlat = async (flat: any) => {
+  const handleSelectFlat = async (flat: FlatSearchResult) => {
     setSelectedFlat(flat);
     setFormData(prev => ({ 
       ...prev, 
       flat_id: flat.id,
-      resident_id: flat.residents?.find((r: any) => r.is_primary_contact)?.id || flat.residents?.[0]?.id 
+      resident_id: flat.residents?.find((r) => r.is_primary_contact)?.id || flat.residents?.[0]?.id 
     }));
 
     // Check for frequent visitor bypass (Phase 1B)

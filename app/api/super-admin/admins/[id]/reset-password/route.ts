@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { insertAuditLog } from "@/src/lib/platform/audit";
+import { isAdminTierAccount, type AdminUserRow } from "@/src/lib/platform/adminAccounts";
 import {
   createServiceRoleClient,
   requirePlatformPermission,
 } from "@/src/lib/platform/server";
 import type { ResetAdminPasswordResponse } from "@/src/types/platform";
-
-const ADMIN_ROLE_NAMES = new Set(["admin", "super_admin"]);
 
 export async function POST(
   _request: NextRequest,
@@ -30,11 +29,9 @@ export async function POST(
       return NextResponse.json({ error: "Admin account not found" }, { status: 404 });
     }
 
-    const targetRole = Array.isArray((targetUser as any).roles)
-      ? (targetUser as any).roles[0]
-      : (targetUser as any).roles;
+    const targetRow = targetUser as AdminUserRow;
 
-    if (!ADMIN_ROLE_NAMES.has(targetRole?.role_name ?? "")) {
+    if (!isAdminTierAccount(targetRow)) {
       return NextResponse.json(
         { error: "Only admin-tier accounts can be managed here" },
         { status: 400 }
@@ -77,9 +74,9 @@ export async function POST(
     };
 
     return NextResponse.json(response);
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json(
-      { error: error?.message || "Failed to send password reset" },
+      { error: error instanceof Error ? error.message : "Failed to send password reset" },
       { status: 500 }
     );
   }

@@ -1,111 +1,42 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase as supabaseClient } from "@/src/lib/supabaseClient";
-const supabase = supabaseClient as any;
+import { supabase } from "@/src/lib/supabaseClient";
+import {
+  BILL_STATUS_CONFIG,
+  PAYMENT_STATUS_CONFIG,
+  calculateBillTotals,
+  calculateLineTotal,
+  canTransition,
+  mapBillItems,
+  mapSupplierBills,
+  toBillStatus,
+  toPaymentStatus,
+  type BillItem,
+  type BillItemRow,
+  type BillStatus,
+  type CreateBillInput,
+  type CreateBillItemInput,
+  type GrnItemRow,
+  type PaymentInput,
+  type PaymentStatus,
+  type SupplierBill,
+  type SupplierBillRow,
+} from "@/src/lib/supplier-bills/supplierBillTransforms";
+export type {
+  BillItem,
+  BillStatus,
+  CreateBillInput,
+  CreateBillItemInput,
+  PaymentInput,
+  PaymentStatus,
+  SupplierBill,
+} from "@/src/lib/supplier-bills/supplierBillTransforms";
+export { BILL_STATUS_CONFIG, PAYMENT_STATUS_CONFIG } from "@/src/lib/supplier-bills/supplierBillTransforms";
 
 // ============================================
 // TYPES
 // ============================================
-
-export type BillStatus = "draft" | "submitted" | "approved" | "disputed";
-export type PaymentStatus = "unpaid" | "partial" | "paid";
-
-export interface SupplierBill {
-  id: string;
-  bill_number: string;
-  supplier_invoice_number: string | null;
-  purchase_order_id: string | null;
-  service_purchase_order_id?: string | null;
-  material_receipt_id: string | null;
-  supplier_id: string | null;
-  document_url?: string | null;
-  bill_date: string;
-  due_date: string | null;
-  status: BillStatus;
-  payment_status: PaymentStatus;
-  match_status?: string | null;
-  is_reconciled?: boolean | null;
-  subtotal: number; // In paise
-  tax_amount: number; // In paise
-  discount_amount: number; // In paise
-  total_amount: number; // In paise
-  paid_amount: number; // In paise
-  due_amount: number; // In paise
-  last_payment_date: string | null;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-  created_by: string | null;
-  updated_by: string | null;
-  // Joined data
-  supplier_name?: string;
-  supplier_code?: string;
-  po_number?: string;
-  grn_number?: string;
-  total_items?: number;
-}
-
-export interface BillItem {
-  id: string;
-  purchase_bill_id: string;
-  po_item_id: string | null;
-  grn_item_id: string | null;
-  product_id: string | null;
-  item_description: string | null;
-  billed_quantity: number;
-  unit_of_measure: string;
-  unit_price: number; // In paise
-  tax_rate: number;
-  tax_amount: number; // In paise
-  discount_amount: number; // In paise
-  line_total: number; // In paise
-  unmatched_qty: number | null;
-  unmatched_amount: number | null;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-  // Joined data
-  product_name?: string;
-  product_code?: string;
-}
-
-export interface CreateBillInput {
-  supplier_invoice_number?: string;
-  purchase_order_id?: string;
-  service_purchase_order_id?: string;
-  material_receipt_id?: string;
-  supplier_id: string;
-  bill_date?: string;
-  due_date?: string;
-  subtotal?: number; // In paise
-  tax_amount?: number; // In paise
-  discount_amount?: number; // In paise
-  total_amount?: number; // In paise
-  notes?: string;
-}
-
-export interface CreateBillItemInput {
-  purchase_bill_id: string;
-  po_item_id?: string;
-  grn_item_id?: string;
-  product_id?: string;
-  item_description?: string;
-  billed_quantity: number;
-  unit_of_measure?: string;
-  unit_price: number; // In paise
-  tax_rate?: number;
-  tax_amount?: number; // In paise
-  discount_amount?: number; // In paise
-  notes?: string;
-}
-
-export interface PaymentInput {
-  amount: number; // In paise
-  payment_date?: string;
-  payment_reference?: string;
-  notes?: string;
-}
 
 interface UseSupplierBillsState {
   bills: SupplierBill[];
@@ -115,50 +46,29 @@ interface UseSupplierBillsState {
   error: string | null;
 }
 
-// Status transition rules for bill lifecycle
-const STATUS_TRANSITIONS: Record<BillStatus, BillStatus[]> = {
-  draft: ["submitted", "disputed"],
-  submitted: ["approved", "disputed"],
-  approved: ["disputed"],
-  disputed: ["draft", "submitted"],
-};
-
-// Status display configuration
-export const BILL_STATUS_CONFIG: Record<BillStatus, { label: string; className: string }> = {
-  draft: { label: "Draft", className: "bg-muted text-muted-foreground border-border" },
-  submitted: { label: "Submitted", className: "bg-info/10 text-info border-info/20" },
-  approved: { label: "Approved", className: "bg-success/10 text-success border-success/20" },
-  disputed: { label: "Disputed", className: "bg-critical/10 text-critical border-critical/20" },
-};
-
-export const PAYMENT_STATUS_CONFIG: Record<PaymentStatus, { label: string; className: string }> = {
-  unpaid: { label: "Unpaid", className: "bg-critical/10 text-critical border-critical/20" },
-  partial: { label: "Partial", className: "bg-warning/10 text-warning border-warning/20" },
-  paid: { label: "Paid", className: "bg-success/10 text-success border-success/20" },
-};
-
-// ============================================
-// HELPER FUNCTIONS
-// ============================================
-
-const canTransition = (currentStatus: BillStatus, targetStatus: BillStatus): boolean => {
-  return STATUS_TRANSITIONS[currentStatus]?.includes(targetStatus) ?? false;
-};
+interface BillUpdateData {
+  status?: BillStatus;
+  notes?: string | null;
+  subtotal?: number;
+  tax_amount?: number;
+  discount_amount?: number;
+  total_amount?: number;
+  due_amount?: number;
+}
 
 import { toRupees, toPaise, formatCurrency } from "@/src/lib/utils/currency";
 
-// Calculate line total including tax and discount
-export const calculateLineTotal = (
-  quantity: number,
-  unitPrice: number,
-  taxRate: number = 0,
-  discountAmount: number = 0
-): { taxAmount: number; lineTotal: number } => {
-  const subtotal = quantity * unitPrice;
-  const taxAmount = Math.round(subtotal * (taxRate / 100));
-  const lineTotal = subtotal + taxAmount - discountAmount;
-  return { taxAmount, lineTotal };
-};
+function normalizeSupplierBillRows(rows: unknown): SupplierBillRow[] {
+  return Array.isArray(rows) ? (rows as SupplierBillRow[]) : [];
+}
+
+function normalizeBillItemRows(rows: unknown): BillItemRow[] {
+  return Array.isArray(rows) ? (rows as BillItemRow[]) : [];
+}
+
+function normalizeGrnRows(rows: unknown): GrnItemRow[] {
+  return Array.isArray(rows) ? (rows as GrnItemRow[]) : [];
+}
 
 // ============================================
 // HOOK
@@ -225,13 +135,7 @@ export function useSupplierBills(filters?: {
       if (error) throw error;
 
       // Transform data
-      const billsWithDetails: SupplierBill[] = (data || []).map((bill: any) => ({
-        ...bill,
-        supplier_name: bill.suppliers?.supplier_name || "Unknown",
-        supplier_code: bill.suppliers?.supplier_code || "N/A",
-        po_number: bill.purchase_orders?.po_number || null,
-        grn_number: bill.material_receipts?.grn_number || null,
-      }));
+      const billsWithDetails = mapSupplierBills(normalizeSupplierBillRows(data));
 
       setState((prev) => ({
         ...prev,
@@ -268,11 +172,7 @@ export function useSupplierBills(filters?: {
 
       if (error) throw error;
 
-      const itemsWithDetails: BillItem[] = (data || []).map((item: any) => ({
-        ...item,
-        product_name: item.products?.product_name || null,
-        product_code: item.products?.product_code || null,
-      }));
+      const itemsWithDetails = mapBillItems(normalizeBillItemRows(data));
 
       setState((prev) => ({ ...prev, items: itemsWithDetails }));
       return itemsWithDetails;
@@ -477,7 +377,7 @@ export function useSupplierBills(filters?: {
       if (billError) throw billError;
 
       // Create Bill items from GRN items
-      const billItems = grnItems.map((item: any) => ({
+      const billItems = normalizeGrnRows(grnItems).map((item) => ({
         purchase_bill_id: bill.id,
         po_item_id: item.po_item_id,
         grn_item_id: item.id,
@@ -563,7 +463,7 @@ export function useSupplierBills(filters?: {
       }
 
       // Recalculate total if amounts changed
-      const updateData: any = { ...updates };
+      const updateData: BillUpdateData = { ...updates };
       if (
         updates.subtotal !== undefined ||
         updates.tax_amount !== undefined ||
@@ -860,7 +760,7 @@ export function useSupplierBills(filters?: {
         throw new Error(`Cannot dispute bill in ${bill.status} status`);
       }
 
-      const updates: any = { status: "disputed" };
+      const updates: BillUpdateData = { status: "disputed" };
       if (reason) {
         updates.notes = bill.notes ? `${bill.notes}\n\nDispute: ${reason}` : `Dispute: ${reason}`;
       }
@@ -1042,17 +942,13 @@ export function useSupplierBills(filters?: {
 
       if (uploadError) throw uploadError;
 
-      // Update the purchase_bills record with the document URL
       const { error: updateError } = await supabase
         .from("purchase_bills")
-        .update({ document_url: uploadData.path })
-        .eq("id", billId);
+        .update({ document_url: uploadData.path } as any)
+        .eq("id", billId)
+        .eq("supplier_id", supplierId);
 
-      if (updateError) {
-        // Rollback: remove the uploaded file
-        await supabase.storage.from("bill-documents").remove([uploadData.path]);
-        throw updateError;
-      }
+      if (updateError) throw updateError;
 
       await fetchSupplierBills();
       return uploadData.path;

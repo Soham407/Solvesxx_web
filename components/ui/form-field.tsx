@@ -41,6 +41,11 @@ export function FormField({
 }: FormFieldProps) {
   const errorId = `${id}-error`;
   const descriptionId = `${id}-description`;
+  type FormFieldChildProps = {
+    className?: string;
+    id?: string;
+    [key: string]: unknown;
+  };
 
   return (
     <div className={cn("space-y-2", className)}>
@@ -70,8 +75,9 @@ export function FormField({
       {/* Form control with aria attributes */}
       <div className="relative">
         {React.Children.map(children, (child) => {
-          if (React.isValidElement(child)) {
-            return React.cloneElement(child as React.ReactElement<any>, {
+          if (React.isValidElement<FormFieldChildProps>(child)) {
+            const childElement = child as React.ReactElement<FormFieldChildProps>;
+            return React.cloneElement(childElement, {
               id,
               "aria-invalid": error ? "true" : undefined,
               "aria-describedby": cn(
@@ -79,7 +85,7 @@ export function FormField({
                 description && descriptionId
               ) || undefined,
               className: cn(
-                (child as React.ReactElement<any>).props.className,
+                childElement.props.className,
                 error && "border-destructive focus-visible:ring-destructive"
               ),
             });

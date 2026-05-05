@@ -4,68 +4,26 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
 import { useToast } from "@/components/ui/use-toast";
 import { getCurrentEmployeeId } from "@/src/lib/security/getCurrentEmployeeId";
+import {
+  buildAlertStats,
+  getAlertTypeLabel,
+  getTimeAgo,
+  mapPanicAlertRows,
+  type AlertFilters,
+  type AlertStats,
+  type AlertType,
+  type PanicAlert,
+  type PanicAlertRow,
+} from "@/src/lib/panic-alerts/panicAlertTransforms";
 
-/**
- * Panic Alert History Hook
- * PRD Reference: "Instant Panic Response" (I) + "Society Manager Dashboard" (IV - Panic Logs)
- * 
- * Features:
- * - History of SOS alerts with resolution notes
- * - GPS location at time of alert
- * - Alert types: Medical, Fire, Theft, Security
- * - Filter by date range, type, status
- */
+export type {
+  AlertFilters,
+  AlertStats,
+  AlertType,
+  PanicAlert,
+} from "@/src/lib/panic-alerts/panicAlertTransforms";
 
-export type AlertType = "panic" | "inactivity" | "geo_fence_breach" | "checklist_incomplete" | "routine";
-
-export interface PanicAlert {
-  id: string;
-  guard_id: string;
-  alert_type: AlertType;
-  location_id: string | null;
-  photo_url: string | null;
-  latitude: number | null;
-  longitude: number | null;
-  alert_time: string;
-  description: string | null;
-  is_resolved: boolean;
-  resolved_at: string | null;
-  resolved_by: string | null;
-  resolution_notes: string | null;
-  created_at: string;
-  // Joined data
-  guard?: {
-    guard_code: string;
-    employee?: {
-      first_name: string;
-      last_name: string;
-      phone: string;
-    };
-  };
-  location?: {
-    location_name: string;
-    location_code: string;
-  };
-  resolver?: {
-    first_name: string | null;
-    last_name: string | null;
-  };
-}
-
-export interface AlertStats {
-  activeThreats: number;
-  respondingCount: number;
-  resolvedToday: number;
-  totalToday: number;
-}
-
-export interface AlertFilters {
-  status?: "active" | "resolved" | "all";
-  type?: AlertType;
-  dateFrom?: string;
-  dateTo?: string;
-  guardId?: string;
-}
+export { getAlertTypeLabel, getTimeAgo } from "@/src/lib/panic-alerts/panicAlertTransforms";
 
 export function usePanicAlertHistory(initialFilters?: AlertFilters) {
   const { toast } = useToast();
@@ -131,24 +89,7 @@ export function usePanicAlertHistory(initialFilters?: AlertFilters) {
       if (fetchError) throw fetchError;
 
       // Map Supabase response to PanicAlert interface with proper typing
-      const typedData: PanicAlert[] = ((data || []) as any[]).map((row) => ({
-        id: row.id,
-        guard_id: row.guard_id,
-        alert_type: row.alert_type as AlertType,
-        location_id: row.location_id,
-        photo_url: row.photo_url,
-        latitude: row.latitude,
-        longitude: row.longitude,
-        alert_time: row.alert_time,
-        description: row.description,
-        is_resolved: row.is_resolved,
-        resolved_at: row.resolved_at,
-        resolved_by: row.resolved_by,
-        resolution_notes: row.resolution_notes,
-        created_at: row.created_at,
-        guard: row.guard as PanicAlert["guard"],
-        location: row.location as PanicAlert["location"],
-      }));
+      const typedData: PanicAlert[] = mapPanicAlertRows((data || []) as PanicAlertRow[]);
       setAlerts(typedData);
 
       // Separate active alerts (unresolved)
@@ -195,13 +136,12 @@ export function usePanicAlertHistory(initialFilters?: AlertFilters) {
         .eq("is_resolved", true)
         .gte("resolved_at", `${today}T00:00:00`);
 
-      setStats({
+      setStats(buildAlertStats({
         activeThreats: activeCount || 0,
-        respondingCount: 0, // This would need a "responding" status in the table
         resolvedToday: resolvedCount || 0,
         totalToday: todayCount || 0,
-      });
-    } catch (err) {
+      }));
+      } catch (err: unknown) {
       console.error("Error fetching alert stats:", err);
     }
   }, []);
@@ -272,34 +212,6 @@ export function usePanicAlertHistory(initialFilters?: AlertFilters) {
   };
 
   // Get alert type label
-  const getAlertTypeLabel = (type: AlertType): string => {
-    const labels: Record<AlertType, string> = {
-      panic: "Panic/SOS",
-      inactivity: "Inactivity",
-      geo_fence_breach: "Geo-fence Breach",
-      checklist_incomplete: "Checklist Missed",
-      routine: "Routine",
-    };
-    return labels[type] || type;
-  };
-
-  // Get time ago string
-  const getTimeAgo = (dateString: string): string => {
-    const now = new Date();
-    const date = new Date(dateString);
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    
-    if (diffMins < 1) return "Just Now";
-    if (diffMins < 60) return `${diffMins} mins ago`;
-    
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours} hours ago`;
-    
-    const diffDays = Math.floor(diffHours / 24);
-    return `${diffDays} days ago`;
-  };
-
   // Real-time subscription for new alerts
   useEffect(() => {
     const channel = supabase

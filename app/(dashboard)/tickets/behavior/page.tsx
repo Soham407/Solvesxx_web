@@ -23,7 +23,7 @@ import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { useBehaviorTickets, BehaviorTicket } from "@/hooks/useBehaviorTickets";
+import { useBehaviorTickets, type BehaviorTicket, type CreateTicketDTO } from "@/hooks/useBehaviorTickets";
 import { useEmployees } from "@/hooks/useEmployees";
 import { SummaryReportsDialog } from "@/components/dialogs/SummaryReportsDialog";
 import {
@@ -61,7 +61,7 @@ export default function BehaviorTicketsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     employee_id: "",
-    category: "",
+    category: "" as CreateTicketDTO["category"] | "",
     severity: "low",
     description: "",
   });
@@ -81,7 +81,7 @@ export default function BehaviorTicketsPage() {
   const handleReport = async () => {
     setIsSubmitting(true);
     try {
-      let evidence_urls: string[] = [];
+      const evidence_urls: string[] = [];
       if (selectedFile) {
         const url = await uploadEvidence(selectedFile);
         if (url) evidence_urls.push(url);
@@ -89,6 +89,7 @@ export default function BehaviorTicketsPage() {
 
       const result = await createTicket({
         ...formData,
+        category: formData.category || "other",
         evidence_urls: evidence_urls.length > 0 ? evidence_urls : undefined
       });
 
@@ -298,7 +299,7 @@ export default function BehaviorTicketsPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="category">Category *</Label>
-                <Select value={formData.category} onValueChange={(val) => setFormData({ ...formData, category: val })}>
+                <Select value={formData.category} onValueChange={(val) => setFormData({ ...formData, category: (val || "other") as CreateTicketDTO["category"] })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
@@ -371,7 +372,7 @@ export default function BehaviorTicketsPage() {
           </DialogHeader>
           <div className="space-y-4 py-4">
              <div className="p-3 bg-muted/30 rounded-lg text-sm italic">
-                "{selectedTicket?.description}"
+                {selectedTicket?.description}
              </div>
              <div className="space-y-2">
                 <Label>Update Status</Label>

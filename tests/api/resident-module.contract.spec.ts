@@ -73,8 +73,9 @@ describe("Resident module contracts", () => {
 
     expect(
       sourceContainsAll(dashboardSource, [
-        "return <ResidentDashboardContent residentId={residentId} authUserId={userId} />;",
-        "useServiceRequests(authUserId ? { requesterId: authUserId } : undefined)",
+        "return <ResidentDashboardContent residentId={residentId} authUserId={userId} residentName={fullName} />;",
+        "useServiceRequests(",
+        "authUserId ? { requesterId: authUserId } : undefined",
       ])
     ).toBe(true);
 
@@ -87,9 +88,9 @@ describe("Resident module contracts", () => {
 
     expect(
       sourceContainsAll(policySource, [
-        'drop policy if exists "users create own service requests" on public.service_requests;',
-        'create policy "users create own service requests" on public.service_requests',
-        "for insert",
+        'DROP POLICY IF EXISTS "Users create own service requests" ON public.service_requests;',
+        'CREATE POLICY "Users create own service requests" ON public.service_requests',
+        "FOR INSERT",
         "created_by = auth.uid()",
         "requester_id = auth.uid()",
       ])

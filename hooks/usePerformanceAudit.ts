@@ -1,39 +1,22 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase as supabaseClient } from "@/src/lib/supabaseClient";
-const supabase = supabaseClient as any;
+import { supabase } from "@/src/lib/supabaseClient";
+import {
+  mapServiceFeedbackRow,
+  mapVendorScorecardRow,
+  type ServiceFeedback,
+  type ServiceFeedbackWithJoins,
+  type VendorScorecard,
+  type VendorScorecardRow,
+} from "@/src/lib/performance-audit/performanceAuditTransforms";
 
-// ============================================
-// TYPES
-// ============================================
-
-export interface ServiceFeedback {
-  id: string;
-  service_request_id: string;
-  society_id: string;
-  resident_id: string;
-  score: number;
-  comments: string;
-  photo_url: string | null;
-  created_at: string;
-  
-  // Joined Data
-  resident_name?: string;
-  flat_no?: string;
-  service_category?: string;
-  service_name?: string;
-}
-
-export interface VendorScorecard {
-  supplier_id: string;
-  supplier_name: string;
-  service_type: string;
-  total_feedbacks: number;
-  average_rating: number;
-  critical_feedbacks: number;
-  performance_status: "Incentivize" | "Warning" | "Standard";
-}
+export type {
+  ServiceFeedback,
+  ServiceFeedbackWithJoins,
+  VendorScorecard,
+  VendorScorecardRow,
+} from "@/src/lib/performance-audit/performanceAuditTransforms";
 
 interface UsePerformanceAuditState {
   feedback: ServiceFeedback[];
@@ -73,13 +56,7 @@ export function usePerformanceAudit() {
 
       if (feedbackError) throw feedbackError;
 
-      const formattedFeedback: ServiceFeedback[] = (feedbackData || []).map((fb: any) => ({
-        ...fb,
-        resident_name: fb.residents?.full_name || "Unknown Resident",
-        flat_no: fb.residents?.flat_no || "N/A",
-        service_name: fb.service_requests?.services?.service_name || "Unknown Service",
-        service_category: fb.service_requests?.services?.service_category || "General"
-      }));
+      const formattedFeedback: ServiceFeedback[] = ((feedbackData as ServiceFeedbackWithJoins[] | null) ?? []).map(mapServiceFeedbackRow);
 
       // Fetch Vendor Scorecards (from View)
       const { data: scorecardsData, error: scorecardsError } = await supabase
@@ -89,18 +66,21 @@ export function usePerformanceAudit() {
 
       if (scorecardsError) throw scorecardsError;
 
+      const formattedScorecards: VendorScorecard[] = ((scorecardsData as VendorScorecardRow[] | null) ?? []).map(mapVendorScorecardRow);
+
       setState({
         feedback: formattedFeedback,
-        scorecards: scorecardsData || [],
+        scorecards: formattedScorecards,
         isLoading: false,
         error: null,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching performance audit:", err);
+      const message = err instanceof Error ? err.message : "Failed to fetch audit data";
       setState((prev) => ({
         ...prev,
         isLoading: false,
-        error: err.message || "Failed to fetch audit data",
+        error: message,
       }));
     }
   }, []);

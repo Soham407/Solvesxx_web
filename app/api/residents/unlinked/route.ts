@@ -24,6 +24,32 @@ type UserLookupRecord = {
     | null;
 };
 
+type FlatRecord = {
+  flat_number?: string | null;
+  buildings?: BuildingRecord | BuildingRecord[] | null;
+};
+
+type BuildingRecord = {
+  building_name?: string | null;
+  society_id?: string | null;
+};
+
+type ResidentRow = {
+  id: string;
+  full_name: string | null;
+  resident_code: string | null;
+  auth_user_id: string | null;
+  is_active: boolean | null;
+  flats?: FlatRecord | FlatRecord[] | null;
+};
+
+type ResidentListRow = {
+  id: string;
+  full_name: string | null;
+  resident_code: string | null;
+  flats?: FlatRecord | FlatRecord[] | null;
+};
+
 type AuthorizedResidentManager =
   | {
       error: NextResponse;
@@ -95,7 +121,7 @@ async function getManagedSocietyIds(
     .eq("society_manager_id", userId);
 
   if (error) throw error;
-  return new Set((data ?? []).map((row: any) => row.id as string));
+  return new Set((data ?? []).map((row) => row.id as string));
 }
 
 /** Returns residents that have no auth_user_id yet (not provisioned as a login account). */
@@ -120,7 +146,7 @@ export async function GET() {
 
     if (error) throw error;
 
-    const scopedResidents = (data ?? []).filter((resident: any) => {
+    const scopedResidents = (data ?? []).filter((resident: ResidentListRow) => {
       if (!managedSocietyIds) return true;
       const flatRecord = Array.isArray(resident.flats) ? resident.flats[0] : resident.flats;
       const buildingRecord = Array.isArray(flatRecord?.buildings) ? flatRecord?.buildings[0] : flatRecord?.buildings;
@@ -128,8 +154,11 @@ export async function GET() {
     });
 
     return NextResponse.json({ residents: scopedResidents });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || "Failed to fetch residents" }, { status: 500 });
+  } catch (err: unknown) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Failed to fetch residents" },
+      { status: 500 }
+    );
   }
 }
 
@@ -178,9 +207,10 @@ export async function POST(request: Request) {
 
       if (scopedResidentError) throw scopedResidentError;
 
-      const flatRecord = Array.isArray((scopedResident as any)?.flats)
-        ? (scopedResident as any).flats[0]
-        : (scopedResident as any)?.flats;
+      const scopedResidentRow = scopedResident as ResidentRow | null;
+      const flatRecord = Array.isArray(scopedResidentRow?.flats)
+        ? scopedResidentRow.flats[0]
+        : scopedResidentRow?.flats;
       const buildingRecord = Array.isArray(flatRecord?.buildings)
         ? flatRecord.buildings[0]
         : flatRecord?.buildings;
@@ -236,7 +266,7 @@ export async function POST(request: Request) {
         id: newAuthUserId,
         full_name: residentRecord.full_name,
         email: parsed.data.email,
-        role_id: (residentRole as { id: string }).id,
+        role_id: residentRole.id,
         username,
         must_change_password: true,
         is_active: true,
@@ -278,9 +308,9 @@ export async function POST(request: Request) {
       await auth.supabaseAdmin.auth.admin.deleteUser(newAuthUserId);
       throw provisionError;
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     return NextResponse.json(
-      { error: err.message || "Failed to provision resident account" },
+      { error: err instanceof Error ? err.message : "Failed to provision resident account" },
       { status: 500 }
     );
   }

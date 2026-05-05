@@ -7,6 +7,14 @@ import { insertAuditLog } from "@/src/lib/platform/audit";
 
 const SOCIETY_ADMIN_ROLES = new Set(["admin", "super_admin", "society_manager"]);
 
+type RoleRow = {
+  role_name: string | null;
+};
+
+type CallerRecord = {
+  roles?: RoleRow | RoleRow[] | null;
+};
+
 async function getAuthorizedSocietyAdmin() {
   const supabase = await createServerClient();
   const supabaseAdmin = createServiceRoleClient();
@@ -29,9 +37,10 @@ async function getAuthorizedSocietyAdmin() {
     .eq("id", user.id)
     .maybeSingle();
 
-  const roleRecord = Array.isArray((callerRecord as any)?.roles)
-    ? (callerRecord as any).roles[0]
-    : (callerRecord as any)?.roles;
+  const callerUserRecord = callerRecord as CallerRecord | null;
+  const roleRecord = Array.isArray(callerUserRecord?.roles)
+    ? callerUserRecord.roles[0]
+    : callerUserRecord?.roles;
   const roleName = roleRecord?.role_name ?? null;
 
   if (!roleName || !SOCIETY_ADMIN_ROLES.has(roleName)) {
@@ -125,7 +134,7 @@ export async function POST(
 
     await insertAuditLog(auth.supabaseAdmin, {
       entityType: "buildings",
-      entityId: (row as any).id,
+      entityId: (row as { id: string }).id,
       action: "building.created",
       actorId: auth.callerUserId,
       newData: row,

@@ -33,6 +33,17 @@ import { WorkMasterDialog } from "@/components/dialogs/WorkMasterDialog";
 import { LinkWorkDialog } from "@/components/dialogs/LinkWorkDialog";
 import { supabase } from "@/src/lib/supabaseClient";
 
+function summarizeWorkMasterOverview(workItems: WorkMaster[], serviceWorkLinks: typeof useWorkMaster extends (...args: any[]) => infer R ? R extends { serviceWorkLinks: infer S } ? S : never : never) {
+  return {
+    total: workItems.length,
+    linked: serviceWorkLinks.length,
+    avgTime:
+      workItems.length > 0
+        ? Math.round(workItems.reduce((acc, item) => acc + (item.standard_time_minutes || 0), 0) / workItems.length)
+        : 0,
+  };
+}
+
 export default function WorkMasterPage() {
   const { 
     workItems, 
@@ -63,18 +74,12 @@ export default function WorkMasterPage() {
 
   const handleDelete = async (id: string) => {
     if (confirm("Are you sure you want to deactivate this work item?")) {
-      await supabase.from("work_master").update({ is_active: false } as any).eq("id", id);
+      await supabase.from("work_master").delete().eq("id", id);
       refresh();
     }
   };
 
-  const stats = {
-    total: workItems.length,
-    linked: serviceWorkLinks.length,
-    avgTime: workItems.length > 0 
-      ? Math.round(workItems.reduce((acc, w) => acc + (w.standard_time_minutes || 0), 0) / workItems.length)
-      : 0,
-  };
+  const stats = summarizeWorkMasterOverview(workItems, serviceWorkLinks);
 
   const columns: ColumnDef<WorkMaster>[] = [
     {

@@ -1,137 +1,52 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase as supabaseClient } from "@/src/lib/supabaseClient";
-const supabase = supabaseClient as any;
+import { supabase } from "@/src/lib/supabaseClient";
+import { fetchDocumentItems, fetchUnmatchedItems } from "@/src/lib/reconciliation/reconciliationDocumentReaders";
+import {
+  type ReconciliationStatus,
+  type ReconciliationLineStatus,
+  type MatchType,
+  type DiscrepancyType,
+  type ResolutionAction,
+  type Reconciliation,
+  type ReconciliationLine,
+  type CreateReconciliationInput,
+  type CreateReconciliationLineInput,
+  type ResolveDiscrepancyInput,
+  type MatchResult,
+  type ReconciliationJoinRow,
+  type ReconciliationLineJoinRow,
+  type DocumentItemRow,
+  type ReconciliationLineStatusRow,
+  type ReconciliationMatchRpcResult,
+  type DisputeUpdateRow,
+  canTransition,
+  calculateVariance,
+  isWithinTolerance,
+  determineLineStatus,
+  mapReconciliationRows,
+  mapReconciliationLineRows,
+  combineDocumentItemsIntoMatchResults,
+  calculateReconciliationStatus,
+  buildReconciliationStatistics,
+  calculateDocumentAmounts,
+  formatCurrency as centralizedFormatCurrency,
+} from "@/src/lib/reconciliation/reconciliationTransforms";
 
-// ============================================
-// TYPES
-// ============================================
-
-export type ReconciliationStatus = "pending" | "matched" | "discrepancy" | "resolved" | "disputed";
-export type ReconciliationLineStatus = "pending" | "matched" | "variance" | "resolved";
-export type MatchType = "PO_GRN" | "GRN_BILL" | "PO_BILL" | "THREE_WAY";
-export type DiscrepancyType = "quantity" | "price" | "tax" | "other";
-export type ResolutionAction = "accept" | "adjust" | "reject" | "credit_note";
-
-export interface Reconciliation {
-  id: string;
-  reconciliation_number: string;
-  purchase_bill_id: string | null;
-  purchase_order_id: string | null;
-  material_receipt_id: string | null;
-  bill_amount: number; // In paise
-  po_amount: number; // In paise
-  grn_amount: number; // In paise
-  bill_po_variance: number; // In paise
-  bill_grn_variance: number; // In paise
-  po_grn_variance: number; // In paise
-  status: ReconciliationStatus;
-  discrepancy_type: DiscrepancyType | null;
-  discrepancy_notes: string | null;
-  resolution_action: ResolutionAction | null;
-  resolution_notes: string | null;
-  resolved_at: string | null;
-  resolved_by: string | null;
-  adjusted_amount: number | null; // In paise
-  adjustment_reason: string | null;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-  created_by: string | null;
-  updated_by: string | null;
-  // Joined data
-  bill_number?: string;
-  po_number?: string;
-  grn_number?: string;
-  supplier_name?: string;
-  total_lines?: number;
-  matched_lines?: number;
-  variance_lines?: number;
-}
-
-export interface ReconciliationLine {
-  id: string;
-  reconciliation_id: string;
-  po_item_id: string | null;
-  grn_item_id: string | null;
-  bill_item_id: string | null;
-  product_id: string | null;
-  matched_qty: number;
-  matched_amount: number; // In paise
-  po_unit_price: number | null; // In paise
-  grn_unit_price: number | null; // In paise
-  bill_unit_price: number | null; // In paise
-  unit_price_variance: number; // In paise
-  qty_ordered: number | null;
-  qty_received: number | null;
-  qty_billed: number | null;
-  qty_variance: number;
-  match_type: MatchType;
-  status: ReconciliationLineStatus;
-  resolution_notes: string | null;
-  resolved_at: string | null;
-  resolved_by: string | null;
-  created_at: string;
-  updated_at: string;
-  // Joined data
-  product_name?: string;
-  product_code?: string;
-}
-
-export interface CreateReconciliationInput {
-  purchase_bill_id?: string;
-  purchase_order_id?: string;
-  material_receipt_id?: string;
-  notes?: string;
-}
-
-export interface CreateReconciliationLineInput {
-  reconciliation_id: string;
-  po_item_id?: string;
-  grn_item_id?: string;
-  bill_item_id?: string;
-  product_id?: string;
-  matched_qty: number;
-  matched_amount: number; // In paise
-  po_unit_price?: number; // In paise
-  grn_unit_price?: number; // In paise
-  bill_unit_price?: number; // In paise
-  qty_ordered?: number;
-  qty_received?: number;
-  qty_billed?: number;
-  match_type: MatchType;
-}
-
-export interface ResolveDiscrepancyInput {
-  resolution_action: ResolutionAction;
-  resolution_notes?: string;
-  adjusted_amount?: number; // In paise
-  adjustment_reason?: string;
-}
-
-export interface MatchResult {
-  product_id: string;
-  product_name?: string;
-  product_code?: string;
-  po_item_id?: string;
-  grn_item_id?: string;
-  bill_item_id?: string;
-  qty_ordered: number;
-  qty_received: number;
-  qty_billed: number;
-  qty_variance: number;
-  po_unit_price: number; // In paise
-  grn_unit_price: number; // In paise
-  bill_unit_price: number; // In paise
-  unit_price_variance: number; // In paise
-  matched_qty: number;
-  matched_amount: number; // In paise
-  match_type: MatchType;
-  status: ReconciliationLineStatus;
-  has_qty_variance: boolean;
-  has_price_variance: boolean;
-}
+export type {
+  ReconciliationStatus,
+  ReconciliationLineStatus,
+  MatchType,
+  DiscrepancyType,
+  ResolutionAction,
+  Reconciliation,
+  ReconciliationLine,
+  CreateReconciliationInput,
+  CreateReconciliationLineInput,
+  ResolveDiscrepancyInput,
+  MatchResult,
+};
 
 interface UseReconciliationState {
   reconciliations: Reconciliation[];
@@ -142,14 +57,6 @@ interface UseReconciliationState {
 }
 
 // Status transition rules for reconciliation lifecycle
-const STATUS_TRANSITIONS: Record<ReconciliationStatus, ReconciliationStatus[]> = {
-  pending: ["matched", "discrepancy"],
-  matched: ["disputed"],
-  discrepancy: ["resolved", "disputed"],
-  resolved: ["disputed"],
-  disputed: ["pending", "discrepancy"],
-};
-
 // Status display configuration
 export const RECONCILIATION_STATUS_CONFIG: Record<
   ReconciliationStatus,
@@ -186,70 +93,8 @@ export const RESOLUTION_ACTION_CONFIG: Record<ResolutionAction, { label: string;
   credit_note: { label: "Credit Note", description: "Request credit note from supplier" },
 };
 
-// Tolerance for variance (in paise) - amounts within this are considered matched
-// NOTE: This is used for UI display purposes only. The authoritative tolerance
-// check is performed in the database by the execute_reconciliation_match RPC function.
-const VARIANCE_TOLERANCE = 100; // 1 INR
-
-// ============================================
-// HELPER FUNCTIONS
-// ============================================
-
-const canTransition = (
-  currentStatus: ReconciliationStatus,
-  targetStatus: ReconciliationStatus
-): boolean => {
-  return STATUS_TRANSITIONS[currentStatus]?.includes(targetStatus) ?? false;
-};
-
-import { toRupees, toPaise, formatCurrency as centralizedFormatCurrency } from "@/src/lib/utils/currency";
-
-// Proxy to centralized utility with fraction digits
 export const formatCurrency = (paiseAmount: number): string => {
-  return centralizedFormatCurrency(paiseAmount, 2);
-};
-
-// Calculate variance between two amounts
-export const calculateVariance = (amount1: number, amount2: number): number => {
-  return amount1 - amount2;
-};
-
-// Check if variance is within tolerance
-// NOTE: Used for UI display only. The authoritative check is in the database
-// (execute_reconciliation_match RPC function).
-export const isWithinTolerance = (variance: number): boolean => {
-  return Math.abs(variance) <= VARIANCE_TOLERANCE;
-};
-
-// Determine line status based on variances
-const determineLineStatus = (
-  qtyVariance: number,
-  priceVariance: number,
-  hasPO: boolean,
-  hasGRN: boolean,
-  hasBill: boolean
-): ReconciliationLineStatus => {
-  // Missing documents = pending
-  if (!hasPO || !hasGRN || !hasBill) return "pending";
-  
-  // Check if within tolerance
-  if (Math.abs(qtyVariance) < 0.01 && isWithinTolerance(priceVariance)) {
-    return "matched";
-  }
-  
-  return "variance";
-};
-
-// Determine match type based on available documents
-const determineMatchType = (
-  hasPO: boolean,
-  hasGRN: boolean,
-  hasBill: boolean
-): MatchType => {
-  if (hasPO && hasGRN && hasBill) return "THREE_WAY";
-  if (hasPO && hasGRN) return "PO_GRN";
-  if (hasGRN && hasBill) return "GRN_BILL";
-  return "PO_BILL";
+  return centralizedFormatCurrency(paiseAmount);
 };
 
 // ============================================
@@ -315,13 +160,7 @@ export function useReconciliation(filters?: {
       if (error) throw error;
 
       // Transform data
-      const reconciliationsWithDetails: Reconciliation[] = (data || []).map((rec: any) => ({
-        ...rec,
-        bill_number: rec.purchase_bills?.bill_number || null,
-        po_number: rec.purchase_orders?.po_number || null,
-        grn_number: rec.material_receipts?.grn_number || null,
-        supplier_name: rec.purchase_bills?.suppliers?.supplier_name || "Unknown",
-      }));
+      const reconciliationsWithDetails = mapReconciliationRows((data || []) as ReconciliationJoinRow[]);
 
       setState((prev) => ({
         ...prev,
@@ -359,11 +198,7 @@ export function useReconciliation(filters?: {
 
         if (error) throw error;
 
-        const linesWithDetails: ReconciliationLine[] = (data || []).map((line: any) => ({
-          ...line,
-          product_name: line.products?.product_name || null,
-          product_code: line.products?.product_code || null,
-        }));
+        const linesWithDetails = mapReconciliationLineRows((data || []) as ReconciliationLineJoinRow[]);
 
         setState((prev) => ({ ...prev, lines: linesWithDetails }));
         return linesWithDetails;
@@ -379,57 +214,21 @@ export function useReconciliation(filters?: {
   // GET PO ITEMS
   // ============================================
   const getPOItems = useCallback(async (poId: string) => {
-    const { data, error } = await supabase
-      .from("purchase_order_items")
-      .select(`
-        *,
-        products!product_id (
-          product_name,
-          product_code
-        )
-      `)
-      .eq("purchase_order_id", poId);
-
-    if (error) throw error;
-    return data || [];
+    return fetchDocumentItems("po", poId);
   }, []);
 
   // ============================================
   // GET GRN ITEMS
   // ============================================
   const getGRNItems = useCallback(async (grnId: string) => {
-    const { data, error } = await supabase
-      .from("material_receipt_items")
-      .select(`
-        *,
-        products!product_id (
-          product_name,
-          product_code
-        )
-      `)
-      .eq("material_receipt_id", grnId);
-
-    if (error) throw error;
-    return data || [];
+    return fetchDocumentItems("grn", grnId);
   }, []);
 
   // ============================================
   // GET BILL ITEMS
   // ============================================
   const getBillItems = useCallback(async (billId: string) => {
-    const { data, error } = await supabase
-      .from("purchase_bill_items")
-      .select(`
-        *,
-        products!product_id (
-          product_name,
-          product_code
-        )
-      `)
-      .eq("purchase_bill_id", billId);
-
-    if (error) throw error;
-    return data || [];
+    return fetchDocumentItems("bill", billId);
   }, []);
 
   // ============================================
@@ -447,171 +246,7 @@ export function useReconciliation(filters?: {
           grnId ? getGRNItems(grnId) : Promise.resolve([]),
           billId ? getBillItems(billId) : Promise.resolve([]),
         ]);
-
-        // Build a map of all unique products from all documents
-        const productMap = new Map<string, MatchResult>();
-
-        // Process PO items
-        for (const poItem of poItems) {
-          const productId = poItem.product_id;
-          if (!productId) continue;
-
-          const existing = productMap.get(productId) || {
-            product_id: productId,
-            product_name: poItem.products?.product_name ?? undefined,
-            product_code: poItem.products?.product_code ?? undefined,
-            po_item_id: undefined,
-            grn_item_id: undefined,
-            bill_item_id: undefined,
-            qty_ordered: 0,
-            qty_received: 0,
-            qty_billed: 0,
-            qty_variance: 0,
-            po_unit_price: 0,
-            grn_unit_price: 0,
-            bill_unit_price: 0,
-            unit_price_variance: 0,
-            matched_qty: 0,
-            matched_amount: 0,
-            match_type: "PO_GRN" as MatchType,
-            status: "pending" as ReconciliationLineStatus,
-            has_qty_variance: false,
-            has_price_variance: false,
-          };
-
-          existing.po_item_id = poItem.id;
-          existing.qty_ordered = poItem.ordered_quantity || 0;
-          existing.po_unit_price = poItem.unit_price || 0;
-
-          productMap.set(productId, existing);
-        }
-
-        // Process GRN items
-        for (const grnItem of grnItems) {
-          const productId = grnItem.product_id;
-          if (!productId) continue;
-
-          const existing = productMap.get(productId) || {
-            product_id: productId,
-            product_name: grnItem.products?.product_name ?? undefined,
-            product_code: grnItem.products?.product_code ?? undefined,
-            po_item_id: undefined,
-            grn_item_id: undefined,
-            bill_item_id: undefined,
-            qty_ordered: 0,
-            qty_received: 0,
-            qty_billed: 0,
-            qty_variance: 0,
-            po_unit_price: 0,
-            grn_unit_price: 0,
-            bill_unit_price: 0,
-            unit_price_variance: 0,
-            matched_qty: 0,
-            matched_amount: 0,
-            match_type: "GRN_BILL" as MatchType,
-            status: "pending" as ReconciliationLineStatus,
-            has_qty_variance: false,
-            has_price_variance: false,
-          };
-
-          existing.grn_item_id = grnItem.id;
-          existing.qty_received = grnItem.accepted_quantity || grnItem.received_quantity || 0;
-          existing.grn_unit_price = grnItem.unit_price || 0;
-
-          productMap.set(productId, existing);
-        }
-
-        // Process Bill items
-        for (const billItem of billItems) {
-          const productId = billItem.product_id;
-          if (!productId) continue;
-
-          const existing = productMap.get(productId) || {
-            product_id: productId,
-            product_name: billItem.products?.product_name ?? undefined,
-            product_code: billItem.products?.product_code ?? undefined,
-            po_item_id: undefined,
-            grn_item_id: undefined,
-            bill_item_id: undefined,
-            qty_ordered: 0,
-            qty_received: 0,
-            qty_billed: 0,
-            qty_variance: 0,
-            po_unit_price: 0,
-            grn_unit_price: 0,
-            bill_unit_price: 0,
-            unit_price_variance: 0,
-            matched_qty: 0,
-            matched_amount: 0,
-            match_type: "PO_BILL" as MatchType,
-            status: "pending" as ReconciliationLineStatus,
-            has_qty_variance: false,
-            has_price_variance: false,
-          };
-
-          existing.bill_item_id = billItem.id;
-          existing.qty_billed = billItem.billed_quantity || 0;
-          existing.bill_unit_price = billItem.unit_price || 0;
-
-          productMap.set(productId, existing);
-        }
-
-        // Calculate variances and determine status for each product
-        const results: MatchResult[] = [];
-        for (const [, result] of productMap) {
-          const hasPO = !!result.po_item_id;
-          const hasGRN = !!result.grn_item_id;
-          const hasBill = !!result.bill_item_id;
-
-          // Calculate matched quantity (minimum of available quantities)
-          const availableQtys = [
-            hasPO ? result.qty_ordered : Infinity,
-            hasGRN ? result.qty_received : Infinity,
-            hasBill ? result.qty_billed : Infinity,
-          ].filter((q) => q !== Infinity);
-
-          result.matched_qty = availableQtys.length > 0 ? Math.min(...availableQtys) : 0;
-
-          // Calculate quantity variance (billed - received, or billed - ordered)
-          if (hasBill && hasGRN) {
-            result.qty_variance = result.qty_billed - result.qty_received;
-          } else if (hasBill && hasPO) {
-            result.qty_variance = result.qty_billed - result.qty_ordered;
-          } else if (hasGRN && hasPO) {
-            result.qty_variance = result.qty_received - result.qty_ordered;
-          }
-
-          // Calculate price variance (bill price - PO price)
-          if (hasBill && hasPO) {
-            result.unit_price_variance = result.bill_unit_price - result.po_unit_price;
-          } else if (hasBill && hasGRN) {
-            result.unit_price_variance = result.bill_unit_price - result.grn_unit_price;
-          }
-
-          // Calculate matched amount (using PO price as baseline)
-          const basePrice = result.po_unit_price || result.grn_unit_price || result.bill_unit_price;
-          result.matched_amount = Math.round(result.matched_qty * basePrice);
-
-          // Determine match type
-          result.match_type = determineMatchType(hasPO, hasGRN, hasBill);
-
-          // Set variance flags
-          result.has_qty_variance = Math.abs(result.qty_variance) >= 0.01;
-          result.has_price_variance = !isWithinTolerance(result.unit_price_variance);
-
-          // Determine status
-          result.status = determineLineStatus(
-            result.qty_variance,
-            result.unit_price_variance,
-            hasPO,
-            hasGRN,
-            hasBill
-          );
-
-          results.push(result);
-        }
-
-        return results;
+        return combineDocumentItemsIntoMatchResults(poItems, grnItems, billItems);
       } catch (err: unknown) {
         console.error("Error performing three-way match:", err);
         throw err;
@@ -625,14 +260,14 @@ export function useReconciliation(filters?: {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const { data, error } = await supabase.rpc('execute_reconciliation_match' as any, {
-        p_reconciliation_id: reconciliationId,
-        p_user_id: user.id,
-      });
+          const { data, error } = await supabase.rpc("execute_reconciliation_match", {
+          p_reconciliation_id: reconciliationId,
+          p_user_id: user.id,
+        });
 
-      if (error) throw error;
+        if (error) throw error;
 
-      const rpcResult = data as any;
+      const rpcResult = data as ReconciliationMatchRpcResult;
       if (!rpcResult?.success) {
         throw new Error(rpcResult?.error || "Reconciliation matching failed");
       }
@@ -688,16 +323,11 @@ export function useReconciliation(filters?: {
           grnAmount = grn?.total_received_value || 0;
         }
 
-        // Calculate variances
-        const billPoVariance = calculateVariance(billAmount, poAmount);
-        const billGrnVariance = calculateVariance(billAmount, grnAmount);
-        const poGrnVariance = calculateVariance(poAmount, grnAmount);
-
-        // Determine initial status based on variances
-        const hasVariance =
-          !isWithinTolerance(billPoVariance) ||
-          !isWithinTolerance(billGrnVariance) ||
-          !isWithinTolerance(poGrnVariance);
+        const { billPoVariance, billGrnVariance, poGrnVariance } = calculateDocumentAmounts(
+          billAmount,
+          poAmount,
+          grnAmount
+        );
 
         const { data, error } = await supabase
           .from("reconciliations")
@@ -835,20 +465,7 @@ export function useReconciliation(filters?: {
       if (!lines || lines.length === 0) return;
 
       // Determine overall status
-      const allMatched = lines.every((l: any) => l.status === "matched");
-      const allResolved = lines.every((l: any) => l.status === "matched" || l.status === "resolved");
-      const hasVariance = lines.some((l: any) => l.status === "variance");
-
-      let newStatus: ReconciliationStatus;
-      if (allMatched) {
-        newStatus = "matched";
-      } else if (allResolved) {
-        newStatus = "resolved";
-      } else if (hasVariance) {
-        newStatus = "discrepancy";
-      } else {
-        newStatus = "pending";
-      }
+      const newStatus = calculateReconciliationStatus(lines as ReconciliationLineStatusRow[]);
 
       await supabase
         .from("reconciliations")
@@ -1207,7 +824,7 @@ export function useReconciliation(filters?: {
           throw new Error(`Cannot dispute reconciliation in ${rec.status} status`);
         }
 
-        const updates: any = { status: "disputed" };
+        const updates: DisputeUpdateRow = { status: "disputed" };
         if (reason) {
           updates.discrepancy_notes = rec.discrepancy_notes
             ? `${rec.discrepancy_notes}\n\nDispute: ${reason}`
@@ -1255,72 +872,20 @@ export function useReconciliation(filters?: {
   // ============================================
   // GET UNMATCHED ITEMS
   // ============================================
-  const getUnmatchedItems = useCallback(
-    async (
-      type: "po" | "grn" | "bill"
-    ): Promise<any[]> => {
-      try {
-        let tableName: string;
-        let unmatchedQtyColumn: string;
-
-        switch (type) {
-          case "po":
-            tableName = "purchase_order_items";
-            unmatchedQtyColumn = "unmatched_qty";
-            break;
-          case "grn":
-            tableName = "material_receipt_items";
-            unmatchedQtyColumn = "unmatched_qty";
-            break;
-          case "bill":
-            tableName = "purchase_bill_items";
-            unmatchedQtyColumn = "unmatched_qty";
-            break;
-        }
-
-        const { data, error } = await supabase
-          .from(tableName as "purchase_order_items" | "material_receipt_items" | "purchase_bill_items")
-          .select("*")
-          .gt(unmatchedQtyColumn, 0);
-
-        if (error) throw error;
-        return data || [];
-      } catch (err) {
-        console.error(`Error getting unmatched ${type} items:`, err);
-        return [];
-      }
-    },
-    []
-  );
+  const getUnmatchedItems = useCallback(async (type: "po" | "grn" | "bill"): Promise<DocumentItemRow[]> => {
+    try {
+      return await fetchUnmatchedItems(type);
+    } catch (err: unknown) {
+      console.error(`Error getting unmatched ${type} items:`, err);
+      return [];
+    }
+  }, []);
 
   // ============================================
   // GET RECONCILIATION STATISTICS
   // ============================================
   const getReconciliationStatistics = useCallback(() => {
-    const recs = state.reconciliations;
-
-    return {
-      totalReconciliations: recs.length,
-      pendingReconciliations: recs.filter((r) => r.status === "pending").length,
-      matchedReconciliations: recs.filter((r) => r.status === "matched").length,
-      discrepancyReconciliations: recs.filter((r) => r.status === "discrepancy").length,
-      resolvedReconciliations: recs.filter((r) => r.status === "resolved").length,
-      disputedReconciliations: recs.filter((r) => r.status === "disputed").length,
-      totalBillAmount: recs.reduce((sum, r) => sum + (r.bill_amount || 0), 0),
-      totalPOAmount: recs.reduce((sum, r) => sum + (r.po_amount || 0), 0),
-      totalGRNAmount: recs.reduce((sum, r) => sum + (r.grn_amount || 0), 0),
-      totalVariance: recs.reduce(
-        (sum, r) => sum + Math.abs(r.bill_po_variance || 0),
-        0
-      ),
-      avgVariancePercent:
-        recs.length > 0
-          ? recs.reduce((sum, r) => {
-              const baseAmount = r.po_amount || r.grn_amount || 1;
-              return sum + (Math.abs(r.bill_po_variance || 0) / baseAmount) * 100;
-            }, 0) / recs.length
-          : 0,
-    };
+    return buildReconciliationStatistics(state.reconciliations);
   }, [state.reconciliations]);
 
   // ============================================

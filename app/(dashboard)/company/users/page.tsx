@@ -28,6 +28,24 @@ import { toast } from "sonner";
 import { useUsers, UserMaster } from "@/hooks/useUsers";
 import { EditRoleDialog } from "@/components/dialogs/EditRoleDialog";
 
+function getUserInitials(fullName?: string | null) {
+  return (fullName || "Un Known")
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .substring(0, 2);
+}
+
+function getUserStatusClassName(status: string) {
+  const variants: Record<string, string> = {
+    Active: "bg-success/10 text-success border-success/20",
+    Locked: "bg-critical/10 text-critical border-critical/20",
+    Pending: "bg-warning/10 text-warning border-warning/20",
+  };
+
+  return variants[status] || "";
+}
+
 export default function UsersPage() {
   const { users, isLoading, error, suspendUser, activateUser, refresh } = useUsers();
   const [mfaDialogOpen, setMfaDialogOpen] = useState(false);
@@ -67,7 +85,7 @@ export default function UsersPage() {
         <div className="flex items-center gap-3">
           <Avatar className="h-9 w-9 ring-2 ring-primary/5">
             <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">
-              {(row.original.full_name || "Un Known").split(' ').map(n => n[0]).join('').substring(0, 2)}
+              {getUserInitials(row.original.full_name)}
             </AvatarFallback>
           </Avatar>
           <div className="flex flex-col">
@@ -110,22 +128,17 @@ export default function UsersPage() {
         );
       },
     },
-    {
-      accessorKey: "status",
-      header: "Security Status",
-      cell: ({ row }) => {
-        const status = row.getValue("status") as string;
-        const variants: Record<string, string> = {
-          Active: "bg-success/10 text-success border-success/20",
-          Locked: "bg-critical/10 text-critical border-critical/20",
-          Pending: "bg-warning/10 text-warning border-warning/20",
-        };
-        return (
-          <Badge variant="outline" className={variants[status]}>
+      {
+        accessorKey: "status",
+        header: "Security Status",
+        cell: ({ row }) => {
+          const status = row.getValue("status") as string;
+          return (
+          <Badge variant="outline" className={getUserStatusClassName(status)}>
             {status}
           </Badge>
-        );
-      },
+          );
+        },
     },
     {
       id: "actions",

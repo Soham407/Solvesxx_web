@@ -152,7 +152,7 @@ export default function NewSupplierBillPage() {
           <CardContent className="space-y-4">
             <div className="grid gap-2">
               <Label>Billing Type</Label>
-              <Select value={billType} onValueChange={(v: any) => { setBillType(v); setSelectedId(""); }}>
+              <Select value={billType} onValueChange={(v) => { setBillType(v as "po" | "spo"); setSelectedId(""); }}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -230,7 +230,7 @@ export default function NewSupplierBillPage() {
         <Card>
           <CardHeader>
             <CardTitle>Invoice Details</CardTitle>
-            <CardDescription>Your business's formal invoice information.</CardDescription>
+            <CardDescription>Your businesses formal invoice information.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">

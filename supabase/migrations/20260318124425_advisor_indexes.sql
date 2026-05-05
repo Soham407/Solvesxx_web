@@ -12,8 +12,13 @@ CREATE INDEX IF NOT EXISTS idx_attendance_logs_check_in_location_id ON public.at
 CREATE INDEX IF NOT EXISTS idx_attendance_logs_check_out_location_id ON public.attendance_logs (check_out_location_id);
 CREATE INDEX IF NOT EXISTS idx_background_verifications_employee_id ON public.background_verifications (employee_id);
 CREATE INDEX IF NOT EXISTS idx_background_verifications_verified_by ON public.background_verifications (verified_by);
-CREATE INDEX IF NOT EXISTS idx_behaviour_tickets_employee_id ON public.behaviour_tickets (employee_id);
-CREATE INDEX IF NOT EXISTS idx_behaviour_tickets_raised_by ON public.behaviour_tickets (raised_by);
+DO $$
+BEGIN
+  IF to_regclass('public.behaviour_tickets') IS NOT NULL THEN
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_behaviour_tickets_employee_id ON public.behaviour_tickets (employee_id)';
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_behaviour_tickets_raised_by ON public.behaviour_tickets (raised_by)';
+  END IF;
+END $$;
 CREATE INDEX IF NOT EXISTS idx_budgets_created_by ON public.budgets (created_by);
 CREATE INDEX IF NOT EXISTS idx_buyer_feedback_submitted_by ON public.buyer_feedback (submitted_by);
 CREATE INDEX IF NOT EXISTS idx_candidate_interviews_created_by ON public.candidate_interviews (created_by);

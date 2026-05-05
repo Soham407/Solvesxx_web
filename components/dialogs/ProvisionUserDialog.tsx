@@ -1,4 +1,3 @@
-// @ts-nocheck
 "use client";
 
 import { useState, useEffect } from "react";
@@ -65,6 +64,7 @@ export function ProvisionUserDialog({
   const roles = allRoles.filter(
     (r) => r.roleKey !== "admin" && r.roleKey !== "super_admin"
   );
+  const availableEmployees = employees.filter((employee) => !employee.linked_user_id);
 
   const [apiError, setApiError] = useState<string | null>(null);
   const [selectedRoleKey, setSelectedRoleKey] = useState<string | null>(null);
@@ -105,6 +105,11 @@ export function ProvisionUserDialog({
       return;
     }
 
+    if (values.employee_id && !availableEmployees.some((employee) => employee.id === values.employee_id)) {
+      setApiError("Selected employee is already linked to another login.");
+      return;
+    }
+
     try {
       const result = await createUser({
         ...values,
@@ -119,8 +124,8 @@ export function ProvisionUserDialog({
         onOpenChange(false);
         reset();
       }
-    } catch (err: any) {
-      setApiError(err.message || "An unexpected error occurred.");
+    } catch (err: unknown) {
+      setApiError(err instanceof Error ? err.message : "An unexpected error occurred.");
     }
   };
 
@@ -141,6 +146,9 @@ export function ProvisionUserDialog({
     const role = roles.find((r) => r.id === roleId);
     setSelectedRoleKey(role?.roleKey ?? null);
     setSelectedResidentId("");
+    if (role?.roleKey === "resident") {
+      setValue("employee_id", "", { shouldValidate: true });
+    }
   };
 
   const copyToClipboard = () => {
@@ -265,19 +273,25 @@ export function ProvisionUserDialog({
                   { shouldValidate: true }
                 )
               }
+              disabled={isResidentRole}
             >
               <SelectTrigger id="employee_id">
                 <SelectValue placeholder={employeesLoading ? "Loading…" : "Select employee"} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={CREATE_NEW_EMPLOYEE_VALUE}>None / Create New</SelectItem>
-                {employees.map((emp) => (
+                {availableEmployees.map((emp) => (
                   <SelectItem key={emp.id} value={emp.id}>
                     {emp.full_name} ({emp.employee_code})
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {!employeesLoading && availableEmployees.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                No unlinked employees found.
+              </p>
+            )}
           </div>
 
           {isResidentRole && (

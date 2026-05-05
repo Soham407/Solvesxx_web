@@ -3,13 +3,15 @@
 import { useAuth } from "@/hooks/useAuth";
 import { redirect } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { canAccessPath } from "@/src/lib/platform/permissions";
+import { getRoleLandingPath } from "@/src/lib/auth/roles";
 
 export default function BuyerLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { user, role, isLoading } = useAuth();
+  const { user, role, permissions, isLoading } = useAuth();
 
   if (isLoading) {
     return (
@@ -19,8 +21,12 @@ export default function BuyerLayout({
     );
   }
 
-  if (!user || (role !== "admin" && role !== "buyer")) {
-    redirect("/dashboard");
+  if (!user) {
+    redirect("/login");
+  }
+
+  if (!role || !canAccessPath(role, permissions, "/buyer")) {
+    redirect(getRoleLandingPath(role));
   }
 
   return <div className="p-6 space-y-6">{children}</div>;

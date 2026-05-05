@@ -20,17 +20,25 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { BuyerFeedbackDialog } from "@/components/buyer/BuyerFeedbackDialog";
 import { toast } from "sonner";
 
+function summarizeBuyerInvoiceOverview(invoices: BuyerInvoice[]) {
+  return {
+    total: invoices.reduce((sum, invoice) => sum + invoice.total_amount, 0),
+    unpaid: invoices
+      .filter((invoice) => invoice.payment_status !== "paid")
+      .reduce((sum, invoice) => sum + invoice.due_amount, 0),
+    paid: invoices
+      .filter((invoice) => invoice.payment_status === "paid")
+      .reduce((sum, invoice) => sum + invoice.paid_amount, 0),
+  };
+}
+
 export default function BuyerInvoicesPage() {
   const { invoices, isLoading, recordPayment } = useBuyerInvoices();
   const [search, setSearch] = useState("");
   const [processingInvoiceId, setProcessingInvoiceId] = useState<string | null>(null);
 
-  const handleDownloadPDF = (invoiceNumber: string) => {
-    toast.info(`Generating PDF for ${invoiceNumber}...`);
-    // Mock PDF generation
-    setTimeout(() => {
-      toast.success(`PDF for ${invoiceNumber} downloaded successfully`);
-    }, 1500);
+  const handleInvoiceDocumentDownload = (invoiceNumber: string) => {
+    toast.info(`Invoice document download is not available for ${invoiceNumber}.`);
   };
 
   const handlePayNow = async (invoice: BuyerInvoice) => {
@@ -58,11 +66,7 @@ export default function BuyerInvoicesPage() {
     inv.invoice_number.toLowerCase().includes(search.toLowerCase())
   );
 
-  const stats = {
-    total: invoices.reduce((sum, inv) => sum + inv.total_amount, 0),
-    unpaid: invoices.filter(inv => inv.payment_status !== 'paid').reduce((sum, inv) => sum + inv.due_amount, 0),
-    paid: invoices.filter(inv => inv.payment_status === 'paid').reduce((sum, inv) => sum + inv.paid_amount, 0),
-  };
+  const stats = summarizeBuyerInvoiceOverview(invoices);
 
   return (
     <div className="space-y-6">
@@ -149,7 +153,7 @@ export default function BuyerInvoicesPage() {
                       variant="ghost" 
                       size="sm" 
                       className="gap-1"
-                      onClick={() => handleDownloadPDF(inv.invoice_number)}
+                      onClick={() => handleInvoiceDocumentDownload(inv.invoice_number)}
                     >
                        <Download className="h-3 w-3" /> PDF
                      </Button>

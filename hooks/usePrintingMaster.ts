@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase as supabaseClient } from "@/src/lib/supabaseClient";
-const supabase = supabaseClient as any;
+import { supabase } from "@/src/lib/supabaseClient";
 
 // ============================================
 // TYPES
@@ -15,7 +14,7 @@ export interface AdSpace {
   asset_id: string | null;
   dimensions: string | null;
   base_rate_paise: number;
-  status: "available" | "occupied" | "maintenance";
+  status: string;
   created_at: string;
   updated_at: string;
   
@@ -61,10 +60,10 @@ export function usePrintingMaster() {
 
       if (error) throw error;
 
-      const adSpacesWithDetails: AdSpace[] = (data || []).map((item: any) => ({
+      const adSpacesWithDetails: AdSpace[] = (data || []).map((item) => ({
         ...item,
-        asset_name: item.assets?.name || null,
-        asset_tag: item.assets?.asset_code || null,
+        asset_name: item.assets?.name ?? null,
+        asset_tag: item.assets?.asset_code ?? null,
       }));
 
       setState((prev) => ({
@@ -72,12 +71,13 @@ export function usePrintingMaster() {
         adSpaces: adSpacesWithDetails,
         isLoading: false,
       }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching printing ad spaces:", err);
+      const message = err instanceof Error ? err.message : "Failed to fetch ad spaces";
       setState((prev) => ({
         ...prev,
         isLoading: false,
-        error: err.message || "Failed to fetch ad spaces",
+        error: message,
       }));
     }
   }, []);
@@ -96,7 +96,7 @@ export function usePrintingMaster() {
 
       await fetchAdSpaces();
       return true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error updating ad space status:", err);
       return false;
     }

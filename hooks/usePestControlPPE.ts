@@ -1,33 +1,15 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { supabase as supabaseClient } from "@/src/lib/supabaseClient";
-const supabase = supabaseClient as any;
+import { supabase } from "@/src/lib/supabaseClient";
+import {
+  buildPpeChecklistInsert,
+  isPpeChecklistComplete,
+  type PestControlPPEVerification,
+  type PPEChecklistData,
+} from "@/src/lib/pest-control/ppeTransforms";
 
-export interface PestControlPPEVerification {
-  id: string;
-  job_session_id: string;
-  technician_id: string;
-  service_request_id: string;
-  gloves_worn: boolean;
-  mask_worn: boolean;
-  goggles_worn: boolean;
-  full_suit_worn: boolean;
-  chemical_dilution_verified: boolean;
-  resident_area_cleared: boolean;
-  all_items_checked: boolean;
-  verified_at: string;
-  status: string;
-}
-
-export interface PPEChecklistData {
-  gloves_worn: boolean;
-  mask_worn: boolean;
-  goggles_worn: boolean;
-  full_suit_worn: boolean;
-  chemical_dilution_verified: boolean;
-  resident_area_cleared: boolean;
-}
+export type { PestControlPPEVerification, PPEChecklistData } from "@/src/lib/pest-control/ppeTransforms";
 
 /**
  * Hook for managing Pest Control PPE Verifications
@@ -56,9 +38,9 @@ export function usePestControlPPE(jobSessionId?: string, serviceRequestId?: stri
 
       if (ppeError) throw ppeError;
       setPpeVerification(data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching PPE verification:", err);
-      setError(err.message);
+      setError(err instanceof Error ? err.message : "Failed to fetch PPE verification");
     } finally {
       setIsLoading(false);
     }
@@ -69,25 +51,9 @@ export function usePestControlPPE(jobSessionId?: string, serviceRequestId?: stri
       setIsLoading(true);
       setError(null);
 
-      const allItemsChecked = 
-        data.gloves_worn && 
-        data.mask_worn && 
-        data.goggles_worn && 
-        data.full_suit_worn && 
-        data.chemical_dilution_verified && 
-        data.resident_area_cleared;
-
       const { data: result, error: ppeError } = await supabase
         .from("pest_control_ppe_verifications")
-        .upsert({
-          job_session_id: jobSessionId,
-          service_request_id: serviceRequestId,
-          technician_id: technicianId,
-          ...data,
-          all_items_checked: allItemsChecked,
-          verified_at: new Date().toISOString(),
-          status: allItemsChecked ? "verified" : "failed"
-        })
+        .upsert(buildPpeChecklistInsert(data, jobSessionId ?? null, serviceRequestId ?? null, technicianId))
         .select()
         .single();
 
@@ -95,10 +61,11 @@ export function usePestControlPPE(jobSessionId?: string, serviceRequestId?: stri
       
       setPpeVerification(result);
       return { success: true, data: result };
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error submitting PPE checklist:", err);
-      setError(err.message);
-      return { success: false, error: err.message };
+      const errorMessage = err instanceof Error ? err.message : "Failed to submit PPE checklist";
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
     } finally {
       setIsLoading(false);
     }

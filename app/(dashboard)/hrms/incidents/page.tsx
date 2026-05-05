@@ -20,6 +20,26 @@ import { cn } from "@/lib/utils";
 import { useBehaviorTickets, BehaviorTicket } from "@/hooks/useBehaviorTickets";
 import { useRouter } from "next/navigation";
 
+function getIncidentSeverityClassName(severity: BehaviorTicket["severity"]) {
+  return severity === "high"
+    ? "bg-critical/10 text-critical border-critical/20"
+    : severity === "medium"
+    ? "bg-warning/10 text-warning border-warning/20"
+    : "bg-info/10 text-info border-info/20";
+}
+
+function getIncidentStatusConfig(status: BehaviorTicket["status"]) {
+  const config: Record<string, { label: string; className: string }> = {
+    open: { label: "Open", className: "bg-warning/10 text-warning" },
+    under_review: { label: "Reviewing", className: "bg-info/10 text-info" },
+    resolved_warning: { label: "Warned", className: "bg-success/10 text-success" },
+    resolved_action: { label: "Actioned", className: "bg-primary/10 text-primary" },
+    dismissed: { label: "Dismissed", className: "bg-muted text-muted-foreground" },
+  };
+
+  return config[status] || { label: status, className: "" };
+}
+
 export default function HRIncidentsPage() {
   const router = useRouter();
   const { tickets, isLoading, stats } = useBehaviorTickets();
@@ -55,21 +75,17 @@ export default function HRIncidentsPage() {
         </Badge>
       ),
     },
-    {
-      accessorKey: "severity",
-      header: "Severity",
-      cell: ({ row }) => {
-        const severity = row.original.severity;
-        return (
-          <Badge
-            variant="outline"
-            className={cn(
-              "uppercase text-[9px] font-black tracking-tighter h-5",
-              severity === "high"
-                ? "bg-critical/10 text-critical border-critical/20"
-                : severity === "medium"
-                ? "bg-warning/10 text-warning border-warning/20"
-                : "bg-info/10 text-info border-info/20"
+      {
+        accessorKey: "severity",
+        header: "Severity",
+        cell: ({ row }) => {
+          const severity = row.original.severity;
+          return (
+            <Badge
+              variant="outline"
+              className={cn(
+                "uppercase text-[9px] font-black tracking-tighter h-5",
+                getIncidentSeverityClassName(severity)
             )}
           >
             {severity}
@@ -77,19 +93,11 @@ export default function HRIncidentsPage() {
         );
       },
     },
-    {
-      accessorKey: "status",
-      header: "Status",
-      cell: ({ row }) => {
-        const status = row.original.status;
-        const config: Record<string, { label: string; className: string }> = {
-          open: { label: "Open", className: "bg-warning/10 text-warning" },
-          under_review: { label: "Reviewing", className: "bg-info/10 text-info" },
-          resolved_warning: { label: "Warned", className: "bg-success/10 text-success" },
-          resolved_action: { label: "Actioned", className: "bg-primary/10 text-primary" },
-          dismissed: { label: "Dismissed", className: "bg-muted text-muted-foreground" },
-        };
-        const s = config[status] || { label: status, className: "" };
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }) => {
+        const s = getIncidentStatusConfig(row.original.status);
         return (
           <Badge
             variant="outline"

@@ -27,7 +27,7 @@ export default function HRMSProfilesPage() {
         <div className="flex items-center gap-3 text-left">
           <Avatar className="h-9 w-9 ring-1 ring-border">
             <AvatarFallback className="bg-primary/5 text-primary text-xs font-bold">
-              {getEmployeeInitials(row.original.id)}
+              {getEmployeeInitials(row.original.full_name)}
             </AvatarFallback>
           </Avatar>
           <div className="flex flex-col">

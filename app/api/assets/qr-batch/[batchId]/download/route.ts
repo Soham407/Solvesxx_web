@@ -5,13 +5,15 @@ import { createClient as createServerClient } from "@/src/lib/supabase/server";
 
 /** Roles that are allowed to download QR batches. Must match generate-qr-batch. */
 const QR_MANAGEMENT_ROLES = ["admin", "account", "security_supervisor"];
+type RoleRecord = { role_name?: string | null };
+type UserRoleRow = { roles?: RoleRecord | RoleRecord[] | null };
 
 function getSupabaseAdmin() {
   return createServiceRoleClient();
 }
 
 async function authenticateAndAuthorize(request: NextRequest): Promise<{
-  user: any | null;
+  user: { id: string } | null;
   error: NextResponse | null;
 }> {
   const supabase = await createServerClient();
@@ -48,9 +50,8 @@ async function authenticateAndAuthorize(request: NextRequest): Promise<{
     };
   }
 
-  const roleRecord = Array.isArray((userRecord as any)?.roles)
-    ? (userRecord as any).roles[0]
-    : (userRecord as any)?.roles;
+  const userRow = userRecord as UserRoleRow | null;
+  const roleRecord = Array.isArray(userRow?.roles) ? userRow.roles[0] : userRow?.roles;
   const roleName = roleRecord?.role_name ?? null;
 
   if (!roleName || !QR_MANAGEMENT_ROLES.includes(roleName)) {
@@ -105,9 +106,8 @@ export async function GET(
       .select("roles(role_name)")
       .eq("id", auth.user.id)
       .single();
-    const roleRecord = Array.isArray((userRecord as any)?.roles)
-      ? (userRecord as any).roles[0]
-      : (userRecord as any)?.roles;
+    const userRow = userRecord as UserRoleRow | null;
+    const roleRecord = Array.isArray(userRow?.roles) ? userRow.roles[0] : userRow?.roles;
 
     const isAdmin = roleRecord?.role_name === "admin" || roleRecord?.role_name === "super_admin";
     const isOwner = batchInfo.generated_by === auth.user.id;

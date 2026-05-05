@@ -14,6 +14,11 @@ import type {
 } from "@/src/types/operations";
 import { PAGINATION } from "@/src/lib/constants";
 import { sanitizeLikeInput } from "@/lib/sanitize";
+import {
+  buildInventoryDashboardStats,
+  filterReorderRules,
+  filterStockBatches,
+} from "@/src/lib/inventory/inventoryTransforms";
 
 interface UseInventoryState {
   stockLevels: StockLevel[];
@@ -129,10 +134,7 @@ export function useInventory(initialFilters?: InventoryFilters): UseInventoryRet
 
       if (error) throw error;
 
-      setState((prev) => ({
-        ...prev,
-        stockBatches: data || [],
-      }));
+      setState((prev) => ({ ...prev, stockBatches: filterStockBatches((data || []) as StockBatch[], filters) }));
     } catch (err: unknown) {
       console.error("Error fetching stock batches:", err);
     }
@@ -148,10 +150,7 @@ export function useInventory(initialFilters?: InventoryFilters): UseInventoryRet
 
       if (error) throw error;
 
-      setState((prev) => ({
-        ...prev,
-        reorderRules: data || [],
-      }));
+      setState((prev) => ({ ...prev, reorderRules: filterReorderRules((data || []) as ReorderRule[]) }));
     } catch (err: unknown) {
       console.error("Error fetching reorder rules:", err);
     }
@@ -160,7 +159,6 @@ export function useInventory(initialFilters?: InventoryFilters): UseInventoryRet
   // Fetch dashboard stats
   const fetchStats = useCallback(async () => {
     try {
-      // Get all stock levels for calculations
       const { data: allStock, error: stockError } = await supabase
         .from("stock_levels")
         .select("*");
@@ -181,17 +179,11 @@ export function useInventory(initialFilters?: InventoryFilters): UseInventoryRet
 
       if (prodError) throw prodError;
 
-      const stocks = allStock || [];
-      const lowStock = stocks.filter((s) => s.needs_reorder === true);
-      const outOfStock = stocks.filter((s) => Number(s.total_quantity) === 0);
-
-      const stats: InventoryDashboardStats = {
-        totalProducts: productCount || 0,
-        lowStockItems: lowStock.length,
-        outOfStockItems: outOfStock.length,
-        totalWarehouses: warehouseCount || 0,
-        pendingReorders: lowStock.length, // Items that need reorder
-      };
+      const stats = buildInventoryDashboardStats(
+        (allStock || []) as StockLevel[],
+        warehouseCount || 0,
+        productCount || 0,
+      );
 
       setState((prev) => ({ ...prev, stats }));
     } catch (err: unknown) {

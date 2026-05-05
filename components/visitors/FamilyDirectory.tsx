@@ -23,6 +23,29 @@ interface Resident {
   emergency_contact?: string;
 }
 
+interface ResidentRow {
+  id: string;
+  full_name: string;
+  phone: string | null;
+  alternate_phone: string | null;
+  emergency_contact_phone: string | null;
+  flats: {
+    flat_number: string;
+    buildings: {
+      building_name: string;
+    } | null;
+  } | {
+    flat_number: string;
+    buildings: {
+      building_name: string;
+    } | null;
+  }[] | null;
+}
+
+function normalizeResidentRows(rows: unknown): ResidentRow[] {
+  return Array.isArray(rows) ? (rows as ResidentRow[]) : [];
+}
+
 export function FamilyDirectory() {
   const [residents, setResidents] = useState<Resident[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -60,7 +83,7 @@ export function FamilyDirectory() {
 
       if (fetchError) throw fetchError;
 
-      const formattedResidents: Resident[] = (data || []).map((r: any) => {
+      const formattedResidents: Resident[] = normalizeResidentRows(data).map((r) => {
         // Handle array or object returns for flats relation
         const flatData = Array.isArray(r.flats) ? r.flats[0] : r.flats;
         const buildingData = flatData ? (Array.isArray(flatData.buildings) ? flatData.buildings[0] : flatData.buildings) : null;
@@ -73,8 +96,8 @@ export function FamilyDirectory() {
           photo_url: undefined, // Update when schema photo url field is clear
           vehicle_numbers: [], // Schema currently doesn't auto-join vehicles unless separate query is made
           emergency_contact: r.emergency_contact_phone || undefined,
-          flat_number: flatData?.flat_number || "N/A",
-          building_name: buildingData?.building_name || "N/A",
+          flat_number: flatData?.flat_number || "Not set",
+          building_name: buildingData?.building_name || "Not set",
         };
       });
 
@@ -126,7 +149,7 @@ export function FamilyDirectory() {
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <Phone className="h-4 w-4 text-muted-foreground" />
-          <span className="text-xs font-mono">{row.original.mobile || "N/A"}</span>
+          <span className="text-xs font-mono">{row.original.mobile || "Not set"}</span>
         </div>
       ),
     },

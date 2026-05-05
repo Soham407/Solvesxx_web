@@ -36,6 +36,36 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+function getDesignationLevelClassName(level: Designation["level"]) {
+  if (!level) {
+    return "";
+  }
+
+  const colors = {
+    junior: "bg-blue-500/10 text-blue-600 border-blue-200",
+    senior: "bg-emerald-500/10 text-emerald-600 border-emerald-200",
+    lead: "bg-amber-500/10 text-amber-600 border-amber-200",
+    head: "bg-purple-500/10 text-purple-600 border-purple-200",
+  } as const;
+
+  return colors[level];
+}
+
+function summarizeDesignationDepartments(designations: Designation[]) {
+  return Array.from(
+    new Set(designations.map((designation) => designation.department).filter(Boolean))
+  );
+}
+
+function filterDesignationsByDepartment(
+  designations: Designation[],
+  departmentFilter: string
+) {
+  return designations.filter(
+    (designation) => departmentFilter === "all" || designation.department === departmentFilter
+  );
+}
+
 export default function DesignationsPage() {
   const { 
     designations, 
@@ -76,11 +106,8 @@ export default function DesignationsPage() {
     }
   };
 
-  const filteredData = designations.filter(d => 
-    departmentFilter === "all" || d.department === departmentFilter
-  );
-
-  const departments = Array.from(new Set(designations.map(d => d.department).filter(Boolean)));
+  const filteredData = filterDesignationsByDepartment(designations, departmentFilter);
+  const departments = summarizeDesignationDepartments(designations);
 
   const columns: ColumnDef<Designation>[] = [
     {
@@ -103,7 +130,7 @@ export default function DesignationsPage() {
       header: "Department",
       cell: ({ row }) => (
         <Badge variant="outline" className="bg-muted/30 border-none font-medium">
-          {row.getValue("department") || "N/A"}
+          {row.getValue("department") || "Not set"}
         </Badge>
       ),
     },
@@ -112,17 +139,10 @@ export default function DesignationsPage() {
       header: "Level",
       cell: ({ row }) => {
         const level = row.original.level;
-        if (!level) return <span className="text-xs text-muted-foreground">N/A</span>;
-        
-        const colors = {
-          junior: "bg-blue-500/10 text-blue-600 border-blue-200",
-          senior: "bg-emerald-500/10 text-emerald-600 border-emerald-200",
-          lead: "bg-amber-500/10 text-amber-600 border-amber-200",
-          head: "bg-purple-500/10 text-purple-600 border-purple-200",
-        };
+        if (!level) return <span className="text-xs text-muted-foreground">Not set</span>;
 
         return (
-          <Badge variant="outline" className={`${colors[level as keyof typeof colors]} capitalize font-bold text-[10px]`}>
+          <Badge variant="outline" className={`${getDesignationLevelClassName(level)} capitalize font-bold text-[10px]`}>
             {level}
           </Badge>
         );

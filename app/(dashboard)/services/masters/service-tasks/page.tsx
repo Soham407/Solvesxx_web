@@ -19,6 +19,35 @@ interface ServiceMapping {
   totalTasks: number;
 }
 
+interface ServiceTaskRow {
+  service_type: string | null;
+  task_name: string | null;
+}
+
+function groupServiceTaskRows(rows: ServiceTaskRow[]) {
+  const grouped: Record<string, ServiceMapping> = {};
+
+  rows.forEach((curr) => {
+    const type = curr.service_type || "General";
+    if (!grouped[type]) {
+      grouped[type] = {
+        id: `SM-${Object.keys(grouped).length + 101}`,
+        serviceCategory: type,
+        mappedTasks: [],
+        totalTasks: 0,
+      };
+    }
+    grouped[type].mappedTasks.push(curr.task_name || "");
+    grouped[type].totalTasks += 1;
+  });
+
+  return Object.values(grouped);
+}
+
+function summarizeServiceMappings(serviceMappings: ServiceMapping[]) {
+  return serviceMappings.reduce((sum, mapping) => sum + mapping.totalTasks, 0);
+}
+
 export default function ServiceTaskMappingPage() {
   const [serviceMappings, setServiceMappings] = useState<ServiceMapping[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -41,26 +70,8 @@ export default function ServiceTaskMappingPage() {
       if (fetchError) throw fetchError;
 
       // Group by service_type
-      const grouped = (data || []).reduce((acc: any, curr: any) => {
-        const type = curr.service_type || "General";
-        if (!acc[type]) {
-          acc[type] = {
-            id: `SM-${Object.keys(acc).length + 101}`,
-            serviceCategory: type,
-            mappedTasks: [],
-            totalTasks: 0
-          };
-        }
-        acc[type].mappedTasks.push(curr.task_name);
-        acc[type].totalTasks += 1;
-        return acc;
-      }, {});
-
-      // Convert to array
-      const formattedMappings: ServiceMapping[] = Object.values(grouped);
-
-      setServiceMappings(formattedMappings);
-    } catch (err: any) {
+      setServiceMappings(groupServiceTaskRows((data || []) as ServiceTaskRow[]));
+    } catch (err: unknown) {
       console.error("Error fetching service mappings:", err);
       setError("Failed to load service mappings");
     } finally {
@@ -79,7 +90,6 @@ export default function ServiceTaskMappingPage() {
           </div>
           <div className="flex flex-col text-left">
             <span className="font-bold text-sm ">{row.original.serviceCategory}</span>
-            <span className="text-[10px] text-muted-foreground uppercase font-bold ">{row.original.id}</span>
           </div>
         </div>
       ),
@@ -123,7 +133,7 @@ export default function ServiceTaskMappingPage() {
     },
   ];
 
-  const totalAssignments = serviceMappings.reduce((sum, mapping) => sum + mapping.totalTasks, 0);
+  const totalAssignments = summarizeServiceMappings(serviceMappings);
 
   return (
     <div className="animate-fade-in space-y-6">

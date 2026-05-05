@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase as supabaseTyped } from "@/src/lib/supabaseClient";
-const supabase = supabaseTyped as any;
+import { supabase } from "@/src/lib/supabaseClient";
 
 export type SPOStatus =
   | "draft"
@@ -53,6 +52,14 @@ interface UseServicePurchaseOrdersState {
   error: string | null;
 }
 
+type ServicePurchaseOrderRow = Omit<ServicePurchaseOrder, "vendor_name" | "vendor_code"> & {
+  suppliers?: { supplier_name?: string | null; supplier_code?: string | null } | null;
+};
+
+type ServicePurchaseOrderItemRow = {
+  line_total: number | null;
+};
+
 export const SPO_STATUS_CONFIG: Record<SPOStatus, { label: string; className: string }> = {
   draft: { label: "Draft", className: "bg-muted text-muted-foreground border-border" },
   sent_to_vendor: { label: "Sent to Vendor", className: "bg-info/10 text-info border-info/20" },
@@ -91,8 +98,20 @@ export function useServicePurchaseOrders() {
 
       if (error) throw error;
 
-      const ordersWithDetails: ServicePurchaseOrder[] = (data || []).map((order: any) => ({
-        ...order,
+      const ordersWithDetails: ServicePurchaseOrder[] = ((data || []) as ServicePurchaseOrderRow[]).map((order) => ({
+        id: order.id,
+        spo_number: order.spo_number,
+        vendor_id: order.vendor_id,
+        service_type: order.service_type,
+        description: order.description,
+        start_date: order.start_date,
+        end_date: order.end_date,
+        total_amount: order.total_amount,
+        status: order.status,
+        terms_conditions: order.terms_conditions,
+        created_at: order.created_at,
+        updated_at: order.updated_at,
+        created_by: order.created_by,
         vendor_name: order.suppliers?.supplier_name || "Unknown",
         vendor_code: order.suppliers?.supplier_code || "N/A",
       }));
@@ -102,12 +121,12 @@ export function useServicePurchaseOrders() {
         orders: ordersWithDetails,
         isLoading: false,
       }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching SPOs:", err);
       setState((prev) => ({
         ...prev,
         isLoading: false,
-        error: err.message || "Failed to fetch service purchase orders",
+        error: err instanceof Error ? err.message : "Failed to fetch service purchase orders",
       }));
     }
   }, []);
@@ -140,6 +159,7 @@ export function useServicePurchaseOrders() {
       const { data, error } = await supabase
         .from("service_purchase_orders")
         .insert({
+          spo_number: `SPO-${Date.now()}`,
           ...input,
           status: "draft",
         })
@@ -150,11 +170,11 @@ export function useServicePurchaseOrders() {
 
       await fetchOrders();
       return data as ServicePurchaseOrder;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error creating SPO:", err);
       setState((prev) => ({
         ...prev,
-        error: err.message || "Failed to create service purchase order",
+        error: err instanceof Error ? err.message : "Failed to create service purchase order",
       }));
       return null;
     }
@@ -178,7 +198,7 @@ export function useServicePurchaseOrders() {
 
       await fetchOrders();
       return true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error updating SPO status:", err);
       return false;
     }
@@ -208,8 +228,8 @@ export function useServicePurchaseOrders() {
         .select("line_total")
         .eq("spo_id", spoId);
 
-      const totalAmount = (existingItems || []).reduce(
-        (sum: number, i: any) => sum + (i.line_total || 0),
+      const totalAmount = ((existingItems || []) as ServicePurchaseOrderItemRow[]).reduce(
+        (sum: number, i) => sum + (i.line_total || 0),
         lineTotal
       );
 

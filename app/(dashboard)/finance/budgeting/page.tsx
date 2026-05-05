@@ -40,6 +40,34 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 
+function summarizeBudgets(budgets: Budget[]) {
+  const totalAllocated = budgets.reduce((sum, budget) => sum + budget.allocated_amount, 0);
+  const totalUsed = budgets.reduce((sum, budget) => sum + budget.used_amount, 0);
+  const criticalAlerts = budgets.filter((budget) => budget.allocated_amount > 0 && budget.used_amount / budget.allocated_amount > 0.9).length;
+  const activePeriods = budgets.filter((budget) => budget.status === "active").length;
+
+  return { totalAllocated, totalUsed, criticalAlerts, activePeriods };
+}
+
+function getBudgetStatusClassName(status: BudgetStatus) {
+  const variants: Record<BudgetStatus, string> = {
+    draft: "bg-muted text-muted-foreground",
+    active: "bg-success/10 text-success border-success/20",
+    exhausted: "bg-critical/10 text-critical border-critical/20 animate-pulse-soft",
+    expired: "bg-warning/10 text-warning border-warning/20",
+  };
+
+  return variants[status];
+}
+
+function getBudgetRemainingClassName(remainingAmount: number) {
+  return remainingAmount < 0 ? "text-critical" : "text-success";
+}
+
+function getBudgetUtilizationTone(percent: number) {
+  return percent > 90 ? "bg-critical" : percent > 75 ? "bg-warning" : "bg-success";
+}
+
 export default function BudgetingPage() {
   const { budgets, isLoading, error, createBudget } = useBudgets();
   const { periods } = useFinancialClosure();
@@ -118,14 +146,13 @@ export default function BudgetingPage() {
       header: "Utilization",
       cell: ({ row }) => {
         const percent = (row.original.used_amount / row.original.allocated_amount) * 100;
-        const color = percent > 90 ? "bg-critical" : percent > 75 ? "bg-warning" : "bg-success";
         return (
           <div className="flex flex-col gap-1 min-w-[120px]">
             <div className="flex justify-between text-[10px] font-bold uppercase">
               <span>{Math.round(percent)}% Used</span>
               <span>{formatCurrency(row.original.used_amount)}</span>
             </div>
-            <Progress value={percent} className={cn("h-1.5", color === "bg-critical" ? "animate-pulse" : "")} />
+            <Progress value={percent} className={cn("h-1.5", getBudgetUtilizationTone(percent) === "bg-critical" ? "animate-pulse" : "")} />
           </div>
         );
       },
@@ -134,7 +161,7 @@ export default function BudgetingPage() {
       accessorKey: "remaining_amount",
       header: "Available",
       cell: ({ row }) => (
-        <span className={cn("font-bold", row.original.remaining_amount < 0 ? "text-critical" : "text-success")}>
+        <span className={cn("font-bold", getBudgetRemainingClassName(row.original.remaining_amount))}>
           {formatCurrency(row.original.remaining_amount)}
         </span>
       ),
@@ -144,14 +171,8 @@ export default function BudgetingPage() {
       header: "Status",
       cell: ({ row }) => {
         const status = row.getValue("status") as BudgetStatus;
-        const variants: Record<BudgetStatus, string> = {
-          draft: "bg-muted text-muted-foreground",
-          active: "bg-success/10 text-success border-success/20",
-          exhausted: "bg-critical/10 text-critical border-critical/20 animate-pulse-soft",
-          expired: "bg-warning/10 text-warning border-warning/20",
-        };
         return (
-          <Badge variant="outline" className={cn("font-bold text-[10px] uppercase h-5", variants[status])}>
+          <Badge variant="outline" className={cn("font-bold text-[10px] uppercase h-5", getBudgetStatusClassName(status))}>
             {status}
           </Badge>
         );
@@ -198,10 +219,9 @@ export default function BudgetingPage() {
 
   const columns = allocationView ? allocationColumns : baseColumns;
 
-  const totalAllocated = budgets.reduce((sum, b) => sum + b.allocated_amount, 0);
-  const totalUsed = budgets.reduce((sum, b) => sum + b.used_amount, 0);
+  const budgetSummary = summarizeBudgets(budgets);
+  const { totalAllocated, totalUsed, activePeriods, criticalAlerts } = budgetSummary;
   const overallUtilization = totalAllocated > 0 ? (totalUsed / totalAllocated) * 100 : 0;
-  const activePeriods = budgets.filter(b => b.status === "active").length;
 
   return (
     <div className="animate-fade-in space-y-8 pb-20">
@@ -231,7 +251,7 @@ export default function BudgetingPage() {
         {[
           { label: "Total Budget", value: formatCurrency(totalAllocated), extra: "All allocations combined", icon: Wallet, color: "text-primary" },
           { label: "Current Burn", value: formatCurrency(totalUsed), extra: `${Math.round(overallUtilization)}% overall utilization`, icon: TrendingUp, color: "text-info" },
-          { label: "Critical Alerts", value: budgets.filter(b => (b.used_amount/b.allocated_amount) > 0.9).length.toString(), extra: "Requires reallocation", icon: AlertTriangle, color: "text-critical" },
+          { label: "Critical Alerts", value: criticalAlerts.toString(), extra: "Requires reallocation", icon: AlertTriangle, color: "text-critical" },
           { label: "Active Periods", value: activePeriods.toString(), extra: `${activePeriods} budget${activePeriods !== 1 ? "s" : ""} active`, icon: Calendar, color: "text-success" },
         ].map((stat, i) => (
           <Card key={i} className="border-none shadow-card ring-1 ring-border p-4 bg-background/50 backdrop-blur-sm">

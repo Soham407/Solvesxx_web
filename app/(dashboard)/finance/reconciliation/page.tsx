@@ -34,6 +34,20 @@ import { useReconciliation, RECONCILIATION_STATUS_CONFIG, Reconciliation, Reconc
 import { formatCurrency } from "@/src/lib/utils/currency";
 import { toast } from "sonner";
 
+function summarizeReconciliations(reconciliations: Reconciliation[]) {
+  return {
+    matchesFound: reconciliations.filter((row) => row.status === "matched").length,
+    discrepancies: reconciliations.filter((row) => row.status === "discrepancy").length,
+    pendingRecon: reconciliations.filter((row) => row.status === "pending").length,
+  };
+}
+
+function getReconciliationStatus(
+  status: Reconciliation["status"],
+): { label: string; className: string } {
+  return RECONCILIATION_STATUS_CONFIG[status] || { label: status, className: "" };
+}
+
 export default function ReconciliationHubPage() {
   const { 
     reconciliations, 
@@ -137,8 +151,7 @@ export default function ReconciliationHubPage() {
       accessorKey: "status",
       header: "Recon Status",
       cell: ({ row }) => {
-          const val = row.original.status as string;
-          const config = RECONCILIATION_STATUS_CONFIG[val as keyof typeof RECONCILIATION_STATUS_CONFIG] || { label: val, className: "" };
+          const config = getReconciliationStatus(row.original.status);
           return (
             <Badge variant="outline" className={cn("font-bold text-[10px] uppercase h-5", config.className)}>
                 {config.label}
@@ -199,9 +212,7 @@ export default function ReconciliationHubPage() {
     );
   }
 
-  const matchesFound = reconciliations.filter(r => r.status === "matched").length;
-  const discrepancies = reconciliations.filter(r => r.status === "discrepancy").length;
-  const pendingRecon = reconciliations.filter(r => r.status === "pending").length;
+  const { matchesFound, discrepancies, pendingRecon } = summarizeReconciliations(reconciliations);
 
   return (
     <div className="animate-fade-in space-y-8 pb-20">

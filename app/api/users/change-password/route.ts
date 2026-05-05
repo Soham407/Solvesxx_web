@@ -51,8 +51,11 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Error changing password:", err);
-    return NextResponse.json({ error: err.message || "Failed to change password" }, { status: 500 });
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Failed to change password" },
+      { status: 500 }
+    );
   }
 }

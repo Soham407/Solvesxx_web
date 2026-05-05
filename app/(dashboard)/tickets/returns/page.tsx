@@ -11,9 +11,7 @@ import {
   MoreHorizontal, 
   PackageX,
   CheckCircle2,
-  Eye,
   ArrowRight,
-  Loader2
 } from "lucide-react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +22,13 @@ import { RTVTicketDisplay } from "@/src/types/operations";
 import { RTV_STATUS_LABELS, RTV_STATUS_COLORS } from "@/src/lib/constants";
 import { InitiateReturnDialog } from "@/components/dialogs/InitiateReturnDialog";
 import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -32,12 +37,54 @@ import {
   DropdownMenuLabel
 } from "@/components/ui/dropdown-menu";
 
+const CLOSED_RTV_STATUSES = ['credit_note_issued', 'credit_issued', 'rejected_by_vendor'] as const;
+
 export default function RTVManagementPage() {
   const { tickets, isLoading, stats, refresh, updateStatus } = useRTVTickets();
+  const { tickets: historyTickets, isLoading: isHistoryLoading } = useRTVTickets({
+    statuses: CLOSED_RTV_STATUSES,
+  });
   const [isInitiateDialogOpen, setIsInitiateDialogOpen] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [selectedTicket, setSelectedTicket] = useState<RTVTicketDisplay | null>(null);
 
   const handleStatusUpdate = async (id: string, status: string) => {
     await updateStatus(id, status);
+  };
+
+  const getNextStatus = (status?: string | null) => {
+    if (status === 'pending_dispatch') return 'in_transit';
+    if (status === 'in_transit') return 'accepted_by_vendor';
+    if (status === 'accepted_by_vendor') return 'credit_note_issued';
+    return null;
+  };
+
+  const renderStatusBadge = (status?: string | null) => {
+    const val = status || 'pending_dispatch';
+    const label = RTV_STATUS_LABELS[val] || val;
+    const colorClass = RTV_STATUS_COLORS[val] || '';
+    
+    let bgClass = "bg-muted text-muted-foreground";
+    if (colorClass === 'text-success') bgClass = "bg-success/10 text-success border-success/20";
+    if (colorClass === 'text-primary') bgClass = "bg-primary/10 text-primary border-primary/20";
+    if (colorClass === 'text-warning') bgClass = "bg-warning/10 text-warning border-warning/20";
+    if (colorClass === 'text-critical') bgClass = "bg-critical/10 text-critical border-critical/20";
+    if (colorClass === 'text-info') bgClass = "bg-info/10 text-info border-info/20 animate-pulse-soft";
+    
+    return (
+      <Badge variant="outline" className={cn("font-bold text-[10px] uppercase h-5", bgClass)}>
+        {label}
+      </Badge>
+    );
+  };
+
+  const formatDateValue = (val?: string | null) => {
+    if (!val) return "Not recorded";
+    return new Intl.DateTimeFormat('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    }).format(new Date(val));
   };
 
   const columns: ColumnDef<RTVTicketDisplay>[] = [
@@ -45,7 +92,7 @@ export default function RTVManagementPage() {
       accessorKey: "item",
       header: "Material Detail",
       cell: ({ row }) => {
-        const product = row.original.product?.product_name || 'Unknown Product';
+        const product = row.original.product?.product_name || 'Product not linked';
         const poRef = row.original.purchase_order?.po_number || 'No PO';
         const rtvNumber = row.original.rtv_number;
         return (
@@ -72,7 +119,7 @@ export default function RTVManagementPage() {
       header: "Origin Vendor",
       cell: ({ row }) => (
         <span className="text-sm font-medium text-foreground">
-          {row.original.supplier?.supplier_name || 'Unknown Vendor'}
+          {row.original.supplier?.supplier_name || 'Vendor not linked'}
         </span>
       ),
     },
@@ -88,24 +135,7 @@ export default function RTVManagementPage() {
     {
       accessorKey: "status",
       header: "Workflow Stage",
-      cell: ({ row }) => {
-          const val = row.original.status || 'pending_dispatch';
-          const label = RTV_STATUS_LABELS[val] || val;
-          const colorClass = RTV_STATUS_COLORS[val] || '';
-          
-          let bgClass = "bg-muted text-muted-foreground";
-          if (colorClass === 'text-success') bgClass = "bg-success/10 text-success border-success/20";
-          if (colorClass === 'text-primary') bgClass = "bg-primary/10 text-primary border-primary/20";
-          if (colorClass === 'text-warning') bgClass = "bg-warning/10 text-warning border-warning/20";
-          if (colorClass === 'text-critical') bgClass = "bg-critical/10 text-critical border-critical/20";
-          if (colorClass === 'text-info') bgClass = "bg-info/10 text-info border-info/20 animate-pulse-soft";
-          
-          return (
-            <Badge variant="outline" className={cn("font-bold text-[10px] uppercase h-5", bgClass)}>
-                {label}
-            </Badge>
-          );
-      },
+      cell: ({ row }) => renderStatusBadge(row.original.status),
     },
     {
       id: "actions",
@@ -140,10 +170,87 @@ export default function RTVManagementPage() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
              </DropdownMenu>
-             <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreHorizontal className="h-4 w-4" />
-             </Button>
+             <DropdownMenu>
+               <DropdownMenuTrigger asChild>
+                 <Button variant="ghost" size="icon" className="h-8 w-8">
+                   <MoreHorizontal className="h-4 w-4" />
+                 </Button>
+               </DropdownMenuTrigger>
+               <DropdownMenuContent align="end">
+                 <DropdownMenuItem onClick={() => setSelectedTicket(row.original)}>
+                   View Details
+                 </DropdownMenuItem>
+                 <DropdownMenuItem
+                   disabled={!getNextStatus(row.original.status)}
+                   onClick={() => {
+                     const nextStatus = getNextStatus(row.original.status);
+                     if (nextStatus) handleStatusUpdate(row.original.id, nextStatus);
+                   }}
+                 >
+                   Advance Status
+                 </DropdownMenuItem>
+               </DropdownMenuContent>
+             </DropdownMenu>
         </div>
+      ),
+    },
+  ];
+
+  const historyColumns: ColumnDef<RTVTicketDisplay>[] = [
+    {
+      accessorKey: "item",
+      header: "Material Detail",
+      cell: ({ row }) => {
+        const product = row.original.product?.product_name || 'Product not linked';
+        const poRef = row.original.purchase_order?.po_number || 'No PO';
+        return (
+          <div className="flex flex-col text-left">
+            <span className="font-bold text-sm">{product}</span>
+            <span className="text-[10px] text-muted-foreground uppercase font-bold">
+              {row.original.rtv_number} • {poRef}
+            </span>
+          </div>
+        );
+      },
+      filterFn: (row, id, value) => {
+        const productName = row.original.product?.product_name || '';
+        const rtvNumber = row.original.rtv_number || '';
+        return `${productName} ${rtvNumber}`.toLowerCase().includes(value.toLowerCase());
+      }
+    },
+    {
+      accessorKey: "vendor",
+      header: "Vendor",
+      cell: ({ row }) => (
+        <span className="text-sm font-medium">
+          {row.original.supplier?.supplier_name || 'Vendor not linked'}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "status",
+      header: "Final Status",
+      cell: ({ row }) => renderStatusBadge(row.original.status),
+    },
+    {
+      accessorKey: "closedAt",
+      header: "Closed On",
+      cell: ({ row }) => {
+        const ticket = row.original;
+        return (
+          <span className="text-sm text-muted-foreground">
+            {formatDateValue(ticket.credit_issued_at || ticket.accepted_at || ticket.updated_at)}
+          </span>
+        );
+      },
+    },
+    {
+      accessorKey: "estimated_value",
+      header: "Value",
+      cell: ({ row }) => (
+        <span className="text-sm font-bold">
+          {formatCurrencyValue(Number(row.original.estimated_value || 0))}
+        </span>
       ),
     },
   ];
@@ -159,7 +266,7 @@ export default function RTVManagementPage() {
         description="Formal lifecycle management for returning damaged, wrong, or surplus materials to the origin supplier."
         actions={
           <div className="flex gap-2">
-            <Button variant="outline" className="gap-2">
+            <Button variant="outline" className="gap-2" onClick={() => setIsHistoryOpen(true)}>
                <History className="h-4 w-4" /> Return History
             </Button>
             <Button 
@@ -206,6 +313,65 @@ export default function RTVManagementPage() {
         onOpenChange={setIsInitiateDialogOpen}
         onSuccess={refresh}
       />
+
+      <Sheet open={!!selectedTicket} onOpenChange={(open) => !open && setSelectedTicket(null)}>
+        <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
+          <SheetHeader className="mb-6">
+            <SheetTitle>RTV Ticket Details</SheetTitle>
+            <SheetDescription>
+              {selectedTicket?.rtv_number || "Return ticket"}
+            </SheetDescription>
+          </SheetHeader>
+          {selectedTicket && (
+            <div className="space-y-4 text-sm">
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Material</span>
+                <span className="font-medium text-right">{selectedTicket.product?.product_name || "Product not linked"}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Vendor</span>
+                <span className="font-medium text-right">{selectedTicket.supplier?.supplier_name || "Vendor not linked"}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">PO</span>
+                <span className="font-medium text-right">{selectedTicket.purchase_order?.po_number || "No PO"}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Reason</span>
+                <span className="font-medium text-right">{selectedTicket.return_reason}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Status</span>
+                {renderStatusBadge(selectedTicket.status)}
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Estimated Value</span>
+                <span className="font-medium text-right">{formatCurrencyValue(Number(selectedTicket.estimated_value || 0))}</span>
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
+        <SheetContent className="w-full sm:max-w-5xl overflow-y-auto">
+          <SheetHeader className="mb-6">
+            <SheetTitle className="flex items-center gap-2">
+              <History className="h-5 w-5 text-primary" />
+              Return History
+            </SheetTitle>
+            <SheetDescription>
+              Resolved and historical RTV tickets with vendor credit or rejection outcomes.
+            </SheetDescription>
+          </SheetHeader>
+          <DataTable
+            columns={historyColumns}
+            data={historyTickets}
+            searchKey="item"
+            isLoading={isHistoryLoading}
+          />
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

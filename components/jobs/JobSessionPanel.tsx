@@ -37,6 +37,7 @@ import type { ServiceRequestWithDetails } from "@/src/types/operations";
 import { supabase } from "@/src/lib/supabaseClient";
 import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
+import { PPE_CHECKLIST_ITEMS, isPpeChecklistComplete } from "@/src/lib/pest-control/ppeTransforms";
 
 interface JobSessionPanelProps {
   serviceRequest: ServiceRequestWithDetails;
@@ -45,14 +46,9 @@ interface JobSessionPanelProps {
   onClose?: () => void;
 }
 
-const CHECKLIST_ITEMS = [
-  { id: "gloves_worn", label: "Gloves worn" },
-  { id: "mask_worn", label: "Mask/Respirator worn" },
-  { id: "goggles_worn", label: "Safety goggles" },
-  { id: "full_suit_worn", label: "Full body suit" },
-  { id: "chemical_dilution_verified", label: "Chemical dilution verified" },
-  { id: "resident_area_cleared", label: "Resident area cleared" },
-];
+type JobSessionRequest = ServiceRequestWithDetails & {
+  service_code?: string | null;
+};
 
 export function JobSessionPanel({
   serviceRequest,
@@ -87,7 +83,7 @@ export function JobSessionPanel({
   const isPpeVerified = ppeVerification?.all_items_checked === true;
 
   const serviceName = String(requestState.service_name || "").toLowerCase();
-  const serviceCode = String((requestState as any).service_code || "");
+  const serviceCode = String(requestState.service_code || "");
   const isPestControl = serviceCode === "PST-CON" || serviceName.includes("pest") || serviceName.includes("pst-con");
 
   useEffect(() => {
@@ -194,9 +190,9 @@ export function JobSessionPanel({
       } else {
         toast.error("Failed to start task: " + result.error);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Start task error:", err);
-      toast.error("Start failed: " + (err.message || "Unknown error"));
+      toast.error("Start failed: " + (err instanceof Error ? err.message : "Unknown error"));
     } finally {
       setIsSubmitting(false);
     }
@@ -231,8 +227,8 @@ export function JobSessionPanel({
       } else {
         toast.error("Failed to verify PPE: " + result.error);
       }
-    } catch (err: any) {
-      toast.error("PPE Verification error: " + err.message);
+    } catch (err: unknown) {
+      toast.error("PPE Verification error: " + (err instanceof Error ? err.message : "Unknown error"));
     } finally {
       setIsSubmitting(false);
     }
@@ -275,9 +271,9 @@ export function JobSessionPanel({
       } else {
         toast.error("Failed to complete task: " + result.error);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Complete task error:", err);
-      toast.error("Completion failed: " + (err.message || "Unknown error"));
+      toast.error("Completion failed: " + (err instanceof Error ? err.message : "Unknown error"));
     } finally {
       setIsSubmitting(false);
     }
@@ -288,7 +284,7 @@ export function JobSessionPanel({
   const isInProgress = requestState.status === 'in_progress';
   const isCompleted = requestState.status === 'completed';
 
-  const allPpeChecked = Object.values(ppeFormData).every(v => v === true);
+  const allPpeChecked = isPpeChecklistComplete(ppeFormData);
 
   if (!isAssigned && !isInProgress && !isCompleted) {
     return (
@@ -329,7 +325,7 @@ export function JobSessionPanel({
                 </div>
                 <div>
                   <h4 className="font-bold">Ready to Start?</h4>
-                  <p className="text-xs text-muted-foreground">Capture "Before" photo to begin.</p>
+                  <p className="text-xs text-muted-foreground">Capture Before photo to begin.</p>
                 </div>
               </div>
               <Button onClick={() => setIsStartModalOpen(true)} className="w-full gap-2 font-bold">
@@ -392,7 +388,7 @@ export function JobSessionPanel({
                   )}
                </div>
                
-               <p className="text-xs italic bg-background p-2 rounded border">"{requestState.completion_notes}"</p>
+               <p className="text-xs italic bg-background p-2 rounded border">{requestState.completion_notes}</p>
             </div>
           )}
 
@@ -449,8 +445,8 @@ export function JobSessionPanel({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Complete Service Task</DialogTitle>
-            <DialogDescription>
-              Upload a photo of the completed work ("After" condition) and add notes.
+              <DialogDescription>
+              Upload a photo of the completed work (After condition) and add notes.
             </DialogDescription>
           </DialogHeader>
           
@@ -467,7 +463,7 @@ export function JobSessionPanel({
                  </div>
                  
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                   {CHECKLIST_ITEMS.map((item) => (
+                   {PPE_CHECKLIST_ITEMS.map((item) => (
                      <div key={item.id} className="flex items-center space-x-2">
                        <Checkbox 
                          id={item.id} 

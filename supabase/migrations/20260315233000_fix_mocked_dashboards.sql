@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS horticulture_seasonal_plans (
 -- set up RLS for horticulture_seasonal_plans
 ALTER TABLE horticulture_seasonal_plans ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Allow read access to all users for seasonal_plans" ON horticulture_seasonal_plans;
 CREATE POLICY "Allow read access to all users for seasonal_plans"
 ON horticulture_seasonal_plans FOR SELECT
 USING (true);

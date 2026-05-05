@@ -17,7 +17,7 @@ import { toast } from "sonner";
  */
 export function useSupabaseQuery<T>(
   queryFn: () => Promise<T[]>,
-  deps: any[] = []
+  deps: unknown[] = []
 ): { data: T[]; isLoading: boolean; error: string | null; refresh: () => void } {
   const [data, setData] = useState<T[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -29,8 +29,8 @@ export function useSupabaseQuery<T>(
     try {
       const result = await queryFn();
       setData(result);
-    } catch (err: any) {
-      const message = err?.message ?? "Failed to load data";
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to load data";
       setError(message);
       toast.error(message);
     } finally {

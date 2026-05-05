@@ -90,6 +90,43 @@ export interface ProductFilters {
   searchTerm?: string;
 }
 
+function normalizeProductRows(rows: unknown): Product[] {
+  return Array.isArray(rows) ? (rows as Product[]) : [];
+}
+
+function normalizeProductRow(row: unknown): Product | null {
+  if (!row || typeof row !== "object") {
+    return null;
+  }
+
+  const candidate = row as Partial<Product>;
+  if (typeof candidate.id !== "string" || typeof candidate.product_code !== "string" || typeof candidate.product_name !== "string") {
+    return null;
+  }
+
+  return {
+    id: candidate.id,
+    product_code: candidate.product_code,
+    product_name: candidate.product_name,
+    category_id: candidate.category_id ?? null,
+    subcategory_id: candidate.subcategory_id ?? null,
+    unit_of_measurement: candidate.unit_of_measurement ?? null,
+    base_rate: candidate.base_rate ?? null,
+    min_stock_level: candidate.min_stock_level ?? 0,
+    current_stock: candidate.current_stock ?? 0,
+    status: candidate.status ?? "active",
+    description: candidate.description ?? null,
+    hsn_code: candidate.hsn_code ?? null,
+    tax_rate: candidate.tax_rate ?? null,
+    created_at: candidate.created_at ?? new Date().toISOString(),
+    updated_at: candidate.updated_at ?? new Date().toISOString(),
+    created_by: candidate.created_by ?? null,
+    updated_by: candidate.updated_by ?? null,
+    category: candidate.category,
+    subcategory: candidate.subcategory,
+  };
+}
+
 export function useProducts(initialFilters?: ProductFilters) {
   const { toast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
@@ -153,7 +190,7 @@ export function useProducts(initialFilters?: ProductFilters) {
       if (fetchError) throw fetchError;
 
       // Apply stock status filter (can't do in query easily)
-      let filteredData = (data || []) as unknown as Product[];
+      let filteredData = normalizeProductRows(data);
       
       if (filters.stockStatus === "low_stock") {
         filteredData = filteredData.filter(p => p.current_stock > 0 && p.current_stock <= p.min_stock_level);
@@ -190,7 +227,7 @@ export function useProducts(initialFilters?: ProductFilters) {
         .single();
 
       if (fetchError) throw fetchError;
-      return data as unknown as Product;
+      return normalizeProductRow(data);
     } catch (err: unknown) {
       console.error("Error fetching product:", err);
       return null;
@@ -227,7 +264,11 @@ export function useProducts(initialFilters?: ProductFilters) {
       });
 
       await fetchProducts();
-      return { success: true, data: data as unknown as Product };
+      const createdProduct = normalizeProductRow(data);
+      if (!createdProduct) {
+        throw new Error("Failed to normalize created product");
+      }
+      return { success: true, data: createdProduct };
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Failed to add product";
       toast({
@@ -263,7 +304,11 @@ export function useProducts(initialFilters?: ProductFilters) {
       });
 
       await fetchProducts();
-      return { success: true, data: data as unknown as Product };
+      const updatedProduct = normalizeProductRow(data);
+      if (!updatedProduct) {
+        throw new Error("Failed to normalize updated product");
+      }
+      return { success: true, data: updatedProduct };
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Failed to update product";
       toast({

@@ -7,16 +7,30 @@
 
 ## Project Identity
 
-- **Name**: FacilityPro (enterprise-canvas-main)
+- **Name**: Solvesxx_web (FacilityPro web app)
 - **Type**: Next.js 16 App Router + Supabase + TailwindCSS
-- **Context files**: Read `CONTEXT.md` for full architecture & hook reference. Read `PHASES.md` for module status & PRD gaps.
+- **Context files**: Read `CONTEXT-MAP.md` first, then the active context file it points to (`.ai_context/CONTEXT.md` today). Read `PHASES.md` for module status & PRD gaps.
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues via `gh`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Canonical triage labels map 1:1 to the repo labels. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Multi-context docs rooted at `CONTEXT-MAP.md`, with the active context currently in `.ai_context/CONTEXT.md`. See `docs/agents/domain.md`.
 
 ---
 
 ## ⚡ Before You Start Coding
 
 1. **Check PHASES.md** — It has the real status of every module (✅ FULL / 🟡 PARTIAL / 🔵 UI-ONLY / 🔴 NOT BUILT). This prevents building something that already exists.
-2. **Check the hooks list** — `CONTEXT.md` has all 92 hooks categorized. Always search for an existing hook before creating one.
+2. **Check the hooks list** — the active context file referenced by `CONTEXT-MAP.md` has all 92 hooks categorized. Always search for an existing hook before creating one.
 3. **Check the "Known Mock Data" section** — PHASES.md lists every place where data is still hardcoded. If you're working on a module, check if it has known mocks.
 4. **Check the "Not Yet Built" section** — Lists PRD features with actionable "What's Needed" columns.
 
@@ -85,7 +99,7 @@
 6. **Don't modify RLS policies** without understanding the existing role structure.
 7. **Don't use `createClient` directly**: Use helpers from `src/lib/supabase/`.
 8. **Don't remove `ignoreBuildErrors: true`** from next.config.ts — the massive type file causes TS2589.
-9. **Don't duplicate hooks**: Check the hooks list in CONTEXT.md before creating. 92 hooks already exist.
+9. **Don't duplicate hooks**: Check the hooks list in the active context file before creating. 92 hooks already exist.
 10. **Don't roll your own loading/error/toast in new hooks**: Use `useSupabaseQuery` and `useSupabaseMutation` from `hooks/lib/` instead (see Shared Hook Utils below).
 
 ---
@@ -213,7 +227,7 @@ Follow these steps in order when implementing a new module/page:
 - [ ] Add status enums/labels/colors to `src/lib/constants.ts`
 
 ### Step 3: Hook
-- [ ] Check if a hook already exists (see CONTEXT.md hooks list)
+- [ ] Check if a hook already exists (see the active context hooks list)
 - [ ] Create `hooks/use[Entity].ts` following the return pattern: `{ data, isLoading, error, createFn, updateFn, deleteFn, refresh }`
 - [ ] Import Supabase via `import { supabase } from "@/src/lib/supabaseClient"`
 - [ ] Add Realtime subscription if needed
@@ -235,7 +249,7 @@ Follow these steps in order when implementing a new module/page:
 
 ### Step 6: Update Context Files
 - [ ] Update the module status in `PHASES.md` from 🔴 to ✅/🟡
-- [ ] Add the new hook to the hooks list in `CONTEXT.md`
+- [ ] Add the new hook to the hooks list in the active context file
 
 ---
 

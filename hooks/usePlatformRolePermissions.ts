@@ -7,9 +7,10 @@ import { useSupabaseMutation } from "@/hooks/lib/useSupabaseMutation";
 import { useSupabaseQuery } from "@/hooks/lib/useSupabaseQuery";
 import { insertAuditLog } from "@/src/lib/platform/audit";
 import {
-  extractPlatformPermissions,
-  normalizePermissions,
-} from "@/src/lib/platform/permissions";
+  buildPermissionCoverage,
+  mapRolePermissionRecord,
+  type RolePermissionRow,
+} from "@/src/lib/platform/rolePermissions";
 import { supabase } from "@/src/lib/supabaseClient";
 import type { PermissionKey, RolePermissionRecord } from "@/src/types/platform";
 
@@ -17,6 +18,10 @@ interface UpdateRolePermissionsInput {
   roleId: string;
   permissions: PermissionKey[];
 }
+
+type UserCountRow = {
+  role_id: string;
+};
 
 export function usePlatformRolePermissions() {
   const { role } = useAuth();
@@ -39,24 +44,14 @@ export function usePlatformRolePermissions() {
       if (countError) throw countError;
 
       const countMap: Record<string, number> = {};
-      (userCounts || []).forEach((user: any) => {
+      (userCounts || []).forEach((user: UserCountRow) => {
         countMap[user.role_id] = (countMap[user.role_id] || 0) + 1;
       });
 
-      return (rolesData || []).map((roleRecord: any) => {
-        const rawPermissions = normalizePermissions(roleRecord.permissions);
-
-        return {
-          id: roleRecord.id,
-          roleName: roleRecord.role_name,
-          roleDisplayName: roleRecord.role_display_name,
-          description: roleRecord.description,
-          isActive: roleRecord.is_active !== false,
-          userCount: countMap[roleRecord.id] || 0,
-          permissions: extractPlatformPermissions(roleRecord.permissions),
-          rawPermissions,
-        } satisfies RolePermissionRecord;
-      });
+      return (rolesData || []).map((roleRecord: RolePermissionRow) => ({
+        ...mapRolePermissionRecord(roleRecord),
+        userCount: countMap[roleRecord.id] || 0,
+      }));
     },
     []
   );
@@ -89,7 +84,7 @@ export function usePlatformRolePermissions() {
           data: { user },
         } = await supabase.auth.getUser();
 
-        await insertAuditLog(supabase as any, {
+        await insertAuditLog(supabase, {
           entityType: "roles",
           entityId: roleId,
           action: "role.permissions_updated",
@@ -102,37 +97,25 @@ export function usePlatformRolePermissions() {
 
         roleQuery.refresh();
 
-        return {
+        const mappedUpdatedRole = mapRolePermissionRecord({
           id: updatedRole.id,
-          roleName: updatedRole.role_name,
-          roleDisplayName: updatedRole.role_display_name,
+          role_name: updatedRole.role_name,
+          role_display_name: updatedRole.role_display_name,
           description: updatedRole.description,
-          isActive: updatedRole.is_active !== false,
+          is_active: updatedRole.is_active,
+          permissions: updatedRole.permissions,
+        });
+
+        return {
+          ...mappedUpdatedRole,
           userCount: existingRole.userCount,
-          permissions: extractPlatformPermissions(updatedRole.permissions),
-          rawPermissions: normalizePermissions(updatedRole.permissions),
         };
       },
       { successMessage: "Role permissions updated" }
     );
 
   const permissionCoverage = useMemo(
-    () =>
-      roleQuery.data.reduce<Record<PermissionKey, number>>(
-        (coverage, roleRecord) => {
-          roleRecord.permissions.forEach((permission) => {
-            coverage[permission] += 1;
-          });
-          return coverage;
-        },
-        {
-          "platform.dashboard.view": 0,
-          "platform.admin_accounts.manage": 0,
-          "platform.rbac.manage": 0,
-          "platform.audit_logs.view": 0,
-          "platform.config.manage": 0,
-        }
-      ),
+    () => buildPermissionCoverage(roleQuery.data),
     [roleQuery.data]
   );
 

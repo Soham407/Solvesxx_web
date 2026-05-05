@@ -8,7 +8,7 @@ function calculateStandardHours(shift: { start_time: string, end_time: string, s
     const [startH, startM] = shift.start_time.split(':').map(Number);
     const [endH, endM] = shift.end_time.split(':').map(Number);
     
-    let startMinutes = startH * 60 + startM;
+    const startMinutes = startH * 60 + startM;
     let endMinutes = endH * 60 + endM;
     
     if (endMinutes < startMinutes) {
@@ -48,9 +48,7 @@ describe('Overtime Calculation Logic', () => {
   });
 
   it('falls back to 8 if everything is missing', () => {
-    const shift = { start_time: "", end_time: "" };
-    // @ts-ignore
-    expect(calculateStandardHours(shift)).toBe(8);
+    expect(calculateStandardHours({ start_time: "", end_time: "" })).toBe(8);
   });
 
   it('calculates overtime correctly', () => {

@@ -5,17 +5,23 @@ import { CSS } from "@dnd-kit/utilities";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ServiceRequest } from "@/src/types/operations";
+import { ServiceRequestWithDetails } from "@/src/types/operations";
 import { Calendar, Clock, ShieldCheck, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 interface RequestKanbanCardProps {
-  request: ServiceRequest;
+  request: ServiceRequestWithDetails;
   priorityColor: string;
   assigneeName: string;
   assigneeInitials: string;
 }
+
+type RequestCardRequest = ServiceRequestWithDetails & {
+  service_name?: string | null;
+  service_code?: string | null;
+  ppe_verified?: boolean | null;
+};
 
 export function RequestKanbanCard({
   request,
@@ -38,7 +44,7 @@ export function RequestKanbanCard({
     opacity: isDragging ? 0.5 : 1,
   };
 
-  const req = request as any;
+  const req = request as RequestCardRequest;
   const isPestControl = req.service_code === "PST-CON" || req.service_name?.toLowerCase().includes("pest");
   const ppeVerified = req.ppe_verified === true;
 
@@ -104,9 +110,9 @@ export function RequestKanbanCard({
             </p>
 
             {/* Service Type */}
-            {(request as any).service_name && (
+            {req.service_name && (
               <div className="text-xs text-muted-foreground">
-                {(request as any).service_name}
+                {req.service_name}
               </div>
             )}
 

@@ -60,6 +60,26 @@ import {
 } from "@/src/types/supply-chain";
 import { RATE_DEFAULTS } from "@/src/lib/constants";
 
+function summarizeSalesRateStats(rates: SaleProductRateDisplay[]) {
+  return {
+    totalRates: rates.length,
+    globalRates: rates.filter((rate) => !rate.society_id).length,
+    societyRates: rates.filter((rate) => rate.society_id).length,
+    avgMargin: rates.length > 0
+      ? (rates.reduce((sum, rate) => sum + (rate.margin_percentage || 0), 0) / rates.length).toFixed(1)
+      : "0",
+    highMarginCount: rates.filter((rate) => (rate.margin_percentage || 0) >= 35).length,
+  };
+}
+
+function getSalesRateStatusClassName(isActive: boolean) {
+  return isActive ? "bg-success/10 text-success border-success/20" : "bg-muted text-muted-foreground";
+}
+
+function getSalesRateMarginClassName(isHighMargin: boolean) {
+  return isHighMargin ? "bg-success/10 text-success border-success/20" : "bg-muted";
+}
+
 export default function SalesRatesPage() {
   const {
     rates,
@@ -98,19 +118,11 @@ export default function SalesRatesPage() {
   });
 
   // Calculate stats
-  const stats = {
-    totalRates: rates.length,
-    globalRates: rates.filter(r => !r.society_id).length,
-    societyRates: rates.filter(r => r.society_id).length,
-    avgMargin: rates.length > 0 
-      ? (rates.reduce((sum, r) => sum + (r.margin_percentage || 0), 0) / rates.length).toFixed(1)
-      : "0",
-    highMarginCount: rates.filter(r => (r.margin_percentage || 0) >= 35).length,
-  };
+  const stats = summarizeSalesRateStats(rates);
 
   // Format currency
   const formatCurrency = (amount: number | null | undefined) => {
-    if (!amount && amount !== 0) return "N/A";
+    if (!amount && amount !== 0) return "Not set";
     return new Intl.NumberFormat("en-IN", {
       style: "currency",
       currency: "INR",
@@ -280,12 +292,7 @@ export default function SalesRatesPage() {
               <>
                 <Badge 
                   variant="outline" 
-                  className={cn(
-                    "font-bold",
-                    isHighMargin 
-                      ? "bg-success/10 text-success border-success/20" 
-                      : "bg-muted"
-                  )}
+                  className={cn("font-bold", getSalesRateMarginClassName(isHighMargin))}
                 >
                   {formatCurrency(marginAmt)}
                 </Badge>
@@ -308,12 +315,7 @@ export default function SalesRatesPage() {
         return (
           <Badge 
             variant="outline" 
-            className={cn(
-              "font-bold text-[10px] uppercase h-5",
-              isActive 
-                ? "bg-success/10 text-success border-success/20" 
-                : "bg-muted text-muted-foreground"
-            )}
+            className={cn("font-bold text-[10px] uppercase h-5", getSalesRateStatusClassName(isActive))}
           >
             {isActive ? "Active" : "Expired"}
           </Badge>

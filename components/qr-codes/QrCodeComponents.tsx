@@ -169,9 +169,9 @@ export function QrScanner({ onScan, onClose }: QrScannerProps) {
 
         // In production, use a library like @zxing/browser for actual QR scanning
         // This is a placeholder for the camera preview
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Camera error:", err);
-        setError(err.message || "Failed to access camera");
+        setError(err instanceof Error ? err.message : "Failed to access camera");
         setHasCamera(false);
       } finally {
         setIsScanning(false);
@@ -350,21 +350,21 @@ export function QrScanResult({
             <div className="grid grid-cols-2 gap-3">
               <div className="p-3 rounded-lg bg-muted/30">
                 <p className="text-xs text-muted-foreground">Category</p>
-                <p className="font-medium">{asset.category_name || "N/A"}</p>
+                <p className="font-medium">{asset.category_name || "Not set"}</p>
               </div>
               <div className="p-3 rounded-lg bg-muted/30">
                 <p className="text-xs text-muted-foreground">Location</p>
-                <p className="font-medium">{asset.location_name || "N/A"}</p>
+                <p className="font-medium">{asset.location_name || "Not set"}</p>
               </div>
               <div className="p-3 rounded-lg bg-muted/30">
                 <p className="text-xs text-muted-foreground">Status</p>
                 <p className="font-medium capitalize">
-                  {asset.status?.replace("_", " ") || "N/A"}
+                  {asset.status?.replace("_", " ") || "Not set"}
                 </p>
               </div>
               <div className="p-3 rounded-lg bg-muted/30">
                 <p className="text-xs text-muted-foreground">Vendor</p>
-                <p className="font-medium">{asset.vendor_name || "N/A"}</p>
+                <p className="font-medium">{asset.vendor_name || "Not set"}</p>
               </div>
             </div>
 

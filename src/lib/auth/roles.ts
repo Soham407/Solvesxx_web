@@ -18,6 +18,14 @@ export type AppRole =
   | "ac_technician"
   | "pest_control_technician";
 
+export const ROLE_LANDING_PATHS: Partial<Record<AppRole, string>> = {
+  buyer: "/buyer",
+  supplier: "/supplier",
+  vendor: "/supplier",
+  resident: "/resident",
+  delivery_boy: "/delivery",
+};
+
 /**
  * Role-based access mapping
  * Each role can access paths starting with these prefixes
@@ -27,11 +35,11 @@ export const ROLE_ACCESS: Record<AppRole, string[]> = {
   company_md: ["/dashboard", "/reports", "/finance"],
   company_hod: ["/dashboard", "/hrms", "/service-requests", "/tickets", "/services", "/company"],
   account: ["/dashboard", "/finance", "/reports", "/hrms/payroll"],
-  delivery_boy: ["/dashboard", "/delivery", "/test-delivery", "/logistics"],
+  delivery_boy: ["/dashboard", "/delivery"],
   buyer: ["/dashboard", "/buyer"],
   supplier: ["/dashboard", "/supplier"],
   vendor: ["/dashboard", "/supplier"],
-  security_guard: ["/dashboard", "/guard", "/test-guard", "/society", "/hrms/attendance", "/hrms/leave"],
+  security_guard: ["/dashboard", "/guard", "/society", "/hrms/attendance", "/hrms/leave"],
   security_supervisor: [
     "/dashboard",
     "/tickets/behavior",
@@ -43,9 +51,9 @@ export const ROLE_ACCESS: Record<AppRole, string[]> = {
     "/services/security",
     "/admin/guards"
   ],
-  society_manager: ["/dashboard", "/society", "/resident", "/test-resident", "/tickets", "/finance/compliance", "/service-requests", "/hrms/attendance", "/hrms/leave"],
+  society_manager: ["/dashboard", "/society", "/resident", "/tickets", "/finance/compliance", "/service-requests", "/hrms/attendance", "/hrms/leave"],
   service_boy: ["/dashboard", "/service-boy", "/service-requests"],
-  resident: ["/resident", "/test-resident", "/society/my-flat"],
+  resident: ["/resident", "/society/my-flat"],
   storekeeper: ["/dashboard", "/inventory", "/tickets/quality", "/tickets/returns"],
   site_supervisor: ["/dashboard", "/society", "/tickets", "/hrms/attendance", "/service-requests", "/services/plantation"],
   super_admin: ["/"],
@@ -68,4 +76,12 @@ export function hasAccess(role: AppRole, pathname: string): boolean {
   if (pathname === "/dashboard") return true;
 
   return prefixes.some(prefix => pathname.startsWith(prefix));
+}
+
+export function getRoleLandingPath(role: AppRole | null | undefined): string {
+  if (!role) {
+    return "/dashboard";
+  }
+
+  return ROLE_LANDING_PATHS[role] ?? "/dashboard";
 }

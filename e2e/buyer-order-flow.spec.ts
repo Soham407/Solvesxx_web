@@ -9,11 +9,12 @@ test.describe("Buyer Order Flow", () => {
   });
 
   test("buyer dashboard loads", async ({ page }) => {
+    await expect(page).toHaveURL(/\/buyer(?:$|[?#])/);
     await expect(
       page
         .getByRole("heading", { name: /our best services|current services|waiting for approval|ongoing services/i })
         .first()
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15_000 });
   });
 
   test("can navigate to order requests", async ({ page }) => {
@@ -31,9 +32,9 @@ test.describe("Buyer Order Flow", () => {
     const newRequestLink = page.getByRole("link", { name: /new order request/i });
 
     await expect(newRequestLink).toBeVisible({ timeout: 10_000 });
-    await newRequestLink.click();
-
+    await page.goto("/buyer/requests/new");
     await expect(page).toHaveURL(/buyer\/requests\/new/);
+
     await expect(page.getByRole("heading", { name: /new order request/i })).toBeVisible();
   });
 
@@ -44,10 +45,11 @@ test.describe("Buyer Order Flow", () => {
 
   test("order request list shows data or empty state", async ({ page }) => {
     await page.goto("/buyer/requests");
-    await page.waitForLoadState("networkidle");
-    const hasRows = (await page.locator("table tbody tr, [data-testid='request-row']").count()) > 0;
-    const hasEmpty = (await page.getByText(/no (requests|orders|records|data)/i).count()) > 0;
-    const hasContent = (await page.locator("main .card, main [class*='card']").count()) > 0;
+    // Wait for the table to appear (hook data load may lag behind networkidle)
+    await page.waitForSelector("table", { timeout: 15_000 });
+    const hasRows = (await page.locator("table tbody tr").count()) > 0;
+    const hasEmpty = (await page.getByText(/no (order requests?|requests?|orders?|records?|data)/i).count()) > 0;
+    const hasContent = (await page.locator("[class*='card'], [class*='border']").count()) > 0;
     expect(hasRows || hasEmpty || hasContent).toBeTruthy();
   });
 

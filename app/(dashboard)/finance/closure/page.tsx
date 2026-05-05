@@ -20,6 +20,17 @@ import { cn } from "@/lib/utils";
 import { useFinancialClosure, FinancialPeriod, FinancialPeriodStatus } from "@/hooks/useFinancialClosure";
 import { format } from "date-fns";
 import { useState } from "react";
+import type { LucideIcon } from "lucide-react";
+
+function getFinancialPeriodStatusMeta(status: FinancialPeriodStatus) {
+  const variants: Record<FinancialPeriodStatus, { label: string; className: string; icon: LucideIcon }> = {
+    open: { label: "Open", className: "bg-success/10 text-success border-success/20", icon: Unlock },
+    closing: { label: "Closing", className: "bg-warning/10 text-warning border-warning/20", icon: Clock },
+    closed: { label: "Closed", className: "bg-critical/10 text-critical border-critical/20", icon: Lock },
+  };
+
+  return variants[status];
+}
 
 export default function FinancialClosurePage() {
   const { periods, currentPeriod, isLoading, closePeriod } = useFinancialClosure();
@@ -49,12 +60,7 @@ export default function FinancialClosurePage() {
       header: "Status",
       cell: ({ row }) => {
         const status = row.getValue("status") as FinancialPeriodStatus;
-        const variants: Record<FinancialPeriodStatus, { label: string; className: string; icon: any }> = {
-          open: { label: "Open", className: "bg-success/10 text-success border-success/20", icon: Unlock },
-          closing: { label: "Closing", className: "bg-warning/10 text-warning border-warning/20", icon: Clock },
-          closed: { label: "Closed", className: "bg-critical/10 text-critical border-critical/20", icon: Lock },
-        };
-        const config = variants[status];
+        const config = getFinancialPeriodStatusMeta(status);
         return (
           <Badge variant="outline" className={cn("font-bold text-[10px] uppercase h-5 gap-1.5", config.className)}>
             <config.icon className="h-3 w-3" />

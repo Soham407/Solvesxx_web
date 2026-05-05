@@ -58,6 +58,21 @@ import {
 } from "@/src/types/supply-chain";
 import { RATE_DEFAULTS } from "@/src/lib/constants";
 
+function summarizeSupplierRateStats(rates: SupplierRateDisplay[], expiringSoonCount: number) {
+  return {
+    totalRates: rates.length,
+    activeRates: rates.filter((rate) => rate.is_active !== false).length,
+    expiringSoon: expiringSoonCount,
+    avgDiscount: rates.length > 0
+      ? (rates.reduce((sum, rate) => sum + (rate.discount_percentage || 0), 0) / rates.length).toFixed(1)
+      : "0",
+  };
+}
+
+function getSupplierRateStatusClassName(isActive: boolean) {
+  return isActive ? "bg-success/10 text-success border-success/20" : "bg-muted text-muted-foreground";
+}
+
 export default function SupplierRatesPage() {
   const {
     rates,
@@ -105,18 +120,11 @@ export default function SupplierRatesPage() {
   }, [getRatesExpiringSoon, rates]);
 
   // Calculate stats
-  const stats = {
-    totalRates: rates.length,
-    activeRates: rates.filter(r => r.is_active !== false).length,
-    expiringSoon: expiringSoonRates.length,
-    avgDiscount: rates.length > 0 
-      ? (rates.reduce((sum, r) => sum + (r.discount_percentage || 0), 0) / rates.length).toFixed(1)
-      : "0",
-  };
+  const stats = summarizeSupplierRateStats(rates, expiringSoonRates.length);
 
   // Format currency
   const formatCurrency = (amount: number | null | undefined) => {
-    if (!amount && amount !== 0) return "N/A";
+    if (!amount && amount !== 0) return "Not set";
     return new Intl.NumberFormat("en-IN", {
       style: "currency",
       currency: "INR",
@@ -312,12 +320,7 @@ export default function SupplierRatesPage() {
           <div className="flex items-center gap-2">
             <Badge 
               variant="outline" 
-              className={cn(
-                "font-bold text-[10px] uppercase h-5",
-                isActive 
-                  ? "bg-success/10 text-success border-success/20" 
-                  : "bg-muted text-muted-foreground"
-              )}
+              className={cn("font-bold text-[10px] uppercase h-5", getSupplierRateStatusClassName(isActive))}
             >
               {isActive ? "Active" : "Expired"}
             </Badge>

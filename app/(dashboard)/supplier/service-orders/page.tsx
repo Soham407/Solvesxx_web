@@ -42,6 +42,20 @@ import { SPO_STATUS_CONFIG } from "@/hooks/useServicePurchaseOrders";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/src/lib/utils/currency";
 
+function summarizeSupplierServiceOrders(serviceOrders: SupplierServiceOrder[]) {
+  return {
+    total: serviceOrders.length,
+    pendingReceipt: serviceOrders.filter((order) => order.status === "sent_to_vendor").length,
+    awaitingDeliveryNote: serviceOrders.filter((order) =>
+      ["acknowledged", "in_progress"].includes(order.status)
+    ).length,
+    deploymentConfirmed: serviceOrders.filter((order) =>
+      ["deployment_confirmed", "completed"].includes(order.status)
+    ).length,
+    totalValue: serviceOrders.reduce((sum, order) => sum + (order.total_amount || 0), 0),
+  };
+}
+
 export default function SupplierServiceOrdersPage() {
   const {
     serviceOrders,
@@ -67,19 +81,7 @@ export default function SupplierServiceOrdersPage() {
     return acknowledgmentMap;
   }, [serviceAcknowledgments]);
 
-  const stats = useMemo(() => {
-    return {
-      total: serviceOrders.length,
-      pendingReceipt: serviceOrders.filter((order) => order.status === "sent_to_vendor").length,
-      awaitingDeliveryNote: serviceOrders.filter((order) =>
-        ["acknowledged", "in_progress"].includes(order.status)
-      ).length,
-      deploymentConfirmed: serviceOrders.filter((order) =>
-        ["deployment_confirmed", "completed"].includes(order.status)
-      ).length,
-      totalValue: serviceOrders.reduce((sum, order) => sum + (order.total_amount || 0), 0),
-    };
-  }, [serviceOrders]);
+  const stats = useMemo(() => summarizeSupplierServiceOrders(serviceOrders), [serviceOrders]);
 
   const handleAcknowledge = async (spoId: string) => {
     const success = await acknowledgeServiceOrder(spoId);

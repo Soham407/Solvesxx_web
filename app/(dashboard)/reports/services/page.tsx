@@ -25,19 +25,24 @@ import { downloadCSV } from "@/lib/utils/csvExport";
 import { toast } from "sonner";
 import { MonthPicker } from "@/components/shared/MonthPicker";
 import { useState } from "react";
-
-interface ServiceReport {
-  service_category: string;
-  total_jobs: number;
-  avg_response: number;
-  resolution_rate: number;
-}
+import {
+  buildServiceReportPageStats,
+  normalizeServiceReportRows,
+  normalizeServiceTrendRows,
+  type ServiceReportRow,
+  type ServiceTrendReportRow,
+} from "@/src/lib/analytics/reportPageTransforms";
 
 export default function ServiceAnalyticsPage() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const { data, trends, isLoading, error } = useAnalyticsData("services", selectedDate);
+  const serviceData: ServiceReportRow[] = normalizeServiceReportRows(data);
+  const serviceTrends: ServiceTrendReportRow[] = normalizeServiceTrendRows(trends);
+  const serviceChartData = serviceData;
+  const serviceTrendChartData = serviceTrends;
+  const reportStats = buildServiceReportPageStats({ data: serviceData });
 
-  const columns: ColumnDef<ServiceReport>[] = [
+  const columns: ColumnDef<ServiceReportRow>[] = [
     {
       accessorKey: "service_category",
       header: "Service Vertical",
@@ -64,10 +69,6 @@ export default function ServiceAnalyticsPage() {
     },
   ];
 
-  const avgTAT = data.length > 0 ? (data.reduce((acc, curr) => acc + Number(curr.avg_response || 0), 0) / data.length).toFixed(1) : "0";
-  const totalJobs = data.reduce((acc, curr) => acc + Number(curr.total_jobs || 0), 0);
-  const avgResolutionRate = data.length > 0 ? (data.reduce((acc, curr) => acc + Number(curr.resolution_rate || 0), 0) / data.length).toFixed(1) : "0";
-
   return (
     <div className="animate-fade-in space-y-8 pb-20">
       <PageHeader
@@ -80,7 +81,7 @@ export default function ServiceAnalyticsPage() {
               <Button variant="outline" className="gap-2" onClick={() => toast.info("KPI Trends", { description: "Trend charts are displayed in the dashboard below." })}>
                  <TrendingUp className="h-4 w-4" /> KPI Trends
               </Button>
-              <Button className="gap-2 shadow-lg shadow-primary/20" onClick={() => { if (data.length === 0) { toast.error("No data to export"); return; } downloadCSV("service_analytics", data); toast.success("Report downloaded"); }}>
+              <Button className="gap-2 shadow-lg shadow-primary/20" onClick={() => { if (serviceData.length === 0) { toast.error("No data to export"); return; } downloadCSV("service_analytics", serviceData); toast.success("Report downloaded"); }}>
                  <Download className="h-4 w-4" /> Download Report
               </Button>
             </div>
@@ -98,9 +99,9 @@ export default function ServiceAnalyticsPage() {
 
       <div className="grid gap-6 md:grid-cols-3">
         {[
-          { label: "Avg Resolution", value: `${avgTAT}h`, icon: Clock, color: "text-primary", sub: "Global TAT" },
-          { label: "Avg Completion", value: `${avgResolutionRate}%`, icon: Zap, color: "text-success", sub: "Resolution Rate" },
-          { label: "Total Jobs", value: totalJobs.toString(), icon: UserCheck, color: "text-info", sub: "Monthly Volume" },
+          { label: "Avg Resolution", value: `${reportStats.avgTAT}h`, icon: Clock, color: "text-primary", sub: "Global TAT" },
+          { label: "Avg Completion", value: `${reportStats.avgResolutionRate}%`, icon: Zap, color: "text-success", sub: "Resolution Rate" },
+          { label: "Total Jobs", value: reportStats.totalJobs.toString(), icon: UserCheck, color: "text-info", sub: "Monthly Volume" },
         ].map((stat, i) => (
           <Card key={i} className="border-none shadow-card ring-1 ring-border p-4 bg-linear-to-br from-muted/5 to-transparent">
                <div className="flex flex-col gap-3 text-left">
@@ -134,7 +135,7 @@ export default function ServiceAnalyticsPage() {
                    {isLoading ? <Skeleton className="h-[200px] w-full" /> : (
                       <AnalyticsChart 
                         type="bar" 
-                        data={data} 
+                        data={serviceChartData} 
                         index="service_category" 
                         categories={["total_jobs"]} 
                         height={250}
@@ -155,7 +156,7 @@ export default function ServiceAnalyticsPage() {
                    {isLoading ? <Skeleton className="h-[200px] w-full" /> : (
                       <AnalyticsChart 
                         type="area" 
-                        data={trends} 
+                        data={serviceTrendChartData} 
                         index="month" 
                         categories={["jobs", "completed"]} 
                         height={250}
@@ -166,12 +167,7 @@ export default function ServiceAnalyticsPage() {
           </Card>
       </div>
 
-      <DataTable 
-        columns={columns} 
-        data={data} 
-        searchKey="service_category" 
-        isLoading={isLoading} 
-      />
+      <DataTable columns={columns} data={serviceData} searchKey="service_category" isLoading={isLoading} />
     </div>
   );
 }

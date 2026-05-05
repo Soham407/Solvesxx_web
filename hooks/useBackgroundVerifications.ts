@@ -1,4 +1,3 @@
-// @ts-nocheck
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -38,6 +37,22 @@ export const BGV_STATUS_CONFIG: Record<BGVStatus, { label: string; className: st
   rejected: { label: "Rejected", className: "bg-critical/10 text-critical border-critical/20" },
 };
 
+function toBgvType(value: string | null | undefined): BGVType {
+  if (value === "police" || value === "address" || value === "education" || value === "employment") {
+    return value;
+  }
+
+  return "police";
+}
+
+function toBgvStatus(value: string | null | undefined): BGVStatus {
+  if (value === "pending" || value === "in_progress" || value === "verified" || value === "rejected") {
+    return value;
+  }
+
+  return "pending";
+}
+
 export function useBackgroundVerifications(candidateId?: string) {
   const { toast } = useToast();
   const [verifications, setVerifications] = useState<BackgroundVerification[]>([]);
@@ -55,7 +70,11 @@ export function useBackgroundVerifications(candidateId?: string) {
         .order("created_at", { ascending: true });
 
       if (error) throw error;
-      setVerifications(data || []);
+      setVerifications((data || []).map((verification) => ({
+        ...verification,
+        verification_type: toBgvType(verification.verification_type),
+        status: toBgvStatus(verification.status),
+      })));
     } catch (err) {
       console.error("BGV fetch error:", err);
     } finally {

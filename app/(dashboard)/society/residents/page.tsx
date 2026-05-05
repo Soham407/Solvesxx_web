@@ -63,6 +63,32 @@ interface Resident {
   denied_visitors: number;
 }
 
+type FlatRow = {
+  id: string;
+  flat_number: string;
+  building_name?: string | null;
+  buildings?: { building_name?: string | null } | { building_name?: string | null }[] | null;
+};
+
+type ResidentSupportRow = {
+  id: string;
+  resident_code?: string | null;
+  full_name?: string | null;
+  flat_id?: string | null;
+  flat_number?: string | null;
+  building_name?: string | null;
+  phone?: string | null;
+  relation?: string | null;
+  auth_linked?: boolean | null;
+  role_name?: string | null;
+  must_change_password?: boolean | null;
+  active_push_tokens?: number | null;
+  unread_notifications?: number | null;
+  total_visitors?: number | null;
+  pending_visitors?: number | null;
+  denied_visitors?: number | null;
+};
+
 export default function ResidentsPage() {
   const [residents, setResidents] = useState<Resident[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -76,7 +102,7 @@ export default function ResidentsPage() {
   });
 
   // Flat data for form
-  const [flats, setFlats] = useState<any[]>([]);
+  const [flats, setFlats] = useState<FlatRow[]>([]);
 
   // Dialog State
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -92,7 +118,7 @@ export default function ResidentsPage() {
   const fetchFlats = async () => {
     const { data } = await supabase.from('flats').select('id, flat_number, buildings(building_name)').eq('is_active', true);
     if (data) {
-       setFlats(data.map((f: any) => ({
+       setFlats((data as FlatRow[]).map((f) => ({
          id: f.id,
          flat_number: f.flat_number,
          building_name: Array.isArray(f.buildings) ? f.buildings[0]?.building_name : f.buildings?.building_name
@@ -110,7 +136,8 @@ export default function ResidentsPage() {
         throw new Error(payload.error || "Failed to load resident support data");
       }
 
-      const residentIds = (payload.residents || []).map((resident: any) => resident.id).filter(Boolean);
+      const supportRows = (payload.residents || []) as ResidentSupportRow[];
+      const residentIds = supportRows.map((resident) => resident.id).filter(Boolean);
       const directoryResult =
         residentIds.length > 0
           ? await supabase
@@ -125,39 +152,39 @@ export default function ResidentsPage() {
       }
 
       const uniqueFlats = new Set<string>();
-      const supportByResidentId = new Map<string, any>(
-        (payload.residents || []).map((resident: any) => [resident.id, resident])
+      const supportByResidentId = new Map<string, ResidentSupportRow>(
+        supportRows.map((resident) => [resident.id, resident])
       );
-      const directoryByResidentId = new Map<string, any>(
-        ((directoryResult.data || []) as any[]).map((residentView) => [residentView.id, residentView])
+      const directoryByResidentId = new Map<string, { id: string; full_name?: string | null; flat_number?: string | null; building_name?: string | null; is_primary_contact?: boolean | null; masked_phone?: string | null }>(
+        ((directoryResult.data || []) as Array<{ id: string; full_name?: string | null; flat_number?: string | null; building_name?: string | null; is_primary_contact?: boolean | null; masked_phone?: string | null }>).map((residentView) => [residentView.id, residentView])
       );
 
-      const formattedResidents: Resident[] = (payload.residents || []).map((support: any) => {
+      const formattedResidents: Resident[] = supportRows.map((support) => {
         const residentView = directoryByResidentId.get(support.id) ?? null;
-        const flatNo = support?.flat_number || residentView.flat_number || "N/A";
-        const bldg = support?.building_name || residentView.building_name || "";
+        const flatNo = support.flat_number || residentView?.flat_number || "Not set";
+        const bldg = support.building_name || residentView?.building_name || "";
         uniqueFlats.add(`${bldg}-${flatNo}`);
 
         return {
           id: support.id,
-          resident_code: support?.resident_code || "",
-          full_name: residentView?.full_name || support?.full_name || "Resident",
-          flat_id: support?.flat_id || null,
-          mobile: support?.phone || residentView?.masked_phone || "",
-          call_phone: support?.phone || null,
-          relation: support?.relation || "Resident",
+          resident_code: support.resident_code || "",
+          full_name: residentView?.full_name || support.full_name || "Resident",
+          flat_id: support.flat_id || null,
+          mobile: support.phone || residentView?.masked_phone || "",
+          call_phone: support.phone || null,
+          relation: support.relation || "Resident",
           photo_url: undefined, // Update with correct profile photo field if there is one
           is_primary_contact: Boolean(residentView?.is_primary_contact),
           flat_number: flatNo,
           building_name: bldg,
-          auth_linked: Boolean(support?.auth_linked),
-          role_name: support?.role_name || null,
-          must_change_password: Boolean(support?.must_change_password),
-          active_push_tokens: Number(support?.active_push_tokens || 0),
-          unread_notifications: Number(support?.unread_notifications || 0),
-          total_visitors: Number(support?.total_visitors || 0),
-          pending_visitors: Number(support?.pending_visitors || 0),
-          denied_visitors: Number(support?.denied_visitors || 0),
+          auth_linked: Boolean(support.auth_linked),
+          role_name: support.role_name || null,
+          must_change_password: Boolean(support.must_change_password),
+          active_push_tokens: Number(support.active_push_tokens || 0),
+          unread_notifications: Number(support.unread_notifications || 0),
+          total_visitors: Number(support.total_visitors || 0),
+          pending_visitors: Number(support.pending_visitors || 0),
+          denied_visitors: Number(support.denied_visitors || 0),
         };
       });
 
@@ -167,7 +194,7 @@ export default function ResidentsPage() {
         totalResidents: formattedResidents.length,
         totalVehicles: formattedResidents.filter((resident) => resident.auth_linked).length
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching residents:", err);
       setError("Failed to load resident directory");
     } finally {
@@ -236,9 +263,9 @@ export default function ResidentsPage() {
       setIsDialogOpen(false);
       setFormData({ full_name: '', phone: '', relation: 'Owner', flat_id: '', email: '', temp_password: '' });
       fetchResidents();
-    } catch(e: any) {
+    } catch(e: unknown) {
        console.error(e);
-       setError(e.message || "Failed to register resident");
+       setError(e instanceof Error ? e.message : "Failed to register resident");
     } finally {
        setIsSubmitting(false);
     }

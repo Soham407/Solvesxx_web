@@ -21,12 +21,14 @@ CREATE POLICY "notifications_insert_restricted" ON notifications
 --     allowed any authenticated user to read/write all settings.
 -- ============================================================
 DROP POLICY IF EXISTS "Admin can manage system config" ON system_config;
+DROP POLICY IF EXISTS "system_config_admin_full" ON system_config;
 -- Admins get full access
 CREATE POLICY "system_config_admin_full" ON system_config
   FOR ALL TO authenticated
   USING (get_my_app_role() IN ('admin', 'super_admin'))
   WITH CHECK (get_my_app_role() IN ('admin', 'super_admin'));
 -- All authenticated users can read (thresholds needed client-side)
+DROP POLICY IF EXISTS "system_config_read_all" ON system_config;
 CREATE POLICY "system_config_read_all" ON system_config
   FOR SELECT TO authenticated
   USING (true);

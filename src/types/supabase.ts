@@ -7586,6 +7586,7 @@ export type Database = {
           started_at: string | null
           status: Database["public"]["Enums"]["service_request_status"] | null
           title: string | null
+          type: string
           updated_at: string | null
         }
         Insert: {
@@ -7616,6 +7617,7 @@ export type Database = {
           started_at?: string | null
           status?: Database["public"]["Enums"]["service_request_status"] | null
           title?: string | null
+          type?: string
           updated_at?: string | null
         }
         Update: {
@@ -7646,6 +7648,7 @@ export type Database = {
           started_at?: string | null
           status?: Database["public"]["Enums"]["service_request_status"] | null
           title?: string | null
+          type?: string
           updated_at?: string | null
         }
         Relationships: [
@@ -11189,6 +11192,7 @@ export type Database = {
         | "paid"
         | "feedback_pending"
         | "completed"
+        | "cancelled"
       service_category:
         | "security_services"
         | "ac_services"
@@ -11521,6 +11525,7 @@ export const Constants = {
         "paid",
         "feedback_pending",
         "completed",
+        "cancelled",
       ],
       service_category: [
         "security_services",

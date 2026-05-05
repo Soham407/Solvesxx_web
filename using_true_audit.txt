@@ -1,0 +1,283 @@
+supabase/migrations/20260316000007_spill_kits.sql-
+supabase/migrations/20260316000007_spill_kits.sql-CREATE POLICY "spill_kits_select" ON pest_control_spill_kits
+supabase/migrations/20260316000007_spill_kits.sql:  FOR SELECT TO authenticated USING (true);
+--
+supabase/migrations/20260316000007_spill_kits.sql-
+supabase/migrations/20260316000007_spill_kits.sql-CREATE POLICY "spill_kits_update" ON pest_control_spill_kits
+supabase/migrations/20260316000007_spill_kits.sql:  FOR UPDATE TO authenticated USING (true);
+--
+supabase/migrations/20260316000004_buyer_feedback.sql-
+supabase/migrations/20260316000004_buyer_feedback.sql-CREATE POLICY "buyer_feedback_select" ON buyer_feedback
+supabase/migrations/20260316000004_buyer_feedback.sql:  FOR SELECT TO authenticated USING (true);
+--
+supabase/migrations/20260322000004_super_admin_platform_alignment.sql-CREATE POLICY "roles_read_all" ON public.roles
+supabase/migrations/20260322000004_super_admin_platform_alignment.sql-  FOR SELECT TO authenticated
+supabase/migrations/20260322000004_super_admin_platform_alignment.sql:  USING (true);
+--
+supabase/migrations/20260322000004_super_admin_platform_alignment.sql-CREATE POLICY "users_select_authenticated" ON public.users
+supabase/migrations/20260322000004_super_admin_platform_alignment.sql-  FOR SELECT TO authenticated
+supabase/migrations/20260322000004_super_admin_platform_alignment.sql:  USING (true);
+--
+supabase/migrations/20260221192454_create_daily_checklist_items_table.sql-
+supabase/migrations/20260221192454_create_daily_checklist_items_table.sql-CREATE POLICY "Read checklist items"
+supabase/migrations/20260221192454_create_daily_checklist_items_table.sql:  ON public.daily_checklist_items FOR SELECT TO authenticated USING (true);
+--
+supabase/migrations/20260317000002_fix_critical_rls.sql-CREATE POLICY "system_config_read_all" ON system_config
+supabase/migrations/20260317000002_fix_critical_rls.sql-  FOR SELECT TO authenticated
+supabase/migrations/20260317000002_fix_critical_rls.sql:  USING (true);
+--
+supabase/migrations/20260316000003_service_delivery_notes.sql-
+supabase/migrations/20260316000003_service_delivery_notes.sql-CREATE POLICY "service_delivery_notes_select" ON service_delivery_notes
+supabase/migrations/20260316000003_service_delivery_notes.sql:  FOR SELECT TO authenticated USING (true);
+--
+supabase/migrations/20260316000003_service_delivery_notes.sql-
+supabase/migrations/20260316000003_service_delivery_notes.sql-CREATE POLICY "service_delivery_notes_update" ON service_delivery_notes
+supabase/migrations/20260316000003_service_delivery_notes.sql:  FOR UPDATE TO authenticated USING (true);
+--
+supabase/migrations/20260406190000_hrms_secondary_surface_truth_repairs.sql-CREATE POLICY "Authenticated users view shifts" ON public.shifts
+supabase/migrations/20260406190000_hrms_secondary_surface_truth_repairs.sql-FOR SELECT TO authenticated
+supabase/migrations/20260406190000_hrms_secondary_surface_truth_repairs.sql:USING (true);
+--
+supabase/migrations/20260406190000_hrms_secondary_surface_truth_repairs.sql-CREATE POLICY "Authenticated users view shift assignments" ON public.employee_shift_assignments
+supabase/migrations/20260406190000_hrms_secondary_surface_truth_repairs.sql-FOR SELECT TO authenticated
+supabase/migrations/20260406190000_hrms_secondary_surface_truth_repairs.sql:USING (true);
+--
+supabase/migrations/20260208175334_phase_a_final_patch.sql-DROP POLICY IF EXISTS "Everyone views emergency contacts" ON emergency_contacts;
+supabase/migrations/20260208175334_phase_a_final_patch.sql-CREATE POLICY "Everyone views emergency contacts" ON emergency_contacts 
+supabase/migrations/20260208175334_phase_a_final_patch.sql:    FOR SELECT TO authenticated USING (true);
+--
+supabase/migrations/20260208175334_phase_a_final_patch.sql-DROP POLICY IF EXISTS "Everyone views holidays" ON holidays;
+supabase/migrations/20260208175334_phase_a_final_patch.sql-CREATE POLICY "Everyone views holidays" ON holidays 
+supabase/migrations/20260208175334_phase_a_final_patch.sql:    FOR SELECT TO authenticated USING (true);
+--
+supabase/migrations/20260207121218_phase_b_05_qr_codes.sql-
+supabase/migrations/20260207121218_phase_b_05_qr_codes.sql--- Policies
+supabase/migrations/20260207121218_phase_b_05_qr_codes.sql:CREATE POLICY "View QR Codes" ON qr_codes FOR SELECT TO authenticated USING (true);
+supabase/migrations/20260207121218_phase_b_05_qr_codes.sql-CREATE POLICY "Manage QR Codes" ON qr_codes FOR INSERT TO authenticated WITH CHECK (get_user_role() IN ('admin', 'company_hod', 'society_manager'));
+supabase/migrations/20260207121218_phase_b_05_qr_codes.sql:CREATE POLICY "Update QR Codes" ON qr_codes FOR UPDATE TO authenticated USING (true);
+--
+supabase/migrations/20260212195046_add_technician_profiles.sql-
+supabase/migrations/20260212195046_add_technician_profiles.sql--- Policies
+supabase/migrations/20260212195046_add_technician_profiles.sql:CREATE POLICY "View Technician Profiles" ON technician_profiles FOR SELECT TO authenticated USING (true);
+--
+supabase/migrations/20260423130000_company_events_service_requests_rls.sql-DROP POLICY IF EXISTS "Authenticated users can view events" ON company_events;
+supabase/migrations/20260423130000_company_events_service_requests_rls.sql-CREATE POLICY "Authenticated users can view events" ON company_events FOR SELECT
+supabase/migrations/20260423130000_company_events_service_requests_rls.sql:TO authenticated USING (true);
+--
+supabase/migrations/20260317085726_20260317000002_fix_critical_rls.sql-CREATE POLICY "system_config_read_all" ON system_config
+supabase/migrations/20260317085726_20260317000002_fix_critical_rls.sql-  FOR SELECT TO authenticated
+supabase/migrations/20260317085726_20260317000002_fix_critical_rls.sql:  USING (true);
+--
+supabase/migrations/20260316000012_service_acknowledgments.sql-    EXECUTE 'CREATE POLICY "Admin and site supervisor can manage acknowledgments"
+supabase/migrations/20260316000012_service_acknowledgments.sql-      ON service_acknowledgments FOR ALL TO authenticated
+supabase/migrations/20260316000012_service_acknowledgments.sql:      USING (true) WITH CHECK (true)';
+--
+supabase/migrations/20260213124210_plantation_and_feedback_v2.sql-DROP POLICY IF EXISTS "Allow authenticated read for horticulture_zones" ON horticulture_zones;
+supabase/migrations/20260213124210_plantation_and_feedback_v2.sql-CREATE POLICY "Allow authenticated read for horticulture_zones" 
+supabase/migrations/20260213124210_plantation_and_feedback_v2.sql:ON horticulture_zones FOR SELECT TO authenticated USING (true);
+--
+supabase/migrations/20260213124210_plantation_and_feedback_v2.sql-DROP POLICY IF EXISTS "Allow authenticated read for horticulture_tasks" ON horticulture_tasks;
+supabase/migrations/20260213124210_plantation_and_feedback_v2.sql-CREATE POLICY "Allow authenticated read for horticulture_tasks" 
+supabase/migrations/20260213124210_plantation_and_feedback_v2.sql:ON horticulture_tasks FOR SELECT TO authenticated USING (true);
+--
+supabase/migrations/20260213124210_plantation_and_feedback_v2.sql-DROP POLICY IF EXISTS "Allow authenticated read for service_feedback" ON service_feedback;
+supabase/migrations/20260213124210_plantation_and_feedback_v2.sql-CREATE POLICY "Allow authenticated read for service_feedback" 
+supabase/migrations/20260213124210_plantation_and_feedback_v2.sql:ON service_feedback FOR SELECT TO authenticated USING (true);
+--
+supabase/migrations/20260316000005_background_verifications.sql-
+supabase/migrations/20260316000005_background_verifications.sql-CREATE POLICY "bgv_select" ON background_verifications
+supabase/migrations/20260316000005_background_verifications.sql:  FOR SELECT TO authenticated USING (true);
+--
+supabase/migrations/20260316000005_background_verifications.sql-
+supabase/migrations/20260316000005_background_verifications.sql-CREATE POLICY "bgv_update" ON background_verifications
+supabase/migrations/20260316000005_background_verifications.sql:  FOR UPDATE TO authenticated USING (true);
+--
+supabase/migrations/20260217171745_delivery_truth_engine_v2.sql-        ON material_arrival_logs FOR SELECT
+supabase/migrations/20260217171745_delivery_truth_engine_v2.sql-        TO authenticated
+supabase/migrations/20260217171745_delivery_truth_engine_v2.sql:        USING (true);
+--
+supabase/migrations/20260316124041_spill_kits.sql-
+supabase/migrations/20260316124041_spill_kits.sql-CREATE POLICY "spill_kits_select" ON pest_control_spill_kits
+supabase/migrations/20260316124041_spill_kits.sql:  FOR SELECT TO authenticated USING (true);
+--
+supabase/migrations/20260316124041_spill_kits.sql-
+supabase/migrations/20260316124041_spill_kits.sql-CREATE POLICY "spill_kits_update" ON pest_control_spill_kits
+supabase/migrations/20260316124041_spill_kits.sql:  FOR UPDATE TO authenticated USING (true);
+--
+supabase/migrations/20260207121251_phase_b_08_job_sessions.sql-
+supabase/migrations/20260207121251_phase_b_08_job_sessions.sql--- Policies
+supabase/migrations/20260207121251_phase_b_08_job_sessions.sql:CREATE POLICY "View Job Photos" ON job_photos FOR SELECT TO authenticated USING (true);
+--
+supabase/migrations/20260423100000_societies_buildings_flats_rls.sql-DROP POLICY IF EXISTS "Authenticated users can view societies" ON societies;
+supabase/migrations/20260423100000_societies_buildings_flats_rls.sql-CREATE POLICY "Authenticated users can view societies" ON societies FOR SELECT
+supabase/migrations/20260423100000_societies_buildings_flats_rls.sql:TO authenticated USING (true);
+--
+supabase/migrations/20260423100000_societies_buildings_flats_rls.sql-DROP POLICY IF EXISTS "Authenticated users can view buildings" ON buildings;
+supabase/migrations/20260423100000_societies_buildings_flats_rls.sql-CREATE POLICY "Authenticated users can view buildings" ON buildings FOR SELECT
+supabase/migrations/20260423100000_societies_buildings_flats_rls.sql:TO authenticated USING (true);
+--
+supabase/migrations/20260423100000_societies_buildings_flats_rls.sql-DROP POLICY IF EXISTS "Authenticated users can view flats" ON flats;
+supabase/migrations/20260423100000_societies_buildings_flats_rls.sql-CREATE POLICY "Authenticated users can view flats" ON flats FOR SELECT
+supabase/migrations/20260423100000_societies_buildings_flats_rls.sql:TO authenticated USING (true);
+--
+supabase/migrations/20260315120000_add_rtv_tickets.sql-
+supabase/migrations/20260315120000_add_rtv_tickets.sql-CREATE POLICY "Allow authenticated read on rtv_tickets" ON rtv_tickets
+supabase/migrations/20260315120000_add_rtv_tickets.sql:    FOR SELECT TO authenticated USING (true);
+--
+supabase/migrations/20260315120000_add_rtv_tickets.sql-
+supabase/migrations/20260315120000_add_rtv_tickets.sql-CREATE POLICY "Allow authenticated update on rtv_tickets" ON rtv_tickets
+supabase/migrations/20260315120000_add_rtv_tickets.sql:    FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+--
+supabase/migrations/20260423140000_checklists_rls.sql-DROP POLICY IF EXISTS "Authenticated users can view checklists" ON daily_checklists;
+supabase/migrations/20260423140000_checklists_rls.sql-CREATE POLICY "Authenticated users can view checklists" ON daily_checklists FOR SELECT
+supabase/migrations/20260423140000_checklists_rls.sql:TO authenticated USING (true);
+--
+supabase/migrations/20260316000008_ad_bookings.sql-
+supabase/migrations/20260316000008_ad_bookings.sql-CREATE POLICY "ad_bookings_select" ON printing_ad_bookings
+supabase/migrations/20260316000008_ad_bookings.sql:  FOR SELECT TO authenticated USING (true);
+--
+supabase/migrations/20260316000008_ad_bookings.sql-
+supabase/migrations/20260316000008_ad_bookings.sql-CREATE POLICY "ad_bookings_update" ON printing_ad_bookings
+supabase/migrations/20260316000008_ad_bookings.sql:  FOR UPDATE TO authenticated USING (true);
+--
+supabase/migrations/20260317000001_fix_rtv_tickets_rls.sql--- Fix overly-permissive RLS policies on rtv_tickets.
+supabase/migrations/20260317000001_fix_rtv_tickets_rls.sql---
+supabase/migrations/20260317000001_fix_rtv_tickets_rls.sql:-- The original policies used USING (true) / WITH CHECK (true), granting every
+--
+supabase/migrations/20260423120000_security_guards_locations_gps_rls.sql-DROP POLICY IF EXISTS "Authenticated users can view locations" ON company_locations;
+supabase/migrations/20260423120000_security_guards_locations_gps_rls.sql-CREATE POLICY "Authenticated users can view locations" ON company_locations FOR SELECT
+supabase/migrations/20260423120000_security_guards_locations_gps_rls.sql:TO authenticated USING (true);
+--
+supabase/migrations/20260316000010_personnel_dispatches.sql-ALTER TABLE personnel_dispatches ENABLE ROW LEVEL SECURITY;
+supabase/migrations/20260316000010_personnel_dispatches.sql-
+supabase/migrations/20260316000010_personnel_dispatches.sql:CREATE POLICY "dispatches_select" ON personnel_dispatches FOR SELECT TO authenticated USING (true);
+supabase/migrations/20260316000010_personnel_dispatches.sql-CREATE POLICY "dispatches_insert" ON personnel_dispatches FOR INSERT TO authenticated WITH CHECK (auth.uid() IS NOT NULL);
+supabase/migrations/20260316000010_personnel_dispatches.sql:CREATE POLICY "dispatches_update" ON personnel_dispatches FOR UPDATE TO authenticated USING (true);
+--
+supabase/migrations/20260213123135_service_domain_extensions_v2.sql-        ON pest_control_chemicals FOR SELECT
+supabase/migrations/20260213123135_service_domain_extensions_v2.sql-        TO authenticated
+supabase/migrations/20260213123135_service_domain_extensions_v2.sql:        USING (true);
+--
+supabase/migrations/20260213123135_service_domain_extensions_v2.sql-        ON pest_control_ppe_verifications FOR SELECT
+supabase/migrations/20260213123135_service_domain_extensions_v2.sql-        TO authenticated
+supabase/migrations/20260213123135_service_domain_extensions_v2.sql:        USING (true);
+--
+supabase/migrations/20260213123135_service_domain_extensions_v2.sql-        ON printing_ad_spaces FOR SELECT
+supabase/migrations/20260213123135_service_domain_extensions_v2.sql-        TO authenticated
+supabase/migrations/20260213123135_service_domain_extensions_v2.sql:        USING (true);
+--
+supabase/migrations/20260315175017_fix_mocked_dashboards.sql-CREATE POLICY "Allow read access to all users for seasonal_plans"
+supabase/migrations/20260315175017_fix_mocked_dashboards.sql-ON horticulture_seasonal_plans FOR SELECT
+supabase/migrations/20260315175017_fix_mocked_dashboards.sql:USING (true);
+--
+supabase/migrations/20260315170450_add_rtv_tickets.sql-
+supabase/migrations/20260315170450_add_rtv_tickets.sql-CREATE POLICY "Allow authenticated read on rtv_tickets" ON rtv_tickets
+supabase/migrations/20260315170450_add_rtv_tickets.sql:    FOR SELECT TO authenticated USING (true);
+--
+supabase/migrations/20260315170450_add_rtv_tickets.sql-
+supabase/migrations/20260315170450_add_rtv_tickets.sql-CREATE POLICY "Allow authenticated update on rtv_tickets" ON rtv_tickets
+supabase/migrations/20260315170450_add_rtv_tickets.sql:    FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+--
+supabase/migrations/20260316000009_shortage_notes.sql-ALTER TABLE shortage_note_items ENABLE ROW LEVEL SECURITY;
+supabase/migrations/20260316000009_shortage_notes.sql-
+supabase/migrations/20260316000009_shortage_notes.sql:CREATE POLICY "shortage_notes_select" ON shortage_notes FOR SELECT TO authenticated USING (true);
+supabase/migrations/20260316000009_shortage_notes.sql-CREATE POLICY "shortage_notes_insert" ON shortage_notes FOR INSERT TO authenticated WITH CHECK (auth.uid() IS NOT NULL);
+supabase/migrations/20260316000009_shortage_notes.sql:CREATE POLICY "shortage_notes_update" ON shortage_notes FOR UPDATE TO authenticated USING (true);
+supabase/migrations/20260316000009_shortage_notes.sql-
+supabase/migrations/20260316000009_shortage_notes.sql:CREATE POLICY "shortage_note_items_select" ON shortage_note_items FOR SELECT TO authenticated USING (true);
+--
+supabase/migrations/20260316124004_buyer_feedback.sql-
+supabase/migrations/20260316124004_buyer_feedback.sql-CREATE POLICY "buyer_feedback_select" ON buyer_feedback
+supabase/migrations/20260316124004_buyer_feedback.sql:  FOR SELECT TO authenticated USING (true);
+--
+supabase/migrations/20260207121206_phase_b_04_assets.sql-
+supabase/migrations/20260207121206_phase_b_04_assets.sql--- Policies
+supabase/migrations/20260207121206_phase_b_04_assets.sql:CREATE POLICY "View Assets" ON assets FOR SELECT TO authenticated USING (true);
+--
+supabase/migrations/20260315233000_fix_mocked_dashboards.sql-CREATE POLICY "Allow read access to all users for seasonal_plans"
+supabase/migrations/20260315233000_fix_mocked_dashboards.sql-ON horticulture_seasonal_plans FOR SELECT
+supabase/migrations/20260315233000_fix_mocked_dashboards.sql:USING (true);
+--
+supabase/migrations/20260207121308_phase_b_09_inventory.sql-ALTER TABLE warehouses ENABLE ROW LEVEL SECURITY;
+supabase/migrations/20260207121308_phase_b_09_inventory.sql-
+supabase/migrations/20260207121308_phase_b_09_inventory.sql:CREATE POLICY "View Warehouses" ON warehouses FOR SELECT TO authenticated USING (true);
+--
+supabase/migrations/20260207121308_phase_b_09_inventory.sql-ALTER TABLE stock_batches ENABLE ROW LEVEL SECURITY;
+supabase/migrations/20260207121308_phase_b_09_inventory.sql-
+supabase/migrations/20260207121308_phase_b_09_inventory.sql:CREATE POLICY "View Stock Batches" ON stock_batches FOR SELECT TO authenticated USING (true);
+--
+supabase/migrations/20260207121308_phase_b_09_inventory.sql-
+supabase/migrations/20260207121308_phase_b_09_inventory.sql-CREATE POLICY "Insert Job Materials" ON job_materials_used FOR INSERT TO authenticated WITH CHECK (true);
+supabase/migrations/20260207121308_phase_b_09_inventory.sql:CREATE POLICY "View Job Materials" ON job_materials_used FOR SELECT TO authenticated USING (true);
+--
+supabase/migrations/20260316174718_service_acknowledgments_v2.sql-    EXECUTE 'CREATE POLICY "Admin and site supervisor can manage acknowledgments"
+supabase/migrations/20260316174718_service_acknowledgments_v2.sql-      ON service_acknowledgments FOR ALL TO authenticated
+supabase/migrations/20260316174718_service_acknowledgments_v2.sql:      USING (true) WITH CHECK (true)';
+--
+supabase/migrations/20260316171521_service_purchase_orders_and_acknowledgments.sql-CREATE POLICY "Authenticated users can manage SPOs"
+supabase/migrations/20260316171521_service_purchase_orders_and_acknowledgments.sql-  ON service_purchase_orders FOR ALL TO authenticated
+supabase/migrations/20260316171521_service_purchase_orders_and_acknowledgments.sql:  USING (true) WITH CHECK (true);
+--
+supabase/migrations/20260316171521_service_purchase_orders_and_acknowledgments.sql-CREATE POLICY "Authenticated users can manage SPO items"
+supabase/migrations/20260316171521_service_purchase_orders_and_acknowledgments.sql-  ON service_purchase_order_items FOR ALL TO authenticated
+supabase/migrations/20260316171521_service_purchase_orders_and_acknowledgments.sql:  USING (true) WITH CHECK (true);
+--
+supabase/migrations/20260316171521_service_purchase_orders_and_acknowledgments.sql-CREATE POLICY "Admin and site supervisor can manage acknowledgments"
+supabase/migrations/20260316171521_service_purchase_orders_and_acknowledgments.sql-  ON service_acknowledgments FOR ALL TO authenticated
+supabase/migrations/20260316171521_service_purchase_orders_and_acknowledgments.sql:  USING (true) WITH CHECK (true);
+--
+supabase/migrations/20260208092610_qr_batch_support_apply_v2.sql-    FOR ALL
+supabase/migrations/20260208092610_qr_batch_support_apply_v2.sql-    TO authenticated
+supabase/migrations/20260208092610_qr_batch_support_apply_v2.sql:    USING (true);
+--
+supabase/migrations/20260316124012_background_verifications.sql-
+supabase/migrations/20260316124012_background_verifications.sql-CREATE POLICY "bgv_select" ON background_verifications
+supabase/migrations/20260316124012_background_verifications.sql:  FOR SELECT TO authenticated USING (true);
+--
+supabase/migrations/20260316124012_background_verifications.sql-
+supabase/migrations/20260316124012_background_verifications.sql-CREATE POLICY "bgv_update" ON background_verifications
+supabase/migrations/20260316124012_background_verifications.sql:  FOR UPDATE TO authenticated USING (true);
+--
+supabase/migrations/20260316124058_ad_bookings.sql-
+supabase/migrations/20260316124058_ad_bookings.sql-CREATE POLICY "ad_bookings_select" ON printing_ad_bookings
+supabase/migrations/20260316124058_ad_bookings.sql:  FOR SELECT TO authenticated USING (true);
+--
+supabase/migrations/20260316124058_ad_bookings.sql-
+supabase/migrations/20260316124058_ad_bookings.sql-CREATE POLICY "ad_bookings_update" ON printing_ad_bookings
+supabase/migrations/20260316124058_ad_bookings.sql:  FOR UPDATE TO authenticated USING (true);
+--
+supabase/migrations/20260216131403_fix_rls_recursion.sql--- Standard View (Keep it broad for now to ensure site works, then tighten)
+supabase/migrations/20260216131403_fix_rls_recursion.sql-CREATE POLICY "Site users view each other" ON public.users 
+supabase/migrations/20260216131403_fix_rls_recursion.sql:FOR SELECT USING (true);
+--
+supabase/migrations/20260316123956_service_delivery_notes.sql-
+supabase/migrations/20260316123956_service_delivery_notes.sql-CREATE POLICY "service_delivery_notes_select" ON service_delivery_notes
+supabase/migrations/20260316123956_service_delivery_notes.sql:  FOR SELECT TO authenticated USING (true);
+--
+supabase/migrations/20260316123956_service_delivery_notes.sql-
+supabase/migrations/20260316123956_service_delivery_notes.sql-CREATE POLICY "service_delivery_notes_update" ON service_delivery_notes
+supabase/migrations/20260316123956_service_delivery_notes.sql:  FOR UPDATE TO authenticated USING (true);
+--
+supabase/migrations/20260207121155_phase_b_03_asset_categories.sql-
+supabase/migrations/20260207121155_phase_b_03_asset_categories.sql--- Policies
+supabase/migrations/20260207121155_phase_b_03_asset_categories.sql:CREATE POLICY "View Asset Categories" ON asset_categories FOR SELECT TO authenticated USING (true);
+--
+supabase/migrations/20260213132333_payment_gateway_integration_v2.sql-    END IF;
+supabase/migrations/20260213132333_payment_gateway_integration_v2.sql-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'All authenticated can view payment methods') THEN
+supabase/migrations/20260213132333_payment_gateway_integration_v2.sql:        CREATE POLICY "All authenticated can view payment methods" ON payment_methods FOR SELECT TO authenticated USING (true);
+--
+supabase/migrations/20260207121226_phase_b_06_maintenance_schedules.sql-
+supabase/migrations/20260207121226_phase_b_06_maintenance_schedules.sql--- Policies
+supabase/migrations/20260207121226_phase_b_06_maintenance_schedules.sql:CREATE POLICY "View Maintenance Schedules" ON maintenance_schedules FOR SELECT TO authenticated USING (true);
+--
+supabase/migrations/20260316124110_shortage_notes.sql-ALTER TABLE shortage_note_items ENABLE ROW LEVEL SECURITY;
+supabase/migrations/20260316124110_shortage_notes.sql-
+supabase/migrations/20260316124110_shortage_notes.sql:CREATE POLICY "shortage_notes_select" ON shortage_notes FOR SELECT TO authenticated USING (true);
+supabase/migrations/20260316124110_shortage_notes.sql-CREATE POLICY "shortage_notes_insert" ON shortage_notes FOR INSERT TO authenticated WITH CHECK (auth.uid() IS NOT NULL);
+supabase/migrations/20260316124110_shortage_notes.sql:CREATE POLICY "shortage_notes_update" ON shortage_notes FOR UPDATE TO authenticated USING (true);
+supabase/migrations/20260316124110_shortage_notes.sql-
+supabase/migrations/20260316124110_shortage_notes.sql:CREATE POLICY "shortage_note_items_select" ON shortage_note_items FOR SELECT TO authenticated USING (true);
+--
+supabase/migrations/20260207121146_phase_b_02_services_table.sql-
+supabase/migrations/20260207121146_phase_b_02_services_table.sql--- Policies
+supabase/migrations/20260207121146_phase_b_02_services_table.sql:CREATE POLICY "View Services" ON services FOR SELECT TO authenticated USING (true);

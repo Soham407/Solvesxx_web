@@ -50,9 +50,9 @@ BEGIN
   JOIN shifts s ON s.id = esa.shift_id
   WHERE esa.employee_id = p_employee_id
     AND esa.is_active = true
-    AND esa.assigned_from <= p_period_end
-    AND (esa.assigned_to IS NULL OR esa.assigned_to >= p_period_start)
-  ORDER BY esa.assigned_from DESC
+    AND esa.effective_from <= p_period_end
+    AND (esa.effective_to IS NULL OR esa.effective_to >= p_period_start)
+  ORDER BY esa.effective_from DESC
   LIMIT 1;
 
   -- 3. Determine standard_hours for this employee/shift
@@ -172,9 +172,9 @@ WITH shift_data AS (
     JOIN shifts s ON s.id = esa.shift_id
     WHERE esa.employee_id = al.employee_id
       AND esa.is_active = true
-      AND esa.assigned_from <= al.log_date
-      AND (esa.assigned_to IS NULL OR esa.assigned_to >= al.log_date)
-    ORDER BY esa.assigned_from DESC
+      AND esa.effective_from <= al.log_date
+      AND (esa.effective_to IS NULL OR esa.effective_to >= al.log_date)
+    ORDER BY esa.effective_from DESC
     LIMIT 1
   ) s ON true
 )

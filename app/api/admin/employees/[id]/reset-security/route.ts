@@ -6,6 +6,8 @@ import { createAdminClient } from "@/src/lib/supabase/admin";
 import { createClient as createServerClient } from "@/src/lib/supabase/server";
 
 const ALLOWED_ROLES = new Set(["admin", "super_admin", "society_manager"]);
+type RoleRecord = { role_name?: string | null };
+type UserRoleRow = { roles?: RoleRecord | RoleRecord[] | null };
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -38,9 +40,8 @@ async function authorizeSecurityReset() {
     };
   }
 
-  const roleRecord = Array.isArray((userRecord as any).roles)
-    ? (userRecord as any).roles[0]
-    : (userRecord as any).roles;
+  const userRow = userRecord as UserRoleRow | null;
+  const roleRecord = Array.isArray(userRow?.roles) ? userRow.roles[0] : userRow?.roles;
   const roleName = roleRecord?.role_name ?? null;
 
   if (!roleName || !ALLOWED_ROLES.has(roleName)) {

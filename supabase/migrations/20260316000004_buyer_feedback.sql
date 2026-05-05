@@ -18,11 +18,13 @@ CREATE TABLE IF NOT EXISTS buyer_feedback (
 -- RLS
 ALTER TABLE buyer_feedback ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "buyer_feedback_select" ON buyer_feedback;
 CREATE POLICY "buyer_feedback_select" ON buyer_feedback
   FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "buyer_feedback_insert" ON buyer_feedback;
 CREATE POLICY "buyer_feedback_insert" ON buyer_feedback
   FOR INSERT TO authenticated WITH CHECK (auth.uid() IS NOT NULL);
 
 -- Index
-CREATE INDEX idx_buyer_feedback_request_id ON buyer_feedback(request_id);
+CREATE INDEX IF NOT EXISTS idx_buyer_feedback_request_id ON buyer_feedback(request_id);

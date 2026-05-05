@@ -171,7 +171,7 @@ export default function PanicAlertsPage() {
     if (alert.guard?.employee) {
       return `Guard: ${alert.guard.employee.first_name} ${alert.guard.employee.last_name}`;
     }
-    return `Guard: ${alert.guard?.guard_code || "Unknown"}`;
+    return `Guard: ${alert.guard?.guard_code || "Unassigned"}`;
   };
 
   // Loading state
@@ -293,7 +293,7 @@ export default function PanicAlertsPage() {
                                   {getAlertTypeLabel(alert.alert_type)} {!alert.is_resolved && "Emergency"}
                                 </span>
                                 <Badge variant="outline" className="text-[10px] h-4 px-1.5 uppercase font-bold border-current/20 font-mono italic">
-                                  {alert.id.slice(0, 8)}
+                                  Alert
                                 </Badge>
                               </div>
                               <span className="text-sm font-medium text-muted-foreground">
@@ -322,7 +322,7 @@ export default function PanicAlertsPage() {
                             <div className="flex items-center gap-2">
                               <MapPin className="h-3.5 w-3.5 text-primary" />
                               <span className="text-sm font-bold">
-                                {alert.location?.location_name || "Unknown Location"}
+                                {alert.location?.location_name || "Location not set"}
                               </span>
                             </div>
                           </div>
@@ -443,7 +443,7 @@ export default function PanicAlertsPage() {
           {/* Stats Summary */}
           <Card className="border-none shadow-card ring-1 ring-border">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-bold uppercase">Today's Summary</CardTitle>
+              <CardTitle className="text-sm font-bold uppercase">Today&apos;s Summary</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex justify-between items-center">

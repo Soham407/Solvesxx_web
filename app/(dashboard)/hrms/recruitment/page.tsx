@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTable } from "@/components/shared/DataTable";
 import { Button } from "@/components/ui/button";
@@ -200,7 +200,7 @@ export default function RecruitmentPortalPage() {
   const [newStatus, setNewStatus] = useState<CandidateStatus | null>(null);
   const [statusNotes, setStatusNotes] = useState("");
   const [bgvFile, setBgvFile] = useState<File | null>(null);
-  const bgvInputRef = useState<any>(null); // For resetting input
+  const bgvInputRef = useRef<HTMLInputElement | null>(null);
 
   // BGV panel
   const [bgvCandidateId, setBgvCandidateId] = useState<string | null>(null);
@@ -249,7 +249,7 @@ export default function RecruitmentPortalPage() {
 
     setIsSubmitting(true);
     try {
-      const additionalData: Record<string, any> = {};
+      const additionalData: Record<string, unknown> = {};
       
       if (newStatus === "rejected") {
         additionalData.rejection_reason = statusNotes;
@@ -713,9 +713,10 @@ export default function RecruitmentPortalPage() {
             {newStatus === "background_check" && (
               <div className="space-y-4 pt-2">
                 <div className="p-4 border-2 border-dashed border-primary/20 rounded-xl bg-primary/5 hover:bg-primary/10 transition-colors">
-                  <input
-                    type="file"
-                    id="bgv-doc"
+                    <input
+                      ref={bgvInputRef}
+                      type="file"
+                      id="bgv-doc"
                     className="hidden"
                     onChange={(e) => setBgvFile(e.target.files ? e.target.files[0] : null)}
                     accept=".pdf,.jpg,.jpeg,.png"

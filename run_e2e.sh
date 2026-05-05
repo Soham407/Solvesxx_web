@@ -1,0 +1,4 @@
+#!/bin/bash
+export SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3aGJkZ3dmb2R1bW9nbnBrZ3JmIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MDEzNjI5OCwiZXhwIjoyMDg1NzEyMjk4fQ.NcWmV8qrc1ONvVFk1MCwS1ThYouB8sAzXBiXQm6-2N4
+export E2E_SUITE=smoke
+npx playwright test --reporter=list 2>&1 | tee e2e-results.txt

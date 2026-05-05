@@ -179,15 +179,23 @@ async function waitForServer(host, port, timeout) {
   while (Date.now() < endTime) {
     try {
       const http = await import("http");
-      const req = http.get(`http://${host}:${port}/`, (res) => {
-        if (res.statusCode === 200 || res.statusCode === 307) {
-          return true;
-        }
+      const isReady = await new Promise((resolve) => {
+        const req = http.get(`http://${host}:${port}/`, (res) => {
+          // Consume response data and explicitly resolve readiness for accepted redirect/success states.
+          res.resume();
+          resolve(res.statusCode === 200 || res.statusCode === 307);
+        });
+
+        req.setTimeout(5000, () => {
+          req.destroy();
+          resolve(false);
+        });
+        req.on("error", () => resolve(false));
       });
 
-      req.on("error", () => {});
-      req.end();
-      await sleep(100);
+      if (isReady) {
+        return;
+      }
     } catch (e) {}
 
     await sleep(500);

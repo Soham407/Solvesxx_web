@@ -84,7 +84,7 @@ USING (
   )
 );
 
-CREATE POLICY "leave_applications_insert_own"
+create policy "leave_applications_insert_own"
 ON public.leave_applications
 FOR INSERT
 TO authenticated
@@ -138,7 +138,7 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION public.sync_leave_application_attendance(p_leave_application_id UUID)
+create or replace function public.sync_leave_application_attendance(p_leave_application_id UUID)
 RETURNS VOID
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -278,7 +278,7 @@ ON public.leave_applications
 FOR EACH ROW
 EXECUTE FUNCTION public.trg_cleanup_leave_application_attendance();
 
-CREATE OR REPLACE FUNCTION public.validate_clock_in_geofence()
+create or replace function public.validate_clock_in_geofence()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -468,7 +468,7 @@ BEGIN
   IF v_basic_salary <= 0 THEN
     RETURN jsonb_build_object(
       'success', false,
-      'error', 'Employee salary structure is not configured'
+      'error', 'employee salary structure is not configured'
     );
   END IF;
 
@@ -631,7 +631,7 @@ BEGIN
   IF v_actor_role NOT IN ('admin', 'super_admin') THEN
     RETURN jsonb_build_object(
       'success', false,
-      'error', 'Only admins can generate payroll cycles'
+      'error', 'only admins can generate payroll cycles'
     );
   END IF;
 

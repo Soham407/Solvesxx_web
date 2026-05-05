@@ -24,19 +24,20 @@ import { downloadCSV } from "@/lib/utils/csvExport";
 import { toast } from "sonner";
 import { MonthPicker } from "@/components/shared/MonthPicker";
 import { useState } from "react";
-
-interface AttendanceReport {
-  date: string;
-  present: number;
-  absent: number;
-  late: number;
-}
+import {
+  buildAttendanceReportPageStats,
+  normalizeAttendanceReportRows,
+  type AttendanceReportRow,
+} from "@/src/lib/analytics/reportPageTransforms";
 
 export default function AttendanceAnalyticsPage() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const { data, isLoading, error } = useAnalyticsData("attendance", selectedDate);
+  const attendanceData: AttendanceReportRow[] = normalizeAttendanceReportRows(data);
+  const attendanceChartData = attendanceData;
+  const reportStats = buildAttendanceReportPageStats({ data: attendanceData });
 
-  const columns: ColumnDef<AttendanceReport>[] = [
+  const columns: ColumnDef<AttendanceReportRow>[] = [
     {
       accessorKey: "date",
       header: "Day",
@@ -59,11 +60,6 @@ export default function AttendanceAnalyticsPage() {
     },
   ];
 
-  const totalPresent = data.reduce((acc, curr) => acc + Number(curr.present || 0), 0);
-  const totalAbsent = data.reduce((acc, curr) => acc + Number(curr.absent || 0), 0);
-  const totalLate = data.reduce((acc, curr) => acc + Number(curr.late || 0), 0);
-  const avgAttendance = data.length > 0 ? ((totalPresent / (totalPresent + totalAbsent || 1)) * 100).toFixed(1) : "0.0";
-
   return (
     <div className="animate-fade-in space-y-8 pb-20">
       <PageHeader
@@ -76,7 +72,7 @@ export default function AttendanceAnalyticsPage() {
               <Button variant="outline" className="gap-2" onClick={() => toast.info("Trend View", { description: "Chart already shows trend data above." })}>
                  <TrendingUp className="h-4 w-4" /> Trend View
               </Button>
-              <Button className="gap-2 shadow-lg shadow-primary/20" onClick={() => { if (data.length === 0) { toast.error("No data to export"); return; } downloadCSV("attendance_report", data); toast.success("Report downloaded"); }}>
+              <Button className="gap-2 shadow-lg shadow-primary/20" onClick={() => { if (attendanceData.length === 0) { toast.error("No data to export"); return; } downloadCSV("attendance_report", attendanceData); toast.success("Report downloaded"); }}>
                  <Download className="h-4 w-4" /> Download Report
               </Button>
             </div>
@@ -101,7 +97,7 @@ export default function AttendanceAnalyticsPage() {
                  <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Total Present</span>
              </div>
              <div className="flex flex-col">
-                <span className="text-xl font-bold text-foreground">{totalPresent}</span>
+                <span className="text-xl font-bold text-foreground">{reportStats.totalPresent}</span>
                 <span className="text-[10px] text-muted-foreground font-medium mt-1">Monthly Cumulative</span>
              </div>
         </Card>
@@ -113,7 +109,7 @@ export default function AttendanceAnalyticsPage() {
                  <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Avg Compliance</span>
              </div>
              <div className="flex flex-col">
-                <span className="text-xl font-bold text-foreground">{avgAttendance}%</span>
+                <span className="text-xl font-bold text-foreground">{reportStats.avgAttendance}%</span>
                 <span className="text-[10px] text-success font-medium mt-1">Monthly Average</span>
              </div>
         </Card>
@@ -125,7 +121,7 @@ export default function AttendanceAnalyticsPage() {
                  <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Late Counts</span>
              </div>
              <div className="flex flex-col">
-                <span className="text-xl font-bold text-foreground">{totalLate}</span>
+                <span className="text-xl font-bold text-foreground">{reportStats.totalLate}</span>
                 <span className="text-[10px] text-warning font-medium mt-1">Total delays this month</span>
              </div>
         </Card>
@@ -137,7 +133,7 @@ export default function AttendanceAnalyticsPage() {
                  <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Absent Count</span>
              </div>
              <div className="flex flex-col">
-                <span className="text-xl font-bold text-foreground">{totalAbsent}</span>
+                <span className="text-xl font-bold text-foreground">{reportStats.totalAbsent}</span>
                 <span className="text-[10px] text-critical font-medium mt-1">Total absences this month</span>
              </div>
         </Card>
@@ -156,7 +152,7 @@ export default function AttendanceAnalyticsPage() {
                   {isLoading ? <Skeleton className="h-[200px] w-full" /> : (
                       <AnalyticsChart 
                         type="bar" 
-                        data={data} 
+                        data={attendanceChartData} 
                         index="date" 
                         categories={["present", "absent"]} 
                         height={250}
@@ -177,7 +173,7 @@ export default function AttendanceAnalyticsPage() {
                   {isLoading ? <Skeleton className="h-[200px] w-full" /> : (
                       <AnalyticsChart 
                         type="area" 
-                        data={data} 
+                        data={attendanceChartData} 
                         index="date" 
                         categories={["late"]} 
                         height={250}
@@ -188,12 +184,7 @@ export default function AttendanceAnalyticsPage() {
           </Card>
       </div>
 
-      <DataTable 
-        columns={columns} 
-        data={data} 
-        searchKey="date" 
-        isLoading={isLoading} 
-      />
+      <DataTable columns={columns} data={attendanceData} searchKey="date" isLoading={isLoading} />
     </div>
   );
 }

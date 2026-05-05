@@ -19,6 +19,21 @@ interface PlantationInventoryItem {
   status: "Stable" | "Low" | "Critical";
 }
 
+interface PlantationStockRow {
+  product_id: string;
+  total_quantity: number | null;
+  reorder_level: number | null;
+  unit_of_measurement: string | null;
+  products?: {
+    product_name: string | null;
+    product_code: string | null;
+  } | null;
+}
+
+function normalizeStockRows(rows: unknown): PlantationStockRow[] {
+  return Array.isArray(rows) ? (rows as PlantationStockRow[]) : [];
+}
+
 export function PlantationInventory() {
   const [inventory, setInventory] = useState<PlantationInventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -52,8 +67,8 @@ export function PlantationInventory() {
       if (fetchError) throw fetchError;
 
       // Filter for plantation-related items
-      const plantationItems = (data || [])
-        .filter((item: any) => {
+      const plantationItems = normalizeStockRows(data)
+        .filter((item) => {
           const name = item.products?.product_name?.toLowerCase() || "";
           const code = item.products?.product_code?.toLowerCase() || "";
           return (
@@ -68,7 +83,7 @@ export function PlantationInventory() {
             code.includes("grd")
           );
         })
-        .map((item: any): PlantationInventoryItem => {
+        .map((item): PlantationInventoryItem => {
           const currentStock = item.total_quantity || 0;
           const reorderLevel = item.reorder_level || 0;
           const status: PlantationInventoryItem["status"] =
@@ -80,8 +95,8 @@ export function PlantationInventory() {
 
           return {
             id: item.product_id,
-            product_name: item.products?.product_name || "Unknown Product",
-            product_code: item.products?.product_code || "N/A",
+            product_name: item.products?.product_name || "Product not linked",
+            product_code: item.products?.product_code || "Not set",
             current_stock: currentStock,
             unit: item.unit_of_measurement || "units",
             reorder_level: reorderLevel,

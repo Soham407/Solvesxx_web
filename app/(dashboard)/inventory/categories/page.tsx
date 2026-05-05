@@ -41,6 +41,17 @@ const EMPTY_FORM: CategoryFormData = {
   description: "",
 };
 
+function summarizeCategoryCounts(categories: ProductCategory[]) {
+  return {
+    activeCount: categories.filter((category) => category.is_active).length,
+    archivedCount: categories.filter((category) => !category.is_active).length,
+  };
+}
+
+function getCategoryStatusClassName(isActive: boolean) {
+  return isActive ? "bg-success/10 text-success border-success/20" : "";
+}
+
 export default function CategoriesPage() {
   const { toast } = useToast();
   const {
@@ -158,7 +169,7 @@ export default function CategoriesPage() {
           <div className="flex flex-col text-left">
             <span className="font-bold text-sm ">{row.original.category_name}</span>
             <span className="text-[10px] text-muted-foreground uppercase font-bold ">
-              {row.original.category_code || "N/A"}
+              {row.original.category_code || "Not set"}
             </span>
           </div>
         </div>
@@ -183,15 +194,15 @@ export default function CategoriesPage() {
         </div>
       ),
     },
-    {
-      accessorKey: "status",
-      header: "Status",
+      {
+        accessorKey: "status",
+        header: "Status",
       cell: ({ row }) => (
         <Badge
           variant="outline"
           className={cn(
             "font-bold text-[10px] uppercase h-5",
-            row.original.is_active ? "bg-success/10 text-success border-success/20" : ""
+            getCategoryStatusClassName(row.original.is_active)
           )}
         >
           {row.original.is_active ? "Active" : "Archived"}
@@ -230,8 +241,7 @@ export default function CategoriesPage() {
     },
   ];
 
-  const activeCount = categories.filter((category) => category.is_active).length;
-  const archivedCount = categories.filter((category) => !category.is_active).length;
+  const { activeCount, archivedCount } = summarizeCategoryCounts(categories);
 
   return (
     <div className="animate-fade-in space-y-6">

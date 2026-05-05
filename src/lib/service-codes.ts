@@ -29,7 +29,7 @@ export const ServiceCode = {
   // Safety
   FIRE_INSPECTION:      "FIR-INS",
 
-  // Printing / Advertising (used by /services/printing page)
+  // Printing / Advertising remains as historical data only. The production UI is removed.
   PRINTING_ADVERTISING: "PRN-ADV",
 } as const;
 

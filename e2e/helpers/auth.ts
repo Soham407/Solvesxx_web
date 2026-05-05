@@ -1,8 +1,126 @@
+import { Buffer } from "node:buffer";
+
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import type { AppRole } from "../../src/lib/auth/roles";
 import type { RoleJourneyCheck, RoleTestConfig } from "../role-matrix";
 import { getRoleTestConfig } from "../role-matrix";
+
+const SUPABASE_PROJECT_REF = "wwhbdgwfodumognpkgrf";
+const SUPABASE_TOKEN_URL = `https://${SUPABASE_PROJECT_REF}.supabase.co/auth/v1/token`;
+const SUPABASE_ANON_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3aGJkZ3dmb2R1bW9nbnBrZ3JmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAxMzYyOTgsImV4cCI6MjA4NTcxMjI5OH0.Iw5KYmIP_OHalA2tyHAiKSI6xQa-EE5urL_4aEygzg0";
+const SESSION_COOKIE_NAME = `sb-${SUPABASE_PROJECT_REF}-auth-token`;
+const BASE64_PREFIX = "base64-";
+const MAX_COOKIE_CHUNK = 3180;
+
+type SessionCookie = {
+  name: string;
+  value: string;
+  sameSite: "Strict" | "Lax" | "None";
+  httpOnly: boolean;
+  secure: boolean;
+};
+
+type SupabasePasswordSession = Record<string, unknown> & {
+  expires_at?: number;
+};
+
+const sessionCache = new Map<string, SupabasePasswordSession>();
+
+function getSessionCacheKey(config: RoleTestConfig) {
+  return `${config.email}:${config.password}`;
+}
+
+function isSessionFresh(session: SupabasePasswordSession) {
+  if (typeof session.expires_at !== "number") {
+    return true;
+  }
+
+  return session.expires_at * 1000 > Date.now() + 60_000;
+}
+
+function buildSessionCookies(
+  session: unknown
+): SessionCookie[] {
+  const json = JSON.stringify(session);
+  const encoded = BASE64_PREFIX + Buffer.from(json, "utf8").toString("base64url");
+  const urlEncoded = encodeURIComponent(encoded);
+
+  const base = { sameSite: "Lax" as const, httpOnly: false, secure: false };
+
+  if (urlEncoded.length <= MAX_COOKIE_CHUNK) {
+    return [{ ...base, name: SESSION_COOKIE_NAME, value: encoded }];
+  }
+
+  // Session too large — split into chunks matching @supabase/ssr createChunks logic.
+  const cookies: SessionCookie[] = [];
+  let remaining = urlEncoded;
+  let idx = 0;
+
+  while (remaining.length > 0) {
+    let head = remaining.slice(0, MAX_COOKIE_CHUNK);
+    const lastPct = head.lastIndexOf("%");
+    if (lastPct > MAX_COOKIE_CHUNK - 3) head = head.slice(0, lastPct);
+    let value = "";
+    let attempt = head;
+    while (attempt.length > 0) {
+      try {
+        value = decodeURIComponent(attempt);
+        break;
+      } catch {
+        attempt = attempt.slice(0, attempt.length - 3);
+      }
+    }
+    cookies.push({ ...base, name: `${SESSION_COOKIE_NAME}.${idx}`, value });
+    remaining = remaining.slice(head.length);
+    idx++;
+  }
+
+  return cookies;
+}
+
+async function getSupabaseSession(page: Page, config: RoleTestConfig) {
+  const cacheKey = getSessionCacheKey(config);
+  const cachedSession = sessionCache.get(cacheKey);
+
+  if (cachedSession && isSessionFresh(cachedSession)) {
+    return cachedSession;
+  }
+
+  let lastStatus = 0;
+  let lastBody = "";
+
+  for (let attempt = 1; attempt <= 4; attempt += 1) {
+    const resp = await page.request.post(`${SUPABASE_TOKEN_URL}?grant_type=password`, {
+      headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY },
+      data: { email: config.email, password: config.password },
+    });
+
+    if (resp.ok()) {
+      const session = (await resp.json()) as SupabasePasswordSession;
+      sessionCache.set(cacheKey, session);
+      return session;
+    }
+
+    lastStatus = resp.status();
+    lastBody = await resp.text();
+
+    if (lastStatus !== 429) {
+      break;
+    }
+
+    if (cachedSession) {
+      return cachedSession;
+    }
+
+    await page.waitForTimeout(attempt * 2_000);
+  }
+
+  throw new Error(
+    `Supabase auth failed for ${config.role} (${config.email}): HTTP ${lastStatus} — ${lastBody}`
+  );
+}
 
 const LOGIN_BUTTON_NAME = /^(?:sign in|enter workspace)$/i;
 
@@ -78,44 +196,6 @@ async function waitForPath(
   await expect(page.locator("main")).toBeVisible({ timeout });
 }
 
-function getCurrentPath(page: Page) {
-  try {
-    return new URL(page.url()).pathname;
-  } catch {
-    return page.url();
-  }
-}
-
-async function prepareLoginForm(page: Page) {
-  const emailField = page.getByLabel(/corporate email|email/i);
-
-  for (let attempt = 1; attempt <= 2; attempt += 1) {
-    await gotoWithRetry(page, "/login", { waitUntil: "domcontentloaded" });
-
-    try {
-      await expect(emailField).toBeVisible({ timeout: 5_000 });
-      return emailField;
-    } catch (error) {
-      if (attempt === 2 || getCurrentPath(page) === "/login") {
-        throw error;
-      }
-
-      await page.context().clearCookies();
-      await page.evaluate(() => {
-        try {
-          window.localStorage.clear();
-          window.sessionStorage.clear();
-        } catch {
-          // Ignore storage access errors while resetting auth state.
-        }
-      });
-      await page.waitForTimeout(500);
-    }
-  }
-
-  return emailField;
-}
-
 function getJourneyReadyLocators(page: Page, journey: RoleJourneyCheck): Locator[] {
   const main = page.locator("main");
   const candidates: Locator[] = [];
@@ -160,33 +240,46 @@ async function expectAnyVisible(locators: Locator[], timeout = 10_000) {
 
 export async function loginAsRole(page: Page, configOrRole: RoleTestConfig | AppRole) {
   const config = getRoleConfig(configOrRole);
+
+  // Direct API login bypasses the browser form, avoiding both the @supabase/ssr
+  // cookie-setting race condition. Cache per worker to avoid repeated password
+  // grants tripping Supabase's auth rate limit in role matrix suites.
+  const session = await getSupabaseSession(page, config);
+  await gotoWithRetry(page, "/login", { waitUntil: "domcontentloaded" });
+  const cookieUrl = new URL(page.url()).origin;
+
+  await page.context().clearCookies();
+  await page.context().addCookies(
+    buildSessionCookies(session).map((cookie) => ({
+      ...cookie,
+      url: cookieUrl,
+    }))
+  );
+
   const acceptedLandingPaths = Array.from(
     new Set([config.expectedLandingPath, config.allowedPath])
   );
+  const navigationTargets = Array.from(
+    new Set([
+      config.expectedLandingPath,
+      ...(config.allowedPath !== config.expectedLandingPath ? [config.allowedPath] : []),
+    ])
+  );
   let lastError: unknown;
 
-  for (let attempt = 1; attempt <= 2; attempt += 1) {
-    const emailField = await prepareLoginForm(page);
-    await emailField.fill(config.email);
-    await page.getByLabel(/password/i).fill(config.password);
-    await page.getByRole("button", { name: LOGIN_BUTTON_NAME }).click();
-
+  for (const target of navigationTargets) {
     try {
+      await gotoWithRetry(page, target, { waitUntil: "domcontentloaded" });
       await waitForPath(page, acceptedLandingPaths, 15_000);
       return;
     } catch (error) {
       lastError = error;
-      const currentPath = getCurrentPath(page);
-
-      if (attempt === 2 || currentPath !== "/login") {
-        throw error;
-      }
-
-      await page.waitForTimeout(1_000);
     }
   }
 
-  throw lastError instanceof Error ? lastError : new Error(`Failed to sign in as ${config.role}.`);
+  throw lastError instanceof Error
+    ? lastError
+    : new Error(`Failed to navigate after signing in as ${config.role}.`);
 }
 
 export async function expectAllowedRoute(page: Page, configOrRole: RoleTestConfig | AppRole) {

@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase as supabaseClient } from "@/src/lib/supabaseClient";
-const supabase = supabaseClient as any;
+import { supabase } from "@/src/lib/supabaseClient";
 import type {
   ServiceRequest,
   ServiceRequestInsert,
@@ -14,6 +13,12 @@ import type {
 import { PAGINATION } from "@/src/lib/constants";
 import { sanitizeLikeInput } from "@/lib/sanitize";
 import { closeServiceRequestAction } from "@/lib/service-request-actions";
+import {
+  buildServiceDashboardStats,
+  isPestControlServiceRequest,
+  type ServiceRequestDetailRow,
+  type ServiceRequestStatsRow,
+} from "@/src/lib/service-requests/serviceRequestTransforms";
 
 interface UseServiceRequestsState {
   requests: ServiceRequestWithDetails[];
@@ -57,6 +62,14 @@ export function useServiceRequests(initialFilters?: ServiceRequestFilters): UseS
   });
 
   const [filters, setFiltersState] = useState<ServiceRequestFilters>(initialFilters || {});
+
+  function normalizeRequestRows(rows: unknown): ServiceRequestWithDetails[] {
+    return Array.isArray(rows) ? (rows as ServiceRequestWithDetails[]) : [];
+  }
+
+  function normalizeStatsRows(rows: unknown): ServiceRequestStatsRow[] {
+    return Array.isArray(rows) ? (rows as ServiceRequestStatsRow[]) : [];
+  }
 
   // Sync filters with initialFilters if they change
   useEffect(() => {
@@ -127,7 +140,7 @@ export function useServiceRequests(initialFilters?: ServiceRequestFilters): UseS
 
       setState((prev) => ({
         ...prev,
-        requests: (data as ServiceRequestWithDetails[]) || [],
+        requests: normalizeRequestRows(data),
         totalCount: count || 0,
         isLoading: false,
         error: null,
@@ -146,43 +159,15 @@ export function useServiceRequests(initialFilters?: ServiceRequestFilters): UseS
   // Fetch dashboard statistics
   const fetchStats = useCallback(async () => {
     try {
-      const today = new Date().toISOString().split("T")[0];
-
       // Get all requests for stats calculation
       const { data: allRequests, error: reqError } = await supabase
         .from("service_requests")
-        .select("status, priority, created_at, completed_at");
+        .select("status, priority, created_at, completed_at, scheduled_date");
 
       if (reqError) throw reqError;
 
-      const requests = allRequests || [];
-      const completedToday = requests.filter(
-        (r) => (r.status === "completed" || r.status === "closed") && r.completed_at?.startsWith(today)
-      ).length;
-
-      // Calculate average resolution time for completed requests
-      const completedWithTimes = requests.filter(
-        (r) => (r.status === "completed" || r.status === "closed") && r.created_at && r.completed_at
-      );
-      const avgResolutionTime =
-        completedWithTimes.length > 0
-          ? completedWithTimes.reduce((acc, r) => {
-              const created = new Date(r.created_at!).getTime();
-              const completed = new Date(r.completed_at!).getTime();
-              return acc + (completed - created) / (1000 * 60 * 60);
-            }, 0) / completedWithTimes.length
-          : 0;
-
-      const stats: ServiceDashboardStats = {
-        openRequests: requests.filter((r) => r.status === "open").length,
-        inProgressRequests: requests.filter((r) => r.status === "in_progress").length,
-        completedToday,
-        overdueRequests: 0, // TODO: Calculate based on SLA
-        avgResolutionTime: Math.round(avgResolutionTime * 10) / 10,
-        urgentRequests: requests.filter((r) => r.priority === "urgent" && r.status !== "completed").length,
-      };
-
-      setState((prev) => ({ ...prev, stats }));
+      const requests = normalizeStatsRows(allRequests);
+      setState((prev) => ({ ...prev, stats: buildServiceDashboardStats(requests) }));
     } catch (err: unknown) {
       console.error("Error fetching service request stats:", err);
     }
@@ -287,7 +272,7 @@ export function useServiceRequests(initialFilters?: ServiceRequestFilters): UseS
       try {
         const { data: request, error: requestError } = await supabase
           .from("service_requests_with_details")
-          .select("after_photo_url, completion_notes, status, service_name")
+          .select("after_photo_url, completion_notes, status, service_name, service_code")
           .eq("id", id)
           .single();
 
@@ -298,15 +283,7 @@ export function useServiceRequests(initialFilters?: ServiceRequestFilters): UseS
         }
 
         // Enforce PPE verification for pest control jobs
-        const serviceName = String(request.service_name || "").toLowerCase();
-        const serviceCode = String((request as any).service_code || "");
-        const isPestControlJob =
-          serviceCode === "PST-CON" ||
-          serviceName.includes("pest control") ||
-          serviceName.includes("pest") ||
-          serviceName.includes("pst-con");
-
-        if (isPestControlJob) {
+        if (isPestControlServiceRequest(request as ServiceRequestDetailRow)) {
           const { data: ppeVerifications, error: ppeError } = await supabase
             .from("pest_control_ppe_verifications")
             .select("id, all_items_checked")
@@ -398,15 +375,7 @@ export function useServiceRequests(initialFilters?: ServiceRequestFilters): UseS
           .eq("id", id)
           .maybeSingle();
 
-        const serviceName = String(serviceRequest?.service_name || "").toLowerCase();
-        const serviceCode = String((serviceRequest as any)?.service_code || "");
-        const isPestControlJob =
-          serviceCode === "PST-CON" ||
-          serviceName.includes("pest control") ||
-          serviceName.includes("pest") ||
-          serviceName.includes("pst-con");
-
-        if (isPestControlJob) {
+        if (isPestControlServiceRequest(serviceRequest as ServiceRequestDetailRow | null)) {
           const { data: ppeVerifications, error: ppeError } = await supabase
             .from("pest_control_ppe_verifications")
             .select("id, all_items_checked")

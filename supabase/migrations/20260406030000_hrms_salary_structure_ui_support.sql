@@ -11,7 +11,7 @@ ALTER TABLE public.employee_salary_structure ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "View Salary Components" ON public.salary_components;
 DROP POLICY IF EXISTS "Manage Salary Components" ON public.salary_components;
 
-CREATE POLICY "salary_components_select"
+create policy "salary_components_select"
 ON public.salary_components
 FOR SELECT
 TO authenticated
@@ -66,7 +66,7 @@ USING (
   )
 );
 
-CREATE POLICY "employee_salary_structure_manage"
+create policy "employee_salary_structure_manage"
 ON public.employee_salary_structure
 FOR ALL
 TO authenticated
@@ -85,7 +85,7 @@ WITH CHECK (
   )
 );
 
-CREATE OR REPLACE FUNCTION public.upsert_employee_salary_component(
+create or replace function public.upsert_employee_salary_component(
   p_employee_id UUID,
   p_component_id UUID,
   p_amount BIGINT,
@@ -172,7 +172,7 @@ BEGIN
     END IF;
 
     IF p_effective_from < v_current.effective_from THEN
-      RAISE EXCEPTION 'Cannot backdate before the current active component start date (%).', v_current.effective_from;
+      RAISE EXCEPTION 'cannot backdate before the current active component start date (%).', v_current.effective_from;
     END IF;
 
     UPDATE public.employee_salary_structure

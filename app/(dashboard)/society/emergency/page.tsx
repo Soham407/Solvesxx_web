@@ -41,7 +41,6 @@ export default function EmergencyDirectoryPage() {
             </div>
             <div className="flex flex-col text-left">
               <span className="font-bold text-sm ">{row.original.contact_name}</span>
-              <span className="text-[10px] text-muted-foreground uppercase font-bold ">{type} • {row.original.id.slice(0, 8)}</span>
             </div>
           </div>
         );

@@ -62,19 +62,21 @@ function getPayrollImpactLabel(value: string | null) {
   return PAYROLL_IMPACT_LABELS[value] || value;
 }
 
+function summarizeHolidayStats(holidays: Holiday[]) {
+  return {
+    nationalCount: holidays.filter((holiday) => holiday.holiday_type === "national").length,
+    regionalCount: holidays.filter((holiday) => holiday.holiday_type === "regional").length,
+    companyCount: holidays.filter((holiday) => holiday.holiday_type === "company_off").length,
+  };
+}
+
 export default function HolidayCalendarPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [holidayForm, setHolidayForm] = useState(INITIAL_HOLIDAY_FORM);
   const { holidays, isLoading, error, addHoliday, deleteHoliday } = useHolidays();
 
-  const stats = useMemo(() => {
-    const nationalCount = holidays.filter((holiday) => holiday.holiday_type === "national").length;
-    const regionalCount = holidays.filter((holiday) => holiday.holiday_type === "regional").length;
-    const companyCount = holidays.filter((holiday) => holiday.holiday_type === "company_off").length;
-
-    return { nationalCount, regionalCount, companyCount };
-  }, [holidays]);
+  const stats = useMemo(() => summarizeHolidayStats(holidays), [holidays]);
 
   const handleCreateHoliday = async () => {
     if (!holidayForm.holiday_name || !holidayForm.holiday_date) {

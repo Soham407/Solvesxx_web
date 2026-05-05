@@ -41,6 +41,7 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS set_shortage_note_number ON shortage_notes;
 CREATE TRIGGER set_shortage_note_number
   BEFORE INSERT ON shortage_notes
   FOR EACH ROW EXECUTE FUNCTION generate_shortage_note_number();
@@ -53,6 +54,7 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS set_shortage_note_updated_at ON shortage_notes;
 CREATE TRIGGER set_shortage_note_updated_at
   BEFORE UPDATE ON shortage_notes
   FOR EACH ROW EXECUTE FUNCTION update_shortage_note_updated_at();
@@ -60,14 +62,19 @@ CREATE TRIGGER set_shortage_note_updated_at
 ALTER TABLE shortage_notes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE shortage_note_items ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "shortage_notes_select" ON shortage_notes;
 CREATE POLICY "shortage_notes_select" ON shortage_notes FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "shortage_notes_insert" ON shortage_notes;
 CREATE POLICY "shortage_notes_insert" ON shortage_notes FOR INSERT TO authenticated WITH CHECK (auth.uid() IS NOT NULL);
+DROP POLICY IF EXISTS "shortage_notes_update" ON shortage_notes;
 CREATE POLICY "shortage_notes_update" ON shortage_notes FOR UPDATE TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "shortage_note_items_select" ON shortage_note_items;
 CREATE POLICY "shortage_note_items_select" ON shortage_note_items FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "shortage_note_items_insert" ON shortage_note_items;
 CREATE POLICY "shortage_note_items_insert" ON shortage_note_items FOR INSERT TO authenticated WITH CHECK (auth.uid() IS NOT NULL);
 
-CREATE INDEX idx_shortage_notes_po_id ON shortage_notes(po_id);
-CREATE INDEX idx_shortage_notes_supplier_id ON shortage_notes(supplier_id);
-CREATE INDEX idx_shortage_notes_status ON shortage_notes(status);
-CREATE INDEX idx_shortage_note_items_note_id ON shortage_note_items(shortage_note_id);;
+CREATE INDEX IF NOT EXISTS idx_shortage_notes_po_id ON shortage_notes(po_id);
+CREATE INDEX IF NOT EXISTS idx_shortage_notes_supplier_id ON shortage_notes(supplier_id);
+CREATE INDEX IF NOT EXISTS idx_shortage_notes_status ON shortage_notes(status);
+CREATE INDEX IF NOT EXISTS idx_shortage_note_items_note_id ON shortage_note_items(shortage_note_id);;

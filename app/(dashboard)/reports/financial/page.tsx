@@ -25,20 +25,30 @@ import { toast } from "sonner";
 import { formatCurrency } from "@/src/lib/utils/currency";
 import { MonthPicker } from "@/components/shared/MonthPicker";
 import { useState } from "react";
-
-interface LedgerSummary {
-  category: string;
-  revenue: number;
-}
+import {
+  buildFinancialReportPageStats,
+  normalizeFinancialReportRows,
+  normalizeFinancialTrendRows,
+  type FinancialReportRow,
+  type FinancialTrendReportRow,
+} from "@/src/lib/analytics/reportPageTransforms";
 
 export default function FinancialAnalyticsPage() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const { data, trends, summary, isLoading, error } = useAnalyticsData("financial", selectedDate);
+  const financialData: FinancialReportRow[] = normalizeFinancialReportRows(data);
+  const financialTrends: FinancialTrendReportRow[] = normalizeFinancialTrendRows(trends);
+  const financialChartData = financialData;
+  const financialTrendChartData = financialTrends;
+  const reportStats = buildFinancialReportPageStats({
+    summary,
+    trends: financialTrends,
+  });
   
   const formatViewCurrency = (amountInRupees: number) => formatCurrency(Math.round(amountInRupees * 100));
-  const chartCurrencyFormatter = (val: any) => formatCurrency(Math.round(Number(val) * 100));
+  const chartCurrencyFormatter = (val: number | string) => formatCurrency(Math.round(Number(val) * 100));
 
-  const columns: ColumnDef<LedgerSummary>[] = [
+  const columns: ColumnDef<FinancialReportRow>[] = [
     {
       accessorKey: "category",
       header: "Business Line",
@@ -54,7 +64,7 @@ export default function FinancialAnalyticsPage() {
       header: "Collection Contribution %",
       cell: ({ row }) => {
         const rev = Number(row.getValue("revenue") || 0);
-        const percent = totalCollectionRupees > 0 ? ((rev / totalCollectionRupees) * 100).toFixed(1) : "0.0";
+        const percent = reportStats.totalCollectionRupees > 0 ? ((rev / reportStats.totalCollectionRupees) * 100).toFixed(1) : "0.0";
         return (
           <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 font-bold">
             {percent}%
@@ -63,23 +73,6 @@ export default function FinancialAnalyticsPage() {
       },
     },
   ];
-
-  const totalCollection = Number(summary?.total_collected_month || 0);
-  const outstanding = Number(summary?.total_outstanding || 0);
-  const totalCollectionRupees = totalCollection / 100;
-  const totalExpenseRupees = Number(summary?.total_expense || 0) / 100;
-
-  // Month-over-month collection change
-  const lastTwoMonths = trends.slice(-2);
-  const momCollectionChange = lastTwoMonths.length === 2 && Number(lastTwoMonths[0].revenue || 0) > 0
-    ? (((Number(lastTwoMonths[1].revenue || 0) - Number(lastTwoMonths[0].revenue || 0)) / Number(lastTwoMonths[0].revenue || 0)) * 100).toFixed(1)
-    : null;
-  const momExpenseChange = lastTwoMonths.length === 2 && Number(lastTwoMonths[0].expense || 0) > 0
-    ? (((Number(lastTwoMonths[1].expense || 0) - Number(lastTwoMonths[0].expense || 0)) / Number(lastTwoMonths[0].expense || 0)) * 100).toFixed(1)
-    : null;
-  const profitRetention = totalCollectionRupees > 0
-    ? (((totalCollectionRupees - totalExpenseRupees) / totalCollectionRupees) * 100).toFixed(1)
-    : "0.0";
 
   return (
     <div className="animate-fade-in space-y-8 pb-20">
@@ -90,7 +83,7 @@ export default function FinancialAnalyticsPage() {
           <div className="flex items-center gap-4">
             <MonthPicker selectedDate={selectedDate} onDateChange={setSelectedDate} />
             <div className="flex gap-2 border-l pl-4 ml-2">
-              <Button variant="outline" className="gap-2" onClick={() => { if (data.length === 0) { toast.error("No data to export"); return; } downloadCSV("tax_summary", data); toast.success("Tax summary downloaded"); }}>
+              <Button variant="outline" className="gap-2" onClick={() => { if (financialData.length === 0) { toast.error("No data to export"); return; } downloadCSV("tax_summary", financialData); toast.success("Tax summary downloaded"); }}>
                 <TrendingUp className="h-4 w-4" /> Tax Summary
               </Button>
               <Button className="gap-2 shadow-lg shadow-primary/20" onClick={() => window.print()}>
@@ -115,11 +108,11 @@ export default function FinancialAnalyticsPage() {
             <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
               <Wallet className="h-5 w-5" />
             </div>
-            <Badge variant="outline" className="text-success border-success/20 bg-success/5 font-bold">{momCollectionChange ? `${Number(momCollectionChange) >= 0 ? "+" : ""}${momCollectionChange}%` : "Monthly"}</Badge>
+            <Badge variant="outline" className="text-success border-success/20 bg-success/5 font-bold">{reportStats.momCollectionChange ? `${Number(reportStats.momCollectionChange) >= 0 ? "+" : ""}${reportStats.momCollectionChange}%` : "Monthly"}</Badge>
           </div>
           <div className="flex flex-col text-left">
             <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Collection (Month)</span>
-            <span className="text-2xl font-bold text-primary mt-1">{formatCurrency(totalCollection)}</span>
+            <span className="text-2xl font-bold text-primary mt-1">{formatCurrency(reportStats.totalCollection)}</span>
           </div>
         </Card>
         <Card className="border-none shadow-card ring-1 ring-border p-6 bg-linear-to-br from-critical/5 to-transparent">
@@ -127,11 +120,11 @@ export default function FinancialAnalyticsPage() {
             <div className="h-10 w-10 rounded-xl bg-critical/10 text-critical flex items-center justify-center">
               <TrendingDown className="h-5 w-5" />
             </div>
-            <Badge variant="outline" className="text-critical border-critical/20 bg-critical/5 font-bold">{momExpenseChange ? `${Number(momExpenseChange) >= 0 ? "+" : ""}${momExpenseChange}%` : "Aged"}</Badge>
+            <Badge variant="outline" className="text-critical border-critical/20 bg-critical/5 font-bold">{reportStats.momExpenseChange ? `${Number(reportStats.momExpenseChange) >= 0 ? "+" : ""}${reportStats.momExpenseChange}%` : "Aged"}</Badge>
           </div>
           <div className="flex flex-col text-left">
             <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Outstanding (Aged)</span>
-            <span className="text-2xl font-bold text-critical mt-1">{formatCurrency(outstanding)}</span>
+            <span className="text-2xl font-bold text-critical mt-1">{formatCurrency(reportStats.outstanding)}</span>
           </div>
         </Card>
         <Card className="border-none shadow-card ring-1 ring-border p-6 bg-linear-to-br from-success/5 to-transparent">
@@ -143,7 +136,7 @@ export default function FinancialAnalyticsPage() {
           </div>
           <div className="flex flex-col text-left">
             <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Profit Retention</span>
-            <span className="text-2xl font-bold text-success mt-1">{profitRetention}%</span>
+            <span className="text-2xl font-bold text-success mt-1">{reportStats.profitRetention}%</span>
           </div>
         </Card>
         <Card className="border-none shadow-card ring-1 ring-border p-6 bg-linear-to-br from-info/5 to-transparent">
@@ -156,7 +149,7 @@ export default function FinancialAnalyticsPage() {
           <div className="flex flex-col text-left">
             <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Monthly Profit (Net)</span>
             <span className="text-2xl font-bold text-info mt-1">
-              {formatCurrency(totalCollection - Number(summary?.total_expense || 0))}
+              {formatCurrency(reportStats.monthlyNet)}
             </span>
           </div>
         </Card>
@@ -175,7 +168,7 @@ export default function FinancialAnalyticsPage() {
             {isLoading ? <Skeleton className="h-[200px] w-full" /> : (
               <AnalyticsChart
                 type="pie"
-                data={data}
+                data={financialChartData}
                 index="category"
                 categories={["revenue"]}
                 height={250}
@@ -196,7 +189,7 @@ export default function FinancialAnalyticsPage() {
             {isLoading ? <Skeleton className="h-[200px] w-full" /> : (
               <AnalyticsChart
                 type="area"
-                data={trends}
+                data={financialTrendChartData}
                 index="month"
                 categories={["revenue", "expense", "net_margin"]}
                 height={250}
@@ -207,12 +200,7 @@ export default function FinancialAnalyticsPage() {
         </Card>
       </div>
 
-      <DataTable
-        columns={columns}
-        data={data}
-        searchKey="category"
-        isLoading={isLoading}
-      />
+      <DataTable columns={columns} data={financialData} searchKey="category" isLoading={isLoading} />
     </div>
   );
 }

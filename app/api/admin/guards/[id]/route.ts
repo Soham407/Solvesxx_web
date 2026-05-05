@@ -11,7 +11,6 @@ const UpdateGuardSchema = z.object({
   assigned_location_id: z.string().uuid().optional(),
   shift_id: z.string().uuid().optional().or(z.literal("")),
   is_active: z.boolean().optional(),
-  society_id: z.string().uuid().optional(),
 }).superRefine((value, ctx) => {
   const isAssignmentUpdate =
     value.assigned_location_id !== undefined ||
@@ -39,14 +38,6 @@ const UpdateGuardSchema = z.object({
       code: z.ZodIssueCode.custom,
       path: ["shift_id"],
       message: "Active guards must have an assigned shift",
-    });
-  }
-
-  if (!isAssignmentUpdate && !value.society_id) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["society_id"],
-      message: "No guard update payload provided",
     });
   }
 });
@@ -132,61 +123,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     const { data: guardRecord, error: guardError } = await supabaseAdmin
       .from("security_guards")
-      .select("id, employee_id, society_id")
+      .select("id, employee_id")
       .eq("id", params.id)
       .maybeSingle();
 
     if (guardError || !guardRecord) {
       return NextResponse.json({ error: "Guard not found" }, { status: 404 });
-    }
-
-    const isSocietyOnlyUpdate =
-      !!parsed.data.society_id &&
-      parsed.data.assigned_location_id === undefined &&
-      parsed.data.is_active === undefined;
-
-    if (isSocietyOnlyUpdate) {
-      const { data: societyRecord, error: societyError } = await supabaseAdmin
-        .from("societies")
-        .select("id, society_name")
-        .eq("id", parsed.data.society_id as string)
-        .eq("is_active", true)
-        .maybeSingle();
-
-      if (societyError || !societyRecord) {
-        return NextResponse.json({ error: "Selected society not found" }, { status: 400 });
-      }
-
-      const { data: updatedGuard, error: societyUpdateError } = await supabaseAdmin
-        .from("security_guards")
-        .update({ society_id: parsed.data.society_id })
-        .eq("id", params.id)
-        .select("id, employee_id, society_id")
-        .single();
-
-      if (societyUpdateError || !updatedGuard) {
-        throw societyUpdateError ?? new Error("Failed to update guard society");
-      }
-
-      await insertAuditLog(supabaseAdmin, {
-        entityType: "security_guards",
-        entityId: params.id,
-        action: "guard.society_assigned",
-        actorId: auth.userId,
-        oldData: { society_id: guardRecord.society_id ?? null },
-        newData: updatedGuard,
-        metadata: {
-          employee_id: guardRecord.employee_id,
-          society_id: parsed.data.society_id,
-          society_name: societyRecord.society_name,
-        },
-      });
-
-      return NextResponse.json({
-        success: true,
-        society_id: parsed.data.society_id,
-        society_name: societyRecord.society_name,
-      });
     }
 
     const [{ data: locationRecord, error: locationError }, shiftResult, employeeResult] = await Promise.all([
@@ -229,9 +171,6 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       shift_timing: null,
       is_active: parsed.data.is_active!,
     };
-    if (parsed.data.society_id) {
-      guardFieldUpdate.society_id = parsed.data.society_id;
-    }
 
     const { error: guardUpdateError } = await supabaseAdmin
       .from("security_guards")

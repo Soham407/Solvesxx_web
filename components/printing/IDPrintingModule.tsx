@@ -124,7 +124,7 @@ export function IDPrintingModule() {
             <Label>Card Type</Label>
             <Select
               value={cardData.type}
-              onValueChange={(value: any) => setCardData({ ...cardData, type: value })}
+              onValueChange={(value) => setCardData({ ...cardData, type: value as IDCardData["type"] })}
             >
               <SelectTrigger>
                 <SelectValue />

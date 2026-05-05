@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { supabase as supabaseClient } from "@/src/lib/supabaseClient";
-const supabase = supabaseClient as any;
+import { supabase } from "@/src/lib/supabaseClient";
 import { useToast } from "@/components/ui/use-toast";
 
 export interface BuyerFeedback {

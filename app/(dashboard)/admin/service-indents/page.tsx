@@ -42,6 +42,14 @@ function isServiceRequest(request: BuyerRequest) {
   );
 }
 
+function summarizeServiceRequests(requests: BuyerRequest[]) {
+  return {
+    accepted: requests.length,
+    security: requests.filter((request) => request.service_type === "security").length,
+    staffing: requests.filter((request) => request.service_type === "staffing").length,
+  };
+}
+
 export default function AdminServiceIndentsPage() {
   const { role, user } = useAuth();
   const { toast } = useToast();
@@ -58,24 +66,13 @@ export default function AdminServiceIndentsPage() {
     isLoading: isLoadingMasters,
     refresh: refreshMasters,
   } = useServiceDeploymentMasters();
+  const isAccessDenied = Boolean(role && role !== "admin" && role !== "super_admin");
 
   const [selectedRequest, setSelectedRequest] = useState<BuyerRequest | null>(null);
   const [selectedSupplierId, setSelectedSupplierId] = useState("");
   const [isGeneratingIndent, setIsGeneratingIndent] = useState(false);
   const [activeRate, setActiveRate] = useState<{ rate: number; effective_from: string; effective_to?: string } | null>(null);
   const [isLoadingRate, setIsLoadingRate] = useState(false);
-
-  // RBAC Guard
-  if (role && role !== "admin" && role !== "super_admin") {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
-        <ShieldAlert className="h-12 w-12 text-destructive" />
-        <h1 className="text-2xl font-bold">Access Denied</h1>
-        <p className="text-muted-foreground">You do not have permission to view the service indents admin panel.</p>
-        <Button onClick={() => window.history.back()}>Go Back</Button>
-      </div>
-    );
-  }
 
   const serviceRequests = useMemo(
     () =>
@@ -91,18 +88,25 @@ export default function AdminServiceIndentsPage() {
   }, [getSuppliersByServiceType, selectedRequest]);
 
   const stats = useMemo(
-    () => ({
-      accepted: serviceRequests.length,
-      security: serviceRequests.filter((request) => request.service_type === "security").length,
-      staffing: serviceRequests.filter((request) => request.service_type === "staffing").length,
-    }),
+    () => summarizeServiceRequests(serviceRequests),
     [serviceRequests]
   );
+
+  if (isAccessDenied) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+        <ShieldAlert className="h-12 w-12 text-destructive" />
+        <h1 className="text-2xl font-bold">Access Denied</h1>
+        <p className="text-muted-foreground">You do not have permission to view the service indents admin panel.</p>
+        <Button onClick={() => window.history.back()}>Go Back</Button>
+      </div>
+    );
+  }
 
   const fetchActiveRate = async (supplierId: string, serviceType: string) => {
     setIsLoadingRate(true);
     try {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from("service_rates")
         .select("rate, effective_from, effective_to")
         .eq("supplier_id", supplierId)
@@ -220,10 +224,10 @@ export default function AdminServiceIndentsPage() {
 
       closeGenerateDialog();
       refreshRequests();
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: "Indent Generation Failed",
-        description: err.message || "The service indent could not be generated.",
+        description: err instanceof Error ? err.message : "The service indent could not be generated.",
         variant: "destructive",
       });
     } finally {

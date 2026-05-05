@@ -3,14 +3,35 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase as supabaseTyped } from "@/src/lib/supabaseClient";
 import { useToast } from "@/components/ui/use-toast";
+import { notifyAdminTierUsers } from "@/src/lib/notifications/notifyAdminTierUsers";
+import type { Database } from "@/src/types/supabase";
 
-const supabase = supabaseTyped as any;
+const supabase = supabaseTyped;
+
+type BehaviorCategory = Database["public"]["Enums"]["behavior_category"];
+type BehaviorTicketRow = Database["public"]["Tables"]["employee_behavior_tickets"]["Row"];
+type BehaviorTicketStatus = BehaviorTicket["status"];
+
+interface BehaviorTicketInsertInput {
+  employee_id: string;
+  category: BehaviorCategory;
+  severity: string;
+  description: string;
+  reported_by?: string | null;
+  evidence_urls?: string[] | null;
+  status?: BehaviorTicketStatus;
+}
+
+interface BehaviorTicketUpdateInput {
+  status?: BehaviorTicketStatus;
+  resolution?: string | null;
+}
 
 export interface BehaviorTicket {
   id: string;
   ticket_number: string;
   employee_id: string;
-  category: string;
+  category: BehaviorCategory;
   severity: "low" | "medium" | "high";
   reported_by: string | null;
   description: string | null;
@@ -31,7 +52,7 @@ export interface BehaviorTicket {
 
 export interface CreateTicketDTO {
   employee_id: string;
-  category: string;
+  category: BehaviorCategory;
   severity: string;
   description: string;
   reported_by?: string;
@@ -64,7 +85,19 @@ export function useBehaviorTickets() {
 
       if (error) throw error;
 
-      const typedData = data as unknown as BehaviorTicket[];
+      const typedData: BehaviorTicket[] = ((data as BehaviorTicketRow[] | null) ?? []).map((ticket) => ({
+        id: ticket.id,
+        ticket_number: ticket.id,
+        employee_id: ticket.employee_id,
+        category: ticket.category,
+        severity: "medium",
+        reported_by: ticket.reported_by,
+        description: ticket.description,
+        evidence_urls: ticket.evidence_urls ? (ticket.evidence_urls as string[]) : null,
+        status: (ticket.status as BehaviorTicket["status"]) ?? "open",
+        resolution: null,
+        created_at: ticket.created_at ?? new Date().toISOString(),
+      }));
       setTickets(typedData);
 
       // Calculate stats
@@ -79,7 +112,7 @@ export function useBehaviorTickets() {
 
       setStats({ active, underReview, resolved, repeatOffenders });
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching tickets:', err);
       toast({
         title: "Error",
@@ -108,11 +141,12 @@ export function useBehaviorTickets() {
         .getPublicUrl(fileName);
 
       return urlData.publicUrl;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error uploading evidence:', err);
+      const message = err instanceof Error ? err.message : "Failed to upload evidence file";
       toast({
         title: "Upload Failed",
-        description: err.message || "Failed to upload evidence file",
+        description: message,
         variant: "destructive"
       });
       return null;
@@ -123,35 +157,32 @@ export function useBehaviorTickets() {
 
   const createTicket = async (ticket: CreateTicketDTO) => {
     try {
-      // Get current user if reported_by is not set
-      let reporterId = ticket.reported_by;
-      if (!reporterId) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          // Find employee record for this user
-          const { data: emp } = await supabase
-            .from('employees')
-            .select('id')
-            .eq('user_id', user.id)
-            .single();
-          if (emp) reporterId = emp.id;
-        }
-      }
+      const insertData: BehaviorTicketInsertInput = {
+        employee_id: ticket.employee_id,
+        category: ticket.category,
+        severity: ticket.severity,
+        description: ticket.description,
+        reported_by: ticket.reported_by ?? null,
+        evidence_urls: ticket.evidence_urls || null,
+        status: 'open',
+      };
 
       const { error } = await supabase
         .from('employee_behavior_tickets')
-        .insert({
-          employee_id: ticket.employee_id,
-          category: ticket.category as any,
-          severity: ticket.severity,
-          description: ticket.description,
-          reported_by: reporterId,
-          evidence_urls: ticket.evidence_urls || null,
-          status: 'open',
-          incident_date: new Date().toISOString(), // Required field in schema
-        });
+        .insert(insertData);
 
       if (error) throw error;
+
+      try {
+        await notifyAdminTierUsers({
+          title: "Behavior Ticket Raised",
+          body: `Behavior ticket ${ticket.category} has been opened for employee ${ticket.employee_id}.`,
+          notificationType: "behavior_ticket_created",
+          referenceType: "behavior_ticket",
+        });
+      } catch (notifyErr) {
+        console.error("Failed to notify admin tier about behavior ticket:", notifyErr);
+      }
 
       toast({
         title: "Ticket Raised",
@@ -160,29 +191,32 @@ export function useBehaviorTickets() {
       
       fetchTickets();
       return { success: true };
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to create ticket";
       console.error('Error creating ticket:', err);
       toast({
         title: "Error",
-        description: err.message || "Failed to create ticket",
+        description: message,
         variant: "destructive"
       });
-      return { success: false, error: err.message };
+      return { success: false, error: message };
     }
   };
 
   const updateStatus = async (id: string, status: string, resolution?: string) => {
     try {
+      const updateData: BehaviorTicketUpdateInput = { status: status as BehaviorTicketStatus, resolution: resolution ?? null };
+
       const { error } = await supabase
         .from('employee_behavior_tickets')
-        .update({ status, resolution })
+        .update(updateData)
         .eq('id', id);
 
       if (error) throw error;
 
       toast({ title: "Status Updated", description: `Ticket marked as ${status.replace('_', ' ')}` });
       fetchTickets();
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({ title: "Error", description: "Failed to update status", variant: "destructive" });
     }
   };

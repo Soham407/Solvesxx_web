@@ -43,8 +43,8 @@ export function useSupabaseMutation<TArgs, TResult>(
         toast.success(options.successMessage);
       }
       return { success: true, data };
-    } catch (err: any) {
-      const message = err?.message ?? options.errorMessage ?? "Operation failed";
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : options.errorMessage ?? "Operation failed";
       toast.error(message);
       return { success: false, error: message };
     } finally {

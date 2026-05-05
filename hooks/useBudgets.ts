@@ -29,6 +29,14 @@ export interface Budget {
   period_name?: string;
 }
 
+interface FinancialPeriodRow {
+  period_name: string | null;
+}
+
+interface BudgetRow extends Omit<Budget, "period_name"> {
+  financial_periods: FinancialPeriodRow | FinancialPeriodRow[] | null;
+}
+
 interface UseBudgetsState {
   budgets: Budget[];
   isLoading: boolean;
@@ -57,7 +65,7 @@ export function useBudgets(filters?: {
     try {
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
-      let query = (supabase as any)
+      let query = supabase
         .from("budgets")
         .select(`
           *,
@@ -81,22 +89,28 @@ export function useBudgets(filters?: {
 
       if (error) throw error;
 
-      const budgetsWithDetails: Budget[] = (data || []).map((b: any) => ({
-        ...b,
-        period_name: b.financial_periods?.period_name || "N/A",
-      }));
+      const budgetsWithDetails: Budget[] = (data || []).map((b: BudgetRow) => {
+        const period = Array.isArray(b.financial_periods)
+          ? b.financial_periods[0]
+          : b.financial_periods;
+
+        return {
+          ...b,
+          period_name: period?.period_name || "N/A",
+        };
+      });
 
       setState((prev) => ({
         ...prev,
         budgets: budgetsWithDetails,
         isLoading: false,
       }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching budgets:", err);
       setState((prev) => ({
         ...prev,
         isLoading: false,
-        error: err.message,
+        error: err instanceof Error ? err.message : "Error fetching budgets",
       }));
     }
   }, [filters?.department, filters?.status, filters?.periodId]);
@@ -106,7 +120,7 @@ export function useBudgets(filters?: {
   // ============================================
   const createBudget = useCallback(async (input: Omit<Budget, "id" | "budget_code" | "used_amount" | "remaining_amount" | "created_at" | "updated_at" | "alert_notified_at" | "period_name">) => {
     try {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from("budgets")
         .insert(input)
         .select()
@@ -116,9 +130,12 @@ export function useBudgets(filters?: {
 
       await fetchBudgets();
       return data as Budget;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error creating budget:", err);
-      setState((prev) => ({ ...prev, error: err.message }));
+      setState((prev) => ({
+        ...prev,
+        error: err instanceof Error ? err.message : "Error creating budget",
+      }));
       return null;
     }
   }, [fetchBudgets]);
@@ -128,7 +145,7 @@ export function useBudgets(filters?: {
   // ============================================
   const updateBudget = useCallback(async (budgetId: string, updates: Partial<Budget>) => {
     try {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from("budgets")
         .update(updates)
         .eq("id", budgetId)
@@ -139,9 +156,12 @@ export function useBudgets(filters?: {
 
       await fetchBudgets();
       return data as Budget;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error updating budget:", err);
-      setState((prev) => ({ ...prev, error: err.message }));
+      setState((prev) => ({
+        ...prev,
+        error: err instanceof Error ? err.message : "Error updating budget",
+      }));
       return null;
     }
   }, [fetchBudgets]);

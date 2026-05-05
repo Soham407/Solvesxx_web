@@ -1,10 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase as supabaseTyped } from "@/src/lib/supabaseClient";
+import { supabase } from "@/src/lib/supabaseClient";
 import { useToast } from "@/components/ui/use-toast";
-
-const supabase = supabaseTyped as any;
 import {
   SupplierRateExtended,
   SupplierRateDisplay,
@@ -14,6 +12,33 @@ import {
   MutationResult,
   CurrentSupplierRate,
 } from "@/src/types/supply-chain";
+
+type SupplierRateWithJoin = SupplierRateExtended & {
+  supplier_product?: {
+    id: string;
+    supplier_id: string;
+    product_id: string;
+    supplier?: {
+      id: string;
+      supplier_name: string;
+      supplier_code?: string | null;
+    } | null;
+    product?: {
+      id: string;
+      product_name: string;
+      product_code?: string | null;
+      unit_of_measurement?: string | null;
+    } | null;
+  } | null;
+};
+
+function normalizeSupplierRateRows(rows: unknown): SupplierRateWithJoin[] {
+  return Array.isArray(rows) ? (rows as SupplierRateWithJoin[]) : [];
+}
+
+function normalizeSupplierRateHistoryRows(rows: unknown): SupplierRateExtended[] {
+  return Array.isArray(rows) ? (rows as SupplierRateExtended[]) : [];
+}
 
 /**
  * Supplier Rates Hook
@@ -59,7 +84,6 @@ export function useSupplierRates(initialFilters?: SupplierRateFilters) {
             id,
             supplier_id,
             product_id,
-            supplier_sku,
             supplier:suppliers(id, supplier_name, supplier_code),
             product:products(id, product_name, product_code, unit_of_measurement)
           )
@@ -87,7 +111,7 @@ export function useSupplierRates(initialFilters?: SupplierRateFilters) {
       if (error) throw error;
 
       // Transform data to SupplierRateDisplay format and filter by supplier/product if needed
-      let rates: SupplierRateDisplay[] = (data || []).map((item: any) => {
+      let rates: SupplierRateDisplay[] = normalizeSupplierRateRows(data).map((item) => {
         const sp = item.supplier_product;
         return {
           ...item,
@@ -95,7 +119,6 @@ export function useSupplierRates(initialFilters?: SupplierRateFilters) {
             id: sp.id,
             supplier_id: sp.supplier_id,
             product_id: sp.product_id,
-            supplier_sku: sp.supplier_sku,
           } : undefined,
           supplier: sp?.supplier,
           product: sp?.product ? {
@@ -274,62 +297,44 @@ export function useSupplierRates(initialFilters?: SupplierRateFilters) {
     asOfDate?: string
   ): Promise<CurrentSupplierRate | null> => {
     try {
-      // Try using the database function first
-      const { data, error } = await supabase
-        .rpc('get_current_supplier_rate', {
-          p_supplier_id: supplierId,
-          p_product_id: productId,
-          p_as_of: asOfDate || new Date().toISOString().split('T')[0],
-        });
+      const dateStr = asOfDate || new Date().toISOString().split('T')[0];
 
-      if (error) throw error;
-      
-      if (data && data.length > 0) {
-        return data[0] as unknown as CurrentSupplierRate;
+      const { data: spData } = await supabase
+        .from("supplier_products")
+        .select("id")
+        .eq("supplier_id", supplierId)
+        .eq("product_id", productId)
+        .single();
+
+      if (!spData) return null;
+
+      const { data: rateData } = await supabase
+        .from("supplier_rates")
+        .select("*")
+        .eq("supplier_product_id", spData.id)
+        .eq("is_active", true)
+        .lte("effective_from", dateStr)
+        .order("effective_from", { ascending: false })
+        .limit(1);
+
+      const rates = normalizeSupplierRateHistoryRows(rateData);
+      if (rates.length > 0) {
+        const rate = rates[0];
+        return {
+          rate_id: rate.id,
+          rate: rate.rate,
+          discount_percentage: rate.discount_percentage || 0,
+          gst_percentage: rate.gst_percentage || 18,
+          effective_from: rate.effective_from,
+          effective_to: rate.effective_to || null,
+          min_qty_for_price: rate.min_qty_for_price || 1,
+        };
       }
+
       return null;
     } catch (err: unknown) {
       console.error("Error getting current rate:", err);
-      
-      // Fallback: Manual query if function doesn't exist
-      try {
-        const dateStr = asOfDate || new Date().toISOString().split('T')[0];
-        
-        const { data: spData } = await supabase
-          .from("supplier_products")
-          .select("id")
-          .eq("supplier_id", supplierId)
-          .eq("product_id", productId)
-          .single();
-
-        if (!spData) return null;
-
-        const { data: rateData } = await supabase
-          .from("supplier_rates")
-          .select("*")
-          .eq("supplier_product_id", spData.id)
-          .eq("is_active", true)
-          .lte("effective_from", dateStr)
-          .or(`effective_to.is.null,effective_to.gte.${dateStr}`)
-          .order("effective_from", { ascending: false })
-          .limit(1);
-
-        if (rateData && rateData.length > 0) {
-          const rate = rateData[0];
-          return {
-            rate_id: rate.id,
-            rate: rate.rate,
-            discount_percentage: rate.discount_percentage || 0,
-            gst_percentage: rate.gst_percentage || 18,
-            effective_from: rate.effective_from,
-            effective_to: rate.effective_to,
-            min_qty_for_price: rate.min_qty_for_price || 1,
-          };
-        }
-        return null;
-      } catch {
-        return null;
-      }
+      return null;
     }
   }, []);
 
@@ -346,7 +351,7 @@ export function useSupplierRates(initialFilters?: SupplierRateFilters) {
 
       if (error) throw error;
 
-      return (data || []).map(rate => ({
+      return normalizeSupplierRateHistoryRows(data).map(rate => ({
         ...rate,
         netRate: rate.rate * (1 - (rate.discount_percentage || 0) / 100),
         rateWithGst: rate.rate * (1 - (rate.discount_percentage || 0) / 100) * (1 + (rate.gst_percentage || 18) / 100),
@@ -383,7 +388,7 @@ export function useSupplierRates(initialFilters?: SupplierRateFilters) {
 
       if (error) throw error;
 
-      return (data || []).map((rate: any) => ({
+      return normalizeSupplierRateRows(data).map((rate) => ({
         ...rate,
         supplier: rate.supplier_product?.supplier,
         product: rate.supplier_product?.product,

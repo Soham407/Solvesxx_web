@@ -27,17 +27,19 @@ import {
 import { Wrench, Loader2, FileText } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/src/lib/supabaseClient";
+import type { Database } from "@/src/types/supabase";
 
 const formSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters"),
   description: z.string().min(5, "Description must be at least 5 characters"),
   location: z.string().optional(),
-  priority: z.string().min(1, "Priority required"),
+  priority: z.enum(["low", "normal", "high", "urgent"]),
   category: z.string().optional(),
   estimatedHours: z.coerce.number().min(0.5, "Must be at least 0.5 hours").max(24, "Cannot exceed 24 hours").optional().or(z.literal("")),
 });
 
-type FormValues = z.infer<typeof formSchema>;
+type FormInput = z.input<typeof formSchema>;
+type FormValues = z.output<typeof formSchema>;
 
 interface NewJobOrderDialogProps {
   children: React.ReactNode;
@@ -49,8 +51,8 @@ export function NewJobOrderDialog({ children, serviceType = "Service", onSuccess
   const [isOpen, setIsOpen] = useState(false);
   const { toast } = useToast();
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema) as any,
+  const form = useForm<FormInput, unknown, FormValues>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
       title: "",
       description: "",
@@ -69,16 +71,22 @@ export function NewJobOrderDialog({ children, serviceType = "Service", onSuccess
 
   const handleSubmit = async (values: FormValues) => {
     try {
-      const { error } = await supabase.from("service_requests").insert({
-        title: values.title,
-        description: values.description,
-        location_name: values.location || null,
-        priority: values.priority,
-        service_category: values.category || null,
-        estimated_hours: values.estimatedHours ? Number(values.estimatedHours) : null,
+      type ServiceRequestInsert = Database["public"]["Tables"]["service_requests"]["Insert"];
+      const requestNumber = `SR-${Date.now().toString(36).toUpperCase()}`;
+      const description = values.location
+        ? `${values.description}\n\nLocation: ${values.location}`
+        : values.description;
+      const payload: ServiceRequestInsert = {
+        request_number: requestNumber,
+        description,
+        type: values.category || serviceType,
+        priority: values.priority as ServiceRequestInsert["priority"],
         status: "open",
         created_at: new Date().toISOString(),
-      } as any);
+        title: values.title,
+        estimated_duration_minutes: values.estimatedHours ? Math.round(Number(values.estimatedHours) * 60) : null,
+      };
+      const { error } = await supabase.from("service_requests").insert(payload);
 
       if (error) throw error;
 
@@ -89,7 +97,7 @@ export function NewJobOrderDialog({ children, serviceType = "Service", onSuccess
 
       setIsOpen(false);
       onSuccess?.();
-    } catch (err) {
+    } catch (err: unknown) {
       toast({
         title: "Error",
         description: "Failed to create job order. Please try again.",
@@ -143,9 +151,9 @@ export function NewJobOrderDialog({ children, serviceType = "Service", onSuccess
 
               <div className="space-y-2">
                 <Label>Priority</Label>
-                <Select
+                  <Select
                   value={form.watch("priority")}
-                  onValueChange={(value) => form.setValue("priority", value)}
+                  onValueChange={(value) => form.setValue("priority", value as FormInput["priority"])}
                 >
                   <SelectTrigger>
                     <SelectValue />

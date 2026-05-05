@@ -96,14 +96,14 @@ export function DeliveryDashboard() {
       const fileName = `${selectedPOId}-${Date.now()}.${fileExt}`;
       const filePath = `arrivals/${fileName}`;
 
-      const { error: uploadError } = await (supabase as any).storage
+      const { error: uploadError } = await supabase.storage
         .from("material-arrivals")
         .upload(filePath, photoFile);
 
       if (uploadError) throw uploadError;
 
       // 2. Get Public URL
-      const { data: urlData } = (supabase as any).storage
+      const { data: urlData } = supabase.storage
         .from("material-arrivals")
         .getPublicUrl(filePath);
 
@@ -132,10 +132,10 @@ export function DeliveryDashboard() {
           variant: "destructive",
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Error",
-        description: error.message || "Failed to log arrival",
+        description: error instanceof Error ? error.message : "Failed to log arrival",
         variant: "destructive",
       });
     } finally {
@@ -412,7 +412,7 @@ export function DeliveryDashboard() {
                         </div>
                         <div className="min-w-0">
                           <p className="font-black text-sm truncate">{po.po_number || "PO-####"}</p>
-                          <p className="text-xs text-muted-foreground truncate">{po.supplier_name || "Unknown Supplier"}</p>
+                          <p className="text-xs text-muted-foreground truncate">{po.supplier_name || "Supplier not set"}</p>
                         </div>
                       </div>
                       <Badge

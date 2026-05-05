@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import type { Database } from "@/supabase-types";
 import { supabase } from "@/src/lib/supabaseClient";
+import type { Json } from "@/src/types/supabase";
 
 type AuditLogRow = Database["public"]["Tables"]["audit_logs"]["Row"];
 
@@ -279,9 +280,9 @@ export function useAuditLogs(filtersOrEntityType?: string | AuditLogFilters) {
           action,
           actor_id: actorId || null,
           actor_role: actorRole || null,
-          old_data: (oldData as any) || null,
-          new_data: (newData as any) || null,
-          metadata: (metadata as any) || null,
+          old_data: (oldData ?? null) as Json | null,
+          new_data: (newData ?? null) as Json | null,
+          metadata: (metadata ?? null) as Json | null,
           evidence_url: evidenceUrl || null,
         };
 

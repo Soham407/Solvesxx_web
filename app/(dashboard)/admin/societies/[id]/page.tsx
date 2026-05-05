@@ -199,11 +199,11 @@ export default function SocietyDetailPage() {
         ),
       },
     ],
-    [id, router],
+    [deactivateBuilding, id, router],
   );
 
   const societyDescription = societyLoading
-    ? "Loading..."
+    ? "Loading details..."
     : society
       ? `${society.society_code}${society.city ? ` · ${society.city}` : ""}${society.state ? `, ${society.state}` : ""}`
       : "Society not found";
@@ -211,7 +211,7 @@ export default function SocietyDetailPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={society?.society_name ?? (societyLoading ? "Loading..." : "Society")}
+        title={society?.society_name ?? (societyLoading ? "Loading details..." : "Society")}
         description={societyDescription}
         backHref="/admin/societies"
         actions={

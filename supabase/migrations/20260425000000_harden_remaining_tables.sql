@@ -288,11 +288,6 @@ DROP POLICY IF EXISTS "RTV Tickets viewable by authenticated" ON rtv_tickets;
 
 CREATE POLICY "rtv_tickets_select_isolation" ON rtv_tickets FOR SELECT
 TO authenticated USING (
-    request_id IN (
-        SELECT r.id FROM requests r
-        WHERE r.location_id IN (
-            SELECT id FROM company_locations 
-            WHERE society_id IN (SELECT public.get_my_managed_societies())
-        )
-    )
+    raised_by = auth.uid()
+    OR public.get_user_role()::TEXT IN ('admin', 'super_admin', 'account', 'buyer', 'storekeeper', 'company_hod')
 );

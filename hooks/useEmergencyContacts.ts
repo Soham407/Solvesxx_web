@@ -56,12 +56,12 @@ export function useEmergencyContacts(societyId?: string) {
         isLoading: false,
         error: null,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching emergency contacts:', err);
       setState(prev => ({
         ...prev,
         isLoading: false,
-        error: err.message || 'Failed to fetch contacts',
+        error: err instanceof Error ? err.message : 'Failed to fetch contacts',
       }));
     }
   }, [societyId]);
@@ -87,7 +87,7 @@ export function useEmergencyContacts(societyId?: string) {
       });
 
       return data;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error adding contact:', err);
       toast({
         title: "Error",
@@ -120,7 +120,7 @@ export function useEmergencyContacts(societyId?: string) {
       });
 
       return data;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error updating contact:', err);
       toast({
         title: "Error",
@@ -150,7 +150,7 @@ export function useEmergencyContacts(societyId?: string) {
         title: "Contact Removed",
         description: "Contact has been removed from the list.",
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error deleting contact:', err);
       toast({
         title: "Error",

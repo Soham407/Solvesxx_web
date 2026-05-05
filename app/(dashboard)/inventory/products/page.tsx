@@ -34,15 +34,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { ColumnDef } from "@tanstack/react-table";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/use-toast";
@@ -50,34 +41,17 @@ import { useProducts, Product } from "@/hooks/useProducts";
 import { useProductCategories } from "@/hooks/useProductCategories";
 import { useProductSubcategories } from "@/hooks/useProductSubcategories";
 import { useAuth } from "@/hooks/useAuth";
-
-interface ProductFormData {
-  product_code: string;
-  product_name: string;
-  category_id: string;
-  subcategory_id: string;
-  unit_of_measurement: string;
-  base_rate: string;
-  min_stock_level: string;
-  current_stock: string;
-  description: string;
-  hsn_code: string;
-  tax_rate: string;
-}
-
-const EMPTY_PRODUCT_FORM: ProductFormData = {
-  product_code: "",
-  product_name: "",
-  category_id: "",
-  subcategory_id: "",
-  unit_of_measurement: "",
-  base_rate: "",
-  min_stock_level: "10",
-  current_stock: "0",
-  description: "",
-  hsn_code: "",
-  tax_rate: "",
-};
+import {
+  ProductFormData,
+  EMPTY_PRODUCT_FORM,
+  buildProductFormFromProduct,
+  buildProductPayload,
+  validateProductForm as validateProductFormFields,
+  formatProductCurrency,
+} from "@/src/lib/inventory/productEditor";
+import { ProductEditorDialog } from "@/components/inventory-ops/ProductEditorDialog";
+import { ProductConfirmDialog } from "@/components/inventory-ops/ProductConfirmDialog";
+import { ProductStockDialog } from "@/components/inventory-ops/ProductStockDialog";
 
 export default function ProductsPage() {
   const { toast } = useToast();
@@ -140,52 +114,23 @@ export default function ProductsPage() {
 
   const openEditDialog = (product: Product) => {
     setSelectedProduct(product);
-    setProductForm({
-      product_code: product.product_code || "",
-      product_name: product.product_name || "",
-      category_id: product.category_id || "",
-      subcategory_id: product.subcategory_id || "",
-      unit_of_measurement: product.unit_of_measurement || "",
-      base_rate: product.base_rate?.toString() || "",
-      min_stock_level: product.min_stock_level?.toString() || "0",
-      current_stock: product.current_stock?.toString() || "0",
-      description: product.description || "",
-      hsn_code: product.hsn_code || "",
-      tax_rate: product.tax_rate?.toString() || "",
-    });
+    setProductForm(buildProductFormFromProduct(product));
     setEditDialogOpen(true);
   };
 
   const validateProductForm = () => {
-    if (!productForm.product_name.trim()) {
-      toast({ title: "Product name is required", variant: "destructive" });
-      return false;
-    }
-    if (!productForm.product_code.trim()) {
-      toast({ title: "Product code is required", variant: "destructive" });
+    const errorMessage = validateProductFormFields(productForm);
+    if (errorMessage) {
+      toast({ title: errorMessage, variant: "destructive" });
       return false;
     }
     return true;
   };
 
-  const buildProductPayload = () => ({
-    product_code: productForm.product_code.trim(),
-    product_name: productForm.product_name.trim(),
-    category_id: productForm.category_id || undefined,
-    subcategory_id: productForm.subcategory_id || undefined,
-    unit_of_measurement: productForm.unit_of_measurement || undefined,
-    base_rate: productForm.base_rate ? Number(productForm.base_rate) : undefined,
-    min_stock_level: productForm.min_stock_level ? Number(productForm.min_stock_level) : undefined,
-    current_stock: productForm.current_stock ? Number(productForm.current_stock) : undefined,
-    description: productForm.description || undefined,
-    hsn_code: productForm.hsn_code || undefined,
-    tax_rate: productForm.tax_rate ? Number(productForm.tax_rate) : undefined,
-  });
-
   const handleCreateProduct = async () => {
     if (!validateProductForm()) return;
     setIsSubmitting(true);
-    const result = await addProduct(buildProductPayload());
+    const result = await addProduct(buildProductPayload(productForm));
     setIsSubmitting(false);
     if (result.success) {
       setCreateDialogOpen(false);
@@ -196,7 +141,7 @@ export default function ProductsPage() {
   const handleUpdateProduct = async () => {
     if (!selectedProduct || !validateProductForm()) return;
     setIsSubmitting(true);
-    const result = await updateProduct(selectedProduct.id, buildProductPayload());
+    const result = await updateProduct(selectedProduct.id, buildProductPayload(productForm));
     setIsSubmitting(false);
     if (result.success) {
       setEditDialogOpen(false);
@@ -247,157 +192,7 @@ export default function ProductsPage() {
     }
   };
 
-  const formatCurrency = (amount: number | null) => {
-    if (amount === null) return "N/A";
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      minimumFractionDigits: 0,
-    }).format(amount);
-  };
-
-  const renderProductForm = () => (
-    <div className="grid gap-4 py-4 md:grid-cols-2">
-      <div className="space-y-2">
-        <Label htmlFor="product_code">Product Code</Label>
-        <Input
-          id="product_code"
-          value={productForm.product_code}
-          onChange={(e) => setProductForm((prev) => ({ ...prev, product_code: e.target.value }))}
-          placeholder="e.g. PROD-001"
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="product_name">Product Name</Label>
-        <Input
-          id="product_name"
-          value={productForm.product_name}
-          onChange={(e) => setProductForm((prev) => ({ ...prev, product_name: e.target.value }))}
-          placeholder="e.g. Electrical Cable"
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="category_id">Category</Label>
-        <Select
-          value={productForm.category_id || "none"}
-          onValueChange={(value) =>
-            setProductForm((prev) => ({
-              ...prev,
-              category_id: value === "none" ? "" : value,
-              subcategory_id: "",
-            }))
-          }
-        >
-          <SelectTrigger id="category_id">
-            <SelectValue placeholder="Select category" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">No category</SelectItem>
-            {categories.map((category) => (
-              <SelectItem key={category.id} value={category.id}>
-                {category.category_name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="subcategory_id">Subcategory</Label>
-        <Select
-          value={productForm.subcategory_id || "none"}
-          onValueChange={(value) =>
-            setProductForm((prev) => ({
-              ...prev,
-              subcategory_id: value === "none" ? "" : value,
-            }))
-          }
-        >
-          <SelectTrigger id="subcategory_id">
-            <SelectValue placeholder="Select subcategory" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">No subcategory</SelectItem>
-            {availableSubcategories.map((subcategory) => (
-              <SelectItem key={subcategory.id} value={subcategory.id}>
-                {subcategory.subcategory_name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="unit_of_measurement">Unit</Label>
-        <Input
-          id="unit_of_measurement"
-          value={productForm.unit_of_measurement}
-          onChange={(e) => setProductForm((prev) => ({ ...prev, unit_of_measurement: e.target.value }))}
-          placeholder="e.g. pcs, kg, box"
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="base_rate">Base Rate</Label>
-        <Input
-          id="base_rate"
-          type="number"
-          min="0"
-          step="0.01"
-          value={productForm.base_rate}
-          onChange={(e) => setProductForm((prev) => ({ ...prev, base_rate: e.target.value }))}
-          placeholder="0"
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="min_stock_level">Min Stock Level</Label>
-        <Input
-          id="min_stock_level"
-          type="number"
-          min="0"
-          value={productForm.min_stock_level}
-          onChange={(e) => setProductForm((prev) => ({ ...prev, min_stock_level: e.target.value }))}
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="current_stock">Current Stock</Label>
-        <Input
-          id="current_stock"
-          type="number"
-          min="0"
-          value={productForm.current_stock}
-          onChange={(e) => setProductForm((prev) => ({ ...prev, current_stock: e.target.value }))}
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="hsn_code">HSN Code</Label>
-        <Input
-          id="hsn_code"
-          value={productForm.hsn_code}
-          onChange={(e) => setProductForm((prev) => ({ ...prev, hsn_code: e.target.value }))}
-          placeholder="Optional"
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="tax_rate">Tax Rate (%)</Label>
-        <Input
-          id="tax_rate"
-          type="number"
-          min="0"
-          step="0.01"
-          value={productForm.tax_rate}
-          onChange={(e) => setProductForm((prev) => ({ ...prev, tax_rate: e.target.value }))}
-          placeholder="0"
-        />
-      </div>
-      <div className="space-y-2 md:col-span-2">
-        <Label htmlFor="description">Description</Label>
-        <Input
-          id="description"
-          value={productForm.description}
-          onChange={(e) => setProductForm((prev) => ({ ...prev, description: e.target.value }))}
-          placeholder="Optional description"
-        />
-      </div>
-    </div>
-  );
+  const formatCurrency = formatProductCurrency;
 
   const columns: ColumnDef<Product>[] = useMemo(() => {
     const baseColumns: ColumnDef<Product>[] = [
@@ -683,128 +478,52 @@ export default function ProductsPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Add Product</DialogTitle>
-            <DialogDescription>Create a new product in the inventory catalog.</DialogDescription>
-          </DialogHeader>
-          {renderProductForm()}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreateProduct} disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              Create Product
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ProductEditorDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        title="Add Product"
+        description="Create a new product in the inventory catalog."
+        submitLabel="Create Product"
+        isSubmitting={isSubmitting}
+        productForm={productForm}
+        setProductForm={setProductForm}
+        categories={categories}
+        availableSubcategories={availableSubcategories}
+        onSubmit={handleCreateProduct}
+      />
 
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Edit Product</DialogTitle>
-            <DialogDescription>Update the selected product details.</DialogDescription>
-          </DialogHeader>
-          {renderProductForm()}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleUpdateProduct} disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              Save Changes
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ProductEditorDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        title="Edit Product"
+        description="Update the selected product details."
+        submitLabel="Save Changes"
+        isSubmitting={isSubmitting}
+        productForm={productForm}
+        setProductForm={setProductForm}
+        categories={categories}
+        availableSubcategories={availableSubcategories}
+        onSubmit={handleUpdateProduct}
+      />
 
-      <Dialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {confirmAction === "delete"
-                ? "Delete Product"
-                : confirmAction === "archive"
-                  ? "Archive Product"
-                  : "Restore Product"}
-            </DialogTitle>
-            <DialogDescription>
-              {confirmAction === "delete"
-                ? "This will permanently remove the product from the catalog."
-                : confirmAction === "archive"
-                  ? "This will mark the product inactive."
-                  : "This will make the product active again."}
-            </DialogDescription>
-          </DialogHeader>
-          {selectedActionProduct && (
-            <div className="rounded-lg border bg-muted/30 p-4">
-              <p className="font-bold text-sm">{selectedActionProduct.product_name}</p>
-              <p className="text-xs text-muted-foreground">
-                {selectedActionProduct.product_code} • {selectedActionProduct.status}
-              </p>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant={confirmAction === "delete" ? "destructive" : "default"}
-              onClick={handleConfirmAction}
-              disabled={isSubmitting}
-            >
-              {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              {confirmAction === "delete"
-                ? "Delete Product"
-                : confirmAction === "archive"
-                  ? "Archive Product"
-                  : "Restore Product"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ProductConfirmDialog
+        open={confirmDialogOpen}
+        onOpenChange={setConfirmDialogOpen}
+        selectedProduct={selectedActionProduct}
+        confirmAction={confirmAction}
+        isSubmitting={isSubmitting}
+        onConfirm={handleConfirmAction}
+      />
 
-      <Dialog open={stockDialogOpen} onOpenChange={setStockDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Update Stock Level</DialogTitle>
-          </DialogHeader>
-          {selectedProduct && (
-            <div className="space-y-4 py-4">
-              <div className="p-4 bg-muted/50 rounded-lg">
-                <p className="font-bold">{selectedProduct.product_name}</p>
-                <p className="text-xs text-muted-foreground">{selectedProduct.product_code}</p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="stock">New Stock Level</Label>
-                <Input
-                  id="stock"
-                  type="number"
-                  min="0"
-                  value={newStock}
-                  onChange={(e) => setNewStock(e.target.value)}
-                  placeholder="Enter new stock quantity"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Current: {selectedProduct.current_stock} | Min Level: {selectedProduct.min_stock_level}
-                </p>
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setStockDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleUpdateStock} disabled={isUpdating}>
-              {isUpdating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Update Stock
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ProductStockDialog
+        open={stockDialogOpen}
+        onOpenChange={setStockDialogOpen}
+        selectedProduct={selectedProduct}
+        newStock={newStock}
+        setNewStock={setNewStock}
+        isUpdating={isUpdating}
+        onUpdate={handleUpdateStock}
+      />
     </div>
   );
 }

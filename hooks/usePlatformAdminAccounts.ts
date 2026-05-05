@@ -4,7 +4,7 @@ import { useMemo } from "react";
 
 import { useSupabaseMutation } from "@/hooks/lib/useSupabaseMutation";
 import { useSupabaseQuery } from "@/hooks/lib/useSupabaseQuery";
-import { extractPlatformPermissions } from "@/src/lib/platform/permissions";
+import { mapAdminAccount, type AdminUserRow } from "@/src/lib/platform/adminAccounts";
 import { supabase } from "@/src/lib/supabaseClient";
 import type {
   AdminAccount,
@@ -38,6 +38,10 @@ async function requestJson<T>(url: string, init: RequestInit): Promise<T> {
   return payload as T;
 }
 
+function normalizeAdminRows(rows: unknown): AdminUserRow[] {
+  return Array.isArray(rows) ? (rows as AdminUserRow[]) : [];
+}
+
 export function usePlatformAdminAccounts() {
   const adminQuery = useSupabaseQuery<AdminAccount>(
     async () => {
@@ -51,21 +55,7 @@ export function usePlatformAdminAccounts() {
 
       if (error) throw error;
 
-      return (data || []).map((row: any) => {
-        const role = Array.isArray(row.roles) ? row.roles[0] : row.roles;
-
-        return {
-          id: row.id,
-          fullName: row.full_name,
-          email: row.email,
-          phone: row.phone ?? null,
-          roleName: role?.role_name ?? "admin",
-          roleDisplayName: role?.role_display_name ?? "Administrator",
-          isActive: row.is_active !== false,
-          lastLogin: row.last_login ?? null,
-          permissions: extractPlatformPermissions(role?.permissions),
-        } satisfies AdminAccount;
-      });
+      return normalizeAdminRows(data).map(mapAdminAccount);
     },
     []
   );

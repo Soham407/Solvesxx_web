@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase as supabaseTyped } from "@/src/lib/supabaseClient";
-const supabase = supabaseTyped as any;
+import { supabase } from "@/src/lib/supabaseClient";
 import { 
   POStatus, 
   PurchaseOrder, 
@@ -13,7 +12,19 @@ import {
   SupplierRatesForProducts,
   PO_STATUS_CONFIG 
 } from "./usePurchaseOrders";
+import {
+  mapPurchaseOrderItems,
+  mapPurchaseOrders,
+} from "@/src/lib/purchase-orders/purchaseOrderTransforms";
 import { toPaise } from "@/src/lib/utils/currency";
+
+type PoTransitionRpcResult = {
+  success?: boolean;
+  error?: string;
+};
+
+type PurchaseOrderRowInput = Parameters<typeof mapPurchaseOrders>[0][number];
+type PurchaseOrderItemRowInput = Parameters<typeof mapPurchaseOrderItems>[0][number];
 
 // Helper function from original hook
 const calculateLineTotal = (
@@ -30,6 +41,14 @@ const calculateLineTotal = (
   
   return { lineTotal, taxAmount, discountAmount };
 };
+
+function normalizePurchaseOrderRow(row: unknown): PurchaseOrderRowInput {
+  return row as PurchaseOrderRowInput;
+}
+
+function normalizePurchaseOrderItemRows(rows: unknown): PurchaseOrderItemRowInput[] {
+  return Array.isArray(rows) ? (rows as PurchaseOrderItemRowInput[]) : [];
+}
 
 /**
  * Hook for managing a single Purchase Order's details, items, and lifecycle.
@@ -58,14 +77,7 @@ export function usePurchaseOrderDetails(poId?: string) {
 
       if (poError) throw poError;
       
-      const formattedPO = {
-        ...po,
-        supplier_name: po.suppliers?.supplier_name,
-        supplier_code: po.suppliers?.supplier_code,
-        indent_number: po.indents?.indent_number,
-      };
-
-      setPurchaseOrder(formattedPO as unknown as PurchaseOrder);
+      setPurchaseOrder(mapPurchaseOrders([normalizePurchaseOrderRow(po)])[0] ?? null);
 
       // Fetch Items
       const { data: poItems, error: itemsError } = await supabase
@@ -78,15 +90,12 @@ export function usePurchaseOrderDetails(poId?: string) {
 
       if (itemsError) throw itemsError;
 
-      setItems((poItems || []).map((item: any) => ({
-        ...item,
-        product_name: item.products?.product_name,
-        product_code: item.products?.product_code,
-      })));
+      setItems(mapPurchaseOrderItems(normalizePurchaseOrderItemRows(poItems)));
 
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to fetch PO details";
       console.error("Error fetching PO details:", err);
-      setError(err.message || "Failed to fetch PO details");
+      setError(message);
     } finally {
       setIsLoading(false);
     }
@@ -124,11 +133,16 @@ export function usePurchaseOrderDetails(poId?: string) {
 
       if (!rateData) return null;
       
-      const rate = rateData as any;
+      const rate = rateData as {
+        rate: number | null;
+        effective_from: string;
+        effective_to?: string | null;
+        supplier_product_id: string;
+      };
       return {
         rate: rate.rate || 0,
-        discountPercentage: rate.discount_percentage || 0,
-        gstPercentage: rate.gst_percentage || 0,
+        discountPercentage: 0,
+        gstPercentage: 0,
         effectiveFrom: rate.effective_from,
         effectiveTo: rate.effective_to,
         supplierProductId: supplierProduct.id,
@@ -151,8 +165,8 @@ export function usePurchaseOrderDetails(poId?: string) {
 
       if (createError) throw createError;
       return data as PurchaseOrder;
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to create purchase order");
       return null;
     } finally {
       setIsLoading(false);
@@ -168,8 +182,8 @@ export function usePurchaseOrderDetails(poId?: string) {
       if (updateError) throw updateError;
       if (poId === id) fetchPODetails(id);
       return true;
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to update purchase order");
       return false;
     }
   };
@@ -197,8 +211,8 @@ export function usePurchaseOrderDetails(poId?: string) {
       if (insertError) throw insertError;
       if (poId) fetchPODetails(poId);
       return true;
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to add PO item");
       return false;
     }
   };
@@ -206,20 +220,20 @@ export function usePurchaseOrderDetails(poId?: string) {
   const updateStatus = async (id: string, newStatus: POStatus): Promise<boolean> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const { data: result, error: rpcError } = await supabase.rpc('transition_po_status' as any, {
+      const { data: result, error: rpcError } = await supabase.rpc('transition_po_status', {
         p_po_id: id,
         p_new_status: newStatus,
         p_user_id: user?.id,
       });
 
       if (rpcError) throw rpcError;
-      const rpcResult = result as any;
+      const rpcResult = result as PoTransitionRpcResult | null;
       if (!rpcResult?.success) throw new Error(rpcResult?.error || 'Status transition failed');
 
       if (poId === id) fetchPODetails(id);
       return true;
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to update status");
       return false;
     }
   };

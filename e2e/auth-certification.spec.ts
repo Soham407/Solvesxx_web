@@ -146,7 +146,7 @@ test.describe("Auth Certification", () => {
           }
 
           return (data as { must_change_password?: boolean | null } | null)?.must_change_password ?? false;
-        })
+        }, { timeout: 20_000 })
         .toBe(false);
 
       await page.waitForURL(

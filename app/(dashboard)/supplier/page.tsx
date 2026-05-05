@@ -16,16 +16,26 @@ import {
 import Link from "next/link";
 import { formatCurrency } from "@/src/lib/utils/currency";
 import { Badge } from "@/components/ui/badge";
+import type {
+  SupplierBill,
+  SupplierIndent,
+  SupplierPO,
+} from "@/src/lib/supplier-portal/supplierPortalTransforms";
+
+function summarizeSupplierDashboard(indents: SupplierIndent[], pos: SupplierPO[], bills: SupplierBill[]) {
+  const pendingSettlementBills = bills.filter((bill) => bill.payment_status !== "paid");
+  return {
+    pendingIndents: indents.filter((indent) => indent.status === "indent_forwarded").length,
+    activePOs: pos.filter((po) => ["sent_to_vendor", "acknowledged"].includes(po.status)).length,
+    unpaidBills: pendingSettlementBills.length,
+    totalOutstanding: pendingSettlementBills.reduce((sum, bill) => sum + (bill.due_amount ?? 0), 0),
+  };
+}
 
 export default function SupplierDashboard() {
   const { indents, pos, bills, isLoading } = useSupplierPortal();
 
-  const stats = {
-    pendingIndents: indents.filter(i => i.status === 'indent_forwarded').length,
-    activePOs: pos.filter(p => ['sent_to_vendor', 'acknowledged'].includes(p.status)).length,
-    unpaidBills: bills.filter(b => b.payment_status === 'unpaid').length,
-    totalOutstanding: bills.filter(b => b.payment_status === 'unpaid').reduce((sum, b) => sum + b.total_amount, 0),
-  };
+  const stats = summarizeSupplierDashboard(indents, pos, bills);
 
   return (
     <div className="space-y-6">
@@ -90,7 +100,7 @@ export default function SupplierDashboard() {
             <CardDescription>Review and respond to new fulfillment requests.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {indents.filter(i => i.status === 'indent_forwarded').slice(0, 3).map((indent) => (
+            {indents.filter((indent) => indent.status === "indent_forwarded").slice(0, 3).map((indent) => (
               <div key={indent.id} className="flex items-center justify-between p-3 border rounded-lg bg-muted/20">
                 <div>
                   <div className="font-bold">{indent.request_number}</div>
@@ -122,7 +132,7 @@ export default function SupplierDashboard() {
             <CardDescription>Acknowledge and dispatch issued POs.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {pos.filter(p => ['sent_to_vendor', 'acknowledged'].includes(p.status)).slice(0, 3).map((po) => (
+            {pos.filter((po) => ["sent_to_vendor", "acknowledged"].includes(po.status)).slice(0, 3).map((po) => (
               <div key={po.id} className="flex items-center justify-between p-3 border rounded-lg bg-muted/20">
                 <div>
                   <div className="font-bold">{po.po_number}</div>

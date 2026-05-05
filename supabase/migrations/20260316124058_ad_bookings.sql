@@ -28,6 +28,7 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS set_ad_booking_number ON printing_ad_bookings;
 CREATE TRIGGER set_ad_booking_number
   BEFORE INSERT ON printing_ad_bookings
   FOR EACH ROW EXECUTE FUNCTION generate_ad_booking_number();
@@ -40,20 +41,24 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS set_ad_booking_updated_at ON printing_ad_bookings;
 CREATE TRIGGER set_ad_booking_updated_at
   BEFORE UPDATE ON printing_ad_bookings
   FOR EACH ROW EXECUTE FUNCTION update_ad_booking_updated_at();
 
 ALTER TABLE printing_ad_bookings ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "ad_bookings_select" ON printing_ad_bookings;
 CREATE POLICY "ad_bookings_select" ON printing_ad_bookings
   FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "ad_bookings_insert" ON printing_ad_bookings;
 CREATE POLICY "ad_bookings_insert" ON printing_ad_bookings
   FOR INSERT TO authenticated WITH CHECK (auth.uid() IS NOT NULL);
 
+DROP POLICY IF EXISTS "ad_bookings_update" ON printing_ad_bookings;
 CREATE POLICY "ad_bookings_update" ON printing_ad_bookings
   FOR UPDATE TO authenticated USING (true);
 
-CREATE INDEX idx_ad_bookings_status ON printing_ad_bookings(status);
-CREATE INDEX idx_ad_bookings_ad_space_id ON printing_ad_bookings(ad_space_id);;
+CREATE INDEX IF NOT EXISTS idx_ad_bookings_status ON printing_ad_bookings(status);
+CREATE INDEX IF NOT EXISTS idx_ad_bookings_ad_space_id ON printing_ad_bookings(ad_space_id);;

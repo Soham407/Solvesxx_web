@@ -4,6 +4,11 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
 import { useToast } from "@/components/ui/use-toast";
 import { RTVTicketDisplay, RTVDashboardStats } from "@/src/types/operations";
+import {
+  buildRTVDashboardStats,
+  mapRTVTicketRow,
+  type RTVTicketRow,
+} from "@/src/lib/rtv/rtvTransforms";
 
 export interface CreateRTVTicketDTO {
   po_id?: string;
@@ -17,7 +22,12 @@ export interface CreateRTVTicketDTO {
   notes?: string;
 }
 
-export function useRTVTickets() {
+interface UseRTVTicketsOptions {
+  statuses?: readonly string[];
+  supplierId?: string;
+}
+
+export function useRTVTickets(options: UseRTVTicketsOptions = {}) {
   const { toast } = useToast();
   const [tickets, setTickets] = useState<RTVTicketDisplay[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -27,49 +37,38 @@ export function useRTVTickets() {
     creditPendingValue: 0,
     monthlyReturnsCount: 0,
   });
+  const statusFilterKey = options.statuses?.join(",") ?? "";
 
   const fetchTickets = useCallback(async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('rtv_tickets')
         .select(`
           *,
           supplier:suppliers(supplier_name),
           product:products(product_name),
           purchase_order:purchase_orders(po_number)
-        `)
-        .order('created_at', { ascending: false });
+        `);
+
+      if (options.supplierId) {
+        query = query.eq('supplier_id', options.supplierId);
+      }
+
+      if (statusFilterKey) {
+        query = query.in('status', statusFilterKey.split(","));
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
 
       // Ensure data exists before mapping
-      const mappedData = (data as any[]) || [];
+      const mappedData: RTVTicketDisplay[] = ((data || []) as RTVTicketRow[]).map(mapRTVTicketRow);
       setTickets(mappedData);
 
-      // Compute statistics
-      let pendingPickup = 0;
-      let inTransit = 0;
-      let creditPendingValue = 0;
-      let monthlyReturnsCount = 0;
-      const currentMonth = new Date().getMonth();
-      const currentYear = new Date().getFullYear();
-
-      mappedData.forEach(ticket => {
-        if (ticket.status === 'pending_dispatch') pendingPickup++;
-        if (ticket.status === 'in_transit') inTransit++;
-        if (ticket.status !== 'credit_note_issued') {
-          creditPendingValue += Number(ticket.estimated_value || 0);
-        }
-        
-        const createdAt = new Date(ticket.created_at);
-        if (createdAt.getMonth() === currentMonth && createdAt.getFullYear() === currentYear) {
-          monthlyReturnsCount++;
-        }
-      });
-
-      setStats({ pendingPickup, inTransit, creditPendingValue, monthlyReturnsCount });
-    } catch (err: any) {
+      setStats(buildRTVDashboardStats(mappedData));
+    } catch (err: unknown) {
       console.error('Error fetching RTV tickets:', err);
       toast({
         title: "Error",
@@ -79,7 +78,7 @@ export function useRTVTickets() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [options.supplierId, statusFilterKey, toast]);
 
   const createTicket = async (ticket: CreateRTVTicketDTO) => {
     try {
@@ -115,20 +114,20 @@ export function useRTVTickets() {
       
       fetchTickets();
       return { success: true };
-    } catch (err: any) {
+      } catch (err: unknown) {
       console.error('Error creating RTV ticket:', err);
       toast({
         title: "Error",
-        description: err.message || "Failed to create return ticket",
+        description: err instanceof Error ? err.message : "Failed to create return ticket",
         variant: "destructive"
       });
-      return { success: false, error: err.message };
+      return { success: false, error: err instanceof Error ? err.message : "Failed to create return ticket" };
     }
   };
 
-  const updateStatus = async (id: string, status: string, additionalData?: any) => {
+  const updateStatus = async (id: string, status: string, additionalData?: Record<string, unknown>) => {
     try {
-      const updatePayload: any = { status, ...additionalData };
+      const updatePayload: Record<string, unknown> = { status, ...(additionalData || {}) };
       
       // Handle timestamping for specific statuses
       if (status === 'in_transit') updatePayload.dispatched_at = new Date().toISOString();
@@ -148,14 +147,14 @@ export function useRTVTickets() {
       });
       fetchTickets();
       return { success: true };
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error updating RTV ticket status:', err);
       toast({ 
         title: "Error", 
         description: "Failed to update ticket status.", 
         variant: "destructive" 
       });
-      return { success: false, error: err.message };
+      return { success: false, error: err instanceof Error ? err.message : "Failed to update ticket status" };
     }
   };
 

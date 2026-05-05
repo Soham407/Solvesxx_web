@@ -5,6 +5,16 @@ import { createClient } from "@/src/lib/supabase/server";
 import { normalizePermissions, hasPermission } from "@/src/lib/platform/permissions";
 import type { PermissionKey } from "@/src/types/platform";
 
+interface RoleRow {
+  role_name: string | null;
+  permissions: string[] | null;
+}
+
+interface UserProfileRow {
+  is_active: boolean | null;
+  roles: RoleRow | RoleRow[] | null;
+}
+
 export async function requirePlatformPermission(permission: PermissionKey) {
   const supabase = await createClient();
   const {
@@ -30,9 +40,8 @@ export async function requirePlatformPermission(permission: PermissionKey) {
     };
   }
 
-  const role = Array.isArray((data as any).roles)
-    ? (data as any).roles[0]
-    : (data as any).roles;
+  const profile = data as UserProfileRow;
+  const role = Array.isArray(profile.roles) ? profile.roles[0] : profile.roles;
   const permissions = normalizePermissions(role?.permissions);
 
   if (!hasPermission(permissions, permission)) {

@@ -37,6 +37,36 @@ interface PushTokenRecord {
   is_active: boolean;
 }
 
+interface ResidentRow {
+  id: string;
+  resident_code: string | null;
+  full_name: string | null;
+  phone: string | null;
+  relation: string | null;
+  is_active: boolean | null;
+  auth_user_id: string | null;
+  flat_id: string | null;
+  flats?: {
+    flat_number?: string | null;
+    buildings?: {
+      building_name?: string | null;
+      society_id?: string | null;
+    } | {
+      building_name?: string | null;
+      society_id?: string | null;
+    }[] | null;
+  } | {
+    flat_number?: string | null;
+    buildings?: {
+      building_name?: string | null;
+      society_id?: string | null;
+    } | {
+      building_name?: string | null;
+      society_id?: string | null;
+    }[] | null;
+  }[] | null;
+}
+
 const CreateResidentSchema = z.object({
   flat_id: z.string().uuid(),
   full_name: z.string().trim().min(1).max(200),
@@ -67,14 +97,18 @@ async function getAuthorizedResidentManager() {
     return {
       error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
       userId: null as string | null,
-    };
-  }
+  };
+}
 
-  const { data: userRecord, error: userError } = await supabaseAdmin
-    .from("users")
-    .select("roles(role_name)")
-    .eq("id", user.id)
-    .maybeSingle();
+type RoleRow = {
+  role_name: string | null;
+};
+
+    const { data: userRecord, error: userError } = await supabaseAdmin
+      .from("users")
+      .select("roles(role_name)")
+      .eq("id", user.id)
+      .maybeSingle();
 
   if (userError || !userRecord) {
     return {
@@ -83,9 +117,9 @@ async function getAuthorizedResidentManager() {
     };
   }
 
-  const roleRecord = Array.isArray(userRecord?.roles)
-    ? userRecord.roles[0]
-    : userRecord?.roles;
+    const roleRecord = Array.isArray((userRecord as { roles?: RoleRow | RoleRow[] | null } | null)?.roles)
+      ? (userRecord as { roles?: RoleRow | RoleRow[] | null } | null)?.roles?.[0]
+      : (userRecord as { roles?: RoleRow | RoleRow[] | null } | null)?.roles;
   const roleName = roleRecord?.role_name ?? null;
 
   if (!roleName || !RESIDENT_MANAGEMENT_ROLES.has(roleName)) {
@@ -110,7 +144,7 @@ async function getManagedSocietyIds(userId: string) {
     throw error;
   }
 
-  return new Set((data ?? []).map((row: any) => row.id as string));
+  return new Set((data ?? []).map((row) => row.id as string));
 }
 
 async function canManageFlat(flatId: string, userId: string, roleName: string | null) {
@@ -150,7 +184,7 @@ export async function GET() {
     const supabaseAdmin = createServiceRoleClient();
     
     // Build query - fetch all active residents with their flat and building info
-    let query = supabaseAdmin
+    const query = supabaseAdmin
       .from("residents")
       .select(`
         id,
@@ -174,7 +208,7 @@ export async function GET() {
     if (residentsError) throw residentsError;
 
     const authUserIds = (residents ?? [])
-      .map((resident: any) => resident.auth_user_id)
+      .map((resident: ResidentRow) => resident.auth_user_id)
       .filter((value: string | null): value is string => Boolean(value));
 
     const userLookup = new Map<
@@ -202,17 +236,17 @@ export async function GET() {
       }
     }
 
-    const scopedResidents = (residents ?? []).filter((resident: any) => {
+    const scopedResidents = (residents ?? []).filter((resident: ResidentRow) => {
       if (!managedSocietyIds) return true;
       const flatRecord = Array.isArray(resident.flats) ? resident.flats[0] : resident.flats;
       const buildingRecord = Array.isArray(flatRecord?.buildings) ? flatRecord?.buildings[0] : flatRecord?.buildings;
       return Boolean(buildingRecord?.society_id && managedSocietyIds.has(buildingRecord.society_id));
     });
 
-    const payload = scopedResidents.map((resident: any) => {
+    const payload = scopedResidents.map((resident: ResidentRow) => {
       const linkedUser = resident.auth_user_id ? userLookup.get(resident.auth_user_id) : null;
-      const flatRecord = Array.isArray(resident.flats) ? resident.flats[0] : resident.flats as FlatRecord | null;
-      const buildingRecord = Array.isArray(flatRecord?.buildings) ? flatRecord?.buildings[0] : flatRecord?.buildings as BuildingRecord | null;
+      const flatRecord = Array.isArray(resident.flats) ? resident.flats[0] : resident.flats;
+      const buildingRecord = Array.isArray(flatRecord?.buildings) ? flatRecord?.buildings[0] : flatRecord?.buildings;
 
       return {
         id: resident.id,
@@ -375,7 +409,7 @@ export async function POST(request: NextRequest) {
 
     if (error) throw error;
 
-    const newResidentId = (data as any).id;
+    const newResidentId = data.id;
     const { email, temp_password } = parsed.data;
 
     // Optionally create a login account for this resident
@@ -422,7 +456,7 @@ export async function POST(request: NextRequest) {
           full_name: parsed.data.full_name,
           email,
           phone: parsed.data.phone || null,
-          role_id: (roleRow as any).id,
+          role_id: (roleRow as { id: string }).id,
           username,
           must_change_password: true,
           is_active: true,

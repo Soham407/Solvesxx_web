@@ -59,6 +59,54 @@ export function useGuardVisitors() {
     error: null,
   });
 
+  function normalizeExpectedVisitorRows(rows: unknown): Array<{
+    id: string;
+    visitor_name: string;
+    visitor_type: string | null;
+    phone: string | null;
+    vehicle_number: string | null;
+    purpose: string | null;
+    approved_by_resident: boolean | null;
+    flats: { flat_number: string; buildings: { building_name: string } | null } | null;
+    residents: ExpectedVisitor["resident"] | null;
+  }> {
+    return Array.isArray(rows) ? (rows as Array<{
+      id: string;
+      visitor_name: string;
+      visitor_type: string | null;
+      phone: string | null;
+      vehicle_number: string | null;
+      purpose: string | null;
+      approved_by_resident: boolean | null;
+      flats: { flat_number: string; buildings: { building_name: string } | null } | null;
+      residents: ExpectedVisitor["resident"] | null;
+    }>) : [];
+  }
+
+  function normalizeActiveVisitorRows(rows: unknown): Array<{
+    id: string;
+    visitor_name: string;
+    visitor_type: string | null;
+    phone: string | null;
+    vehicle_number: string | null;
+    purpose: string | null;
+    photo_url: string | null;
+    entry_time: string;
+    flats: { flat_number: string; buildings: { building_name: string } | null } | null;
+  }> {
+    return Array.isArray(rows) ? (rows as Array<{
+      id: string;
+      visitor_name: string;
+      visitor_type: string | null;
+      phone: string | null;
+      vehicle_number: string | null;
+      purpose: string | null;
+      photo_url: string | null;
+      entry_time: string;
+      flats: { flat_number: string; buildings: { building_name: string } | null } | null;
+    }>) : [];
+  }
+
   /**
    * Fetch pre-approved visitors who haven't entered yet
    * These are visitors invited by residents with entry_time = null
@@ -95,7 +143,7 @@ export function useGuardVisitors() {
       // Transform the data to match our interface
       // PostgREST returns FK joins using table names (flats, residents, buildings)
       // Map them to our cleaner interface names (flat, resident, building)
-      const visitors: ExpectedVisitor[] = (data || []).map((v) => {
+      const visitors: ExpectedVisitor[] = normalizeExpectedVisitorRows(data).map((v) => {
         const rawFlat = v.flats as { flat_number: string; buildings: { building_name: string } | null } | null;
         return {
           id: v.id,
@@ -160,7 +208,7 @@ export function useGuardVisitors() {
 
       if (error) throw error;
 
-      const visitors: ActiveVisitor[] = (data || []).map((v) => {
+      const visitors: ActiveVisitor[] = normalizeActiveVisitorRows(data).map((v) => {
         const rawFlat = v.flats as { flat_number: string; buildings: { building_name: string } | null } | null;
         return {
           id: v.id,
@@ -227,7 +275,7 @@ export function useGuardVisitors() {
           const residentAuthUserId = residentData?.auth_user_id;
           const flatNumber = flatData?.flat_number;
           const visitorName = data.visitor_name;
-          const visitorPhotoUrl = (data as any).photo_url as string | null;
+          const visitorPhotoUrl = data.photo_url as string | null;
 
           if (residentAuthUserId && flatNumber && visitorName) {
             await sendVisitorArrivalNotification(residentAuthUserId, visitorName, flatNumber, visitorPhotoUrl ?? undefined);

@@ -22,20 +22,24 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS set_bgv_updated_at ON background_verifications;
 CREATE TRIGGER set_bgv_updated_at
   BEFORE UPDATE ON background_verifications
   FOR EACH ROW EXECUTE FUNCTION update_bgv_updated_at();
 
 ALTER TABLE background_verifications ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "bgv_select" ON background_verifications;
 CREATE POLICY "bgv_select" ON background_verifications
   FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "bgv_insert" ON background_verifications;
 CREATE POLICY "bgv_insert" ON background_verifications
   FOR INSERT TO authenticated WITH CHECK (auth.uid() IS NOT NULL);
 
+DROP POLICY IF EXISTS "bgv_update" ON background_verifications;
 CREATE POLICY "bgv_update" ON background_verifications
   FOR UPDATE TO authenticated USING (true);
 
-CREATE INDEX idx_background_verifications_candidate_id ON background_verifications(candidate_id);
-CREATE INDEX idx_background_verifications_status ON background_verifications(status);;
+CREATE INDEX IF NOT EXISTS idx_background_verifications_candidate_id ON background_verifications(candidate_id);
+CREATE INDEX IF NOT EXISTS idx_background_verifications_status ON background_verifications(status);;

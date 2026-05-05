@@ -7,6 +7,8 @@ import { createServiceRoleClient } from "@/src/lib/platform/server";
 import { createClient as createServerClient } from "@/src/lib/supabase/server";
 
 const GUARD_MANAGER_ROLES = new Set(["admin", "super_admin", "society_manager"]);
+type RoleRecord = { role_name?: string | null };
+type UserRoleRow = { roles?: RoleRecord | RoleRecord[] | null };
 
 const GuardOnboardingSchema = z.object({
   full_name: z.string().trim().min(2).max(200),
@@ -48,9 +50,8 @@ async function getAuthorizedGuardManager() {
     };
   }
 
-  const roleRecord = Array.isArray((callerRecord as any).roles)
-    ? (callerRecord as any).roles[0]
-    : (callerRecord as any).roles;
+  const callerRow = callerRecord as UserRoleRow | null;
+  const roleRecord = Array.isArray(callerRow?.roles) ? callerRow.roles[0] : callerRow?.roles;
   const roleName = roleRecord?.role_name ?? null;
 
   if (!roleName || !GUARD_MANAGER_ROLES.has(roleName)) {

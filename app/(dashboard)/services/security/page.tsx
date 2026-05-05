@@ -74,9 +74,33 @@ const INITIAL_EDIT_FORM = {
   is_active: true,
 };
 
-interface SocietyOption {
+function getSecurityGuardDesignations(designations: Array<{
   id: string;
-  society_name: string;
+  designation_name?: string | null;
+  department?: string | null;
+}>) {
+  const seen = new Set<string>();
+  return designations.filter((designation) => {
+    const normalizedName = designation.designation_name?.trim().toLowerCase() || "";
+    const normalizedDepartment = designation.department?.trim().toLowerCase() || "";
+    const looksSecurityRelated =
+      normalizedDepartment === "sec" ||
+      normalizedDepartment === "security" ||
+      normalizedName.includes("security") ||
+      normalizedName.includes("guard") ||
+      normalizedName.includes("supervisor");
+
+    if (!looksSecurityRelated) return false;
+    if (seen.has(normalizedName)) return false;
+    seen.add(normalizedName);
+    return true;
+  });
+}
+
+function getGuardPresenceDotClassName(statusLabel: string) {
+  if (statusLabel === "Active") return "bg-success";
+  if (statusLabel === "Inactive") return "bg-critical animate-pulse";
+  return "bg-warning";
 }
 
 export default function SecurityCommandPage() {
@@ -98,24 +122,7 @@ export default function SecurityCommandPage() {
   const { locations, isLoading: locationsLoading } = useCompanyLocations();
   const { shifts, isLoading: shiftsLoading } = useShifts();
   const { designations, isLoading: designationsLoading } = useDesignations();
-  const guardDesignations = (() => {
-    const seen = new Set<string>();
-    return designations.filter((designation) => {
-      const normalizedName = designation.designation_name?.trim().toLowerCase() || "";
-      const normalizedDepartment = designation.department?.trim().toLowerCase() || "";
-      const looksSecurityRelated =
-        normalizedDepartment === "sec" ||
-        normalizedDepartment === "security" ||
-        normalizedName.includes("security") ||
-        normalizedName.includes("guard") ||
-        normalizedName.includes("supervisor");
-
-      if (!looksSecurityRelated) return false;
-      if (seen.has(normalizedName)) return false;
-      seen.add(normalizedName);
-      return true;
-    });
-  })();
+  const guardDesignations = getSecurityGuardDesignations(designations);
 
   const [selectedGuard, setSelectedGuard] = useState<SecurityGuard | null>(null);
   const [onboardDialogOpen, setOnboardDialogOpen] = useState(false);
@@ -130,11 +137,6 @@ export default function SecurityCommandPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editForm, setEditForm] = useState(INITIAL_EDIT_FORM);
   const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
-  const [societyDialogOpen, setSocietyDialogOpen] = useState(false);
-  const [societies, setSocieties] = useState<SocietyOption[]>([]);
-  const [selectedSocietyId, setSelectedSocietyId] = useState("");
-  const [isLoadingSocieties, setIsLoadingSocieties] = useState(false);
-  const [isSubmittingSociety, setIsSubmittingSociety] = useState(false);
 
   const selectedShift = shifts.find((shift) => shift.id === onboardForm.shift_id);
   const selectedEditShift = shifts.find((shift) => shift.id === editForm.shift_id);
@@ -161,35 +163,6 @@ export default function SecurityCommandPage() {
       is_active: guard.is_active,
     });
     setEditDialogOpen(true);
-  };
-
-  const openSocietyDialog = async (guard: SecurityGuard) => {
-    setSelectedGuard(guard);
-    setSelectedSocietyId(guard.society_id || "");
-    setSocietyDialogOpen(true);
-
-    if (societies.length > 0) {
-      return;
-    }
-
-    setIsLoadingSocieties(true);
-    try {
-      const { data, error } = await supabase
-        .from("societies")
-        .select("id, society_name")
-        .eq("is_active", true)
-        .order("society_name", { ascending: true });
-
-      if (error) {
-        throw error;
-      }
-
-      setSocieties((data || []) as SocietyOption[]);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to load societies");
-    } finally {
-      setIsLoadingSocieties(false);
-    }
   };
 
   const handleSaveGuard = async () => {
@@ -221,37 +194,6 @@ export default function SecurityCommandPage() {
       toast.error(error instanceof Error ? error.message : "Failed to update guard");
     } finally {
       setIsSubmittingEdit(false);
-    }
-  };
-
-  const handleAssignSociety = async () => {
-    if (!selectedGuard || !selectedSocietyId) {
-      toast.error("Select a society to continue.");
-      return;
-    }
-
-    setIsSubmittingSociety(true);
-    try {
-      const response = await fetch(`/api/admin/guards/${selectedGuard.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ society_id: selectedSocietyId }),
-      });
-
-      const payload = await response.json();
-      if (!response.ok) {
-        throw new Error(payload.error || "Failed to assign society");
-      }
-
-      toast.success(`Guard linked to ${payload.society_name}`);
-      setSocietyDialogOpen(false);
-      setSelectedGuard(null);
-      setSelectedSocietyId("");
-      refresh();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to assign society");
-    } finally {
-      setIsSubmittingSociety(false);
     }
   };
 
@@ -289,7 +231,7 @@ export default function SecurityCommandPage() {
 
   // Format time for display
   const formatTime = (isoDate: string | null) => {
-    if (!isoDate) return "N/A";
+    if (!isoDate) return "Not set";
     return new Date(isoDate).toLocaleTimeString("en-IN", {
       hour: "2-digit",
       minute: "2-digit",
@@ -348,15 +290,6 @@ export default function SecurityCommandPage() {
             {row.original.assigned_location?.location_name || "Unassigned"}
           </span>
         </div>
-      ),
-    },
-    {
-      id: "society",
-      header: "Society",
-      cell: ({ row }) => (
-        <span className="text-sm">
-          {row.original.society?.society_name || "Unassigned"}
-        </span>
       ),
     },
     {
@@ -446,7 +379,7 @@ export default function SecurityCommandPage() {
             <div className="flex items-center gap-1">
               <Battery className={cn("h-4 w-4", battery.color)} />
               <span className={cn("text-xs font-bold", battery.color)}>
-                {battery.level !== null ? `${battery.level}%` : "N/A"}
+                {battery.level !== null ? `${battery.level}%` : "Not available"}
               </span>
             </div>
             {location && (
@@ -477,9 +410,6 @@ export default function SecurityCommandPage() {
               ) : null}
               <DropdownMenuItem onClick={() => openEditDialog(row.original)}>
                 Edit Assignment
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => void openSocietyDialog(row.original)}>
-                Assign to Society
               </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
@@ -636,7 +566,7 @@ export default function SecurityCommandPage() {
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Full map integration with Leaflet/Google Maps coming soon. Currently tracking via GPS table.
+                      Full map integration is not enabled yet. Current tracking uses the GPS table.
                     </p>
                   </div>
                 )}
@@ -709,14 +639,11 @@ export default function SecurityCommandPage() {
                             </span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className={cn("text-xs font-bold", battery.color)}>
-                            {battery.level !== null ? `${battery.level}%` : ""}
-                          </span>
-                          <div className={cn("h-2 w-2 rounded-full", 
-                            status.label === "Active" ? "bg-success" : 
-                            status.label === "Inactive" ? "bg-critical animate-pulse" : "bg-warning"
-                          )} />
+                          <div className="flex items-center gap-2">
+                            <span className={cn("text-xs font-bold", battery.color)}>
+                              {battery.level !== null ? `${battery.level}%` : ""}
+                            </span>
+                          <div className={cn("h-2 w-2 rounded-full", getGuardPresenceDotClassName(status.label))} />
                         </div>
                       </div>
                     );
@@ -910,59 +837,6 @@ export default function SecurityCommandPage() {
               </DialogFooter>
             </>
           )}
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={societyDialogOpen}
-        onOpenChange={(open) => {
-          setSocietyDialogOpen(open);
-          if (!open) {
-            setSelectedGuard(null);
-            setSelectedSocietyId("");
-          }
-        }}
-      >
-        <DialogContent className="sm:max-w-[420px]">
-          <DialogHeader>
-            <DialogTitle>Assign Guard to Society</DialogTitle>
-            <DialogDescription>
-              Link this guard profile to the society they are responsible for.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="rounded-lg border bg-muted/40 p-3">
-              <p className="text-sm font-bold">
-                {selectedGuard?.employee?.first_name} {selectedGuard?.employee?.last_name}
-              </p>
-              <p className="text-xs text-muted-foreground">{selectedGuard?.guard_code}</p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="guard_assign_society">Society</Label>
-              <Select
-                value={selectedSocietyId}
-                onValueChange={setSelectedSocietyId}
-                disabled={isLoadingSocieties}
-              >
-                <SelectTrigger id="guard_assign_society">
-                  <SelectValue placeholder={isLoadingSocieties ? "Loading societies..." : "Select society"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {societies.map((society) => (
-                    <SelectItem key={society.id} value={society.id}>
-                      {society.society_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSocietyDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleAssignSociety} disabled={isSubmittingSociety || isLoadingSocieties || !selectedSocietyId}>
-              {isSubmittingSociety ? "Saving..." : "Assign Society"}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 

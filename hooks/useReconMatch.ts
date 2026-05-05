@@ -45,15 +45,26 @@ export function useReconMatch(filters?: {
       const { data, error: fetchError } = await query;
       if (fetchError) throw fetchError;
 
-      setReconciliations((data || []).map((r: any) => ({
-        ...r,
-        bill_number: r.purchase_bills?.bill_number,
-        po_number: r.purchase_orders?.po_number,
-        grn_number: r.material_receipts?.grn_number,
-        supplier_name: r.purchase_bills?.suppliers?.supplier_name,
-      })));
-    } catch (err: any) {
-      setError(err.message);
+      setReconciliations((data || []).map((row) => {
+        const r = row as {
+          purchase_bills?: {
+            bill_number: string | null;
+            suppliers?: { supplier_name: string | null } | null;
+          } | null;
+          purchase_orders?: { po_number: string | null } | null;
+          material_receipts?: { grn_number: string | null } | null;
+        };
+
+        return {
+          ...(row as Reconciliation),
+          bill_number: r.purchase_bills?.bill_number,
+          po_number: r.purchase_orders?.po_number,
+          grn_number: r.material_receipts?.grn_number,
+          supplier_name: r.purchase_bills?.suppliers?.supplier_name,
+        };
+      }));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to fetch reconciliations");
     } finally {
       setIsLoading(false);
     }
@@ -66,15 +77,15 @@ export function useReconMatch(filters?: {
   const executeManualMatch = async (reconId: string) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const { data, error: rpcError } = await supabase.rpc('execute_reconciliation_match' as any, {
+      const { data, error: rpcError } = await supabase.rpc("execute_reconciliation_match", {
         p_reconciliation_id: reconId,
         p_user_id: user?.id,
       });
       if (rpcError) throw rpcError;
       fetchReconciliations();
       return data;
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to execute manual match");
       return null;
     }
   };

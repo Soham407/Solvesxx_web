@@ -1,11 +1,13 @@
 "use client";
 
+import { useMemo } from "react";
 import { useGuardLiveLocation } from "@/hooks/useGuardLiveLocation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MapPin, Clock, User, Loader2, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
+import { buildGuardLiveMapLayout, getGuardLiveMapPointPosition } from "@/src/lib/security/guardLiveMapLayout";
 
 interface GuardLiveMapProps {
   height?: string;
@@ -14,6 +16,7 @@ interface GuardLiveMapProps {
 
 export function GuardLiveMap({ height = "400px", readOnly = false }: GuardLiveMapProps) {
   const { locations, isLoading } = useGuardLiveLocation();
+  const layout = useMemo(() => buildGuardLiveMapLayout(locations), [locations]);
 
   return (
     <Card className={cn("border-none shadow-card ring-1 ring-border overflow-hidden col-span-full", readOnly && "shadow-none ring-0")}>
@@ -52,26 +55,25 @@ export function GuardLiveMap({ height = "400px", readOnly = false }: GuardLiveMa
                 <p className="text-sm font-bold text-muted-foreground uppercase">No Active Tracking Data</p>
                 <p className="text-xs text-muted-foreground/60 mt-1">Tracking begins once guards clock in and GPS heartbeat starts.</p>
               </div>
+            ) : layout.validLocations.length === 0 ? (
+              <div className="text-center p-8">
+                <MapPin className="h-12 w-12 mx-auto text-muted-foreground/20 mb-3" />
+                <p className="text-sm font-bold text-muted-foreground uppercase">No Map Coordinates Available</p>
+                <p className="text-xs text-muted-foreground/60 mt-1">
+                  Live guards are present, but their latest location rows do not yet contain usable coordinates.
+                </p>
+              </div>
             ) : (
               <div className="relative w-full h-full p-12">
-                {/* 
-                   In a real app, we'd use Leaflet or Google Maps here.
-                   Since no map provider is installed, we simulate the relative positions
-                   within a bounds box for visualization.
-                */}
                 <div className="absolute inset-0 flex items-center justify-center">
                    <p className="text-[120px] font-black text-muted-foreground/5 uppercase select-none">SITE MAP</p>
                 </div>
 
-                {locations.map((guard, idx) => (
+                {layout.validLocations.map((guard) => (
                   <div 
                     key={guard.employee_id}
                     className="absolute transition-all duration-1000 group cursor-pointer"
-                    style={{ 
-                      // Pseudo-random but deterministic placement based on coords for demo
-                      left: `${30 + (idx * 15) % 40}%`,
-                      top: `${20 + (idx * 20) % 60}%`
-                    }}
+                    style={getGuardLiveMapPointPosition(layout.bounds, guard.latitude, guard.longitude)}
                   >
                     <div className="relative flex flex-col items-center">
                        <div className="h-10 w-10 rounded-full bg-white shadow-xl ring-2 ring-primary flex items-center justify-center z-10 hover:scale-110 transition-transform">

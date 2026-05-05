@@ -109,7 +109,7 @@ export default function ServiceRequestsPage() {
                 </div>
                 <div>
                   <p className="text-xs font-bold text-muted-foreground uppercase">Location</p>
-                  <p>{selectedRequest.location_name || "N/A"}</p>
+                  <p>{selectedRequest.location_name || "Not set"}</p>
                 </div>
               </div>
               <div>

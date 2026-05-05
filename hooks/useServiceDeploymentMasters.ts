@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { supabase as supabaseTyped } from "@/src/lib/supabaseClient";
 
-const supabase = supabaseTyped as any;
+const supabase = supabaseTyped;
 
 export const SERVICE_TYPE_OPTIONS = [
   { value: "security", label: "Security" },
@@ -12,7 +12,6 @@ export const SERVICE_TYPE_OPTIONS = [
   { value: "ac", label: "AC" },
   { value: "pest_control", label: "Pest Control" },
   { value: "plantation", label: "Plantation" },
-  { value: "printing", label: "Printing" },
 ] as const;
 
 const SERVICE_TYPE_ALIASES: Record<string, string[]> = {
@@ -21,7 +20,6 @@ const SERVICE_TYPE_ALIASES: Record<string, string[]> = {
   ac: ["ac", "a/c", "air conditioner", "air conditioning"],
   pest_control: ["pest control", "pest_control", "pest"],
   plantation: ["plantation", "horticulture", "gardening"],
-  printing: ["printing", "printing & advertising", "printing and advertising"],
 };
 
 export interface ServiceDeploymentCompanyLocation {
@@ -51,6 +49,22 @@ interface UseServiceDeploymentMastersState {
   isLoading: boolean;
   error: string | null;
 }
+
+type WorkRow = {
+  service_type: string | null;
+  work?: { id?: string | null; work_name?: string | null; description?: string | null } | null;
+};
+
+type SupplierRow = {
+  service_type: string | null;
+  supplier?: {
+    id?: string | null;
+    supplier_name?: string | null;
+    supplier_code?: string | null;
+    is_active?: boolean | null;
+    status?: string | null;
+  } | null;
+};
 
 function normalizeKey(value: string | null | undefined) {
   return String(value || "")
@@ -129,7 +143,7 @@ export function useServiceDeploymentMasters() {
       if (serviceWorkResult.error) throw serviceWorkResult.error;
       if (vendorServicesResult.error) throw vendorServicesResult.error;
 
-      const workOptions = (serviceWorkResult.data || []).flatMap((row: any) => {
+      const workOptions = ((serviceWorkResult.data || []) as WorkRow[]).flatMap((row) => {
         const work = Array.isArray(row.work) ? row.work[0] : row.work;
         if (!row.service_type || !work?.id || !work?.work_name) {
           return [];
@@ -146,7 +160,7 @@ export function useServiceDeploymentMasters() {
       });
 
       const supplierOptionsMap = new Map<string, ServiceDeploymentSupplierOption>();
-      (vendorServicesResult.data || []).forEach((row: any) => {
+      ((vendorServicesResult.data || []) as SupplierRow[]).forEach((row) => {
         const supplier = Array.isArray(row.supplier) ? row.supplier[0] : row.supplier;
         if (!row.service_type || !supplier?.id || !supplier?.supplier_name) {
           return;
@@ -174,12 +188,12 @@ export function useServiceDeploymentMasters() {
         isLoading: false,
         error: null,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching service deployment masters:", err);
       setState((prev) => ({
         ...prev,
         isLoading: false,
-        error: err.message || "Failed to load service deployment masters",
+        error: err instanceof Error ? err.message || "Failed to load service deployment masters" : "Failed to load service deployment masters",
       }));
     }
   }, []);

@@ -22,8 +22,9 @@ import { CheckCircle2, Loader2, AlertTriangle, Users } from "lucide-react";
 import { supabase as supabaseTyped } from "@/src/lib/supabaseClient";
 import { useToast } from "@/components/ui/use-toast";
 import { ServicePurchaseOrder } from "@/hooks/useServicePurchaseOrders";
+import type { Resolver } from "react-hook-form";
 
-const supabase = supabaseTyped as any;
+const supabase = supabaseTyped;
 
 const formSchema = z.object({
   headcount_received: z.coerce.number().min(0, "Must be 0 or more"),
@@ -56,7 +57,7 @@ export function ServiceAcknowledgmentDialog({
   const { toast } = useToast();
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema) as any,
+    resolver: zodResolver(formSchema) as Resolver<FormValues>,
     defaultValues: {
       headcount_received: 0,
       grade_verified: false,
@@ -80,7 +81,7 @@ export function ServiceAcknowledgmentDialog({
       .from("service_purchase_order_items")
       .select("quantity")
       .eq("spo_id", spo.id)
-      .then(({ data, error }) => {
+        .then(({ data, error }) => {
         if (!error && data && data.length > 0) {
           const total = data.reduce((sum, item) => sum + (item.quantity ?? 0), 0);
           setExpectedHeadcount(total);
@@ -170,9 +171,13 @@ export function ServiceAcknowledgmentDialog({
       form.reset();
       onOpenChange(false);
       onConfirm();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Acknowledgment error:", err);
-      toast({ title: "Error", description: err.message || "Failed to acknowledge deployment", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Failed to acknowledge deployment",
+        variant: "destructive",
+      });
     } finally {
       setIsSubmitting(false);
     }

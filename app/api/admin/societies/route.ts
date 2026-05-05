@@ -6,6 +6,8 @@ import { createClient as createServerClient } from "@/src/lib/supabase/server";
 import { insertAuditLog } from "@/src/lib/platform/audit";
 
 const SOCIETY_ADMIN_ROLES = new Set(["admin", "super_admin", "society_manager"]);
+type RoleRecord = { role_name?: string | null };
+type UserRoleRow = { roles?: RoleRecord | RoleRecord[] | null };
 
 async function getAuthorizedSocietyAdmin() {
   const supabase = await createServerClient();
@@ -37,9 +39,8 @@ async function getAuthorizedSocietyAdmin() {
     };
   }
 
-  const roleRecord = Array.isArray((callerRecord as any).roles)
-    ? (callerRecord as any).roles[0]
-    : (callerRecord as any).roles;
+  const callerRow = callerRecord as UserRoleRow | null;
+  const roleRecord = Array.isArray(callerRow?.roles) ? callerRow.roles[0] : callerRow?.roles;
   const roleName = roleRecord?.role_name ?? null;
 
   if (!roleName || !SOCIETY_ADMIN_ROLES.has(roleName)) {
@@ -136,7 +137,7 @@ export async function POST(request: NextRequest) {
 
     await insertAuditLog(auth.supabaseAdmin, {
       entityType: "societies",
-      entityId: (row as any).id,
+      entityId: row.id,
       action: "society.created",
       actorId: auth.callerUserId,
       newData: row,

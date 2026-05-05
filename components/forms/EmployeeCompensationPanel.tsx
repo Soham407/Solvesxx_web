@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useMemo, useRef } from "react";
+import { type FormEvent, useMemo } from "react";
 import {
   AlertTriangle,
   CalendarClock,
@@ -50,7 +50,7 @@ export function EmployeeCompensationPanel({
     saveSalaryStructure,
   } = useEmployeeSalaryStructure(employeeId);
 
-  const defaultEffectiveFromRef = useRef(getTodayIsoDate());
+  const defaultEffectiveFrom = getTodayIsoDate();
   const formRevisionKey = useMemo(() => {
     const componentSeed = components.map((component) => component.id).join("|") || "no-components";
     const structureSeed =
@@ -160,7 +160,7 @@ export function EmployeeCompensationPanel({
                   id="salary-effective-from"
                   name="effectiveFrom"
                   type="date"
-                  defaultValue={defaultEffectiveFromRef.current}
+                  defaultValue={defaultEffectiveFrom}
                   disabled={!canManage || isSaving}
                   className="pl-10"
                 />

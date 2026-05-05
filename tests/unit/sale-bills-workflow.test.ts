@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   readRepoFile,
   sourceContainsAll,
+  sourceContainsNone,
 } from "../helpers/source-files";
 
 describe("sale bills workflow", () => {
@@ -23,18 +24,48 @@ describe("sale bills workflow", () => {
     ).toBe(true);
   });
 
-  it("verifies the buyer invoices page has functional handlers for payment and PDF", async () => {
+  it("verifies buyer invoice download uses truthful unavailable messaging (no mocked PDF success)", async () => {
     const buyerInvoicesPageSource = await readRepoFile("app/(dashboard)/buyer/invoices/page.tsx");
 
     expect(
       sourceContainsAll(buyerInvoicesPageSource, [
-        "handleDownloadPDF",
+        "handleInvoiceDocumentDownload",
         "handlePayNow",
-        "Generating PDF for",
-        "PDF for",
+        "Invoice document download is not available for",
         "const paid = await recordPayment(invoice.id, {",
         "Payment recorded for",
         "Payment update failed for",
+      ])
+    ).toBe(true);
+
+    expect(
+      sourceContainsNone(buyerInvoicesPageSource, [
+        "Generating PDF for",
+        "downloaded successfully",
+        "setTimeout(() => {",
+      ])
+    ).toBe(true);
+  });
+
+  it("verifies supplier bills page only enables PDF action for real stored documents", async () => {
+    const supplierBillsPageSource = await readRepoFile("app/(dashboard)/supplier/bills/page.tsx");
+    const supplierBillsHookSource = await readRepoFile("hooks/useSupplierBills.ts");
+
+    expect(
+      sourceContainsAll(supplierBillsPageSource, [
+        "handleBillDocumentDownload",
+        "disabled={!bill.document_url || resolvingDocumentBillId === bill.id}",
+        "No document",
+        '.from("bill-documents")',
+        ".createSignedUrl(",
+        "Bill document is not available for this bill.",
+      ])
+    ).toBe(true);
+
+    expect(
+      sourceContainsAll(supplierBillsHookSource, [
+        'from("purchase_bills")',
+        "document_url: uploadData.path",
       ])
     ).toBe(true);
   });
@@ -46,10 +77,25 @@ describe("sale bills workflow", () => {
       sourceContainsAll(useSaleBillsSource, [
         "createBill",
         "markPaid",
-        "paid_at: new Date().toISOString()",
+        "paid_at: paidAt",
         "request_id: input.request_id",
         "SaleBill",
         "SaleBillItem",
+      ])
+    ).toBe(true);
+  });
+
+  it("verifies buyer workflow has a dedicated e2e path for request, payment, and feedback", async () => {
+    const buyerWorkflowSpec = await readRepoFile("e2e/buyer-request-invoice-payment-feedback.spec.ts");
+
+    expect(
+      sourceContainsAll(buyerWorkflowSpec, [
+        "Buyer Request → Invoice → Payment → Feedback",
+        "/buyer/requests",
+        "/buyer/invoices",
+        "pay now",
+        "buyer_feedback",
+        "toBe(\"completed\")",
       ])
     ).toBe(true);
   });

@@ -67,6 +67,21 @@ const INITIAL_UPLOAD_FORM = {
   notes: "",
 };
 
+function summarizeDocumentStats(documents: EmployeeDocument[]) {
+  const now = new Date();
+  const thirtyDaysFromNow = new Date();
+  thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+
+  return {
+    expiringCount: documents.filter((document) => {
+      if (!document.expiry_date || document.status !== "verified") return false;
+      const expiry = new Date(document.expiry_date);
+      return expiry <= thirtyDaysFromNow && expiry >= now;
+    }).length,
+    totalStorageBytes: documents.reduce((sum, document) => sum + (document.file_size || 0), 0),
+  };
+}
+
 export default function DocumentGovernancePage() {
   const {
     documents,
@@ -99,17 +114,7 @@ export default function DocumentGovernancePage() {
   // Calculate stats
   const stats = getStatusStats();
 
-  // Get expiring count (would need to check expiry_date manually or call getExpiringDocuments)
-  const expiringCount = documents.filter((d) => {
-    if (!d.expiry_date || d.status !== "verified") return false;
-    const expiry = new Date(d.expiry_date);
-    const thirtyDaysFromNow = new Date();
-    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
-    return expiry <= thirtyDaysFromNow && expiry >= new Date();
-  }).length;
-
-  // Total storage size
-  const totalStorageBytes = documents.reduce((sum, d) => sum + (d.file_size || 0), 0);
+  const { expiringCount, totalStorageBytes } = summarizeDocumentStats(documents);
 
   // Handle file selection
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {

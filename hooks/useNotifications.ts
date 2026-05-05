@@ -3,78 +3,27 @@
 import { useState, useEffect, useCallback } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase } from "@/src/lib/supabaseClient";
+import {
+  getUnreadNotificationCount,
+  normalizeNotification,
+  sortNotifications,
+  type NotificationPriority,
+  type Notification,
+  type NotificationRow,
+} from "@/src/lib/notifications/notificationTransforms";
 
-export type NotificationPriority = "low" | "normal" | "high" | "critical";
+export type { NotificationPriority };
 
-export interface Notification {
-  id: string;
-  user_id: string;
-  title: string;
-  body: string;
-  type: string;
-  priority: NotificationPriority;
-  is_read: boolean;
+type LocalNotificationRow = NotificationRow & {
   read_at: string | null;
-  action_url: string | null;
-  created_at: string;
-}
+  data?: { action_url?: string | null } | null;
+};
 
-interface NotificationRow {
-  id: string;
-  user_id: string;
-  title: string;
-  body?: string | null;
-  message?: string | null;
-  type?: string | null;
-  notification_type?: string | null;
-  priority?: NotificationPriority | null;
-  is_read: boolean;
-  read_at: string | null;
-  action_url?: string | null;
-  created_at: string;
-  data?: Record<string, unknown> | null;
-}
-
-function sortNotifications(items: Notification[]) {
-  return [...items].sort(
-    (left, right) =>
-      new Date(right.created_at).getTime() - new Date(left.created_at).getTime()
-  );
-}
-
-function normalizePriority(priority?: NotificationPriority | null): NotificationPriority {
-  switch (priority) {
-    case "low":
-    case "normal":
-    case "high":
-    case "critical":
-      return priority;
-    default:
-      return "normal";
-  }
-}
-
-function normalizeNotification(row: NotificationRow): Notification {
-  const data = row.data ?? {};
-  const actionUrlFromData =
-    typeof data.action_url === "string"
-      ? data.action_url
-      : typeof data.route === "string"
-        ? data.route
-        : null;
-
-  return {
-    id: row.id,
-    user_id: row.user_id,
-    title: row.title,
-    body: row.message ?? row.body ?? "",
-    type: row.notification_type ?? row.type ?? "general",
-    priority: normalizePriority(row.priority),
-    is_read: row.is_read,
-    read_at: row.read_at,
-    action_url: row.action_url ?? actionUrlFromData,
-    created_at: row.created_at,
-  };
+function parseNotificationRow(row: LocalNotificationRow): Notification {
+  const body = row.message ?? row.body ?? "";
+  const type = row.notification_type ?? row.type ?? "general";
+  const actionUrl = (row.data != null ? row.data.action_url : null) ?? row.action_url ?? null;
+  return normalizeNotification({ ...row, body, type, action_url: actionUrl } as NotificationRow);
 }
 
 export function useNotifications() {
@@ -82,6 +31,10 @@ export function useNotifications() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+
+  function normalizeNotificationRows(rows: unknown): NotificationRow[] {
+    return Array.isArray(rows) ? (rows as NotificationRow[]) : [];
+  }
 
   const mergeNotification = useCallback((notification: Notification) => {
     setNotifications((prev) =>
@@ -105,9 +58,7 @@ export function useNotifications() {
 
       if (error) throw error;
       setNotifications(
-        (((data as NotificationRow[] | null) ?? []).map((row) =>
-          normalizeNotification(row)
-        ) as Notification[]) || []
+        normalizeNotificationRows(data).map((row) => parseNotificationRow(row as LocalNotificationRow))
       );
     } catch (err) {
       console.error("Notifications fetch error:", err);
@@ -173,7 +124,7 @@ export function useNotifications() {
     }
   }, [userId]);
 
-  const unreadCount = notifications.filter((n) => !n.is_read).length;
+  const unreadCount = getUnreadNotificationCount(notifications);
 
   // Get user and subscribe
   useEffect(() => {
@@ -202,14 +153,14 @@ export function useNotifications() {
           "postgres_changes",
           { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
           (payload) => {
-            mergeNotification(normalizeNotification(payload.new as NotificationRow));
+            mergeNotification(parseNotificationRow(payload.new as LocalNotificationRow));
           }
         )
         .on(
           "postgres_changes",
           { event: "UPDATE", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
           (payload) => {
-            mergeNotification(normalizeNotification(payload.new as NotificationRow));
+            mergeNotification(parseNotificationRow(payload.new as LocalNotificationRow));
           }
         )
         .subscribe();

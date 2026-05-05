@@ -4,6 +4,17 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
 import { requestNotificationPermission, onForegroundMessage } from "@/lib/firebase";
 import { useToast } from "@/components/ui/use-toast";
+import {
+  buildFirebaseConfig,
+  getDeviceType,
+  isPushSupported,
+  normalizeForegroundNotification,
+  registerPushServiceWorker,
+} from "@/src/lib/push/pushNotifications";
+import {
+  deactivatePushToken,
+  registerPushToken,
+} from "@/src/lib/push/pushNotificationPersistence";
 
 interface PushNotificationState {
   isSupported: boolean;
@@ -12,19 +23,6 @@ interface PushNotificationState {
   isLoading: boolean;
   token: string | null;
   error: string | null;
-}
-
-interface NotificationPayload {
-  notification?: {
-    title?: string;
-    body?: string;
-  };
-  data?: {
-    type?: string;
-    alertId?: string;
-    priority?: string;
-    [key: string]: any;
-  };
 }
 
 /**
@@ -47,12 +45,9 @@ export function usePushNotifications() {
   // Check browser support on mount
   useEffect(() => {
     const checkSupport = () => {
-      const supported = 
-        typeof window !== 'undefined' && 
-        'Notification' in window && 
-        'serviceWorker' in navigator;
-      
-      setState(prev => ({
+      const supported = isPushSupported();
+
+      setState((prev) => ({
         ...prev,
         isSupported: supported,
         isLoading: false,
@@ -65,43 +60,16 @@ export function usePushNotifications() {
 
   // Register service worker and send Firebase config
   useEffect(() => {
-    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
-
-    navigator.serviceWorker.register('/firebase-messaging-sw.js')
-      .then((registration) => {
-        console.log('Firebase messaging SW registered:', registration.scope);
-        // Send Firebase config to the service worker (it can't access process.env)
-        const firebaseConfig = {
-          apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-          authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-          projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-          storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-          messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-          appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-        };
-        if (registration.active) {
-          registration.active.postMessage({ type: 'FIREBASE_CONFIG', config: firebaseConfig });
-        }
-        // Also send when the SW becomes active (first install)
-        registration.addEventListener('updatefound', () => {
-          const newWorker = registration.installing;
-          newWorker?.addEventListener('statechange', () => {
-            if (newWorker.state === 'activated') {
-              newWorker.postMessage({ type: 'FIREBASE_CONFIG', config: firebaseConfig });
-            }
-          });
-        });
-      })
-      .catch((error) => {
-        console.error('Firebase messaging SW registration failed:', error);
-      });
+    void registerPushServiceWorker(buildFirebaseConfig()).catch((error) => {
+      console.error("Firebase messaging SW registration failed:", error);
+    });
   }, []);
 
   /**
    * Request notification permission and register token with Supabase
    */
   const requestPermission = useCallback(async (): Promise<boolean> => {
-    setState(prev => ({ ...prev, isLoading: true, error: null }));
+    setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
     try {
       // Get current user
@@ -115,7 +83,7 @@ export function usePushNotifications() {
       const token = await requestNotificationPermission();
 
       if (!token) {
-        setState(prev => ({
+        setState((prev) => ({
           ...prev,
           isLoading: false,
           isPermissionGranted: false,
@@ -125,29 +93,17 @@ export function usePushNotifications() {
       }
 
       // Save token to Supabase
-      const { error: insertError } = await supabase
-        .from('push_tokens')
-        .upsert({
-          user_id: user.id,
-          token: token,
-          token_type: 'fcm',
-          device_type: getDeviceType(),
-          last_used: new Date().toISOString(),
-          is_active: true,
-        }, {
-          onConflict: 'user_id,token',
-        });
-
-      if (insertError) {
-        console.error('Failed to save push token:', insertError);
-        throw new Error("Failed to register for notifications");
-      }
+      await registerPushToken(supabase, {
+        userId: user.id,
+        token,
+        deviceType: getDeviceType(),
+      });
 
       // Set up foreground message handler
       const unsubscribe = await onForegroundMessage(handleForegroundMessage);
       unsubscribeRef.current = unsubscribe;
 
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         isLoading: false,
         isPermissionGranted: true,
@@ -182,22 +138,19 @@ export function usePushNotifications() {
   /**
    * Handle foreground messages (when app is open)
    */
-  const handleForegroundMessage = useCallback((payload: NotificationPayload) => {
-    const title = payload.notification?.title || payload.data?.title || "New Notification";
-    const body = payload.notification?.body || payload.data?.body || "";
-    const type = payload.data?.type;
-    const priority = payload.data?.priority;
+  const handleForegroundMessage = useCallback((payload: Parameters<typeof normalizeForegroundNotification>[0]) => {
+    const notification = normalizeForegroundNotification(payload);
 
     // Show toast for foreground notifications
     toast({
-      title: priority === 'critical' ? `🚨 ${title}` : title,
-      description: body,
-      variant: priority === 'critical' ? "destructive" : "default",
-      duration: priority === 'critical' ? 10000 : 5000,
+      title: notification.priority === "critical" ? `🚨 ${notification.title}` : notification.title,
+      description: notification.body,
+      variant: notification.priority === "critical" ? "destructive" : "default",
+      duration: notification.priority === "critical" ? 10000 : 5000,
     });
 
     // Dispatch custom event for components to react
-    window.dispatchEvent(new CustomEvent('fcm-message', { detail: payload }));
+    window.dispatchEvent(new CustomEvent("fcm-message", { detail: notification.raw }));
   }, [toast]);
 
   /**
@@ -208,11 +161,11 @@ export function usePushNotifications() {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (user && state.token) {
-        await supabase
-          .from('push_tokens')
-          .update({ is_active: false })
-          .eq('user_id', user.id)
-          .eq('token', state.token);
+        await deactivatePushToken(supabase, {
+          userId: user.id,
+          token: state.token,
+          deviceType: getDeviceType(),
+        });
       }
 
       if (unsubscribeRef.current) {
@@ -220,7 +173,7 @@ export function usePushNotifications() {
         unsubscribeRef.current = null;
       }
 
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         isRegistered: false,
         token: null,
@@ -231,7 +184,7 @@ export function usePushNotifications() {
         description: "You will no longer receive push notifications.",
       });
     } catch (error) {
-      console.error('Failed to unregister push notifications:', error);
+      console.error("Failed to unregister push notifications:", error);
     }
   }, [state.token, toast]);
 
@@ -254,14 +207,3 @@ export function usePushNotifications() {
 /**
  * Detect device type for analytics
  */
-function getDeviceType(): string {
-  if (typeof window === 'undefined') return 'unknown';
-  
-  const userAgent = navigator.userAgent.toLowerCase();
-  
-  if (/android/i.test(userAgent)) return 'android';
-  if (/iphone|ipad|ipod/i.test(userAgent)) return 'ios';
-  if (/windows phone/i.test(userAgent)) return 'windows_phone';
-  
-  return 'web';
-}

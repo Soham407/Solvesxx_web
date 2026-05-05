@@ -852,23 +852,17 @@ test.describe("Resident — Workflow & Dead-UI Audit", () => {
   });
 });
 
-// ─── SERVICES: PRINTING ─────────────────────────────────────────────────────
+// ─── SERVICES: PRODUCTION SURFACE ───────────────────────────────────────────
 
 test.describe("Admin — Services Config Pages", () => {
   test.beforeEach(async ({ page }) => {
     await loginAsRole(page, "admin");
   });
 
-  test("services/printing: Book Space button opens AdBookingDialog", async ({ page }) => {
+  test("services/printing: removed production surface stays inaccessible", async ({ page }) => {
     await page.goto("/services/printing");
-    await page.waitForLoadState("networkidle");
-    await expect(page.locator("main")).toBeVisible();
-
-    const bookBtn = page.getByRole("button", { name: /book space|book/i }).first();
-    if (await bookBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
-      await clickAndExpect(page, bookBtn, ["dialog_opened"], 4_000);
-      await closeAnyOpenDialog(page);
-    }
+    await expect(page.getByRole("heading", { name: /module not found/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /book space|book/i })).toHaveCount(0);
   });
 
   test("services/security: guard list and GPS tracking load", async ({ page }) => {

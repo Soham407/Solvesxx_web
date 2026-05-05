@@ -23,6 +23,28 @@ type SystemConfigTableRow = SystemConfigEntry & {
   searchText: string;
 };
 
+function mapSystemConfigRows(
+  entries: SystemConfigEntry[],
+  searchQuery: string
+): SystemConfigTableRow[] {
+  const normalizedQuery = searchQuery.toLowerCase();
+
+  return entries
+    .map((entry) => ({
+      ...entry,
+      label: SYSTEM_CONFIG_METADATA[entry.key].label,
+      searchText: [
+        entry.key,
+        SYSTEM_CONFIG_METADATA[entry.key].label,
+        entry.description ?? "",
+        entry.value,
+      ]
+        .join(" ")
+        .toLowerCase(),
+    }))
+    .filter((row) => (normalizedQuery ? row.searchText.includes(normalizedQuery) : true));
+}
+
 export default function AdminSystemConfigPage() {
   const {
     entries,
@@ -47,25 +69,7 @@ export default function AdminSystemConfigPage() {
   }, [entries]);
 
   const rows = useMemo<SystemConfigTableRow[]>(
-    () =>
-      entries
-        .map((entry) => ({
-          ...entry,
-          label: SYSTEM_CONFIG_METADATA[entry.key].label,
-          searchText: [
-            entry.key,
-            SYSTEM_CONFIG_METADATA[entry.key].label,
-            entry.description ?? "",
-            entry.value,
-          ]
-            .join(" ")
-            .toLowerCase(),
-        }))
-        .filter((row) =>
-          deferredSearchQuery
-            ? row.searchText.includes(deferredSearchQuery.toLowerCase())
-            : true
-        ),
+    () => mapSystemConfigRows(entries, deferredSearchQuery),
     [deferredSearchQuery, entries]
   );
 

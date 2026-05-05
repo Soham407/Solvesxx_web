@@ -22,10 +22,15 @@ import {
   Building2,
   RefreshCw
 } from "lucide-react";
+import type { Warehouse as WarehouseRow } from "@/src/types/operations";
 
 interface WarehouseFormData {
   warehouse_name: string;
   warehouse_code?: string;
+}
+
+function countStockItemsForWarehouse(stockLevels: Array<{ warehouse_id?: string | null }>, warehouseId: string) {
+  return stockLevels.filter((stock) => stock.warehouse_id === warehouseId).length;
 }
 
 export default function WarehousesPage() {
@@ -35,7 +40,7 @@ export default function WarehousesPage() {
   
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [selectedWarehouse, setSelectedWarehouse] = useState<any>(null);
+  const [selectedWarehouse, setSelectedWarehouse] = useState<WarehouseRow | null>(null);
   const [formData, setFormData] = useState<WarehouseFormData>({
     warehouse_name: "",
     warehouse_code: "",
@@ -96,7 +101,7 @@ export default function WarehousesPage() {
     }
   };
 
-  const handleDelete = async (warehouse: any) => {
+  const handleDelete = async (warehouse: WarehouseRow) => {
     if (!confirm(`Are you sure you want to delete "${warehouse.warehouse_name}"?`)) {
       return;
     }
@@ -117,7 +122,7 @@ export default function WarehousesPage() {
     }
   };
 
-  const openEditDialog = (warehouse: any) => {
+  const openEditDialog = (warehouse: WarehouseRow) => {
     setSelectedWarehouse(warehouse);
     setFormData({
       warehouse_name: warehouse.warehouse_name,
@@ -127,14 +132,14 @@ export default function WarehousesPage() {
   };
 
   const getStockCountForWarehouse = (warehouseId: string) => {
-    return stockLevels.filter(s => s.warehouse_id === warehouseId).length;
+    return countStockItemsForWarehouse(stockLevels, warehouseId);
   };
 
   const columns = [
     {
       accessorKey: "warehouse_name",
       header: "Warehouse Name",
-      cell: ({ row }: { row: { original: any } }) => (
+      cell: ({ row }) => (
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
             <Warehouse className="h-5 w-5 text-primary" />
@@ -154,7 +159,7 @@ export default function WarehousesPage() {
     {
       accessorKey: "warehouse_code",
       header: "Code",
-      cell: ({ row }: { row: { original: any } }) => (
+      cell: ({ row }) => (
         <span className="text-muted-foreground">
           {row.original.warehouse_code || "-"}
         </span>
@@ -163,7 +168,7 @@ export default function WarehousesPage() {
     {
       accessorKey: "stock_count",
       header: "Stock Items",
-      cell: ({ row }: { row: { original: any } }) => {
+      cell: ({ row }) => {
         const count = getStockCountForWarehouse(row.original.id);
         return (
           <div className="flex items-center gap-2">
@@ -176,7 +181,7 @@ export default function WarehousesPage() {
     {
       accessorKey: "actions",
       header: "Actions",
-      cell: ({ row }: { row: { original: any } }) => (
+      cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"
@@ -299,8 +304,8 @@ export default function WarehousesPage() {
         </CardHeader>
         <CardContent>
           <DataTable
-            columns={columns as any}
-            data={warehouses as any}
+            columns={columns}
+            data={warehouses}
             searchKey="warehouse_name"
           />
         </CardContent>

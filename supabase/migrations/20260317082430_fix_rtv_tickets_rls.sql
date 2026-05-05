@@ -26,6 +26,7 @@ DROP POLICY IF EXISTS "Allow authenticated insert on rtv_tickets" ON rtv_tickets
 DROP POLICY IF EXISTS "Allow authenticated update on rtv_tickets" ON rtv_tickets;
 
 -- 3. Role-aware SELECT
+DROP POLICY IF EXISTS "rtv_tickets_select" ON rtv_tickets;
 CREATE POLICY "rtv_tickets_select" ON rtv_tickets
   FOR SELECT TO authenticated
   USING (
@@ -38,6 +39,7 @@ CREATE POLICY "rtv_tickets_select" ON rtv_tickets
   );
 
 -- 4. Role-aware INSERT
+DROP POLICY IF EXISTS "rtv_tickets_insert" ON rtv_tickets;
 CREATE POLICY "rtv_tickets_insert" ON rtv_tickets
   FOR INSERT TO authenticated
   WITH CHECK (
@@ -46,6 +48,7 @@ CREATE POLICY "rtv_tickets_insert" ON rtv_tickets
   );
 
 -- 5. Role-aware UPDATE
+DROP POLICY IF EXISTS "rtv_tickets_update" ON rtv_tickets;
 CREATE POLICY "rtv_tickets_update" ON rtv_tickets
   FOR UPDATE TO authenticated
   USING (
@@ -64,6 +67,7 @@ CREATE POLICY "rtv_tickets_update" ON rtv_tickets
   );
 
 -- 6. DELETE: admin / super_admin only
+DROP POLICY IF EXISTS "rtv_tickets_delete" ON rtv_tickets;
 CREATE POLICY "rtv_tickets_delete" ON rtv_tickets
   FOR DELETE TO authenticated
   USING (

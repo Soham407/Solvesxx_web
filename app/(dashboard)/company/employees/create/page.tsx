@@ -35,30 +35,57 @@ const employeeSchema = z.object({
 
 type EmployeeFormValues = z.infer<typeof employeeSchema>;
 
+function isSecurityDepartmentName(value: string | null | undefined): boolean {
+  const normalized = (value || "").trim().toLowerCase();
+  return normalized === "security" || normalized === "sec";
+}
+
+function isSecurityDesignation(designation: { designation_name: string; department?: string | null }): boolean {
+  const normalizedName = designation.designation_name.toLowerCase();
+  const normalizedDepartment = (designation.department || "").toLowerCase();
+
+  return (
+    normalizedDepartment === "security" ||
+    normalizedDepartment === "sec" ||
+    normalizedName.includes("security") ||
+    normalizedName.includes("guard") ||
+    normalizedName.includes("supervisor")
+  );
+}
+
+function buildDepartmentOptions(
+  designationDepartments: Array<string | null | undefined>,
+  employeeDepartments: Array<string | null | undefined>,
+): string[] {
+  return Array.from(
+    new Set(
+      [...designationDepartments, ...employeeDepartments]
+        .map((department) => (department || "").trim())
+        .filter((department) => department.length > 0)
+        .filter((department) => !isSecurityDepartmentName(department))
+    )
+  ).sort((a, b) => a.localeCompare(b));
+}
+
 export default function CreateEmployeePage() {
   const router = useRouter();
-  const { createEmployee } = useEmployees();
+  const { createEmployee, employees } = useEmployees({ includeInactive: true });
   const { designations, isLoading: designationsLoading } = useDesignations();
   const { register, handleSubmit, formState: { errors, isSubmitting }, setValue } = useForm<EmployeeFormValues>({
     resolver: zodResolver(employeeSchema),
   });
 
   const nonSecurityDesignations = useMemo(
-    () =>
-      designations.filter((designation) => {
-        const normalizedName = designation.designation_name.toLowerCase();
-        const normalizedDepartment = (designation.department || "").toLowerCase();
-
-        return (
-          normalizedDepartment !== "security" &&
-          normalizedDepartment !== "sec" &&
-          !normalizedName.includes("security") &&
-          !normalizedName.includes("guard") &&
-          !normalizedName.includes("supervisor")
-        );
-      }),
+    () => designations.filter((designation) => !isSecurityDesignation(designation)),
     [designations],
   );
+
+  const departmentOptions = useMemo(() => {
+    return buildDepartmentOptions(
+      designations.map((designation) => designation.department),
+      employees.map((employee) => employee.department),
+    );
+  }, [designations, employees]);
 
   const onSubmit = async (data: EmployeeFormValues) => {
     if (data.department === "sec") {
@@ -176,12 +203,19 @@ export default function CreateEmployeePage() {
                   <SelectValue placeholder="Select Department" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="it">Information Technology</SelectItem>
-                  <SelectItem value="ops">Operations</SelectItem>
-                  <SelectItem value="hr">Human Resources</SelectItem>
+                  {departmentOptions.map((department) => (
+                    <SelectItem key={department} value={department}>
+                      {department}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               {errors.department && <p className="text-xs text-critical font-medium">{errors.department.message}</p>}
+              {departmentOptions.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Add departments through designation and employee master data first.
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Designation</Label>
@@ -217,6 +251,7 @@ export default function CreateEmployeePage() {
         <div className="flex items-center justify-end gap-4 p-6 bg-muted/20 border rounded-xl">
            <p className="text-xs text-muted-foreground mr-auto">
              Note: This creates only a general employee record with department and designation.
+             User provisioning, role assignment, and operational location mapping still happen separately.
              Security guard onboarding must go through Security Ops, not this form.
            </p>
            <Button variant="outline" type="button" asChild>

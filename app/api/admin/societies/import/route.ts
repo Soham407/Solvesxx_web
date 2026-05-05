@@ -7,6 +7,14 @@ import { createClient as createServerClient } from "@/src/lib/supabase/server";
 
 const SOCIETY_ADMIN_ROLES = new Set(["admin", "super_admin", "society_manager"]);
 
+type RoleRow = {
+  role_name: string | null;
+};
+
+type CallerRecord = {
+  roles?: RoleRow | RoleRow[] | null;
+};
+
 async function getAuthorizedSocietyAdmin() {
   const supabase = await createServerClient();
   const supabaseAdmin = createServiceRoleClient();
@@ -29,9 +37,10 @@ async function getAuthorizedSocietyAdmin() {
     .eq("id", user.id)
     .maybeSingle();
 
-  const roleRecord = Array.isArray((callerRecord as any)?.roles)
-    ? (callerRecord as any).roles[0]
-    : (callerRecord as any)?.roles;
+  const callerUserRecord = callerRecord as CallerRecord | null;
+  const roleRecord = Array.isArray(callerUserRecord?.roles)
+    ? callerUserRecord.roles[0]
+    : callerUserRecord?.roles;
   const roleName = roleRecord?.role_name ?? null;
 
   if (!roleName || !SOCIETY_ADMIN_ROLES.has(roleName)) {
@@ -112,7 +121,7 @@ export async function POST(request: NextRequest) {
           .maybeSingle();
 
         if (existing) {
-          societyId = (existing as any).id;
+          societyId = (existing as { id: string }).id;
           societiesSkipped++;
         } else {
           const { data: created, error: createErr } = await db
@@ -130,7 +139,7 @@ export async function POST(request: NextRequest) {
             .single();
 
           if (createErr || !created) continue;
-          societyId = (created as any).id;
+          societyId = created.id;
           societiesCreated++;
 
           await insertAuditLog(db, {
@@ -160,7 +169,7 @@ export async function POST(request: NextRequest) {
           .maybeSingle();
 
         if (existing) {
-          buildingId = (existing as any).id;
+          buildingId = (existing as { id: string }).id;
           buildingsSkipped++;
         } else {
           const { data: created, error: createErr } = await db
@@ -176,7 +185,7 @@ export async function POST(request: NextRequest) {
             .single();
 
           if (createErr || !created) continue;
-          buildingId = (created as any).id;
+          buildingId = created.id;
           buildingsCreated++;
 
           await insertAuditLog(db, {

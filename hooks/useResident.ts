@@ -3,54 +3,22 @@
 import { useState, useEffect, useCallback } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase } from "@/src/lib/supabaseClient";
+import {
+  ApprovalResultRow,
+  mapPendingVisitorRows,
+  mapResidentRow,
+  normalizePresenceMembers,
+  type PendingVisitorRow,
+  type ResidentDetails,
+  type ResidentPendingVisitor,
+  type ResidentPresenceMember,
+  type ResidentRow,
+  type ResidentVisitorRow,
+} from "@/src/lib/resident/residentTransforms";
 
-interface FlatDetails {
-  id: string;
-  flat_number: string;
-  floor_number: number | null;
-  flat_type: string | null;
-  area_sqft: number | null;
-  ownership_type: string | null;
-  building: {
-    id: string;
-    building_name: string;
-    building_code: string;
-  } | null;
-}
+interface Visitor extends ResidentVisitorRow {}
 
-interface ResidentDetails {
-  id: string;
-  resident_code: string;
-  full_name: string;
-  relation: string | null;
-  phone: string | null;
-  email: string | null;
-  is_primary_contact: boolean | null;
-  move_in_date: string | null;
-  flat: FlatDetails | null;
-}
-
-interface Visitor {
-  id: string;
-  visitor_name: string;
-  visitor_type: string | null;
-  phone: string | null;
-  vehicle_number: string | null;
-  purpose: string | null;
-  photo_url: string | null;
-  entry_time: string | null;
-  exit_time: string | null;
-  approved_by_resident: boolean | null;
-  is_frequent_visitor: boolean | null;
-}
-
-interface ResidentPendingVisitor extends Visitor {
-  approval_status: string | null;
-  approval_deadline_at: string | null;
-  flat_id: string | null;
-  flat_label: string | null;
-  rejection_reason: string | null;
-}
+export type { ResidentPendingVisitor } from "@/src/lib/resident/residentTransforms";
 
 interface ResidentState {
   resident: ResidentDetails | null;
@@ -61,53 +29,6 @@ interface ResidentState {
   isLoadingVisitors: boolean;
   isLiveSyncConnected: boolean;
   error: string | null;
-}
-
-interface ResidentPresenceMember {
-  residentId: string | null;
-  surface: "mobile" | "web" | "unknown";
-  userId: string;
-  fullName: string;
-  joinedAt: string;
-}
-
-function normalizePresenceMembers(
-  state: Record<string, Array<Record<string, unknown>>>,
-  currentUserId?: string,
-): ResidentPresenceMember[] {
-  const members = Object.values(state)
-    .flat()
-    .map((entry) => {
-      const surface: "mobile" | "web" | "unknown" =
-        entry.surface === "mobile" || entry.surface === "web" ? entry.surface : "unknown";
-
-      return {
-        residentId: typeof entry.residentId === "string" ? entry.residentId : null,
-        surface,
-        userId: typeof entry.userId === "string" ? entry.userId : "",
-        fullName:
-          typeof entry.fullName === "string" && entry.fullName.trim().length
-            ? entry.fullName.trim()
-            : "Resident",
-        joinedAt:
-          typeof entry.joinedAt === "string" && entry.joinedAt.trim().length
-            ? entry.joinedAt
-            : new Date().toISOString(),
-      };
-    })
-    .filter((entry) => entry.userId && entry.userId !== currentUserId);
-
-  const deduped = new Map<string, (typeof members)[number]>();
-
-  for (const member of members) {
-    const existing = deduped.get(member.userId);
-
-    if (!existing || new Date(member.joinedAt).getTime() > new Date(existing.joinedAt).getTime()) {
-      deduped.set(member.userId, member);
-    }
-  }
-
-  return [...deduped.values()].sort((left, right) => left.fullName.localeCompare(right.fullName));
 }
 
 export function useResident(
@@ -172,35 +93,14 @@ export function useResident(
       if (error) throw error;
 
       if (data) {
-        const flatData = data.flats as any;
         setState((prev) => ({
           ...prev,
-          resident: {
-            id: data.id,
-            resident_code: data.resident_code,
-            full_name: data.full_name,
-            relation: data.relation,
-            phone: data.phone,
-            email: data.email,
-            is_primary_contact: data.is_primary_contact,
-            move_in_date: data.move_in_date,
-            flat: flatData
-              ? {
-                  id: flatData.id,
-                  flat_number: flatData.flat_number,
-                  floor_number: flatData.floor_number,
-                  flat_type: flatData.flat_type,
-                  area_sqft: flatData.area_sqft,
-                  ownership_type: flatData.ownership_type,
-                  building: flatData.buildings || null,
-                }
-              : null,
-          },
+          resident: mapResidentRow(data as ResidentRow),
           isLoading: false,
           error: null,
         }));
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching resident details:", err);
       setState((prev) => ({
         ...prev,
@@ -243,7 +143,7 @@ export function useResident(
         visitors: data || [],
         isLoadingVisitors: false,
       }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching visitors:", err);
       setState((prev) => ({
         ...prev,
@@ -258,55 +158,21 @@ export function useResident(
     setState((prev) => ({ ...prev, isLoadingVisitors: true }));
 
     try {
-      const { data, error } = await supabase.rpc(
-        "get_resident_pending_visitors" as any
-      );
+      const { data, error } = await supabase.rpc("get_resident_pending_visitors" as any);
 
       if (error) throw error;
 
-      const pendingApprovals = (
-        ((data as Array<{
-          id: string;
-          visitor_name: string;
-          phone: string | null;
-          purpose: string | null;
-          flat_id: string | null;
-          flat_label: string | null;
-          vehicle_number: string | null;
-          photo_url: string | null;
-          entry_time: string | null;
-          approval_status: string | null;
-          approval_deadline_at: string | null;
-          is_frequent_visitor: boolean | null;
-          rejection_reason: string | null;
-        }> | null) ?? [])
-      )
-        .filter((visitor) => visitor.approval_status === "pending")
-        .map((visitor) => ({
-          id: visitor.id,
-          visitor_name: visitor.visitor_name,
-          visitor_type: null,
-          phone: visitor.phone,
-          vehicle_number: visitor.vehicle_number,
-          purpose: visitor.purpose,
-          photo_url: visitor.photo_url,
-          entry_time: visitor.entry_time,
-          exit_time: null,
-          approved_by_resident: null,
-          is_frequent_visitor: visitor.is_frequent_visitor,
-          approval_status: visitor.approval_status,
-          approval_deadline_at: visitor.approval_deadline_at,
-          flat_id: visitor.flat_id,
-          flat_label: visitor.flat_label,
-          rejection_reason: visitor.rejection_reason,
-        }));
+      const rows = (data as PendingVisitorRow[] | null)?.filter(
+        (r) => r.approval_status === "pending"
+      ) ?? [];
+      const pendingApprovals = mapPendingVisitorRows(rows);
 
       setState((prev) => ({
         ...prev,
         pendingApprovals,
         isLoadingVisitors: false,
       }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching resident pending approvals:", err);
       setState((prev) => ({
         ...prev,
@@ -341,7 +207,7 @@ export function useResident(
         );
 
         if (error) throw error;
-        const result = data as { success?: boolean; error?: string } | null;
+        const result = data as ApprovalResultRow | null;
         if (!result?.success) {
           throw new Error(result?.error || "Failed to invite visitor");
         }
@@ -350,9 +216,9 @@ export function useResident(
         fetchPendingApprovals();
 
         return { success: true };
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Error inviting visitor:", err);
-        return { success: false, error: err.message || "Failed to invite visitor" };
+        return { success: false, error: err instanceof Error ? err.message : "Failed to invite visitor" };
       }
     },
     [state.resident, fetchPendingApprovals, fetchVisitors]
@@ -364,21 +230,21 @@ export function useResident(
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const { data, error } = await supabase.rpc("approve_visitor" as any, {
+      const { data, error } = await supabase.rpc("approve_visitor", {
         p_visitor_id: visitorId,
         p_user_id: user.id
       });
       if (error) throw error;
       
-      const result = data as any;
+      const result = data as ApprovalResultRow | null;
       if (!result.success) throw new Error(result.error);
 
       fetchVisitors();
       fetchPendingApprovals();
       return { success: true };
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error approving visitor:", err);
-      return { success: false, error: err.message };
+      return { success: false, error: err instanceof Error ? err.message : "Failed to approve visitor" };
     }
   }, [fetchPendingApprovals, fetchVisitors]);
 
@@ -388,22 +254,22 @@ export function useResident(
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const { data, error } = await supabase.rpc("deny_visitor" as any, {
+      const { data, error } = await supabase.rpc("deny_visitor", {
         p_visitor_id: visitorId,
         p_user_id: user.id,
         p_reason: reason
       });
       if (error) throw error;
       
-      const result = data as any;
+      const result = data as ApprovalResultRow | null;
       if (!result.success) throw new Error(result.error);
 
       fetchVisitors();
       fetchPendingApprovals();
       return { success: true };
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error denying visitor:", err);
-      return { success: false, error: err.message };
+      return { success: false, error: err instanceof Error ? err.message : "Failed to deny visitor" };
     }
   }, [fetchPendingApprovals, fetchVisitors]);
 
@@ -427,9 +293,9 @@ export function useResident(
       
       fetchVisitors();
       return { success: true };
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error toggling frequent status:", err);
-      return { success: false, error: err.message };
+      return { success: false, error: err instanceof Error ? err.message : "Failed to update visitor status" };
     }
   }, [fetchVisitors, state.resident?.flat?.id]);
 

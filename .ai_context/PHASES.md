@@ -186,7 +186,7 @@ All located in `components/dashboards/`. Accessible via `/dashboard` with admin 
 
 | Page | Route | Status | Notes |
 |------|-------|--------|-------|
-| Buyer Dashboard | `/buyer` (page.tsx) | ✅ FULL | Fully dynamic. "Ongoing Services" and "Ending Soon" use computed boundaries. Active services list uses actual `headcount`, `shift`, and `duration_months`. Buttons are wired with base interaction. |
+| Buyer Dashboard | `/buyer` (page.tsx) | ✅ FULL | Fully dynamic. "Ongoing Services" and "Ending Soon" use computed boundaries. Active services list uses actual `headcount`, `shift`, and `duration_months`. Quick actions raise real `service_requests` tickets and cancel active buyer requests. |
 | Buyer Requests List | `/buyer/requests` | ✅ FULL | DataTable with all statuses. "Leave Feedback" button for `feedback_pending` rows |
 | Buyer New Request | `/buyer/requests/new` | ✅ FULL | Multi-step request creation form for material requests and service deployments |
 | Buyer Request Detail | `/buyer/requests/[id]` | ✅ FULL | Full lifecycle view |
@@ -307,6 +307,7 @@ All items from `previousplan.md` Sprints 1–5 completed:
 | `20260316000002_auto_punch_out.sql` | auto_punch_out_idle_employees() pg_cron @ 1AM daily |
 | `20260316000003_service_delivery_notes.sql` | service_delivery_notes table + RLS |
 | `20260316000004_buyer_feedback.sql` | buyer_feedback table + RLS |
+| `20260430000000_buyer_ticket_and_cancel_actions.sql` | Adds `service_requests.type` for ticket quick actions and `cancelled` buyer request status |
 | `20260316000005_background_verifications.sql` | background_verifications table + RLS |
 | `20260316000006_chemical_expiry.sql` | expiry_date + batch_number on pest_control_chemicals; detect_chemical_expiry() cron |
 | `20260316000007_spill_kits.sql` | pest_control_spill_kits table |

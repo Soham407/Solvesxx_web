@@ -5,6 +5,22 @@ import { supabase } from "@/src/lib/supabaseClient";
 import { useAuth } from "@/hooks/useAuth";
 import { MAIN_GATE_CODE } from "@/src/lib/constants";
 import { SYSTEM_CONFIG_DEFAULTS } from "@/src/lib/platform/system-config";
+import {
+  buildAdminAttendanceStats,
+  buildPersonalAttendanceStats,
+  buildTodayAttendanceSnapshot,
+  calculateDistanceMeters,
+  isWithinGeoFence,
+  mapAdminAttendanceOverview,
+  mapPersonalAttendanceHistory,
+  resolveAttendanceShiftSummary,
+} from "@/src/lib/attendance/attendanceTransforms";
+
+export {
+  buildAdminAttendanceStats,
+  buildPersonalAttendanceStats,
+  calculateDistanceMeters,
+} from "@/src/lib/attendance/attendanceTransforms";
 
 interface GateLocation {
   id: string;
@@ -43,35 +59,59 @@ interface AttendanceState {
   } | null;
 }
 
-/**
- * Haversine formula to calculate the great-circle distance between two points
- * Reference: HR-Management-and-Geo-Attendance-System geofencing logic
- * @returns distance in meters
- */
-function haversineDistance(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number,
-): number {
-  const R = 6371000; // Earth's radius in meters
-  const dLat = toRadians(lat2 - lat1);
-  const dLon = toRadians(lon2 - lon1);
+type ShiftDetails = {
+  id?: string;
+  shift_name?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
+  duration_hours?: number | string | null;
+  grace_time_minutes?: number | string | null;
+  is_night_shift?: boolean | null;
+};
 
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRadians(lat1)) *
-      Math.cos(toRadians(lat2)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
+type ShiftRelation = {
+  shifts?: ShiftDetails | ShiftDetails[] | null;
+};
 
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
+type AttendanceEmployeeRelation = {
+  first_name?: string | null;
+  last_name?: string | null;
+  employee_code?: string | null;
+  employee_shift_assignments?: ShiftRelation | ShiftRelation[] | null;
+};
 
-function toRadians(degrees: number): number {
-  return degrees * (Math.PI / 180);
-}
+type AttendanceLogRow = {
+  id?: string;
+  employee_id?: string;
+  log_date?: string;
+  check_in_time?: string | null;
+  check_out_time?: string | null;
+  check_in_selfie_url?: string | null;
+  check_in_latitude?: number | null;
+  check_in_longitude?: number | null;
+  check_in_location_id?: string | null;
+  check_out_latitude?: number | null;
+  check_out_longitude?: number | null;
+  status?: string | null;
+  total_hours?: number | string | null;
+  employees?: AttendanceEmployeeRelation | AttendanceEmployeeRelation[] | null;
+};
+
+type AttendanceAssignmentRow = {
+  employee_id: string;
+  shifts?: ShiftDetails | ShiftDetails[] | null;
+};
+
+type CompanyLocationRow = {
+  id: string;
+  latitude: number | null;
+  longitude: number | null;
+  geo_fence_radius: number | null;
+};
+
+type SystemConfigRow = {
+  value: string | number | null;
+};
 
 export type AttendanceDisplayStatus =
   | "Present"
@@ -112,6 +152,7 @@ export interface AdminAttendanceOverviewRecord {
   status: AttendanceDisplayStatus;
   latitude?: number;
   longitude?: number;
+  selfie_url?: string | null;
 }
 
 function mapAttendanceStatus(status?: string | null): AttendanceDisplayStatus {
@@ -191,7 +232,7 @@ function calculateOvertimeHours(
   return Math.max(0, Number(totalHours) - standardHours);
 }
 
-function formatShiftLabel(shiftData: any): string {
+function formatShiftLabel(shiftData: ShiftRelation | null | undefined): string {
   const shifts = shiftData?.shifts;
   if (!shifts) return "General Shift";
 
@@ -204,7 +245,7 @@ function formatShiftLabel(shiftData: any): string {
   return `${shift.shift_name} (${startTime}-${endTime})`;
 }
 
-function getPersonalVerificationLabel(log: any): string {
+function getPersonalVerificationLabel(log: AttendanceLogRow): string {
   const hasSelfie = Boolean(log.check_in_selfie_url);
   const hasGps =
     log.check_in_latitude !== null &&
@@ -220,7 +261,7 @@ function getPersonalVerificationLabel(log: any): string {
 }
 
 function resolveAdminAttendanceVerification(
-  log: any,
+  log: AttendanceLogRow,
   siteCoords?: {
     lat: number;
     lng: number;
@@ -242,7 +283,7 @@ function resolveAdminAttendanceVerification(
   }
 
   if (hasGps && siteCoords) {
-    const distance = haversineDistance(
+    const distance = calculateDistanceMeters(
       Number(log.check_in_latitude),
       Number(log.check_in_longitude),
       siteCoords.lat,
@@ -318,21 +359,7 @@ export async function getEmployeeAttendanceHistory(
   if (attendanceError) throw attendanceError;
   if (shiftError && shiftError.code !== "PGRST116") throw shiftError;
 
-  const shiftLabel = formatShiftLabel(shiftData);
-
-  return (attendanceLogs || []).map((log: any) => ({
-    id: log.id,
-    rawDate: log.log_date,
-    logDate: formatAttendanceDate(log.log_date),
-    checkIn: formatAttendanceTime(log.check_in_time),
-    checkOut: formatAttendanceTime(log.check_out_time),
-    checkInTimestamp: log.check_in_time ?? null,
-    checkOutTimestamp: log.check_out_time ?? null,
-    shift: shiftLabel,
-    status: mapAttendanceStatus(log.status),
-    verification: getPersonalVerificationLabel(log),
-    hoursWorked: formatHoursWorked(log.check_in_time, log.check_out_time),
-  }));
+  return mapPersonalAttendanceHistory((attendanceLogs || []) as AttendanceLogRow[], shiftData);
 }
 
 export async function getAdminAttendanceOverview(
@@ -366,11 +393,12 @@ export async function getAdminAttendanceOverview(
 
   if (attendanceError) throw attendanceError;
 
-  const employeeIds = (attendanceData || []).map((entry: any) => entry.employee_id);
+  const employeeIds = (attendanceData || []).map((entry: AttendanceLogRow) => entry.employee_id);
+  let shiftData: AttendanceAssignmentRow[] = [];
+  let allLocations: CompanyLocationRow[] = [];
 
-  let shiftMap: Record<string, { label: string; name: string; hours: number; start: string; end: string }> = {};
   if (employeeIds.length > 0) {
-    const { data: shiftData, error: shiftError } = await supabase
+    const { data: shiftRows, error: shiftError } = await supabase
       .from("employee_shift_assignments")
       .select(
         `
@@ -388,93 +416,21 @@ export async function getAdminAttendanceOverview(
 
     if (shiftError) throw shiftError;
 
-    (shiftData || []).forEach((assignment: any) => {
-      const shift = Array.isArray(assignment.shifts) ? assignment.shifts[0] : assignment.shifts;
-      if (shift) {
-        shiftMap[assignment.employee_id] = {
-          label: formatShiftLabel(assignment),
-          name: shift.shift_name,
-          hours: Number(shift.duration_hours) || 8,
-          start: shift.start_time,
-          end: shift.end_time
-        };
-      }
-    });
+    const { data: locationRows, error: locationsError } = await supabase
+      .from("company_locations")
+      .select("id, latitude, longitude, geo_fence_radius")
+      .eq("is_active", true);
+
+    if (locationsError) throw locationsError;
+    shiftData = (shiftRows || []) as AttendanceAssignmentRow[];
+    allLocations = (locationRows || []) as CompanyLocationRow[];
   }
 
-  const { data: allLocations, error: locationsError } = await supabase
-    .from("company_locations")
-    .select("id, latitude, longitude, geo_fence_radius")
-    .eq("is_active", true);
-
-  if (locationsError) throw locationsError;
-
-  const locationsMap: Record<
-    string,
-    { lat: number; lng: number; radiusMeters: number }
-  > = {};
-
-  (allLocations || []).forEach((location: any) => {
-    if (
-      location.latitude !== null &&
-      location.latitude !== undefined &&
-      location.longitude !== null &&
-      location.longitude !== undefined
-    ) {
-      locationsMap[location.id] = {
-        lat: Number(location.latitude),
-        lng: Number(location.longitude),
-        radiusMeters: Number(location.geo_fence_radius) || 50,
-      };
-    }
-  });
-
-  return (attendanceData || []).map((log: any) => {
-    const employee = log.employees || {};
-    const fullName =
-      `${employee.first_name || ""} ${employee.last_name || ""}`.trim() ||
-      "Unknown";
-    
-    const shiftInfo = shiftMap[log.employee_id] || {
-      label: "General Shift",
-      name: "General Shift",
-      hours: 8,
-      start: "09:00:00",
-      end: "18:00:00",
-    };
-
-    const verificationDetails = resolveAdminAttendanceVerification(
-      log,
-      log.check_in_location_id
-        ? locationsMap[log.check_in_location_id] || null
-        : null,
-    );
-    const totalHours = resolveTotalHours(log);
-    const overtimeHours = calculateOvertimeHours(totalHours, shiftInfo.hours);
-
-    return {
-      id: log.id,
-      employee: fullName,
-      employeeId: log.employee_id,
-      shift: shiftInfo.label,
-      shiftName: shiftInfo.name,
-      startTime: shiftInfo.start || "09:00:00",
-      endTime: shiftInfo.end || "18:00:00",
-      standardHours: shiftInfo.hours,
-      checkIn: formatAttendanceTime(log.check_in_time),
-      checkOut: log.check_out_time
-        ? formatAttendanceTime(log.check_out_time)
-        : undefined,
-      checkInTimestamp: log.check_in_time ?? null,
-      checkOutTimestamp: log.check_out_time ?? null,
-      overtimeHours,
-      location: verificationDetails.location,
-      verification: verificationDetails.verification,
-      status: mapAttendanceStatus(log.status),
-      latitude: log.check_in_latitude ?? undefined,
-      longitude: log.check_in_longitude ?? undefined,
-    };
-  });
+  return mapAdminAttendanceOverview(
+    (attendanceData || []) as AttendanceLogRow[],
+    shiftData,
+    allLocations,
+  );
 }
 
 export function useAttendance(employeeId?: string, guardId?: string | null) {
@@ -505,11 +461,11 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
         SYSTEM_CONFIG_DEFAULTS.default_geo_fence_radius_meters
       );
 
-      const { data: configData, error: configError } = await (supabase as any)
+      const { data: configData, error: configError } = await supabase
         .from("system_config")
-        .select("value")
-        .eq("key", "default_geo_fence_radius_meters")
-        .maybeSingle();
+      .select("value")
+      .eq("key", "default_geo_fence_radius_meters")
+      .maybeSingle();
 
       if (!configError && configData?.value) {
         const parsedRadius = Number(configData.value);
@@ -590,32 +546,12 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
         throw attendanceRes.error;
       }
 
-      const shiftData = shiftRes.data?.shifts as any;
-      const activeShift = shiftData ? {
-        id: shiftData.id,
-        shift_name: shiftData.shift_name,
-        start_time: shiftData.start_time,
-        end_time: shiftData.end_time,
-        duration_hours: Number(shiftData.duration_hours) || 8,
-        standard_hours: undefined,
-        is_night_shift: !!shiftData.is_night_shift
-      } : null;
+      const activeShift = resolveAttendanceShiftSummary(shiftRes.data?.shifts as ShiftRelation | null | undefined);
 
       setState((prev) => ({
         ...prev,
         activeShift,
-        todayAttendance: attendanceRes.data
-          ? {
-              log_date: attendanceRes.data.log_date,
-              check_in_time: attendanceRes.data.check_in_time || null,
-              check_out_time: attendanceRes.data.check_out_time || null,
-              check_in_selfie_url: attendanceRes.data.check_in_selfie_url ?? null,
-              check_in_latitude: attendanceRes.data.check_in_latitude ?? null,
-              check_in_longitude: attendanceRes.data.check_in_longitude ?? null,
-              check_out_latitude: attendanceRes.data.check_out_latitude ?? null,
-              check_out_longitude: attendanceRes.data.check_out_longitude ?? null,
-            }
-          : null,
+        todayAttendance: buildTodayAttendanceSnapshot(attendanceRes.data),
         isClockedIn:
           attendanceRes.data?.check_in_time && !attendanceRes.data?.check_out_time ? true : false,
       }));
@@ -657,14 +593,13 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
             };
           }
 
-          const distance = haversineDistance(
+          const { distance, isWithinRange } = isWithinGeoFence(
             latitude,
             longitude,
             prev.gateLocation.latitude,
             prev.gateLocation.longitude,
+            prev.gateLocation.geo_fence_radius,
           );
-
-          const isWithinRange = distance <= prev.gateLocation.geo_fence_radius;
 
           return {
             ...prev,
@@ -1099,14 +1034,13 @@ export function useAttendance(employeeId?: string, guardId?: string | null) {
     if (state.gateLocation && state.currentPosition) {
       // Re-calculate distance if both become available later
       const { latitude, longitude } = state.currentPosition;
-      const distance = haversineDistance(
+      const { distance, isWithinRange } = isWithinGeoFence(
         latitude,
         longitude,
         state.gateLocation.latitude,
         state.gateLocation.longitude,
+        state.gateLocation.geo_fence_radius,
       );
-
-      const isWithinRange = distance <= state.gateLocation.geo_fence_radius;
 
       setState((prev) => ({
         ...prev,

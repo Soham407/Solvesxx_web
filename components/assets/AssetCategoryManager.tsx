@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { DataTable } from "@/components/shared/DataTable";
+import type { AssetCategory } from "@/src/types/operations";
 import { 
   FolderTree, 
   Plus, 
@@ -52,7 +53,7 @@ export function AssetCategoryManager() {
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<any>(null);
+  const [selectedCategory, setSelectedCategory] = useState<AssetCategory | null>(null);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [formData, setFormData] = useState<CategoryFormData>({
     category_name: "",
@@ -152,7 +153,7 @@ export function AssetCategoryManager() {
     }
   };
 
-  const handleDelete = async (category: any) => {
+  const handleDelete = async (category: AssetCategory) => {
     const assetCount = getAssetCount(category.id);
     
     if (assetCount > 0) {
@@ -194,7 +195,7 @@ export function AssetCategoryManager() {
     }
   };
 
-  const openEditDialog = (category: any) => {
+  const openEditDialog = (category: AssetCategory) => {
     setSelectedCategory(category);
     setFormData({
       category_name: category.category_name,
@@ -214,7 +215,7 @@ export function AssetCategoryManager() {
   };
 
   // Render category tree item
-  const renderCategoryTree = (category: any, level: number = 0) => {
+  const renderCategoryTree = (category: AssetCategory, level: number = 0) => {
     const children = getChildCategories(category.id);
     const hasChildren = children.length > 0;
     const isExpanded = expandedCategories.has(category.id);
@@ -296,7 +297,7 @@ export function AssetCategoryManager() {
     {
       accessorKey: "category_name",
       header: "Category",
-      cell: ({ row }: { row: { original: any } }) => (
+      cell: ({ row }: { row: { original: AssetCategory } }) => (
         <div className="flex items-center gap-3">
           <div
             className="h-8 w-8 rounded-lg flex items-center justify-center"
@@ -316,7 +317,7 @@ export function AssetCategoryManager() {
     {
       accessorKey: "color",
       header: "Color",
-      cell: ({ row }: { row: { original: any } }) => (
+      cell: ({ row }: { row: { original: AssetCategory } }) => (
         <div className="flex items-center gap-2">
           <div
             className="h-4 w-4 rounded-full border"
@@ -331,7 +332,7 @@ export function AssetCategoryManager() {
     {
       accessorKey: "asset_count",
       header: "Assets",
-      cell: ({ row }: { row: { original: any } }) => {
+      cell: ({ row }: { row: { original: AssetCategory } }) => {
         const count = getAssetCount(row.original.id);
         return (
           <div className="flex items-center gap-2">
@@ -344,7 +345,7 @@ export function AssetCategoryManager() {
     {
       accessorKey: "actions",
       header: "Actions",
-      cell: ({ row }: { row: { original: any } }) => (
+      cell: ({ row }: { row: { original: AssetCategory } }) => (
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
@@ -501,8 +502,8 @@ export function AssetCategoryManager() {
               <div>
                 <h3 className="text-sm font-medium mb-4">All Categories</h3>
                 <DataTable
-                  columns={columns as any}
-                  data={categories as any}
+                  columns={columns}
+                  data={categories}
                   searchKey="category_name"
                 />
               </div>

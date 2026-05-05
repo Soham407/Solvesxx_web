@@ -19,6 +19,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+function summarizeChecklistStats(checklists: Checklist[]) {
+  return {
+    activeCount: checklists.filter((checklist) => checklist.is_active).length,
+    draftCount: checklists.filter((checklist) => !checklist.is_active).length,
+    totalQuestions: checklists.reduce((sum, checklist) => sum + (checklist.questions?.length || 0), 0),
+  };
+}
+
+function getChecklistDefinitionStatusClassName(isActive: boolean) {
+  return isActive ? "bg-success/10 text-success border-success/20" : "";
+}
+
 export default function ChecklistMasterPage() {
   const { checklists, isLoading, error, deleteChecklist, refresh } = useChecklists();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -87,18 +99,18 @@ export default function ChecklistMasterPage() {
         </div>
       ),
     },
-    {
-      accessorKey: "is_active",
-      header: "Definition Status",
-      cell: ({ row }) => {
-        const isActive = row.original.is_active;
-        return (
-          <Badge variant="outline" className={cn("font-bold text-[10px] uppercase h-5", isActive ? "bg-success/10 text-success border-success/20" : "")}>
+      {
+        accessorKey: "is_active",
+        header: "Definition Status",
+        cell: ({ row }) => {
+          const isActive = row.original.is_active;
+          return (
+          <Badge variant="outline" className={cn("font-bold text-[10px] uppercase h-5", getChecklistDefinitionStatusClassName(isActive))}>
               {isActive ? "Active" : "Draft"}
           </Badge>
-        );
+          );
+        },
       },
-    },
     {
       id: "actions",
       cell: ({ row }) => (
@@ -134,9 +146,7 @@ export default function ChecklistMasterPage() {
     },
   ];
 
-  const activeCount = checklists.filter(c => c.is_active).length;
-  const draftCount = checklists.filter(c => !c.is_active).length;
-  const totalQuestions = checklists.reduce((sum, c) => sum + (c.questions?.length || 0), 0);
+  const { activeCount, draftCount, totalQuestions } = summarizeChecklistStats(checklists);
 
   return (
     <div className="animate-fade-in space-y-6">

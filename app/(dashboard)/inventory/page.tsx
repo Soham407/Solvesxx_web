@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataTable } from "@/components/shared/DataTable";
+import { ColumnDef } from "@tanstack/react-table";
 import { 
   Package, 
   Warehouse, 
@@ -26,13 +27,21 @@ import {
   ShieldCheck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { StockLevel } from "@/src/types/operations";
 
-const stockLevelColumns = [
+function summarizeInventoryAlerts(stockLevels: StockLevel[]) {
+  return {
+    lowStockItems: stockLevels.filter((item) => item.needs_reorder),
+    outOfStockItems: stockLevels.filter((item) => Number(item.total_quantity) === 0),
+  };
+}
+
+const stockLevelColumns: ColumnDef<StockLevel>[] = [
 // ... (rest of columns)
   {
     accessorKey: "product_name",
     header: "Product",
-    cell: ({ row }: { row: { original: any } }) => (
+    cell: ({ row }) => (
       <div>
         <div className="font-medium">{row.original.product_name || '-'}</div>
         <div className="text-sm text-muted-foreground">{row.original.product_code || ''}</div>
@@ -46,7 +55,7 @@ const stockLevelColumns = [
   {
     accessorKey: "total_quantity",
     header: "Stock Level",
-    cell: ({ row }: { row: { original: any } }) => {
+    cell: ({ row }) => {
       const quantity = Number(row.original.total_quantity) || 0;
       const reorderLevel = row.original.reorder_level ? Number(row.original.reorder_level) : null;
       const isLow = reorderLevel !== null && quantity <= reorderLevel;
@@ -66,7 +75,7 @@ const stockLevelColumns = [
   {
     accessorKey: "reorder_level",
     header: "Reorder Point",
-    cell: ({ row }: { row: { original: any } }) => (
+    cell: ({ row }) => (
       <span className="text-muted-foreground">
         {row.original.reorder_level ? Number(row.original.reorder_level) : "-"}
       </span>
@@ -75,7 +84,7 @@ const stockLevelColumns = [
   {
     accessorKey: "needs_reorder",
     header: "Status",
-    cell: ({ row }: { row: { original: any } }) => {
+    cell: ({ row }) => {
       const needsReorder = row.original.needs_reorder;
       const isOutOfStock = Number(row.original.total_quantity) === 0;
       
@@ -127,8 +136,7 @@ export default function InventoryDashboardPage() {
     setFilters({ searchTerm: value });
   };
 
-  const lowStockItems = stockLevels.filter(item => item.needs_reorder);
-  const outOfStockItems = stockLevels.filter(item => Number(item.total_quantity) === 0);
+  const { lowStockItems, outOfStockItems } = summarizeInventoryAlerts(stockLevels);
 
   return (
     <div className="flex-1 space-y-6 p-8">
@@ -238,8 +246,8 @@ export default function InventoryDashboardPage() {
             </CardHeader>
             <CardContent>
               <DataTable
-                columns={stockLevelColumns as any}
-                data={stockLevels as any}
+                columns={stockLevelColumns}
+                data={stockLevels}
                 searchKey="product_name"
                 onSearch={handleSearch}
               />
@@ -287,7 +295,7 @@ export default function InventoryDashboardPage() {
                         <div className="flex flex-col gap-1">
                           <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                             <Clock className="h-3 w-3" />
-                            Expiry: {chem.expiry_date ? new Date(chem.expiry_date).toLocaleDateString() : "N/A"}
+                            Expiry: {chem.expiry_date ? new Date(chem.expiry_date).toLocaleDateString() : "Not set"}
                           </div>
                           <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                             <ShieldCheck className="h-3 w-3" />
@@ -354,8 +362,8 @@ export default function InventoryDashboardPage() {
                 </div>
               ) : (
                 <DataTable
-                  columns={stockLevelColumns as any}
-                  data={lowStockItems as any}
+                  columns={stockLevelColumns}
+                  data={lowStockItems}
                   searchKey="product_name"
                 />
               )}
@@ -380,8 +388,8 @@ export default function InventoryDashboardPage() {
               </CardHeader>
               <CardContent>
                 <DataTable
-                  columns={stockLevelColumns as any}
-                  data={outOfStockItems as any}
+                  columns={stockLevelColumns}
+                  data={outOfStockItems}
                 />
               </CardContent>
             </Card>

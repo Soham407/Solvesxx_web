@@ -1,113 +1,32 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase as supabaseClient } from "@/src/lib/supabaseClient";
-const supabase = supabaseClient as any;
-
-// ============================================
-// TYPES
-// ============================================
-
-export type InvoiceStatus =
-  | "draft"
-  | "sent"
-  | "acknowledged"
-  | "disputed"
-  | "cancelled"
-  | "submitted"
-  | "approved";
-export type PaymentStatus = "unpaid" | "partial" | "paid" | "overdue";
-
-export interface BuyerInvoice {
-  id: string;
-  sale_bill_id?: string;
-  invoice_number: string;
-  client_id: string | null;
-  contract_id: string | null;
-  request_id: string | null;
-  invoice_date: string;
-  due_date: string | null;
-  status: InvoiceStatus;
-  payment_status: PaymentStatus;
-  subtotal: number; // In paise
-  tax_amount: number; // In paise
-  discount_amount: number; // In paise
-  total_amount: number; // In paise
-  paid_amount: number; // In paise
-  due_amount: number; // In paise
-  last_payment_date: string | null;
-  billing_period_start: string | null;
-  billing_period_end: string | null;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-  created_by: string | null;
-  updated_by: string | null;
-  // Joined data
-  client_name?: string;
-  client_code?: string;
-  contract_number?: string;
-  feedback_submitted?: boolean | null;
-  supplier_name?: string | null;
-  total_items?: number;
-}
-
-export interface InvoiceItem {
-  id: string;
-  sale_bill_id: string;
-  service_id: string | null;
-  product_id: string | null;
-  item_description: string | null;
-  quantity: number;
-  unit_of_measure: string;
-  unit_price: number; // In paise
-  tax_rate: number;
-  tax_amount: number; // In paise
-  discount_amount: number; // In paise
-  line_total: number; // In paise
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-  // Joined data
-  service_name?: string;
-  product_name?: string;
-}
-
-export interface CreateInvoiceInput {
-  client_id: string;
-  contract_id?: string;
-  invoice_date?: string;
-  due_date?: string;
-  billing_period_start?: string;
-  billing_period_end?: string;
-  subtotal?: number; // In paise
-  tax_amount?: number; // In paise
-  discount_amount?: number; // In paise
-  total_amount?: number; // In paise
-  notes?: string;
-}
-
-export interface CreateInvoiceItemInput {
-  sale_bill_id: string;
-  service_id?: string;
-  product_id?: string;
-  item_description?: string;
-  quantity: number;
-  unit_of_measure?: string;
-  unit_price: number; // In paise
-  tax_rate?: number;
-  tax_amount?: number; // In paise
-  discount_amount?: number; // In paise
-  notes?: string;
-}
-
-export interface PaymentInput {
-  amount: number; // In paise
-  payment_date?: string;
-  payment_reference?: string;
-  payment_method?: string;
-  notes?: string;
-}
+import { supabase } from "@/src/lib/supabaseClient";
+import { notifySocietyManager } from "@/src/lib/notifications/notifySocietyManager";
+import { notifyAdminTierUsers } from "@/src/lib/notifications/notifyAdminTierUsers";
+import {
+  calculateLineTotal,
+  canTransition,
+  mapInvoiceItems,
+  mapInvoices,
+  type BuyerInvoice,
+  type CreateInvoiceInput,
+  type CreateInvoiceItemInput,
+  type InvoiceItem,
+  type InvoiceStatus,
+  type PaymentInput,
+  type PaymentStatus,
+} from "@/src/lib/buyer-invoices/buyerInvoiceTransforms";
+export type {
+  BuyerInvoice,
+  CreateInvoiceInput,
+  CreateInvoiceItemInput,
+  InvoiceItem,
+  InvoiceStatus,
+  PaymentInput,
+  PaymentStatus,
+} from "@/src/lib/buyer-invoices/buyerInvoiceTransforms";
+export { INVOICE_STATUS_CONFIG, PAYMENT_STATUS_CONFIG } from "@/src/lib/buyer-invoices/buyerInvoiceTransforms";
 
 interface UseBuyerInvoicesState {
   invoices: BuyerInvoice[];
@@ -117,59 +36,17 @@ interface UseBuyerInvoicesState {
   error: string | null;
 }
 
-// Status transition rules for invoice lifecycle
-const STATUS_TRANSITIONS: Record<InvoiceStatus, InvoiceStatus[]> = {
-  draft: ["sent", "disputed"],
-  sent: ["acknowledged", "disputed"],
-  acknowledged: ["disputed"],
-  cancelled: [],
-  submitted: ["approved", "disputed"],
-  approved: ["disputed"],
-  disputed: ["draft", "sent"],
-};
+function normalizeSaleBillRows(rows: unknown): Array<Parameters<typeof mapInvoices>[0][number]> {
+  return Array.isArray(rows) ? (rows as Array<Parameters<typeof mapInvoices>[0][number]>) : [];
+}
 
-// Status display configuration
-export const INVOICE_STATUS_CONFIG: Record<InvoiceStatus, { label: string; className: string }> = {
-  draft: { label: "Draft", className: "bg-muted text-muted-foreground border-border" },
-  sent: { label: "Sent", className: "bg-info/10 text-info border-info/20" },
-  acknowledged: { label: "Acknowledged", className: "bg-success/10 text-success border-success/20" },
-  cancelled: { label: "Cancelled", className: "bg-muted text-muted-foreground border-border" },
-  submitted: { label: "Submitted", className: "bg-info/10 text-info border-info/20" },
-  approved: { label: "Approved", className: "bg-success/10 text-success border-success/20" },
-  disputed: { label: "Disputed", className: "bg-critical/10 text-critical border-critical/20" },
-};
-
-export const PAYMENT_STATUS_CONFIG: Record<PaymentStatus, { label: string; className: string }> = {
-  unpaid: { label: "Unpaid", className: "bg-critical/10 text-critical border-critical/20" },
-  partial: { label: "Partial", className: "bg-warning/10 text-warning border-warning/20" },
-  paid: { label: "Paid", className: "bg-success/10 text-success border-success/20" },
-  overdue: { label: "Overdue", className: "bg-critical text-critical-foreground" },
-};
-
-// ============================================
-// HELPER FUNCTIONS
-// ============================================
-
-const canTransition = (currentStatus: InvoiceStatus, targetStatus: InvoiceStatus): boolean => {
-  return STATUS_TRANSITIONS[currentStatus]?.includes(targetStatus) ?? false;
-};
+function normalizeSaleBillItemRows(rows: unknown): Array<Parameters<typeof mapInvoiceItems>[0][number]> {
+  return Array.isArray(rows) ? (rows as Array<Parameters<typeof mapInvoiceItems>[0][number]>) : [];
+}
 
 import { useAuth } from "@/hooks/useAuth";
 import { toRupees, toPaise, formatCurrency } from "@/src/lib/utils/currency";
 export { formatCurrency };
-
-// Calculate line total including tax and discount
-export const calculateLineTotal = (
-  quantity: number,
-  unitPrice: number,
-  taxRate: number = 0,
-  discountAmount: number = 0
-): { taxAmount: number; lineTotal: number } => {
-  const subtotal = quantity * unitPrice;
-  const taxAmount = Math.round(subtotal * (taxRate / 100));
-  const lineTotal = subtotal + taxAmount - discountAmount;
-  return { taxAmount, lineTotal };
-};
 
 // ============================================
 // HOOK
@@ -240,15 +117,10 @@ export function useBuyerInvoices(filters?: {
 
       if (error) throw error;
 
-      const scopedBills = ((billRows || []) as any[]).filter((bill) => {
-        if (role !== "buyer") return true;
-        return bill.requests?.buyer_id === userId;
-      });
-
       const requestIds = Array.from(
         new Set(
-          scopedBills
-            .map((bill: any) => bill.request_id)
+          ((billRows || []) as Array<{ request_id: string | null }>)
+            .map((bill) => bill.request_id)
             .filter((value): value is string => Boolean(value))
         )
       );
@@ -268,19 +140,7 @@ export function useBuyerInvoices(filters?: {
         );
       }
 
-      const invoicesWithDetails: BuyerInvoice[] = scopedBills.map((bill: any) => ({
-        ...bill,
-        sale_bill_id: bill.id,
-        invoice_number:
-          bill.invoice_number ||
-          `INV-${String(bill.id).slice(0, 8).toUpperCase()}`,
-        client_name: bill.societies?.society_name || bill.requests?.title || "Unknown",
-        client_code: bill.societies?.society_code || bill.requests?.request_number || "N/A",
-        contract_number: bill.contracts?.contract_number || null,
-        supplier_name: null,
-        feedback_submitted: bill.request_id ? feedbackRequestIds.has(bill.request_id) : null,
-        total_items: null,
-      }));
+      const invoicesWithDetails = mapInvoices(normalizeSaleBillRows(billRows), feedbackRequestIds, role, userId);
 
       setState((prev) => ({
         ...prev,
@@ -316,11 +176,7 @@ export function useBuyerInvoices(filters?: {
 
       if (error) throw error;
 
-      const itemsWithDetails: InvoiceItem[] = (data || []).map((item: any) => ({
-        ...item,
-        sale_bill_id: item.sale_bill_id,
-        product_name: item.products?.product_name || null,
-      }));
+      const itemsWithDetails = mapInvoiceItems(normalizeSaleBillItemRows(data));
 
       setState((prev) => ({ ...prev, items: itemsWithDetails }));
       return itemsWithDetails;
@@ -361,6 +217,19 @@ export function useBuyerInvoices(filters?: {
         .single();
 
       if (error) throw error;
+
+      try {
+        await notifySocietyManager({
+          societyId: input.client_id,
+          title: "New Invoice Generated",
+          body: `Invoice ${data.invoice_number || data.id} has been generated for your account.`,
+          notificationType: "invoice_generated",
+          referenceId: data.id,
+          referenceType: "sale_bill",
+        });
+      } catch (notifyErr) {
+        console.error("Failed to notify society manager about invoice:", notifyErr);
+      }
 
       await fetchInvoices();
       return data as BuyerInvoice;
@@ -434,6 +303,21 @@ export function useBuyerInvoices(filters?: {
 
       if (invoiceError) throw invoiceError;
 
+      try {
+        if (contract.society_id) {
+          await notifySocietyManager({
+            societyId: contract.society_id,
+            title: "New Invoice Generated",
+            body: `Invoice ${invoice.invoice_number || invoice.id} has been generated for contract ${contract.contract_number || contractId}.`,
+            notificationType: "invoice_generated",
+            referenceId: invoice.id,
+            referenceType: "sale_bill",
+          });
+        }
+      } catch (notifyErr) {
+        console.error("Failed to notify society manager about contract invoice:", notifyErr);
+      }
+
       await fetchInvoices();
       return invoice as BuyerInvoice;
     } catch (err: unknown) {
@@ -458,7 +342,7 @@ export function useBuyerInvoices(filters?: {
       }
 
       // Recalculate total if amounts changed
-      const updateData: any = { ...updates };
+      const updateData: Record<string, unknown> = { ...updates };
       if (
         updates.subtotal !== undefined ||
         updates.tax_amount !== undefined ||
@@ -467,8 +351,9 @@ export function useBuyerInvoices(filters?: {
         const subtotal = updates.subtotal ?? invoice?.subtotal ?? 0;
         const taxAmount = updates.tax_amount ?? invoice?.tax_amount ?? 0;
         const discountAmount = updates.discount_amount ?? invoice?.discount_amount ?? 0;
-        updateData.total_amount = subtotal + taxAmount - discountAmount;
-        updateData.due_amount = updateData.total_amount - (invoice?.paid_amount ?? 0);
+        const totalAmount = subtotal + taxAmount - discountAmount;
+        updateData.total_amount = totalAmount;
+        updateData.due_amount = totalAmount - (invoice?.paid_amount ?? 0);
       }
 
       const { data, error } = await supabase
@@ -489,7 +374,6 @@ export function useBuyerInvoices(filters?: {
       return null;
     }
   }, [state.invoices, fetchInvoices]);
-
   // ============================================
   // DELETE INVOICE
   // ============================================
@@ -744,7 +628,7 @@ export function useBuyerInvoices(filters?: {
         throw new Error(`Cannot dispute invoice in ${invoice.status} status`);
       }
 
-      const updates: any = { status: "disputed" };
+      const updates: Record<string, unknown> = { status: "disputed" };
       if (reason) {
         updates.notes = invoice.notes ? `${invoice.notes}\n\nDispute: ${reason}` : `Dispute: ${reason}`;
       }
@@ -786,7 +670,8 @@ export function useBuyerInvoices(filters?: {
         throw new Error("Payment amount must be positive");
       }
 
-      const newPaidAmount = invoice.paid_amount + payment.amount;
+      const currentPaidAmount = invoice.paid_amount || 0;
+      const newPaidAmount = currentPaidAmount + payment.amount;
       
       if (newPaidAmount > invoice.total_amount) {
         throw new Error("Payment amount exceeds due amount");
@@ -802,7 +687,7 @@ export function useBuyerInvoices(filters?: {
         newPaymentStatus = "unpaid";
       }
 
-      const newDueAmount = invoice.total_amount - newPaidAmount;
+      const newDueAmount = (invoice.total_amount || 0) - newPaidAmount;
 
       // Add payment note
       const paymentNote = `Payment of ${formatCurrency(payment.amount)} received on ${

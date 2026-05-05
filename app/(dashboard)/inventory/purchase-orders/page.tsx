@@ -90,6 +90,10 @@ import { formatCurrency } from "@/src/lib/utils/currency";
 import { useSuppliers } from "@/hooks/useSuppliers";
 import { useToast } from "@/components/ui/use-toast";
 
+function getPOReference(poNumber: string | null | undefined) {
+  return poNumber || "Pending PO number";
+}
+
 // Status filter options
 const STATUS_OPTIONS: { value: POStatus | "all"; label: string }[] = [
   { value: "all", label: "All Status" },
@@ -129,7 +133,7 @@ export default function POTrackingPage() {
     fetchPOItems,
   } = usePurchaseOrders();
 
-  const { suppliers, isLoading: suppliersLoading } = useSuppliers({ status: 'active' } as any);
+  const { suppliers, isLoading: suppliersLoading } = useSuppliers({ status: 'active' });
 
   // Local state
   const [statusFilter, setStatusFilter] = useState<POStatus | "all">("all");
@@ -225,7 +229,7 @@ export default function POTrackingPage() {
     if (result) {
       toast({
         title: "Purchase Order Created",
-        description: `PO ${result.po_number || result.id.slice(0, 8)} has been created as draft`,
+        description: `PO ${getPOReference(result.po_number)} has been created as draft`,
       });
       setCreateDialogOpen(false);
       resetForm();
@@ -291,7 +295,7 @@ export default function POTrackingPage() {
     setConfirmAction({
       type,
       poId: po.id,
-      poNumber: po.po_number || `PO-${po.id.slice(0, 8)}`,
+      poNumber: getPOReference(po.po_number),
     });
     setConfirmDialogOpen(true);
   };
@@ -335,7 +339,7 @@ export default function POTrackingPage() {
           </div>
           <div className="flex flex-col text-left">
             <div className="flex items-center gap-1.5">
-              <span className="font-bold text-sm">{row.original.po_number || `PO-${row.original.id.slice(0, 8)}`}</span>
+              <span className="font-bold text-sm">{getPOReference(row.original.po_number)}</span>
               {isDelayed(row.original) && (
                 <Badge variant="outline" className="h-4 px-1 text-[8px] bg-critical/10 text-critical border-critical/20">
                   DELAYED
@@ -378,7 +382,7 @@ export default function POTrackingPage() {
       header: "Order Value",
       cell: ({ row }) => (
         <span className="text-sm font-bold">
-          {row.original.grand_total ? formatCurrency(row.original.grand_total) : "TBD"}
+          {row.original.grand_total ? formatCurrency(row.original.grand_total) : "Not set"}
         </span>
       ),
     },
@@ -677,7 +681,7 @@ export default function POTrackingPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {suppliersLoading ? (
-                    <div className="p-2 text-center text-muted-foreground">Loading...</div>
+                    <div className="p-2 text-center text-muted-foreground">Loading options...</div>
                   ) : suppliers.length === 0 ? (
                     <div className="p-2 text-center text-muted-foreground">No active suppliers</div>
                   ) : (
@@ -766,7 +770,7 @@ export default function POTrackingPage() {
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-primary" />
-              {selectedPO?.po_number || `PO-${selectedPO?.id.slice(0, 8)}`}
+              {getPOReference(selectedPO?.po_number)}
             </SheetTitle>
             <SheetDescription>
               Purchase Order Details
@@ -807,7 +811,7 @@ export default function POTrackingPage() {
                 <div className="p-3 rounded-lg bg-muted/30 border">
                   <span className="text-[10px] uppercase font-bold text-muted-foreground">Order Value</span>
                   <p className="font-bold text-lg mt-1">
-                    {selectedPO.grand_total ? formatCurrency(selectedPO.grand_total) : "TBD"}
+                    {selectedPO.grand_total ? formatCurrency(selectedPO.grand_total) : "Not set"}
                   </p>
                 </div>
               </div>

@@ -23,13 +23,15 @@ function getSupabaseAdmin() {
 
 /** Roles that are allowed to manage QR codes. */
 const QR_MANAGEMENT_ROLES = ["admin", "account", "security_supervisor"];
+type RoleRecord = { role_name?: string | null };
+type UserRoleRow = { roles?: RoleRecord | RoleRecord[] | null };
 
 /**
  * Verify the request is from an authenticated user.
  * Returns the user or a NextResponse error.
  */
 async function authenticateRequest(): Promise<{
-  user: any | null;
+  user: { id: string } | null;
   role: string | null;
   error: NextResponse | null;
 }> {
@@ -78,9 +80,8 @@ async function authorizeQrManagement(userId: string) {
     };
   }
 
-  const roleRecord = Array.isArray((userRecord as any)?.roles)
-    ? (userRecord as any).roles[0]
-    : (userRecord as any)?.roles;
+  const userRow = userRecord as UserRoleRow | null;
+  const roleRecord = Array.isArray(userRow?.roles) ? userRow.roles[0] : userRow?.roles;
   const roleName = roleRecord?.role_name ?? null;
 
   if (!roleName || !QR_MANAGEMENT_ROLES.includes(roleName)) {

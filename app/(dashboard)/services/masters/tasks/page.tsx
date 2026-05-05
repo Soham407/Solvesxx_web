@@ -36,7 +36,7 @@ import {
 import { useWorkMaster, WorkMaster } from "@/hooks/useWorkMaster";
 import { toast } from "sonner";
 import { supabase as supabaseTyped } from "@/src/lib/supabaseClient";
-const supabase = supabaseTyped as any;
+const supabase = supabaseTyped;
 
 const EMPTY_FORM = { work_name: "", skill_level_required: "", standard_time_minutes: "", priority: "medium", description: "" };
 
@@ -49,12 +49,34 @@ function isMissingColumnError(error: unknown) {
   return /Could not find the .* column|column .* does not exist/i.test(message);
 }
 
+function summarizeWorkMasterStats(workItems: WorkMaster[]) {
+  return {
+    total: workItems.length,
+    highPriority: workItems.filter((item) => item.priority === "high").length,
+    withTAT: workItems.filter((item) => item.standard_time_minutes).length,
+  };
+}
+
+function getWorkPriorityClassName(priority: string) {
+  const variants: Record<string, string> = {
+    high: "bg-critical/5 text-critical border-critical/20",
+    medium: "bg-info/5 text-info border-info/20",
+    low: "bg-muted text-muted-foreground",
+  };
+
+  return variants[priority] || variants.medium;
+}
+
 export default function WorkTasksPage() {
   const { workItems, isLoading, error, createWorkItem, refresh } = useWorkMaster();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<WorkMaster | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  function toWorkMasterUpdate(isActive: boolean): Record<string, boolean> {
+    return { is_active: isActive };
+  }
 
   const openCreate = () => {
     setEditTarget(null);
@@ -68,7 +90,7 @@ export default function WorkTasksPage() {
       work_name: item.work_name,
       skill_level_required: item.skill_level_required || "",
       standard_time_minutes: item.standard_time_minutes?.toString() || "",
-      priority: (item as any).priority || "medium",
+        priority: item.priority || "medium",
       description: item.description || "",
     });
     setDialogOpen(true);
@@ -115,8 +137,8 @@ export default function WorkTasksPage() {
         toast.success("Task created");
       }
       setDialogOpen(false);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to save task");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to save task");
     } finally {
       setIsSubmitting(false);
     }
@@ -124,7 +146,7 @@ export default function WorkTasksPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      let { error } = await supabase.from("work_master").update({ is_active: false }).eq("id", id);
+      let { error } = await supabase.from("work_master").update(toWorkMasterUpdate(false)).eq("id", id);
 
       if (error && isMissingColumnError(error)) {
         const fallbackResult = await supabase.from("work_master").delete().eq("id", id);
@@ -139,8 +161,8 @@ export default function WorkTasksPage() {
       if (error) throw error;
       toast.success("Task archived");
       refresh();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to archive task");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to archive task");
     }
   };
 
@@ -186,14 +208,9 @@ export default function WorkTasksPage() {
       id: "priority",
       header: "Job Priority",
       cell: ({ row }) => {
-        const priority = (row.original as any).priority || "medium";
-        const variants: Record<string, string> = {
-          high: "bg-critical/5 text-critical border-critical/20",
-          medium: "bg-info/5 text-info border-info/20",
-          low: "bg-muted text-muted-foreground",
-        };
+        const priority = row.original.priority || "medium";
         return (
-          <Badge variant="outline" className={cn("font-bold text-[10px] uppercase h-5 px-2", variants[priority])}>
+          <Badge variant="outline" className={cn("font-bold text-[10px] uppercase h-5 px-2", getWorkPriorityClassName(priority))}>
             {priority}
           </Badge>
         );
@@ -222,7 +239,8 @@ export default function WorkTasksPage() {
     },
   ];
 
-  const highPriorityCount = workItems.filter(t => (t as any).priority === "high").length;
+  const workMasterStats = summarizeWorkMasterStats(workItems);
+  const { highPriority: highPriorityCount, withTAT } = workMasterStats;
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -246,9 +264,9 @@ export default function WorkTasksPage() {
       {!isLoading && !error && (
         <div className="grid gap-6 md:grid-cols-3">
           {[
-            { label: "Defined Jobs", value: workItems.length, icon: ListTodo, sub: "Across all domains" },
+            { label: "Defined Jobs", value: workMasterStats.total, icon: ListTodo, sub: "Across all domains" },
             { label: "High Priority", value: highPriorityCount, icon: Activity, sub: "Urgent response tasks" },
-            { label: "With Time Estimates", value: workItems.filter(t => t.standard_time_minutes).length, icon: Clock, sub: "TAT defined" },
+            { label: "With Time Estimates", value: withTAT, icon: Clock, sub: "TAT defined" },
           ].map((stat, i) => (
             <Card key={i} className="border-none shadow-card ring-1 ring-border p-4">
               <div className="flex items-center justify-between mb-2">

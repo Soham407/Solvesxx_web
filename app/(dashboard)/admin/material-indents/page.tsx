@@ -24,6 +24,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useBuyerRequests, type BuyerRequest } from "@/hooks/useBuyerRequests";
 import { useIndents } from "@/hooks/useIndents";
+import type { IndentPriority } from "@/hooks/useIndents";
 import { useSuppliers } from "@/hooks/useSuppliers";
 import { getCurrentEmployeeId } from "@/src/lib/security/getCurrentEmployeeId";
 import { supabase } from "@/src/lib/supabaseClient";
@@ -60,6 +61,16 @@ type MaterialRateSummary = {
   hasAllRates: boolean;
 };
 
+type SupplierProductRateRow = {
+  product_id: string | null;
+  supplier_rates?: Array<{
+    rate: number;
+    effective_from: string;
+    effective_to?: string | null;
+    is_active: boolean;
+  }> | null;
+};
+
 export default function AdminMaterialIndentsPage() {
   const { role, user } = useAuth();
   const { toast } = useToast();
@@ -71,24 +82,14 @@ export default function AdminMaterialIndentsPage() {
     refresh: refreshRequests,
   } = useBuyerRequests();
   const { createIndent, addIndentItem, approveIndent } = useIndents();
-  const { suppliers, isLoading: isLoadingSuppliers, refresh: refreshSuppliers } = useSuppliers({ status: "active" } as any);
+  const { suppliers, isLoading: isLoadingSuppliers, refresh: refreshSuppliers } = useSuppliers({ status: "active" });
+  const isAccessDenied = Boolean(role && role !== "admin" && role !== "super_admin");
 
   const [selectedRequest, setSelectedRequest] = useState<BuyerRequest | null>(null);
   const [selectedSupplierId, setSelectedSupplierId] = useState("");
   const [isGeneratingIndent, setIsGeneratingIndent] = useState(false);
   const [materialRateSummary, setMaterialRateSummary] = useState<MaterialRateSummary | null>(null);
   const [isLoadingRateSummary, setIsLoadingRateSummary] = useState(false);
-
-  if (role && role !== "admin" && role !== "super_admin") {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
-        <ShieldAlert className="h-12 w-12 text-destructive" />
-        <h1 className="text-2xl font-bold">Access Denied</h1>
-        <p className="text-muted-foreground">You do not have permission to view the material indents admin panel.</p>
-        <Button onClick={() => window.history.back()}>Go Back</Button>
-      </div>
-    );
-  }
 
   const materialRequests = useMemo(
     () =>
@@ -106,8 +107,19 @@ export default function AdminMaterialIndentsPage() {
     [materialRequests]
   );
 
+  if (isAccessDenied) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+        <ShieldAlert className="h-12 w-12 text-destructive" />
+        <h1 className="text-2xl font-bold">Access Denied</h1>
+        <p className="text-muted-foreground">You do not have permission to view the material indents admin panel.</p>
+        <Button onClick={() => window.history.back()}>Go Back</Button>
+      </div>
+    );
+  }
+
   const fetchRequestItems = async (requestId: string): Promise<MaterialRequestItemRow[]> => {
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from("request_items")
       .select("*, products(product_name, product_code, unit_of_measurement, base_rate)")
       .eq("request_id", requestId);
@@ -140,7 +152,7 @@ export default function AdminMaterialIndentsPage() {
       const today = new Date().toISOString().split("T")[0];
 
       const { data: supplierProducts, error: supplierProductsError } = productIds.length
-        ? await (supabase as any)
+        ? await supabase
             .from("supplier_products")
             .select(`
               product_id,
@@ -158,17 +170,12 @@ export default function AdminMaterialIndentsPage() {
         throw supplierProductsError;
       }
 
-      const rateByProductId = new Map<string, { rate: number; effective_from: string; effective_to: string | null }>();
+      const rateByProductId = new Map<string, { rate: number; effective_from: string; effective_to?: string | null }>();
 
-      for (const supplierProduct of supplierProducts || []) {
+      for (const supplierProduct of (supplierProducts || []) as SupplierProductRateRow[]) {
         const activeRate = (supplierProduct.supplier_rates || [])
-          .filter(
-            (rate: any) =>
-              rate.is_active === true &&
-              rate.effective_from <= today &&
-              true
-          )
-          .sort((left: any, right: any) => right.effective_from.localeCompare(left.effective_from))[0];
+          .filter((rate) => rate.is_active === true && rate.effective_from <= today)
+          .sort((left, right) => right.effective_from.localeCompare(left.effective_from))[0];
 
         if (supplierProduct.product_id && activeRate) {
           rateByProductId.set(supplierProduct.product_id, activeRate);
@@ -180,7 +187,7 @@ export default function AdminMaterialIndentsPage() {
 
         return {
           productId: item.product_id,
-          productName: item.products?.product_name || "Unknown Product",
+          productName: item.products?.product_name || "Product not linked",
           quantity: item.quantity,
           unitOfMeasure: item.products?.unit_of_measurement || item.unit || "unit",
           rate: currentRate?.rate ?? null,
@@ -274,7 +281,7 @@ export default function AdminMaterialIndentsPage() {
         title: selectedRequest.title,
         purpose: selectedRequest.description || `Material procurement generated from ${selectedRequest.request_number}`,
         required_date: selectedRequest.preferred_delivery_date || undefined,
-        priority: (selectedRequest as any).priority || "normal",
+        priority: (selectedRequest.priority || "normal") as IndentPriority,
         notes: `Generated from buyer request ${selectedRequest.request_number}`,
       });
 
@@ -288,7 +295,7 @@ export default function AdminMaterialIndentsPage() {
         await addIndentItem({
           indent_id: indent.id,
           product_id: item.product_id,
-          item_description: item.products?.product_name || "Unknown Product",
+          item_description: item.products?.product_name || "Product not linked",
           requested_quantity: item.quantity,
           unit_of_measure: item.products?.unit_of_measurement || "unit",
           estimated_unit_price:
@@ -321,10 +328,10 @@ export default function AdminMaterialIndentsPage() {
 
       closeGenerateDialog();
       refreshRequests();
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: "Indent Generation Failed",
-        description: err.message || "The material indent could not be generated.",
+        description: err instanceof Error ? err.message : "The material indent could not be generated.",
         variant: "destructive",
       });
     } finally {
@@ -584,5 +591,3 @@ export default function AdminMaterialIndentsPage() {
     </div>
   );
 }
-
-

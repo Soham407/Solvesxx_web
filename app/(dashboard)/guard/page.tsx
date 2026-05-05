@@ -360,7 +360,7 @@ export default function GuardStationPage() {
                       </Badge>
                     </div>
                     <p className="mt-1 text-xs font-medium text-muted-foreground">
-                      {visitor.flat?.building?.building_name || "Unknown"} - {visitor.flat?.flat_number || "N/A"}
+                      {visitor.flat?.building?.building_name || "Building not set"} - {visitor.flat?.flat_number || "Flat not set"}
                     </p>
                     <p className="mt-1 text-[11px] text-muted-foreground">
                       Entered at {formatShiftTime(visitor.entry_time)}
@@ -425,7 +425,7 @@ export default function GuardStationPage() {
         {!isLoading && !error && query.length >= 2 && results.length === 0 && (
           <div className="text-center py-10 text-muted-foreground">
             <UserCheck className="h-10 w-10 mx-auto mb-2 opacity-20" />
-            <p className="text-sm">No residents found for "{query}"</p>
+            <p className="text-sm">No residents found for {query}</p>
           </div>
         )}
 
@@ -484,7 +484,7 @@ export default function GuardStationPage() {
                     <span className="font-medium">
                       {resident.move_in_date
                         ? new Date(resident.move_in_date).toLocaleDateString()
-                        : "N/A"}
+                        : "Not set"}
                     </span>
                   </div>
                   <Button

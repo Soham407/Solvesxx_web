@@ -40,47 +40,83 @@ import {
 } from "@/src/lib/brand";
 
 const stats = [
-  { value: "Security", label: "Guarding, surveillance, and command center workflows" },
-  { value: "Maintenance", label: "AC servicing, housekeeping, and vendor coordination" },
-  { value: "Hygiene", label: "Pest control, cleaning chemicals, and consumables" },
-  { value: "Infrastructure", label: "Procurement, staffing, billing, and service oversight" },
+  { value: "Security", label: "Guarding, housekeeping, camera monitoring, and access control" },
+  { value: "Maintenance", label: "Air conditioner supply, installation, and service coordination" },
+  { value: "Hygiene", label: "Cleaning chemicals, pest control, and plantation upkeep" },
+  { value: "Business Support", label: "Beverages, gifting, paper cups, logistics, and legal services" },
 ];
 
 const services = [
   {
     title: "Security and Housekeeping",
     description:
-      "Operational planning, staffing oversight, and on-site execution in one connected interface.",
+      "Provide top-notch security and housekeeping services to ensure a safe and clean environment.",
     image: "/ServiceImages/Security_Guard.png",
   },
   {
     title: "Air Conditioner Supply and Maintenance",
     description:
-      "Track service requests, assignments, inventory usage, and technician delivery proof.",
+      "Supply, install, and maintain high-quality air conditioners tailored to each facility's needs.",
     image: "/ServiceImages/AC Maint.png",
+  },
+  {
+    title: "Door Security Camera",
+    description:
+      "AI facial recognition and tripwire monitoring for instant unauthorized entry alerts after hours.",
+    image: "/ServiceImages/Security Panel Material.png",
   },
   {
     title: "Commercial Cleaning Chemicals",
     description:
-      "Procure, issue, and reconcile eco-friendly cleaning inventory with full traceability.",
+      "Offer eco-friendly cleaning chemicals and fragrances to keep spaces fresh and clean.",
     image: "/ServiceImages/Cleaning Essientials.png",
   },
   {
-    title: "Hot and Cold Beverages",
+    title: "Hot Beverages",
     description:
-      "Coordinate pantry supplies, beverage machines, and repeat service fulfillment.",
+      "Serve aromatic tea, coffee, and hot beverage blends crafted with premium ingredients.",
+    image: "/ServiceImages/Pantry_&_Beverages.png",
+  },
+  {
+    title: "Cold Beverages",
+    description:
+      "Offer refreshing cold drinks made with natural flavors and quality ingredients.",
     image: "/ServiceImages/Pantry_&_Beverages.png",
   },
   {
     title: "Pest Control",
     description:
-      "Plan treatment schedules, log chemical usage, and capture before/after work evidence.",
+      "Deliver pest control solutions that protect homes and businesses from unwanted pests.",
     image: "/ServiceImages/Pest Control.png",
   },
   {
-    title: "Corporate Gifting and Printing",
+    title: "Corporate Gifting",
     description:
-      "Handle branded supplies, print jobs, and vendor delivery milestones with less follow-up.",
+      "Create customized corporate gifts that reflect the client brand and impress teams or customers.",
+    image: "/ServiceImages/Corporate Gifting.png",
+  },
+  {
+    title: "Paper Cup",
+    description:
+      "Offer eco-friendly paper cups for hot and cold beverages across offices, events, and cafes.",
+    image: "/ServiceImages/EcoFriendly disposables.png",
+  },
+  {
+    title: "Plantation Service",
+    description:
+      "Create and maintain beautiful indoor and outdoor green spaces with expert plantation support.",
+    image: "/ServiceImages/Housekeeping.png",
+  },
+  {
+    title: "Import and Exports",
+    description:
+      "Manage import and export coordination with efficient logistics and supply chain support.",
+    image: "/ServiceImages/Stationary.png",
+  },
+  {
+    title: "Legal Services",
+    description:
+      "Provide cloud-based contract management and automated deadline alerts for renewals.",
     image: "/ServiceImages/Corporate Gifting.png",
   },
 ];
@@ -136,7 +172,7 @@ type TeamMember = {
 const teamMembers: TeamMember[] = [
   {
     id: "team-1",
-    name: "Vandanaa Mahadeo Chougulay",
+    name: "Vandanaa Chougolay",
     title: "Director, Marketing & Strategic Alliances",
     bio: "With 30 years of diverse professional experience, Vandanaa brings a dynamic blend of business acumen, innovation, and leadership to Solvesxx. She holds a Master's degree and has built a multifaceted career spanning manufacturing, international business, and strategic marketing. At Solvesxx, she drives marketing strategy and project alliances, building strong business relationships and aligning growth opportunities with market demand. She also leads her own sports brand, LGM Sports, a skating manufacturing and international trading business focused on custom skate design and innovation. Her earlier experience in the food industry further strengthens her operational and business management perspective across sectors. Known for her hard work, innovation-driven thinking, and strategic collaboration, she continues to add significant value to the company's growth vision.",
     image: null,
@@ -151,14 +187,14 @@ const teamMembers: TeamMember[] = [
   },
   {
     id: "team-3",
-    name: "Sharada Vitthal Dhumal",
+    name: "Sharada Dhumal",
     title: "Director, Administrative Management & Operations",
     bio: "With over 25 years of professional experience, Sharada brings deep expertise in administrative management, financial discipline, and organizational efficiency to Solvesxx. She holds an M.Com with specialization in Business Entrepreneurship, giving her a strong foundation in both business strategy and operations. She oversees administrative systems and project organization, ensuring operations run with structure, accountability, and precision. Her career spans CA firms, legal firms, advertising, printing, media, and the gems and jewellery sector, including 15 years in accounts and 10 years in administration with organizations such as Times of India and P. N. Gadgil & Sons Ltd. Her cross-industry exposure has made her highly adaptable and detail-oriented, with strong capability in managing complex workflows and ensuring seamless coordination across departments.",
     image: null,
   },
   {
     id: "team-4",
-    name: "Adv. Kamal Dashrath Sawant",
+    name: "Adv. Kamal Sawant",
     title: "Director, Legal Advisory & Governance",
     bio: "Advocate Kamal brings a rare combination of legal expertise, leadership experience, and sporting excellence to Solvesxx. She holds BA and LLB degrees and has built a distinguished career rooted in governance, public service, and legal advisory. At Solvesxx, she guides the organization on legal frameworks, compliance, and strategic decision-making, helping ensure operations align with regulatory standards and ethical practices. Her professional journey is complemented by an inspiring sports background as a former national-level cricket player who played as an opening bowler. She has also held major leadership positions, including member of the Apex Council of the Maharashtra Cricket Association and Chairperson of Zilla Parishad, Ahilyanagar. Her experience across law, sports, and governance adds a distinctive strength to the company's leadership foundation.",
     image: "/team/kamal-sawant.jpeg",
@@ -365,7 +401,7 @@ export default function LandingPage() {
                   Signature lines
                 </p>
                 <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                  Security | Maintenance | Hygiene | Infrastructure. The same visual
+                  Security | Maintenance | Hygiene | Business Support. The same visual
                   language now carries from the brochure into the operational product.
                 </p>
               </div>
@@ -693,7 +729,7 @@ export default function LandingPage() {
           </div>
           <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
             {BRAND_TAGLINE}. A premium operations portal for security, maintenance,
-            hygiene, infrastructure, and service-led facility teams.
+            hygiene, business support, and service-led facility teams.
           </p>
           <Link href="/login">
             <Button variant="outline" className="w-full rounded-full px-6 sm:w-auto">

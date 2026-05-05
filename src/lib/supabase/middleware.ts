@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { Database } from '@/src/types/supabase'
-import { normalizePermissions } from '@/src/lib/platform/permissions'
+import { mapAuthSessionProfile, type AuthUserRoleRow } from "@/src/lib/auth/authTransforms"
 
 /**
  * Updates the Supabase auth session by refreshing tokens via cookies.
@@ -56,14 +56,11 @@ export async function updateSession(request: NextRequest) {
       .eq('id', user.id)
       .maybeSingle();
 
-    const roleData = Array.isArray((data as any)?.roles)
-      ? (data as any)?.roles[0]
-      : (data as any)?.roles
-
-    role = roleData?.role_name || null
-    permissions = normalizePermissions(roleData?.permissions)
-    isActive = (data as any)?.is_active !== false
-    mustChangePassword = (data as any)?.must_change_password === true
+    const profile = mapAuthSessionProfile(data as AuthUserRoleRow);
+    role = profile.role
+    permissions = profile.permissions
+    isActive = profile.isActive
+    mustChangePassword = profile.mustChangePassword
   }
 
   return { supabaseResponse, user, role, permissions, isActive, mustChangePassword }

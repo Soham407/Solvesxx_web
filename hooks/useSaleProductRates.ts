@@ -1,10 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase as supabaseTyped } from "@/src/lib/supabaseClient";
 import { useToast } from "@/components/ui/use-toast";
-
-const supabase = supabaseTyped as any;
 import {
   SaleProductRateExtended,
   SaleProductRateDisplay,
@@ -14,6 +11,17 @@ import {
   MutationResult,
   CurrentSaleRate,
 } from "@/src/types/supply-chain";
+import { mapSaleProductRateRows } from "@/src/lib/sale-rates/saleProductRateTransforms";
+import {
+  expireActiveSaleRate,
+  fetchGlobalSaleRates,
+  fetchRateHistory,
+  fetchSaleRateRows,
+  fetchSocietySaleRates,
+  findLatestSaleRate,
+  insertSaleRate,
+  updateSaleRate,
+} from "@/src/lib/sale-rates/saleRatesGateway";
 
 /**
  * Sale Product Rates Hook
@@ -50,57 +58,8 @@ export function useSaleProductRates(initialFilters?: SaleProductRateFilters) {
     setState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      let query = supabase
-        .from("sale_product_rates")
-        .select(`
-          *,
-          product:products(id, product_name, product_code, unit_of_measurement),
-          society:societies(id, society_name)
-        `)
-        .order("effective_from", { ascending: false });
-
-      // Apply filters
-      if (filters.product_id) {
-        query = query.eq("product_id", filters.product_id);
-      }
-
-      // Filter by society_id (null means global rates)
-      if (filters.society_id === null) {
-        query = query.is("society_id", null);
-      } else if (filters.society_id) {
-        query = query.eq("society_id", filters.society_id);
-      }
-
-      if (filters.is_active !== undefined) {
-        query = query.eq("is_active", filters.is_active);
-      }
-
-      // Filter by effective date
-      if (filters.effective_as_of) {
-        query = query
-          .lte("effective_from", filters.effective_as_of)
-          .or(`effective_to.is.null,effective_to.gte.${filters.effective_as_of}`);
-      }
-
-      const { data, error, count } = await query;
-
-      if (error) throw error;
-
-      // Transform data to SaleProductRateDisplay format
-      const rates: SaleProductRateDisplay[] = (data || []).map((item: any) => ({
-        ...item,
-        product: item.product ? {
-          ...item.product,
-          unit: item.product.unit_of_measurement,
-        } : undefined,
-        society: item.society,
-        // Calculate margin amount
-        marginAmount: item.base_cost 
-          ? item.rate - item.base_cost 
-          : undefined,
-        // Calculate rate with GST
-        rateWithGst: item.rate * (1 + (item.gst_percentage || 18) / 100),
-      }));
+      const { rows, count } = await fetchSaleRateRows(filters);
+      const rates: SaleProductRateDisplay[] = mapSaleProductRateRows(rows);
 
       setState(prev => ({
         ...prev,
@@ -132,45 +91,25 @@ export function useSaleProductRates(initialFilters?: SaleProductRateFilters) {
       const dayBefore = new Date(effectiveFromDate);
       dayBefore.setDate(dayBefore.getDate() - 1);
 
-      let expireQuery = supabase
-        .from("sale_product_rates")
-        .update({
-          effective_to: dayBefore.toISOString().split('T')[0],
-          is_active: false,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("product_id", data.product_id)
-        .eq("is_active", true)
-        .is("effective_to", null);
-
-      // Match society_id (either specific or global)
-      if (data.society_id) {
-        expireQuery = expireQuery.eq("society_id", data.society_id);
-      } else {
-        expireQuery = expireQuery.is("society_id", null);
-      }
-
-      await expireQuery;
+      await expireActiveSaleRate(
+        data.product_id,
+        data.society_id || null,
+        dayBefore.toISOString().split("T")[0]
+      );
 
       // Create the new rate
-      const { data: result, error } = await supabase
-        .from("sale_product_rates")
-        .insert({
-          product_id: data.product_id,
-          society_id: data.society_id || null,
-          rate: data.rate,
-          effective_from: data.effective_from,
-          effective_to: data.effective_to || null,
-          gst_percentage: data.gst_percentage || 18,
-          margin_percentage: data.margin_percentage,
-          base_cost: data.base_cost,
-          notes: data.notes,
-          is_active: true,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
+      const result = await insertSaleRate({
+        product_id: data.product_id,
+        society_id: data.society_id || null,
+        rate: data.rate,
+        effective_from: data.effective_from,
+        effective_to: data.effective_to || null,
+        gst_percentage: data.gst_percentage || 18,
+        margin_percentage: data.margin_percentage,
+        base_cost: data.base_cost,
+        notes: data.notes,
+        is_active: true,
+      });
 
       const rateType = data.society_id ? "Society-specific" : "Global";
       toast({
@@ -197,17 +136,10 @@ export function useSaleProductRates(initialFilters?: SaleProductRateFilters) {
     updates: UpdateSaleProductRateForm
   ): Promise<MutationResult<SaleProductRateExtended>> => {
     try {
-      const { data, error } = await supabase
-        .from("sale_product_rates")
-        .update({
-          ...updates,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", rateId)
-        .select()
-        .single();
-
-      if (error) throw error;
+      const data = await updateSaleRate(rateId, {
+        ...updates,
+        updated_at: new Date().toISOString(),
+      });
 
       toast({
         title: "Sale Rate Updated",
@@ -233,16 +165,11 @@ export function useSaleProductRates(initialFilters?: SaleProductRateFilters) {
     effectiveTo?: string
   ): Promise<MutationResult> => {
     try {
-      const { error } = await supabase
-        .from("sale_product_rates")
-        .update({
-          is_active: false,
-          effective_to: effectiveTo || new Date().toISOString().split('T')[0],
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", rateId);
-
-      if (error) throw error;
+      await updateSaleRate(rateId, {
+        is_active: false,
+        effective_to: effectiveTo || new Date().toISOString().split("T")[0],
+        updated_at: new Date().toISOString(),
+      });
 
       toast({
         title: "Sale Rate Deactivated",
@@ -269,85 +196,42 @@ export function useSaleProductRates(initialFilters?: SaleProductRateFilters) {
     asOfDate?: string
   ): Promise<CurrentSaleRate | null> => {
     try {
-      // Try using the database function first
-      const { data, error } = await supabase
-        .rpc('get_current_sale_rate', {
-          p_product_id: productId,
-          p_society_id: societyId || null,
-          p_as_of: asOfDate || new Date().toISOString().split('T')[0],
-        });
+      const dateStr = asOfDate || new Date().toISOString().split('T')[0];
 
-      if (error) throw error;
-      
-      if (data && data.length > 0) {
-        return data[0] as CurrentSaleRate;
+      if (societyId) {
+        const societyRate = await findLatestSaleRate(productId, societyId, dateStr);
+        if (societyRate) {
+          return {
+            rate_id: societyRate.id,
+            rate: societyRate.rate,
+            gst_percentage: societyRate.gst_percentage || 18,
+            margin_percentage: societyRate.margin_percentage,
+            base_cost: societyRate.base_cost,
+            is_society_specific: true,
+            effective_from: societyRate.effective_from,
+            effective_to: societyRate.effective_to,
+          };
+        }
       }
+
+      const globalRate = await findLatestSaleRate(productId, null, dateStr);
+      if (globalRate) {
+        return {
+          rate_id: globalRate.id,
+          rate: globalRate.rate,
+          gst_percentage: globalRate.gst_percentage || 18,
+          margin_percentage: globalRate.margin_percentage,
+          base_cost: globalRate.base_cost,
+          is_society_specific: false,
+          effective_from: globalRate.effective_from,
+          effective_to: globalRate.effective_to,
+        };
+      }
+
       return null;
     } catch (err: unknown) {
       console.error("Error getting sale rate:", err);
-      
-      // Fallback: Manual query with society fallback
-      try {
-        const dateStr = asOfDate || new Date().toISOString().split('T')[0];
-        
-        // Try society-specific rate first
-        if (societyId) {
-          const { data: societyRate } = await supabase
-            .from("sale_product_rates")
-            .select("*")
-            .eq("product_id", productId)
-            .eq("society_id", societyId)
-            .eq("is_active", true)
-            .lte("effective_from", dateStr)
-            .or(`effective_to.is.null,effective_to.gte.${dateStr}`)
-            .order("effective_from", { ascending: false })
-            .limit(1);
-
-          if (societyRate && societyRate.length > 0) {
-            const rate = societyRate[0];
-            return {
-              rate_id: rate.id,
-              rate: rate.rate,
-              gst_percentage: rate.gst_percentage || 18,
-              margin_percentage: rate.margin_percentage,
-              base_cost: rate.base_cost,
-              is_society_specific: true,
-              effective_from: rate.effective_from,
-              effective_to: rate.effective_to,
-            };
-          }
-        }
-
-        // Fall back to global rate
-        const { data: globalRate } = await supabase
-          .from("sale_product_rates")
-          .select("*")
-          .eq("product_id", productId)
-          .is("society_id", null)
-          .eq("is_active", true)
-          .lte("effective_from", dateStr)
-          .or(`effective_to.is.null,effective_to.gte.${dateStr}`)
-          .order("effective_from", { ascending: false })
-          .limit(1);
-
-        if (globalRate && globalRate.length > 0) {
-          const rate = globalRate[0];
-          return {
-            rate_id: rate.id,
-            rate: rate.rate,
-            gst_percentage: rate.gst_percentage || 18,
-            margin_percentage: rate.margin_percentage,
-            base_cost: rate.base_cost,
-            is_society_specific: false,
-            effective_from: rate.effective_from,
-            effective_to: rate.effective_to,
-          };
-        }
-
-        return null;
-      } catch {
-        return null;
-      }
+      return null;
     }
   }, []);
 
@@ -357,27 +241,11 @@ export function useSaleProductRates(initialFilters?: SaleProductRateFilters) {
     societyId?: string | null
   ): Promise<SaleProductRateDisplay[]> => {
     try {
-      let query = supabase
-        .from("sale_product_rates")
-        .select(`
-          *,
-          society:societies(id, society_name)
-        `)
-        .eq("product_id", productId)
-        .order("effective_from", { ascending: false });
+      const rows = await fetchRateHistory(productId, societyId);
 
-      if (societyId === null) {
-        query = query.is("society_id", null);
-      } else if (societyId) {
-        query = query.eq("society_id", societyId);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-
-      return (data || []).map(rate => ({
+      return rows.map(rate => ({
         ...rate,
+        society: undefined,
         marginAmount: rate.base_cost ? rate.rate - rate.base_cost : undefined,
         rateWithGst: rate.rate * (1 + (rate.gst_percentage || 18) / 100),
       })) as SaleProductRateDisplay[];
@@ -403,24 +271,12 @@ export function useSaleProductRates(initialFilters?: SaleProductRateFilters) {
   // Get global rates (rates without society_id)
   const getGlobalRates = useCallback(async (): Promise<SaleProductRateDisplay[]> => {
     try {
-      const { data, error } = await supabase
-        .from("sale_product_rates")
-        .select(`
-          *,
-          product:products(id, product_name, product_code, unit_of_measurement)
-        `)
-        .is("society_id", null)
-        .eq("is_active", true)
-        .order("product_id");
+      const rows = await fetchGlobalSaleRates();
 
-      if (error) throw error;
-
-      return (data || []).map(rate => ({
+      return rows.map(rate => ({
         ...rate,
-        product: rate.product ? {
-          ...rate.product,
-          unit: rate.product.unit_of_measurement,
-        } : undefined,
+        product: undefined,
+        society: undefined,
         marginAmount: rate.base_cost ? rate.rate - rate.base_cost : undefined,
         rateWithGst: rate.rate * (1 + (rate.gst_percentage || 18) / 100),
       })) as SaleProductRateDisplay[];
@@ -435,24 +291,11 @@ export function useSaleProductRates(initialFilters?: SaleProductRateFilters) {
     societyId: string
   ): Promise<SaleProductRateDisplay[]> => {
     try {
-      const { data, error } = await supabase
-        .from("sale_product_rates")
-        .select(`
-          *,
-          product:products(id, product_name, product_code, unit_of_measurement)
-        `)
-        .eq("society_id", societyId)
-        .eq("is_active", true)
-        .order("product_id");
+      const rows = await fetchSocietySaleRates(societyId);
 
-      if (error) throw error;
-
-      return (data || []).map(rate => ({
+      return rows.map(rate => ({
         ...rate,
-        product: rate.product ? {
-          ...rate.product,
-          unit: rate.product.unit_of_measurement,
-        } : undefined,
+        product: undefined,
         marginAmount: rate.base_cost ? rate.rate - rate.base_cost : undefined,
         rateWithGst: rate.rate * (1 + (rate.gst_percentage || 18) / 100),
       })) as SaleProductRateDisplay[];

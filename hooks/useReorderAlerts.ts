@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/src/lib/supabaseClient";
 import type { StockLevel } from "@/src/types/operations";
 import { sendReorderAlertNotification } from "@/src/lib/notifications";
+import { buildReorderPlans } from "@/src/lib/inventory/reorderAlertPlanning";
 
 interface ReorderAlert {
   id: string;
@@ -34,10 +35,35 @@ interface UseReorderAlertsState {
 interface UseReorderAlertsReturn extends UseReorderAlertsState {
   acknowledgeAlert: (alertId: string) => Promise<{ success: boolean; error?: string }>;
   acknowledgeAll: () => Promise<{ success: boolean; error?: string }>;
-  createPurchaseOrderFromAlert: (alertIds: string[]) => Promise<{ success: boolean; error?: string; poId?: string }>;
+  createPurchaseOrderFromAlert: (alertIds: string[]) => Promise<{
+    success: boolean;
+    error?: string;
+    warning?: string;
+    poId?: string;
+    poIds?: string[];
+  }>;
   refresh: () => void;
   getAlertsByWarehouse: (warehouseId: string) => ReorderAlert[];
   getCriticalAlerts: () => ReorderAlert[];
+}
+
+interface ManagerRow {
+  auth_user_id: string | null;
+}
+
+interface SupplierProductRow {
+  supplier_product_id: string;
+  supplier_id: string;
+  product_id: string;
+  suppliers: {
+    supplier_name: string | null;
+    supplier_code: string | null;
+  } | null;
+}
+
+interface SupplierRateRow {
+  supplier_product_id: string;
+  rate: number | null;
 }
 
 /**
@@ -117,8 +143,8 @@ export function useReorderAlerts(warehouseId?: string): UseReorderAlertsReturn {
             .eq("is_active", true);
 
           const managerIds = (managers || [])
-            .map((m: any) => m.auth_user_id)
-            .filter(Boolean) as string[];
+            .map((m: ManagerRow) => m.auth_user_id)
+            .filter((authUserId): authUserId is string => Boolean(authUserId));
 
           if (managerIds.length > 0) {
             for (const alert of newAlerts) {
@@ -214,7 +240,13 @@ export function useReorderAlerts(warehouseId?: string): UseReorderAlertsReturn {
   // Create purchase order from alerts
   // NOTE: purchase_orders and purchase_order_items tables not yet created - this is a placeholder
   const createPurchaseOrderFromAlert = useCallback(
-    async (alertIds: string[]): Promise<{ success: boolean; error?: string; poId?: string }> => {
+    async (alertIds: string[]): Promise<{
+      success: boolean;
+      error?: string;
+      warning?: string;
+      poId?: string;
+      poIds?: string[];
+    }> => {
       try {
         const selectedAlerts = state.alerts.filter((a) => alertIds.includes(a.id));
         
@@ -222,14 +254,133 @@ export function useReorderAlerts(warehouseId?: string): UseReorderAlertsReturn {
           return { success: false, error: "No alerts selected" };
         }
 
-        // TODO: Implement when purchase_orders table is created
-        // For now, just acknowledge the alerts
-        await Promise.all(alertIds.map((id) => acknowledgeAlert(id)));
+        const productIds = Array.from(
+          new Set(
+            selectedAlerts
+              .map((alert) => alert.productId)
+              .filter((productId): productId is string => Boolean(productId))
+          )
+        );
 
-        // Return a placeholder response
-        return { 
-          success: false, 
-          error: "Purchase order functionality not yet implemented. Please create orders manually."
+        if (productIds.length === 0) {
+          return {
+            success: false,
+            error: "Selected alerts do not have product references.",
+          };
+        }
+
+        const { data: supplierProducts, error: supplierProductsError } = await supabase
+          .from("supplier_products")
+          .select(`
+            supplier_product_id:id,
+            supplier_id,
+            product_id,
+            suppliers!supplier_id (
+              supplier_name,
+              supplier_code
+            )
+          `)
+          .in("product_id", productIds);
+
+        if (supplierProductsError) throw supplierProductsError;
+
+        const typedSupplierProducts = (supplierProducts || []) as SupplierProductRow[];
+        const { data: supplierRates, error: supplierRatesError } = await supabase
+          .from("supplier_rates")
+          .select("supplier_product_id, rate")
+          .eq("is_active", true)
+          .in(
+            "supplier_product_id",
+            typedSupplierProducts.map((row) => row.supplier_product_id)
+          );
+
+        if (supplierRatesError) throw supplierRatesError;
+
+        const typedSupplierRates = (supplierRates || []) as SupplierRateRow[];
+        const { groups, unmappedAlerts } = buildReorderPlans({
+          alerts: selectedAlerts.map((alert) => ({
+            id: alert.id,
+            productId: alert.productId,
+            productName: alert.productName,
+            productCode: alert.productCode,
+            warehouseName: alert.warehouseName,
+            suggestedQuantity: alert.suggestedQuantity,
+          })),
+          supplierProducts: typedSupplierProducts.map((row) => ({
+            supplier_product_id: row.supplier_product_id,
+            supplier_id: row.supplier_id,
+            product_id: row.product_id,
+            suppliers: row.suppliers,
+          })),
+          supplierRates: typedSupplierRates.map((rate) => ({
+            supplier_product_id: rate.supplier_product_id,
+            rate: rate.rate,
+            discount_percentage: null,
+            gst_percentage: null,
+          })),
+        });
+
+        if (groups.length === 0) {
+          return {
+            success: false,
+            error:
+              "No supplier contract exists for the selected alerts. Open purchase orders and create a manual draft PO.",
+          };
+        }
+
+        const poIds: string[] = [];
+
+        for (const group of groups) {
+          const { data: po, error: poError } = await supabase
+            .from("purchase_orders")
+            .insert({
+              supplier_id: group.supplierId,
+              po_date: new Date().toISOString().split("T")[0],
+              status: "draft",
+              notes: `Auto-created from reorder alerts for ${group.supplierName}`,
+            })
+            .select("id, po_number")
+            .single();
+
+          if (poError) throw poError;
+
+          for (const item of group.items) {
+            const { error: itemError } = await supabase
+              .from("purchase_order_items")
+              .insert({
+                purchase_order_id: po.id,
+                product_id: item.productId,
+                item_description: item.itemDescription,
+                ordered_quantity: item.quantity,
+                unit_of_measure: "pcs",
+                unit_price: item.unitPrice,
+                tax_rate: item.taxRate,
+                tax_amount: item.taxAmount,
+                discount_percent: item.discountPercent,
+                discount_amount: item.discountAmount,
+                line_total: item.lineTotal,
+                unmatched_qty: item.quantity,
+                unmatched_amount: item.lineTotal,
+                notes: `Auto-created from reorder alert for ${item.warehouseName || "unknown warehouse"}`,
+              });
+
+            if (itemError) throw itemError;
+          }
+
+          await Promise.all(group.alerts.map((alert) => acknowledgeAlert(alert.id)));
+          poIds.push(po.id);
+        }
+
+        await fetchAlerts();
+
+        return {
+          success: true,
+          poId: poIds[0],
+          poIds,
+          warning:
+            unmappedAlerts.length > 0
+              ? `${unmappedAlerts.length} alert(s) had no supplier mapping and were left for manual follow-up.`
+              : undefined,
         };
       } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : "Failed to create purchase order";
@@ -237,7 +388,7 @@ export function useReorderAlerts(warehouseId?: string): UseReorderAlertsReturn {
         return { success: false, error: errorMessage };
       }
     },
-    [state.alerts, acknowledgeAlert]
+    [state.alerts, acknowledgeAlert, fetchAlerts]
   );
 
   // Get alerts filtered by warehouse

@@ -48,6 +48,7 @@ export async function proxy(request: NextRequest) {
     "/settings",
     "/test-guard",
     "/test-resident",
+    "/test-delivery",
     "/supplier",
   ];
 

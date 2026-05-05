@@ -8,6 +8,24 @@ export const runtime = "nodejs";
 
 const SUPPORTED_RAZORPAY_EVENTS = new Set(["payment.captured", "payment.failed"]);
 
+type PaymentTable = "sale_bills" | "purchase_bills";
+
+type RazorpayWebhookEntity = {
+  id?: string;
+  created_at?: number;
+  error_description?: string;
+  error_reason?: string;
+};
+
+type RazorpayWebhookPayload = {
+  event?: string;
+  payload?: {
+    payment?: {
+      entity?: RazorpayWebhookEntity;
+    };
+  };
+};
+
 function verifyRazorpaySignature(rawBody: string, signature: string, secret: string) {
   const expectedSignature = createHmac("sha256", secret).update(rawBody).digest("hex");
   const actualBuffer = Buffer.from(signature);
@@ -20,7 +38,7 @@ function verifyRazorpaySignature(rawBody: string, signature: string, secret: str
   return timingSafeEqual(actualBuffer, expectedBuffer);
 }
 
-function getReferenceTable(referenceType: string | null) {
+function getReferenceTable(referenceType: string | null): PaymentTable | null {
   if (referenceType === "sale_bill") return "sale_bills";
   if (referenceType === "purchase_bill") return "purchase_bills";
   return null;
@@ -42,7 +60,7 @@ async function mirrorGatewayStateToBill(
   }
 
   const { error } = await supabaseAdmin
-    .from(table as any)
+    .from(table)
     .update({
       external_id: payload.externalId,
       gateway_log: payload.gatewayLog,
@@ -70,7 +88,7 @@ async function settleReferenceBill(
   }
 
   const { data: bill, error: billError } = await supabaseAdmin
-    .from(table as any)
+    .from(table)
     .select("paid_amount, total_amount")
     .eq("id", referenceId)
     .single();
@@ -85,7 +103,7 @@ async function settleReferenceBill(
     newDueAmount === 0 ? "paid" : newPaidAmount > 0 ? "partial" : "unpaid";
 
   const { error: updateError } = await supabaseAdmin
-    .from(table as any)
+    .from(table)
     .update({
       paid_amount: newPaidAmount,
       due_amount: newDueAmount,
@@ -122,14 +140,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid webhook signature." }, { status: 401 });
   }
 
-  let payload: any;
+  let payload: RazorpayWebhookPayload;
   try {
-    payload = JSON.parse(rawBody);
+    payload = JSON.parse(rawBody) as RazorpayWebhookPayload;
   } catch {
     return NextResponse.json({ error: "Invalid webhook JSON payload." }, { status: 400 });
   }
 
-  if (!SUPPORTED_RAZORPAY_EVENTS.has(payload?.event)) {
+  if (!SUPPORTED_RAZORPAY_EVENTS.has(payload?.event ?? "")) {
     return NextResponse.json(
       { received: true, ignored: true, event: payload?.event ?? null },
       { status: 202 }

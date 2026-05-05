@@ -1,6 +1,7 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 import { createServiceRoleClient } from "@/src/lib/platform/server";
+import { resolveWorkforceIdentityByPhone } from "@/src/lib/workforce/boundary";
 
 type DemoRole = "resident" | "security_guard";
 
@@ -100,73 +101,9 @@ function createAnonAuthClient() {
   );
 }
 
-async function findResidentByPhone(phone: string) {
-  const supabaseAdmin = createServiceRoleClient();
-
-  for (const candidate of buildPhoneCandidates(phone)) {
-    const { data, error } = await supabaseAdmin
-      .from("residents")
-      .select("id, auth_user_id, full_name, flat_id, is_active, phone, alternate_phone")
-      .or(`phone.eq.${candidate},alternate_phone.eq.${candidate}`)
-      .limit(1)
-      .maybeSingle();
-
-    if (error) throw error;
-    if (data) {
-      return data;
-    }
-  }
-
-  return null;
-}
-
-async function findGuardUserByPhone(phone: string) {
-  const supabaseAdmin = createServiceRoleClient();
-
-  for (const candidate of buildPhoneCandidates(phone)) {
-    const { data, error } = await supabaseAdmin
-      .from("users")
-      .select("id, employee_id, full_name, email, is_active, phone, roles(role_name)")
-      .eq("phone", candidate)
-      .limit(1)
-      .maybeSingle();
-
-    if (error) throw error;
-    if (data) {
-      return data;
-    }
-  }
-
-  for (const candidate of buildPhoneCandidates(phone)) {
-    const { data: employeeRecord, error: employeeError } = await supabaseAdmin
-      .from("employees")
-      .select("id, auth_user_id")
-      .eq("phone", candidate)
-      .limit(1)
-      .maybeSingle();
-
-    if (employeeError) throw employeeError;
-    if (!employeeRecord?.auth_user_id) continue;
-
-    const { data: linkedUser, error: userError } = await supabaseAdmin
-      .from("users")
-      .select("id, employee_id, full_name, email, is_active, phone, roles(role_name)")
-      .eq("id", employeeRecord.auth_user_id)
-      .maybeSingle();
-
-    if (userError) throw userError;
-    if (linkedUser) {
-      return linkedUser;
-    }
-  }
-
-  return null;
-}
-
 export async function resolveDemoOtpUser(phone: string): Promise<DemoResolvedUser> {
   const normalizedPhone = normalizeDemoPhoneNumber(phone);
   const allowedRoles = getAllowedDemoRoles();
-  const supabaseAdmin = createServiceRoleClient();
 
   if (!isDemoOtpEnabled()) {
     throw new Error("Demo OTP is disabled.");
@@ -180,115 +117,52 @@ export async function resolveDemoOtpUser(phone: string): Promise<DemoResolvedUse
     throw new Error("This phone number is not enabled for demo OTP.");
   }
 
-  const resident = await findResidentByPhone(normalizedPhone);
-  if (resident) {
+  const identity = await resolveWorkforceIdentityByPhone(normalizedPhone);
+  if (identity?.actorKind === "resident") {
     if (!allowedRoles.has("resident")) {
       throw new Error("Resident demo OTP is not enabled.");
     }
 
-    if (!resident.auth_user_id) {
+    if (!identity.authUserId) {
       throw new Error("Resident is not linked to an auth user.");
     }
 
-    if (resident.is_active === false) {
-      throw new Error("Resident account is inactive.");
-    }
-
-    if (!resident.flat_id) {
+    if (!identity.flatId) {
       throw new Error("Resident is not linked to a flat.");
     }
 
-    const { data: linkedUser, error: userError } = await supabaseAdmin
-      .from("users")
-      .select("id, full_name, email, is_active, roles(role_name)")
-      .eq("id", resident.auth_user_id)
-      .maybeSingle();
-
-    if (userError) throw userError;
-    if (!linkedUser) {
-      throw new Error("Resident auth linkage is incomplete.");
-    }
-
-    const roleRecord = Array.isArray((linkedUser as any).roles)
-      ? (linkedUser as any).roles[0]
-      : (linkedUser as any).roles;
-    if (roleRecord?.role_name !== "resident") {
+    if (identity.roleName !== "resident") {
       throw new Error("Linked auth user does not have resident role.");
     }
 
-    if ((linkedUser as any).is_active === false) {
-      throw new Error("Resident login account is inactive.");
-    }
-
     return {
-      authUserId: resident.auth_user_id,
+      authUserId: identity.authUserId,
       employeeId: null,
-      fullName: resident.full_name,
+      fullName: identity.fullName,
       phone: normalizedPhone,
-      email: (linkedUser as any).email ?? null,
+      email: identity.email,
       roleName: "resident",
     };
   }
 
-  const guardUser = await findGuardUserByPhone(normalizedPhone);
-  if (!guardUser) {
+  if (!identity || identity.actorKind !== "guard") {
     throw new Error("No demo-enabled user was found for this phone number.");
   }
 
-  const roleRecord = Array.isArray((guardUser as any).roles)
-    ? (guardUser as any).roles[0]
-    : (guardUser as any).roles;
-  const roleName = roleRecord?.role_name as DemoRole | undefined;
-
-  if (roleName !== "security_guard" || !allowedRoles.has("security_guard")) {
+  if (!allowedRoles.has("security_guard")) {
     throw new Error("This phone number is not linked to a demo-enabled guard account.");
   }
 
-  if ((guardUser as any).is_active === false) {
-    throw new Error("Guard login account is inactive.");
-  }
-
-  if (!(guardUser as any).employee_id) {
+  if (!identity.employeeId) {
     throw new Error("Guard account is not linked to an employee record.");
   }
 
-  const { data: guardRecord, error: guardError } = await supabaseAdmin
-    .from("security_guards")
-    .select("id, assigned_location_id, is_active")
-    .eq("employee_id", (guardUser as any).employee_id)
-    .maybeSingle();
-
-  if (guardError) throw guardError;
-  if (!guardRecord) {
-    throw new Error("Guard profile is not linked.");
-  }
-  if (guardRecord.is_active === false) {
-    throw new Error("Guard profile is inactive.");
-  }
-  if (!guardRecord.assigned_location_id) {
-    throw new Error("Guard is not assigned to a location.");
-  }
-
-  const { data: shiftAssignment, error: shiftError } = await supabaseAdmin
-    .from("employee_shift_assignments")
-    .select("id")
-    .eq("employee_id", (guardUser as any).employee_id)
-    .eq("is_active", true)
-    .order("assigned_from", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (shiftError) throw shiftError;
-  if (!shiftAssignment) {
-    throw new Error("Guard does not have an active shift assignment.");
-  }
-
   return {
-    authUserId: (guardUser as any).id,
-    employeeId: (guardUser as any).employee_id,
-    fullName: (guardUser as any).full_name,
+    authUserId: identity.authUserId,
+    employeeId: identity.employeeId,
+    fullName: identity.fullName,
     phone: normalizedPhone,
-    email: (guardUser as any).email ?? null,
+    email: identity.email,
     roleName: "security_guard",
   };
 }

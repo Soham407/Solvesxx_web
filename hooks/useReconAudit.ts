@@ -11,6 +11,7 @@ import {
   DISCREPANCY_TYPE_CONFIG,
   RESOLUTION_ACTION_CONFIG
 } from "./useReconciliation";
+import { mapReconciliationLineRows, type ReconciliationLineJoinRow } from "@/src/lib/reconciliation/reconciliationTransforms";
 
 /**
  * Hook for auditing reconciliation lines and performing resolution actions.
@@ -36,11 +37,7 @@ export function useReconAudit(reconciliationId?: string) {
         .eq("reconciliation_id", id);
 
       if (linesError) throw linesError;
-      setLines((lineData || []).map((l: any) => ({
-        ...l,
-        product_name: l.products?.product_name,
-        product_code: l.products?.product_code,
-      })));
+      setLines(mapReconciliationLineRows((lineData || []) as ReconciliationLineJoinRow[]));
 
       // Fetch recon summary
       const { data: recon, error: reconError } = await supabase
@@ -50,10 +47,10 @@ export function useReconAudit(reconciliationId?: string) {
         .single();
 
       if (reconError) throw reconError;
-      setReconciliation(recon as unknown as Reconciliation);
+      setReconciliation(recon as Reconciliation);
 
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to fetch reconciliation audit data");
     } finally {
       setIsLoading(false);
     }
@@ -82,8 +79,8 @@ export function useReconAudit(reconciliationId?: string) {
       if (updateError) throw updateError;
       if (reconciliationId) fetchAuditData(reconciliationId);
       return true;
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to resolve line");
       return false;
     }
   };
@@ -98,8 +95,8 @@ export function useReconAudit(reconciliationId?: string) {
       if (updateError) throw updateError;
       if (reconciliationId === id) fetchAuditData(id);
       return true;
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to finalize reconciliation");
       return false;
     }
   };
